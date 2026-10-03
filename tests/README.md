@@ -1,4 +1,4 @@
-# Foundation, authentication, shell and renderer verification (S00–S04)
+# Foundation, authentication, shell, renderer and browser drafts (S00–S05)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -82,8 +82,10 @@ been generated/reviewed and Linux browser verification is not claimed.
 `browser/ShellFixture.svelte` imports the real shell with 60 synthetic cards and
 200 tags through the separate Vite browser harness. It is not a product renderer,
 public app route, database seed or completed timeline/tag filtering. The real app
-has no seeded notes. Composer text is in-memory only until S05; no recovery/post
-completion is claimed. Collapse is preference plumbing, not card functionality.
+has no seeded notes. The synthetic shell fixture intentionally has no account or
+storage workspace; its composer stays in memory. The built authenticated app uses
+S05 recovery storage. Posting is not implemented. Collapse is preference plumbing,
+not card functionality.
 
 Keyboard-shrink tests exercise mobile content heights 390/320/260 with nonzero
 safe-area insets set through Chromium's `Emulation.setSafeAreaInsetsOverride`.
@@ -118,6 +120,33 @@ branch; ordinary diagram tests run the unmodified library. No debug/fault-inject
 route ships in the built application. Clipboard denial and Windows-native newline
 conversion are tested explicitly. Rendering/tag management are separate: the parser
 is complete, transactional tag edits/history remain S07/S14.
+
+## S05 coverage (DRAFT-01–04, POST-01 pre-posting boundary)
+
+- `unit/drafts.test.ts`: strict schema/version/account identity and UTF-8 limits,
+  independent metadata, authoritative-record/index rebuilding, preserved corrupt/
+  unknown records, lock-held revision races, blob-first quota/orphan consistency,
+  missing/wrong-size bytes, safe discard/tombstones and cleanup retry, conflict-copy
+  bytes, server recovery revision/snapshot checks and precise image-span removal.
+  Memory adapters test failure paths only; browser tests below use actual storage.
+- `e2e/drafts.test.ts`: actual built private app, localStorage + IndexedDB under CSP,
+  two independent image/file drafts, exact bytes on reload and full Chromium process
+  restart, confirmed scoped discard, file picker/paste/drop, zero premature mutation
+  requests, Enter/Ctrl/Cmd+Enter with disabled Post, URL revocation, text/blob quotas,
+  actual transaction abort after request success, persistence denial, missing-file
+  repair/removal, two-tab conflicts/separate-copy/tombstone safety (including a
+  losing edit with evicted files kept as repairable text), signout/relogin,
+  account/unsupported-schema preservation and unsupported Web Locks warnings.
+  Mobile tests use the real file chooser and a 260px keyboard-shrunken viewport.
+- Test sessions are real server-issued credentials reused across isolated draft
+  test browser contexts. Revoked credentials are reauthenticated. Production rate
+  limits remain unchanged; the expanded suite must not spend a new login per draft
+  scenario and exhaust the legitimate ten-attempt/IP window.
+
+Metadata/recovery repository capabilities are tested; date/location UI and server
+recovery association are later steps. No upload or note endpoint is simulated as
+completed posting, and no test-only draft route is shipped. Physical device/IME,
+full assistive technology and cross-platform shell baselines remain S18.
 
 ## Run
 
@@ -172,8 +201,9 @@ podman build -f ops/Dockerfile.browser-validation -t pandanote-browser-validatio
 podman run --rm --cpus=2 --memory=4g pandanote-browser-validation
 ```
 
-That image runs both `e2e/auth.test.ts` scenarios; it does not claim Linux shell
-screenshot baselines. S18 will add a minimal non-root runtime, persistent volume,
+That image runs `e2e/auth.test.ts` and `e2e/drafts.test.ts` (including actual
+browser restart and binary persistence); it does not claim Linux shell screenshot
+baselines. S18 will add a minimal non-root runtime, persistent volume,
 real-domain HTTPS proxy and runbook.
 
 ## Probe limitations / later gates

@@ -8,7 +8,9 @@ codes, scoped fresh authentication, password/MFA changes, session settings,
 all-device signout and operator-only recovery (S02). S03 adds design tokens, private navigation,
 mobile drawer/editor shells and persisted appearance preferences. S04 adds safe
 Markdown/GFM preview, highlighted code copy, lazy sanitized Mermaid and Unicode
-source-span tag parsing. Note services, uploads and backup/restore
+source-span tag parsing. S05 adds multiple browser-local text/file drafts, reload
+and restart recovery, missing-file repair, quota warnings and cross-tab conflicts.
+Note services, uploads and backup/restore
 remain future steps. Do not deploy this unfinished app as a complete product.
 
 ## Start here
@@ -169,12 +171,10 @@ HTML document; CSS handles system dark mode without a pre-hydration script or
 light-theme flash. Public login/setup use the default system theme. Changes apply
 on other devices on their next page load, not via live preference synchronization.
 
-The composer is **an in-memory Markdown editor** with Write/Preview: it neither saves drafts nor
-uploads/publishes anything. Text survives navigation within the shell and editor
-close/reopen, but not a reload/restart; keep a copy before leaving. Post is disabled,
-and leaving with text triggers a browser warning. Draft recovery is S05 and real
-posting is S08. Search/calendar/tags/drafts/Trash and calendar/storage/backup settings are
-explicitly labeled as later-step work; these screens are not completed features.
+The composer now saves **browser-local drafts** (S05) with Write/Preview, but does
+not upload or publish anything. Post remains disabled until S08. Search/calendar,
+server drafts/Trash, tag administration and calendar/storage/backup settings are
+explicitly labeled as later-step work; these are not completed features.
 
 ## Markdown preview and parsing (S04)
 
@@ -188,11 +188,34 @@ Raw HTML and active URL schemes are disabled. Images require known internal
 attachment descriptors; arbitrary remote images are not fetched. Mermaid links,
 callbacks, HTML/assets, configuration overrides and custom styling are disabled;
 SVG output is separately sanitized. See ARCHITECTURE 11.2 for limits/contracts.
-Attachments are not selectable/uploadable yet (S05/S06/S08).
+Attachments can be selected, pasted or dropped locally (S05); server uploads and
+posting are not implemented yet (S06/S08).
 
 The shared Unicode tag parser deduplicates by NFKC/lowercase identity and preserves
 source spans for precise rewrites, ignoring code/HTML/escapes/URLs. Tag autocomplete,
 filtering and management are still later steps, not completed UI features.
+
+## Browser-local drafts and recovery (S05)
+
+`/drafts` lists multiple local/device-only drafts with safe excerpts. Create another,
+resume, and explicitly confirm discarding a nonempty draft. Text/metadata persist
+in separate versioned localStorage records; original unposted files persist in
+account/draft-scoped IndexedDB. Reload/browser restart recovers them on that profile.
+Selecting files and autosaving never send draft content to the server.
+
+Text autosaves after 300 ms and flushes on blur/visibility changes where possible.
+Quota/storage failures remain visible; keep another copy and retry. Missing files
+must be repaired with their original filename/size or removed. Two tabs cannot
+silently overwrite a shared draft: choose to keep your version as a separate draft
+or confirm loading the saved version. A current browser with **Web Locks** support
+is needed for safe writes; unsupported storage/locking is a visible failure, not
+fake success. Persistent storage can be requested from Drafts, but may be denied.
+
+This is **not backup or encrypted storage**. Clearing site data, private browsing,
+storage eviction or losing this device can remove drafts. Other devices and server
+backups do not contain them. Signing out leaves drafts on the browser/device;
+anyone controlling it can read them. Local preview URLs are temporary and revoked.
+Server draft integration, date/location controls and real posting remain later steps.
 
 ## Validation
 
@@ -235,6 +258,6 @@ application data, browser profiles or backup archives in git or public assets.
 > outcomes including failures, and leave an exact handoff in PROGRESS.
 > A blocked native/browser/Linux check is not a pass.
 
-See PROGRESS for S00/S01, partial S02 and S03/S04 validation results and the next task.
+See PROGRESS for S00–S05 validation results and the exact next task (S06).
 Production deployment, performance and independent backup/restore drills remain
 part of the final S18 gate; this repository does not claim product completion.

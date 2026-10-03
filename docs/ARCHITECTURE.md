@@ -293,6 +293,58 @@ No stored title; use excerpts. `localStorage` holds text/metadata; IndexedDB hol
 - Signing out stops access to draft UI and warns drafts remain on that device; do not silently delete them. Browser-local data is not cryptographically protected from someone controlling that browser.
 - After restore, check server revision/identity before associating local edits; do not upload stale local drafts automatically.
 
+### 6.3 S05 implemented browser recovery contracts
+
+- First product draft schema is version **1**. Each record uses
+  `pandanote:drafts:v1:<account-uuid>:record:<draft-uuid>`; a small versioned index
+  is only a listing cache. Listing scans authoritative records and rebuilds that
+  cache, so interrupted index writes cannot hide work. Unsupported/corrupt records
+  are warned about and preserved with their bytes, never silently reset. No legacy
+  product draft schema exists to migrate; future explicit migrations enter the
+  decoder under the same lock. No stored titles or blob URLs.
+- IndexedDB `pandanote-draft-blobs` version 1 stores blobs under composite
+  `[accountId, draftId, attachmentId]` keys. Transaction **completion**, not request
+  success, confirms a write. Blob-first/reference-second saves plus locked
+  reconciliation repair missing/wrong-size references and remove unreferenced,
+  crash-created and discarded blobs only in this account. Unknown text records
+  retain their bytes; blocked/unavailable storage never looks like a successful add.
+- A browser Web Lock serializes this account's read/compare/write and reconciliation
+  across tabs. Each record has a local revision independent of the server revision.
+  Storage events plus BroadcastChannel refresh lists and detect stale editors;
+  lock-held revision checks are authoritative even if notifications are delayed.
+  No unsafe localStorage-only lock fallback: unsupported browsers get a visible
+  warning and may read/copy text, but cannot claim safe draft writes.
+- Discard first writes a small content-free revisioned tombstone, then deletes only
+  its own local bytes. Tombstones prevent stale-tab resurrection and remain until
+  browser data is cleared. Failed byte cleanup warns and retries on app startup.
+  Conflict UI preserves the editor, offers a separate local copy with its blobs,
+  or explicitly confirmed loading of the saved/discarded state. Even if a blob was
+  evicted/removed, a separate copy keeps the losing text/descriptor and visibly
+  requires original-file repair or removal; missing bytes cannot trap recoverable
+  text. It never silently adopts another tab's text over local edits.
+- The private layout supplies only the authenticated account DTO and owns a shared
+  browser workspace. Text writes debounce 300 ms, flush on blur/visibility/pagehide,
+  and serialize snapshots without replacing text typed while awaiting a lock.
+  Beforeunload warns while dirty/busy/conflicted; unload alone is not a durability
+  guarantee. Signout/revoke-all first flush local edits, retain storage, and warn
+  about browser access. These are plaintext device-local recovery copies, not backup
+  or encryption. Persistent storage is requested through an explicit button;
+  denial/unavailability and quota errors are visible without guaranteeing retention.
+- Composer selection, paste and drop write locally only. Raster images receive
+  UUID `attachment:` references at the last editor selection; SVG/other files
+  remain file rows. Local staging limits are 20 MB/image, 50 MB/file, 100 descriptors
+  and 1 MiB UTF-8 Markdown. Server detection/animation/pixel limits remain S06.
+  Preview creates descriptor-backed blob URLs only while visible and revokes them
+  on mode/view replacement, close, failure and workspace disposal. Missing blobs
+  require repair with the original filename/size or explicit removal, including
+  source-span removal of corresponding Markdown images. Post remains disabled.
+- Recovery kinds retain server note ID, expected revision and a base snapshot digest.
+  `recoveryMatches` requires all three before future S12/S13 association/posting,
+  including after restore. Existing server files remain references, not copied blobs.
+  S05 supplies typed metadata/recovery capabilities; server listing/status/version
+  reads, backdate/location controls, frozen posting attempts and confirmed-success
+  deletion remain their S08/S11–S13/S15 steps. No background server saving was added.
+
 ## 7. Attachment representation and posting protocol
 
 ### 7.1 Stable IDs
@@ -450,7 +502,8 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   security/storage fields are not overwritten. Ordinary appearance edits do not
   require fresh authentication. No schema migration/dependency changes.
 - `(app)` layout keeps the composer instance across private route navigation.
-  It is explicitly **in-memory only** until S05; there are no note/upload calls,
+  This historical S03 slice was **in-memory only** (superseded by section 6.3);
+  there were no note/upload calls,
   Post is disabled, and nonempty text registers beforeunload protection. Closing
   the mobile/expanded editor retains text. On very short mobile viewports the
   warning is condensed to preserve a full visible text line and reachable actions.

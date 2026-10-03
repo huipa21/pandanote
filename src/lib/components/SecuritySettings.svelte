@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, getContext } from 'svelte';
+  import {
+    DRAFT_WORKSPACE,
+    type DraftWorkspace,
+  } from '#lib/client/drafts/workspace.svelte.ts';
+  const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
   import type { FreshAuthScope } from '#lib/shared/auth.ts';
   type Action =
     'enroll' | 'disable' | 'regenerate' | 'password' | 'revoke' | 'lifetime';
@@ -70,7 +75,7 @@
       ['disable', 'regenerate', 'revoke'].includes(action) &&
       !window.confirm(
         action === 'revoke'
-          ? 'Sign out all devices, including this one?'
+          ? 'Sign out all devices, including this one? Local drafts remain on this device.'
           : action === 'disable'
             ? 'Disable MFA and invalidate all recovery codes?'
             : 'Invalidate every old recovery code and generate ten new ones?',
@@ -82,6 +87,10 @@
     message = '';
     codes = [];
     try {
+      if (action === 'revoke' && workspace && !(await workspace.flush()))
+        throw new Error(
+          'Local edits are not safely saved. Keep another copy or resolve the draft warning before signing out. Drafts remain on this device.',
+        );
       const fresh = await request('/api/auth/fresh', {
         scope: scopes[action],
         password,

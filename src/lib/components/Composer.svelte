@@ -1,19 +1,81 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, getContext, onMount, untrack } from 'svelte';
+  import {
+    DRAFT_WORKSPACE,
+    type DraftWorkspace,
+  } from '#lib/client/drafts/workspace.svelte.ts';
+  import DraftFeedback from './DraftFeedback.svelte';
+  const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
   let tab = $state<'write' | 'preview'>('write');
-  let text = $state('');
+  let memoryText = $state('');
+  let text = $derived(
+    workspace ? (workspace.active?.bodyMarkdown ?? '') : memoryText,
+  );
+  let fileInput = $state<HTMLInputElement>(null!);
+  let cursor = { start: 0, end: 0 };
+  function changed(event: Event) {
+    const value = (event.currentTarget as HTMLTextAreaElement).value;
+    if (workspace) workspace.change(value);
+    else memoryText = value;
+  }
+  function rememberCursor(event: Event) {
+    const input = event.currentTarget as HTMLTextAreaElement;
+    cursor = { start: input.selectionStart, end: input.selectionEnd };
+  }
+  function addFiles(files: File[]) {
+    if (workspace && files.length)
+      void workspace.addFiles(files, cursor.start, cursor.end);
+  }
+  function paste(event: ClipboardEvent) {
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (files.length && workspace) {
+      event.preventDefault();
+      rememberCursor(event);
+      addFiles(files);
+    }
+  }
+  function drop(event: DragEvent) {
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length && workspace) {
+      event.preventDefault();
+      rememberCursor(event);
+      addFiles(files);
+    }
+  }
+  $effect(() => {
+    if (!workspace?.openEditor) return;
+    expanded = true;
+    if (matchMedia('(max-width: 899px)').matches) editorOpen = true;
+  });
   let expanded = $state(false);
   let editorOpen = $state(false);
   let textarea = $state<HTMLTextAreaElement>();
+  let desktop = $state(false);
+  onMount(() => {
+    const media = matchMedia('(min-width: 900px)');
+    const changed = () => {
+      desktop = media.matches;
+    };
+    changed();
+    media.addEventListener('change', changed);
+    return () => {
+      media.removeEventListener('change', changed);
+      workspace?.setPreviewVisible(false);
+    };
+  });
+  $effect(() => {
+    const visible = tab === 'preview' && (editorOpen || (desktop && expanded));
+    if (workspace?.ready) untrack(() => workspace.setPreviewVisible(visible));
+  });
   async function expand() {
     expanded = true;
     await tick();
     textarea?.focus();
   }
   $effect(() => {
-    if (!text) return;
+    if (workspace || !text) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = '';
@@ -23,6 +85,23 @@
   });
 </script>
 
+{#if workspace}
+  <input
+    class="sr-only"
+    tabindex="-1"
+    aria-label="Choose local files"
+    type="file"
+    multiple
+    bind:this={fileInput}
+    onchange={(event) => {
+      addFiles(Array.from(event.currentTarget.files ?? []));
+      event.currentTarget.value = '';
+    }}
+  />
+{/if}
+{#if workspace?.error && !editorOpen && (!desktop || !expanded)}
+  <p role="alert">{workspace.error} Open the editor for recovery actions.</p>
+{/if}
 <div class="desktop-composer surface" data-testid="composer">
   {#if !expanded}
     <button class="start-writing" onfocus={expand} onclick={expand}
@@ -42,21 +121,42 @@
           tab = 'preview';
         }}>Preview</button
       >
+      {#if workspace}<button
+          disabled={!workspace.ready || workspace.busy || workspace.conflict}
+          onclick={() => fileInput.click()}>Add files</button
+        >{/if}
     </div>
     {#if tab === 'preview'}
       <div class="compact-preview preview-pane">
-        <Markdown source={text} debounce={300} />
+        <Markdown
+          source={text}
+          images={workspace?.images ?? []}
+          debounce={300}
+        />
       </div>
     {:else}
       <label class="sr-only" for="compact-note-text">Note text</label>
       <textarea
         id="compact-note-text"
         bind:this={textarea}
-        bind:value={text}
+        value={text}
+        disabled={Boolean(workspace && (!workspace.ready || workspace.busy))}
+        oninput={changed}
+        onselect={rememberCursor}
+        onkeyup={rememberCursor}
+        onclick={rememberCursor}
+        onblur={() => workspace?.flush()}
+        onpaste={paste}
+        ondrop={drop}
+        ondragover={(event) => {
+          if (event.dataTransfer?.types.includes('Files'))
+            event.preventDefault();
+        }}
         rows="3"
         placeholder="A thought, a small discovery…"
         aria-describedby="composer-help"></textarea>
     {/if}
+    {#if workspace}<DraftFeedback {workspace} />{/if}
     <div class="composer-actions">
       <button
         onclick={() => {
@@ -72,8 +172,11 @@
       <button class="primary" disabled>Post</button>
     </div>
     <p class="help" id="composer-help">
-      Text is not saved yet (S05); posting comes in S08. Keep a copy before
-      leaving.
+      {#if workspace}<span role="status"
+          >{workspace.status ||
+            'Device-only draft · posting comes in S08.'}</span
+        >{:else}Text is not saved yet (S05); posting comes in S08. Keep a copy
+        before leaving.{/if}
     </p>
   {/if}
 </div>
@@ -98,30 +201,51 @@
         tab = 'preview';
       }}>Preview</button
     >
+    {#if workspace}<button
+        disabled={!workspace.ready || workspace.busy || workspace.conflict}
+        onclick={() => fileInput.click()}>Add files</button
+      >{/if}
   </div>
   {#if tab === 'preview'}
     <div class="expanded-preview preview-pane">
-      <Markdown source={text} debounce={300} />
+      <Markdown source={text} images={workspace?.images ?? []} debounce={300} />
     </div>
   {:else}
     <label class="sr-only" for="expanded-note-text">Note text</label>
     <textarea
       id="expanded-note-text"
       class="expanded-text"
-      bind:value={text}
+      value={text}
+      disabled={Boolean(workspace && (!workspace.ready || workspace.busy))}
+      oninput={changed}
+      onselect={rememberCursor}
+      onkeyup={rememberCursor}
+      onclick={rememberCursor}
+      onblur={() => workspace?.flush()}
+      onpaste={paste}
+      ondrop={drop}
+      ondragover={(event) => {
+        if (event.dataTransfer?.types.includes('Files')) event.preventDefault();
+      }}
       data-initial-focus
       aria-describedby="expanded-help"
       placeholder="A thought, a small discovery…"></textarea>
   {/if}
+  {#if workspace}<DraftFeedback {workspace} />{/if}
   <div class="editor-footer">
     <p class="help" id="expanded-help">
-      <span class="full-help"
-        >Text stays here while navigating this shell, but is not saved on
-        reload. Draft recovery comes in S05; posting comes in S08.</span
-      >
-      <span class="short-help"
-        >Not saved yet. Draft recovery: S05; posting: S08.</span
-      >
+      {#if workspace}<span role="status"
+          >{workspace.status ||
+            'Device-only draft · posting comes in S08.'}</span
+        >{:else}
+        <span class="full-help"
+          >Text stays here while navigating this shell, but is not saved on
+          reload. Draft recovery comes in S05; posting comes in S08.</span
+        >
+        <span class="short-help"
+          >Not saved yet. Draft recovery: S05; posting: S08.</span
+        >
+      {/if}
     </p>
     <button class="primary" disabled>Post</button>
   </div>

@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { untrack, onMount } from 'svelte';
+  import { untrack, onMount, getContext } from 'svelte';
+  import {
+    DRAFT_WORKSPACE,
+    type DraftWorkspace,
+  } from '#lib/client/drafts/workspace.svelte.ts';
+  const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
   import SecuritySettings from '#lib/components/SecuritySettings.svelte';
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
@@ -53,6 +58,11 @@
   }
   async function signOut() {
     if (signingOut) return;
+    if (!(await workspace.flush())) {
+      error =
+        'Local edits are not safely saved. Keep another copy or resolve the draft warning before signing out.';
+      return;
+    }
     signingOut = true;
     error = '';
     try {
@@ -116,8 +126,8 @@
     >{signingOut ? 'Signing out…' : 'Sign out'}</button
   >
   <p class="help">
-    When local drafts are implemented, signing out will not erase them from this
-    device.
+    Signing out leaves local drafts on this device. Anyone controlling this
+    browser can read them; discard drafts explicitly if needed.
   </p>
 </section>
 <section class="surface">

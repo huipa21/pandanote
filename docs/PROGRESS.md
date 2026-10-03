@@ -2,22 +2,21 @@
 
 ## Current state
 
-- **Phase:** authentication/persistence foundation, responsive shell and Markdown renderer; product implementation remains unfinished.
-- **Completed steps:** S00–S04 — **done**, including the previously partial S02.
-- **Earliest unfinished step:** S05 — Browser drafts and recovery — **not started**.
-- **Requested work this session:** finish S02 authentication, optional MFA, recovery and security flows — **done**. This supersedes the partial S02 commit's misleading broad title, not its preserved history.
-- **Repository:** clean starting HEAD `31e85e0` (committed S04). Existing S03/S04 preserved; this session's S02 changes are uncommitted. No commit created by this agent.
-- **Implemented:** encrypted confirmed TOTP enrollment/change/cancel, password-bound pending MFA login, atomic drift/replay and recovery-code consumption, ten hashed generation-only codes/download/regeneration, five-minute single-use scoped fresh-auth, password/MFA/session-lifetime changes, security revision/cookie rotation, all-device signout, functional security UI and stdin-confirmed VPS-only recovery command. S03/S04 remain intact. Schema stays version 3 / 18 tables; only small pinned QR helper/types and lockfile added. Composer remains in-memory; drafts/uploads/notes/backups are not claimed.
-- **Validation:** Windows check/lint/build, 39 unit + 72 integration + all 18 Chromium tests pass. Linux fresh native install, check/lint/build and all 39 unit + 72 integration tests pass. Linux Chromium passes both authentication tests, including actual generated-cert HTTPS/trusted-edge MFA/security UI. Existing renderer/CSP/shell/snapshot regressions remain passing on Windows. Linux cross-platform shell baselines, physical-device/IME, full assistive-technology, real-domain deployment and target-VPS performance audits remain S18, not claimed passes.
+- **Phase:** authentication/persistence, responsive shell, Markdown and browser drafts; product implementation remains unfinished.
+- **Completed steps:** S00–S05 — **done**.
+- **Current requested step:** S05 — Browser-local draft repositories and recovery — **done**. Next unfinished step: S06 — Private attachments and bounded image processing.
+- **Repository:** clean starting HEAD `f0fb21e` (committed S02 completion). Existing work preserved; S05 changes are uncommitted. No commit created by this agent.
+- **Implemented:** versioned account/draft localStorage records and rebuildable index; real IndexedDB blobs, debounced recovery workspace, multiple local draft list/resume/create/confirmed discard, tombstones and orphan/missing-file repair, Web-Lock revision checks and cross-tab notifications/conflict-copy UI, local picker/paste/drop/internal images, ephemeral previews, persistence/quota warnings, signout retention and typed server recovery bases. Post remains disabled; uploads/server note services/server drafts/backups are not claimed. No dependencies, lockfile or server database schema changed.
+- **Validation:** Windows check/lint/build, 52 unit + 72 integration + all 30 Chromium tests pass. Linux fresh native install/check/lint/build and all 52 unit + 72 integration tests pass; Linux Chromium passes all 14 auth/draft tests. Draft evidence includes process restart/exact blobs, transaction-abort/quota faults, missing repair, competing tabs (including evicted files), account/version boundaries, unsupported locks and mobile picker/shrunken editor. Existing Windows snapshots/CSP/auth/renderer regressions remain passing. Physical-device/IME, assistive-technology, Linux shell baselines, real-domain/VPS performance and full restore audits remain S18.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, planning documents and the latest S02 completion handoff. Relevant contracts: ARCHITECTURE 6/7.1/11.1–11.2/12.5, IMPLEMENTATION_PLAN S05, ACCEPTANCE_TESTS DRAFT-01–04/AUTH-01–05.
-2. Inspect git and preserve the uncommitted S02 work. Read `components/{Composer,Markdown,Modal}.svelte`, `shared/markdown/*.ts`, `shared/domain.ts`, `client/markdown/mermaid.ts`, styles and `tests/e2e/{auth,markdown,shell}.test.ts`.
-3. Next task: **S05** versioned account/draft-scoped localStorage text/metadata and IndexedDB blob repositories with multiple draft recovery, persistence/quota errors, missing-blob reconciliation and cross-tab revision protection. No upload before explicit Post; no silent browser-draft rewrites.
-4. Keep authentication regressions and schema/private storage boundaries intact. Future backup/restore actions must consume exact fresh-auth scopes inside coordinated action transactions; a login session alone is insufficient.
-5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e`, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E now requires OpenSSL and owns ports 4173–4176. Preserve production CSP/runtime origin, hydration-safe forms, no-flash theme, zoom/safe-area and renderer attack tests. Linux shell baselines/physical-device/performance audits remain S18.
+1. Read `AGENTS.md`, planning documents and the latest S05 handoff. Relevant contracts: ARCHITECTURE 6.3/7/12.5, IMPLEMENTATION_PLAN S06, ACCEPTANCE_TESTS IMAGE-01/FILE-01/DRAFT-01–04/AUTH-05.
+2. Inspect git and preserve S05 work. Read `client/drafts/*`, `components/{Composer,DraftFeedback,Markdown}.svelte`, private layout/Drafts, server DB/schema/storage/coordinator/runtime/auth HTTP and `tests/{unit/drafts,e2e/drafts,integration/images,integration/private-storage}.test.ts`.
+3. Next task: **S06**, authenticated resumable batches/private streaming uploads, Sharp detection/limits/queue, generated paths/private download routes and disk reserve/cleanup. Invoke none of these from file selection or draft autosave; Post orchestration is S08.
+4. Keep browser drafts and auth regressions intact. Actual mutations must use the maintenance coordinator; sensitive future backup/restore handlers consume exact fresh-auth scopes inside their transaction. No background server draft saving.
+5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e`, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL and owns ports 4173–4176. Linux browser image now runs auth and drafts; native Sharp/SQLite/image processing also require real Linux evidence. Preserve CSP/runtime origin, no-flash settings, zoom/safe-area and attack tests.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -30,7 +29,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S02  | Authentication and optional TOTP   | Done        |
 | S03  | Design tokens and responsive shell | Done        |
 | S04  | Markdown/code/Mermaid/tag parsing  | Done        |
-| S05  | Browser drafts and recovery        | Not started |
+| S05  | Browser drafts and recovery        | Done        |
 | S06  | Private uploads and Sharp          | Not started |
 | S07  | Atomic/idempotent note lifecycle   | Not started |
 | S08  | Composer posting orchestration     | Not started |
@@ -900,3 +899,129 @@ Decisions / limitations / next task:
   and E2E auth/markdown/shell tests. First validation:
   `npm run check && npm run test:integration`, then full E2E. Preserve
   no-upload-before-Post/security gates.
+
+### Session 2026-10-03 — S05 browser-local draft repositories and recovery
+
+**State: done.** All S05 common/browser gates pass on Windows; native/common and
+actual auth/draft Chromium gates also pass on Linux. Started clean at `f0fb21e`.
+Existing S00–S04/S02 completion and all prior history preserved. No commit created.
+No server note/upload/backup functionality or final product completion claimed.
+
+Implemented / touched files:
+
+- `src/lib/client/drafts/{model,repository,blobs,workspace.svelte}.ts`: strict first
+  product schema v1, per-account/per-draft text records and rebuildable index,
+  composite-key IndexedDB files confirmed on transaction completion, debounced
+  autosave with serial revision-aware snapshots, startup/orphan/missing reconciliation,
+  quota/blocked/version warnings, storage persistence request and temporary URL cleanup.
+  Metadata and server recovery kind/ID/revision/base-digest capabilities are typed;
+  future server association requires snapshot checks, not automatic stale uploads.
+- `src/lib/components/{Composer,DraftFeedback}.svelte`, private layout/server load
+  and `routes/(app)/drafts/+page.svelte`: actual multiple local list/excerpts,
+  resume/create/confirmed discard, image/file picker/paste/drop and cursor-inserted
+  internal image references, Write/Preview with local images, original-file repair
+  or exact image-span removal, device-only/not-backup/storage/privacy warnings.
+  No new-draft content or blob is sent to a server. Post remains disabled for S08.
+- Account-level Web Locks cover read/compare/write and byte reconciliation. Storage
+  and BroadcastChannel notifications detect stale tabs; authoritative revision
+  checks reject races even without timely notifications. Conflicts retain local
+  edits, offer separate copies with bytes or confirmed loading of saved state.
+  If a blob is already evicted, a separate copy still preserves text/descriptors
+  and visibly requires file repair/removal. Discard writes a content-free tombstone
+  before deleting scoped bytes; failed cleanup warns/retries, stale tabs cannot
+  resurrect it. Unknown/corrupt records and associated blobs remain untouched.
+- `SecuritySettings.svelte`, Settings: signout/revoke-all flush pending local edits,
+  warn about retained browser drafts and never silently erase storage. Plaintext
+  drafts remain accessible to someone controlling that browser, not protected by MFA.
+  `eslint.config.js` configures the installed Svelte parser for `.svelte.ts` runes.
+  No dependencies/lockfile or server database schema changed (still v3/18 tables).
+- `tests/unit/drafts.test.ts`, `tests/e2e/drafts.test.ts`: 13 new unit and 12 real
+  browser scenarios for DRAFT-01–04/POST-01's pre-posting boundary. Unit adapters
+  exercise contracts/faults; actual Chromium covers storage, exact bytes, reload,
+  full process restart, quota/transaction abort, persistence denial, missing repair,
+  account/unsupported-version boundaries, unsupported locking, concurrent tabs,
+  losing-text recovery with evicted files, signout/relogin, no premature requests,
+  local URL disposal and mobile native file picker/260px editor geometry.
+- `ops/Dockerfile.browser-validation` now runs both auth and draft test files;
+  README, ARCHITECTURE 6.3/historical S03 clarification, tests README and this handoff
+  document actual capabilities and remaining step boundaries.
+
+Commands actually run:
+
+Host commands used Node **24.21.0**, pinned executable **and PATH**, npm 11.12.1
+CLI `N`/`C` from S00, and `NODE_TLS_REJECT_UNAUTHORIZED=1`. No install or dependency
+change was needed on Windows. Linux images installed from the unchanged lockfile.
+
+| Command                                                                                        | Final actual result                                                                        |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `git status --short`, `git log -2`, full required document/source reads                        | PASS; clean committed S02-complete baseline, no preexisting work overwritten               |
+| `npm run test:integration` (early baseline)                                                    | PASS, 14 files / 72 tests                                                                  |
+| `npm run format`; targeted `npm exec -- prettier --write ...`                                  | PASS                                                                                       |
+| `npm run check`                                                                                | PASS, zero errors/warnings including test/tooling TypeScript                               |
+| `npm run lint`                                                                                 | PASS, ESLint/Prettier                                                                      |
+| `npm run test:unit`                                                                            | PASS, 10 files / 52 tests                                                                  |
+| `npm run test:integration` (final)                                                             | PASS, 14 files / 72 tests; real SQLite/filesystem/native/build/server regressions          |
+| `npm run test:e2e -- tests/e2e/drafts.test.ts` / targeted Playwright rerun                     | Initial 5 pass/2 fail; corrected selectors/profile cleanup, 7/7 pass; suite later expanded |
+| `npm run test:e2e -- --grep 'conflict with evicted'`                                           | PASS, targeted missing-file conflict recovery                                              |
+| `npm run test:e2e` (final)                                                                     | PASS, production build + all 30 Chromium tests, unchanged existing screenshots             |
+| `npm run build` (final standalone, plus E2E builds)                                            | PASS, adapter/runtime origin/CSP/server-only boundaries preserved                          |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s05 .`                                 | PASS, fresh Linux npm ci/native artifacts; zero audit vulnerabilities                      |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s05`         | PASS, Linux check/lint/build, 52 unit + 72 integration tests                               |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s05-browser .`                 | PASS, fresh native modules/OpenSSL/Chromium dependencies                                   |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s05-browser` | PASS, all 14 Linux Chromium auth/draft tests                                               |
+
+Passing final code-gate images (precede only this progress-log completion update):
+
+- Native: `272b591eec0e68e9bbbd90248fad16560f9a0f29ebf8e112dde01ae581340ac8`.
+- Browser: `ef1d71fee5f506cb56b870f9cd473840d5f409dde62c943090e5ea3b358d5d1d`.
+
+Final log-only close checks: `npm exec -- prettier --write docs/PROGRESS.md`,
+`npm run lint`, `git diff --check` and `test ! -e .e2e-data` all pass; no private
+E2E data remains. Git reports only the expected S05 source/tests/docs changes.
+
+Same S00 pinned Node 24.21.0 bookworm/glibc digest, npm 11.19.0, existing WSL2 VM
+and 2-CPU/4-GB-limited test container. Linux SQLite/Sharp/archive capability probes
+remain passing; these are not full S16/S17 archive restore or VPS benchmarks.
+
+Intermediate failures / corrections (not counted as passes):
+
+- Initial check caught a nonreactive input ref and narrow browser element types;
+  corrected them. Test tooling also rejects TypeScript parameter properties under
+  `erasableSyntaxOnly`; client classes now use ordinary explicit fields.
+- ESLint initially parsed `.svelte.ts` with the JS fallback, then found an unnecessary
+  regex escape. Added the actual installed parser configuration and corrected the
+  regex. Later final Windows/Linux lint caught an ephemeral Set in the workspace;
+  switched to array deduplication and repeated both full gates successfully.
+- First draft browser run: hidden expanded-editor summary duplicated a text selector;
+  scoped the query to the visible composer. Windows profile deletion raced Chrome's
+  closing log handle; bounded filesystem retry now cleans the actual restarted
+  profile. The first failed run's temporary profile was explicitly removed afterward.
+- First full expanded browser suite exhausted the unchanged ten-login/IP window
+  (five failures with HTTP 429). Draft tests now reuse only real server-issued test
+  sessions across isolated contexts, check their validity and reauthenticate revoked
+  sessions. No production rate-limit weakening, auth bypass or shared browser data.
+- Review found that a missing file could block saving a losing tab's text separately.
+  Copy now keeps its text/descriptors as an explicitly repairable draft; added actual
+  browser eviction/conflict/repair and unit regressions, then repeated all host/Linux
+  gates. Existing build chunk-size/upstream install-script warnings remain visible.
+
+Decisions / limitations / exact next task:
+
+- ARCHITECTURE 6.3 records schema/key/index/lock/tombstone/cleanup contracts. Web Locks
+  are the safe browser primitive, not a hand-rolled localStorage lease. Unsupported
+  browsers get read/copy access and visible failed writes rather than false safety.
+  Tombstones are small and intentionally retained until site data is cleared.
+  No new service, library, security exception or settled product behavior changed.
+- No known unfinished S05 acceptance item. Browser eviction/private browsing/cleared
+  data can still destroy drafts; persistence requests are not backup guarantees.
+  Date/location controls, actual server snapshot reads/draft overlays and frozen
+  posting/confirmed-success cleanup remain S08/S11–S13/S15. No hidden server autosave.
+- Physical devices/OS IME, full assistive technology, Linux shell screenshot baselines,
+  real-domain HTTPS/VPS performance and complete backup/restore remain S18/later steps.
+- **Next: S06**. Read ARCHITECTURE 7, server DB/schema/private-storage/coordinator/runtime/
+  auth HTTP, local draft descriptor contracts and image/private-storage integration
+  fixtures. Start authenticated resumable upload-batch service + streaming limits and
+  private staging tests, then bounded Sharp processing/private downloads/disk reserve.
+  Do not invoke upload initialization from selection/autosave; S08 owns explicit Post.
+  First validation: `npm run check && npm run test:integration`, then full E2E and
+  real Linux native/image/resource tests. Preserve S05 blobs/conflicts and auth gates.
