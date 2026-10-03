@@ -3,8 +3,9 @@
 A single-user, responsive, Markdown-first personal notes application.
 **Currently an authentication/persistence foundation with a responsive shell, not a usable note-taking application.**
 One-time operator setup, password login/logout and private route protection are
-implemented. S02 is **in progress**: optional TOTP, recovery codes, fresh-auth and
-security settings are not yet implemented. S03 adds design tokens, private navigation,
+implemented, including confirmed encrypted TOTP enrollment, single-use recovery
+codes, scoped fresh authentication, password/MFA changes, session settings,
+all-device signout and operator-only recovery (S02). S03 adds design tokens, private navigation,
 mobile drawer/editor shells and persisted appearance preferences. S04 adds safe
 Markdown/GFM preview, highlighted code copy, lazy sanitized Mermaid and Unicode
 source-span tag parsing. Note services, uploads and backup/restore
@@ -77,7 +78,7 @@ journals block opening/migrating data until recovery; the S17 restore state mach
 and S06/S07 cleanup worker are still future work, not implemented restore/deletion.
 Initial timezone is UTC until setup/settings explicitly accepts a browser proposal.
 
-## Authentication first slice (S02, incomplete)
+## Authentication and security (S02)
 
 `npm run auth:setup-token` requires operator/VPS filesystem access and a stopped
 app with migrated private storage. It prints one random token to your terminal,
@@ -107,12 +108,53 @@ A trusted edge must overwrite `X-Forwarded-For` with **one** client IP, not appe
 chain; missing/invalid trusted headers fail closed. Bind the Node listener privately
 behind that edge. Untrusted forwarded headers are ignored.
 
-TOTP-enabled database rows currently **fail closed** on password login; enrollment,
-MFA completion, single-use recovery codes, fresh authentication, password changes,
-all-device revocation, security UI and an explicit operator-only recovery command
-remain the next S02 work. Do not manually toggle MFA or edit account rows. If access
-is lost at this unfinished stage, stop the app and retain private data for operator
-recovery; do not delete the database or reopen public setup.
+In `/settings`, enable or change an authenticator with a local QR code/manual secret.
+Enrollment is encrypted with AES-256-GCM and expires in five minutes; MFA activates
+only after confirmation. TOTP uses SHA-1, six digits, 30-second steps and ±one-step
+drift. Accepted steps cannot be reused, including the enrollment confirmation step;
+wait for the next code or use a recovery code. Password success with MFA creates only
+a five-minute pending challenge, never a full session.
+
+Exactly ten random single-use recovery codes are shown/downloadable **only at
+generation**. Save them privately. They replace TOTP, not the password; only hashes
+are stored and concurrent consumption permits one success. Regeneration invalidates
+the previous set. Lost generation responses cannot reveal the codes again: sign in
+with your authenticator and regenerate them, or use operator recovery.
+
+Sensitive actions require fresh password verification and TOTP/recovery when MFA is
+enabled. Grants expire in five minutes, are single-use, and bind an exact action,
+session and security revision. Security changes sign out other devices and rotate the
+current cookie. Sign out all devices also signs out the current device. Session lifetime
+is configurable from 1–30 days (default seven); changing it revokes existing sessions.
+Backup/restore scopes are ready for their future handlers; those features are not
+implemented yet. Credentials/grants/seeds/codes are never browser-storage settings.
+
+### Operator-only recovery after losing password/MFA access
+
+There is **no public reset endpoint**. With VPS/filesystem access, stop the app and
+run as its OS user from the trusted installation with the correct private `DATA_DIR`.
+The command requires `--confirm-reset-security` and a bounded stdin JSON object
+`{ "password": "a new password of at least 12 characters" }`; never put the actual
+password in command arguments, environment variables, shell history or logs.
+For Bash, enter it without echo (the shell variable is not exported):
+
+```sh
+read -r -s -p 'New password: ' new_password; printf '\n'
+printf '%s' "$new_password" | node --input-type=module -e '
+const chunks = []; for await (const chunk of process.stdin) chunks.push(chunk);
+process.stdout.write(JSON.stringify({password: Buffer.concat(chunks).toString("utf8")}));
+' | npm run auth:recover -- --confirm-reset-security
+unset new_password
+```
+
+This transaction changes the password, disables/removes MFA and recovery codes,
+increments the security revision and removes all sessions/challenges; it does **not**
+erase notes/files/settings. Restart, sign in and enroll MFA again. A failed command
+leaves existing security data intact. Missing/corrupt key material or an incompatible
+schema still fails closed: recover the matching private key/data from a trusted copy;
+do not delete the database, manually toggle MFA, or reopen public setup. OS access can
+control this single-user application; MFA does not protect against a compromised VPS,
+a compromised browser, plaintext browser drafts, or a downloaded unencrypted backup.
 
 ## Responsive shell and appearance (S03)
 
@@ -131,7 +173,7 @@ The composer is **an in-memory Markdown editor** with Write/Preview: it neither 
 uploads/publishes anything. Text survives navigation within the shell and editor
 close/reopen, but not a reload/restart; keep a copy before leaving. Post is disabled,
 and leaving with text triggers a browser warning. Draft recovery is S05 and real
-posting is S08. Search/calendar/tags/drafts/Trash and non-appearance settings are
+posting is S08. Search/calendar/tags/drafts/Trash and calendar/storage/backup settings are
 explicitly labeled as later-step work; these screens are not completed features.
 
 ## Markdown preview and parsing (S04)

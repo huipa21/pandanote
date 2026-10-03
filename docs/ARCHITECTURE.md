@@ -553,7 +553,10 @@ Same-origin/CSRF enforcement for all mutations, including uploads. Tight trusted
 
 LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects server access, not a compromised device/XSS or a downloaded unencrypted backup. Explain these limits accurately.
 
-### 12.4 S02 first-slice contracts (in progress, not the MFA gate)
+### 12.4 S02 historical first-slice contracts (completed by section 12.5)
+
+This records the initial partial implementation; section 12.5 supersedes its
+MFA/fresh-auth deferrals.
 
 - Migration `0002_setup_tokens.sql` adds a singleton **runtime** setup-token
   table (schema version 3 / 18 tables). The operator CLI issues/reissues a
@@ -606,6 +609,65 @@ LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects serv
   Routine DTOs never include credentials/hashes. Operator CLI output is an explicit
   one-time terminal display, not server logging. Security/MFA DTOs and sensitive
   action scopes are the next S02 slice, not completed functionality.
+
+### 12.5 S02 completed MFA and security contracts
+
+- `auth/factors.ts` uses the pinned otplib 13.5 synchronous verifier inside the
+  coordinated IMMEDIATE transaction: Unix seconds, SHA-1/six digits/30 seconds,
+  ±30-second drift and strictly increasing accepted `timeStep`. Backward clock
+  movement rejects rather than loosening replay protection. Confirmation consumes
+  the new secret's step; UI explains waiting for the next code. AES-256-GCM uses
+  random 12-byte nonces, 16-byte tags and version/key-ID/account/purpose AAD.
+  Enrollment ciphertext is bound to its originating session and cannot replace
+  active-account ciphertext. Existing portable private keys remain schema v1.
+- Password success with enabled MFA returns a five-minute hashed pending challenge,
+  **no session cookie**. `/api/auth/mfa` is the only additional public POST and
+  requires that challenge plus TOTP/recovery. Invalid/expired/reused/revision-stale
+  challenges fail. Factor consumption, challenge deletion and session insertion
+  commit together; SQLite serialization ensures exactly one concurrent success.
+- Ten 128-bit random hex recovery codes are generated at confirmation/regeneration.
+  Only domain-separated SHA-256 hashes are stored; trim/case/hyphen normalization
+  is permitted for entry. Codes replace the second factor, never the password.
+  No routine endpoint can retrieve a seed/code; only freshly authorized enrollment
+  and generation responses contain that material. `qrcode` 1.5.4 generates a local
+  boolean matrix rendered with application-owned SVG rectangles, no external
+  service, image/data URL, raw SVG insertion or CSP exception.
+- All challenge kinds expire after five minutes, are pruned on issuance and globally
+  bounded to 100 rows. New grants/enrollments replace prior same-session/scope
+  records. Persistent MFA/fresh-auth/enrollment rate scopes use the same fixed
+  15-minute 10/IP and 30/account policy as login; every account bucket is protected
+  against eviction. Existing Argon2 single-operation bounds still apply.
+- Fresh grants are **single-use**, session/account/security-revision bound, with
+  exact scopes: `password-change`, `mfa-enroll`, `mfa-disable`,
+  `recovery-regenerate`, `sessions-revoke`, `session-lifetime`, `backup-create`,
+  `backup-download`, `backup-delete`, `restore`. They require password plus a new
+  factor when MFA is enabled. Future sensitive domains must call
+  `consumeFreshGrant(tx, identity, token, scope)` inside their coordinated action
+  transaction, not pre-consume a grant outside it. Those domains remain S16/S17.
+- Password changes recheck session/revision/grant expiry after asynchronous hashing.
+  MFA change keeps the active secret until new confirmation. Password/MFA/recovery/
+  session-lifetime changes increment security revision, remove every old session
+  and challenge, then issue one replacement current-session credential. Revoke-all
+  issues none. Lifetime UI accepts 1–30 days. Enrollment cancellation removes only
+  pending enrollment, never disables active MFA. All these writes share maintenance
+  coordination, including operator recovery.
+- `AuthForm.svelte` implements password→MFA/recovery login; `SecuritySettings.svelte`
+  implements fresh-auth/security forms, local QR/manual enrollment, generation-only
+  code display/download, confirmed destructive actions and safe errors/retry. Secrets
+  stay transient in component memory, never localStorage/URLs. Generation response
+  loss requires regeneration; enrollment can be canceled/restarted after expiry.
+- `npm run auth:recover -- --confirm-reset-security` is filesystem/operator-only,
+  requires a stopped app and a new password in bounded stdin JSON, never argv/env.
+  It atomically resets password, removes MFA/codes/setup state, rotates revision and
+  revokes all access without touching user content. No route exposes it. README
+  documents the secret-safe operator workflow and missing-key refusal.
+- Schema stays version 3 / 18 tables. Real SQLite/CLI and built-browser tests cover
+  AUTH-01–05, including restart, parallel consumption, scope/expiry, rollback and
+  security races. An isolated E2E app behind a generated-cert HTTPS edge exercises
+  actual TLS, production cookies, trusted overwritten forwarding and security UI.
+  Self-signed certificate trust is test-context-only; application TLS verification
+  is never disabled. Native/Linux and browser outcomes are recorded in PROGRESS;
+  target-VPS load/real-domain certificate/physical-device release audits remain S18.
 
 ## 13. Full backup/restore design
 

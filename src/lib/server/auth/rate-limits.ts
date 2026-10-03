@@ -6,7 +6,15 @@ import { authRateLimits } from '../db/schema.ts';
 
 const WINDOW_MS = 15 * 60_000;
 export const MAX_RATE_BUCKETS = 1024;
-export type CredentialAction = 'setup' | 'login';
+export type CredentialAction =
+  'setup' | 'login' | 'mfa' | 'fresh-auth' | 'enrollment';
+const actions: CredentialAction[] = [
+  'setup',
+  'login',
+  'mfa',
+  'fresh-auth',
+  'enrollment',
+];
 
 export class AuthRateLimiter {
   private readonly persistence: Persistence;
@@ -47,8 +55,7 @@ export class AuthRateLimiter {
       if (total + missing > MAX_RATE_BUCKETS) {
         const needed = total + missing - MAX_RATE_BUCKETS;
         const protectedKeys = [
-          digest('setup:account'),
-          digest('login:account'),
+          ...actions.map((action) => digest(`${action}:account`)),
           ...buckets.map((b) => b.key),
         ];
         const victims = tx

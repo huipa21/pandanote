@@ -207,7 +207,7 @@ it('successful login bounds the session table and preserves its newest credentia
     expect(auth.authenticate(latest.token)).not.toBeNull();
   });
 });
-it('MFA-enabled rows fail closed until the next S02 slice; password success never creates a full session', async () => {
+it('MFA-enabled rows create only pending challenges; password success never creates a full session', async () => {
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => now);
     const initial = await auth.setup(auth.issueSetupToken(), password, ip);
@@ -223,9 +223,10 @@ it('MFA-enabled rows fail closed until the next S02 slice; password success neve
     );
     expect(auth.authenticate(initial.token)).toBeNull();
     const before = p.native.prepare('SELECT * FROM sessions').all();
-    await expect(auth.login(password, ip)).rejects.toMatchObject({
-      code: 'unauthorized',
-    });
+    const pending = await auth.login(password, ip);
+    expect(pending.mfaRequired).toBe(true);
+    expect(auth.authenticate(pending.token)).toBeNull();
+    expect(() => auth.completeMfa(pending.token, '123456', ip)).toThrow();
     expect(p.native.prepare('SELECT * FROM sessions').all()).toEqual(before);
   });
 });

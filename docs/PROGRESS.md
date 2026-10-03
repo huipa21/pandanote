@@ -3,21 +3,21 @@
 ## Current state
 
 - **Phase:** authentication/persistence foundation, responsive shell and Markdown renderer; product implementation remains unfinished.
-- **Completed steps:** S00, S01, S03 and S04 — **done**.
-- **Earliest unfinished step:** S02 — Authentication and optional TOTP — **in progress**, not done.
-- **Requested work this session:** S04 — Markdown rendering, code copy, Mermaid and tag parser — **done**. The user explicitly selected this out-of-order step; unfinished S02 remains separately tracked and fail-closed.
-- **Repository:** began at `6ea8b8e` with existing uncommitted S03 work, preserved throughout. During this session HEAD advanced to `b85aba2` (S03 commit); this agent created no commits. S04 changes are uncommitted; prior handoff history is preserved.
-- **Implemented:** shared safe Markdown/GFM pipeline, descriptor-backed internal images, lazy/cached themed Shiki, exact original-code copy with feedback, visible-only lazy strict/sanitized Mermaid with complexity/deadline errors, debounced Write/Preview and reliable Unicode source-span tag extraction/rewrites. S03 remains intact, including shortest-height/mobile/zoom regressions. Schema stays version 3 / 18 tables; dependencies/lockfile unchanged. Composer text remains in-memory only; no upload/post/draft lifecycle, tag-management transaction, timeline or backup feature is claimed.
-- **Validation:** Windows check/lint/build, 37 unit + 60 integration + all 17 Chromium tests pass. Linux fresh native install, check/lint/build and all 37 unit + 60 integration tests pass (image below). Actual production CSP/code/diagram/no-upload, hostile no-fetch, exact clipboard, real SVG geometry/theme and recovery checks pass. Light/dark renderer screenshots were reviewed. Linux browser baselines, physical-device/IME, full assistive-technology and target-VPS performance audits remain S18 work, not claimed passes.
+- **Completed steps:** S00–S04 — **done**, including the previously partial S02.
+- **Earliest unfinished step:** S05 — Browser drafts and recovery — **not started**.
+- **Requested work this session:** finish S02 authentication, optional MFA, recovery and security flows — **done**. This supersedes the partial S02 commit's misleading broad title, not its preserved history.
+- **Repository:** clean starting HEAD `31e85e0` (committed S04). Existing S03/S04 preserved; this session's S02 changes are uncommitted. No commit created by this agent.
+- **Implemented:** encrypted confirmed TOTP enrollment/change/cancel, password-bound pending MFA login, atomic drift/replay and recovery-code consumption, ten hashed generation-only codes/download/regeneration, five-minute single-use scoped fresh-auth, password/MFA/session-lifetime changes, security revision/cookie rotation, all-device signout, functional security UI and stdin-confirmed VPS-only recovery command. S03/S04 remain intact. Schema stays version 3 / 18 tables; only small pinned QR helper/types and lockfile added. Composer remains in-memory; drafts/uploads/notes/backups are not claimed.
+- **Validation:** Windows check/lint/build, 39 unit + 72 integration + all 18 Chromium tests pass. Linux fresh native install, check/lint/build and all 39 unit + 72 integration tests pass. Linux Chromium passes both authentication tests, including actual generated-cert HTTPS/trusted-edge MFA/security UI. Existing renderer/CSP/shell/snapshot regressions remain passing on Windows. Linux cross-platform shell baselines, physical-device/IME, full assistive-technology, real-domain deployment and target-VPS performance audits remain S18, not claimed passes.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, planning documents and the latest S04 handoff. Relevant contracts: ARCHITECTURE 11.1–11.2/12.1–12.4, IMPLEMENTATION_PLAN S02/S05, ACCEPTANCE_TESTS AUTH-01–05/MD-01–02/TAG-01/DRAFT-01–04.
-2. Inspect git and preserve S04 work. For default S02 continuation read `src/lib/server/auth/{service,passwords,tokens,rate-limits,policy,http}.ts`, runtime, private key material, DB account/challenge/recovery schema and auth integration tests. Retain fail-closed MFA protection.
-3. Default next task: **S02** AES-GCM encrypted TOTP enrollment with explicit confirmation and real replay/expiry/parallel-consumption integration tests. Verify otplib 13.5 APIs (`epoch` seconds, successful `timeStep`), then complete pending MFA/recovery/scoped fresh-auth/security/revoke-all/UI/operator recovery. S03/S04 being done does not mark S02 done.
-4. If the user explicitly selects S05 instead: read `shared/markdown/*.ts`, `client/markdown/mermaid.ts`, `components/{Composer,Markdown,Modal}.svelte`, styles and `tests/e2e/markdown.test.ts`; add versioned account/draft-scoped localStorage/IndexedDB repositories first. Use descriptor-backed blob previews and revoke URLs in S05; never upload before Post. Do not rewrite browser drafts silently on tag changes.
-5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e`, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Preserve production CSP, runtime-origin wrapper, no-flash theme, real zoom/safe-area/keyboard and renderer attack regressions. Linux browser baselines/physical-device/performance audits remain unclaimed final-gate work.
+1. Read `AGENTS.md`, planning documents and the latest S02 completion handoff. Relevant contracts: ARCHITECTURE 6/7.1/11.1–11.2/12.5, IMPLEMENTATION_PLAN S05, ACCEPTANCE_TESTS DRAFT-01–04/AUTH-01–05.
+2. Inspect git and preserve the uncommitted S02 work. Read `components/{Composer,Markdown,Modal}.svelte`, `shared/markdown/*.ts`, `shared/domain.ts`, `client/markdown/mermaid.ts`, styles and `tests/e2e/{auth,markdown,shell}.test.ts`.
+3. Next task: **S05** versioned account/draft-scoped localStorage text/metadata and IndexedDB blob repositories with multiple draft recovery, persistence/quota errors, missing-blob reconciliation and cross-tab revision protection. No upload before explicit Post; no silent browser-draft rewrites.
+4. Keep authentication regressions and schema/private storage boundaries intact. Future backup/restore actions must consume exact fresh-auth scopes inside coordinated action transactions; a login session alone is insufficient.
+5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e`, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E now requires OpenSSL and owns ports 4173–4176. Preserve production CSP/runtime origin, hydration-safe forms, no-flash theme, zoom/safe-area and renderer attack tests. Linux shell baselines/physical-device/performance audits remain S18.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -27,7 +27,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | ---- | ---------------------------------- | ----------- |
 | S00  | Bootstrap and technical validation | Done        |
 | S01  | Schema and persistent storage      | Done        |
-| S02  | Authentication and optional TOTP   | In progress |
+| S02  | Authentication and optional TOTP   | Done        |
 | S03  | Design tokens and responsive shell | Done        |
 | S04  | Markdown/code/Mermaid/tag parsing  | Done        |
 | S05  | Browser drafts and recovery        | Not started |
@@ -788,3 +788,115 @@ Exact next task:
   before explicit Post.
 - First validation: `npm run check && npm run test:integration`, then
   `npm run test:e2e`, with pinned Node and TLS verification enabled.
+
+### Session 2026-10-03 — S02 completion: MFA, recovery, fresh authentication and security
+
+**State: done.** Supersedes the partial S02 assessment and misleading broad commit
+title. S02's common, browser and Linux authentication gates pass; no product or
+note/backup/restore completion claimed. Started clean at `31e85e0`; S03/S04 and all
+prior history preserved. No commit created.
+
+Implemented / touched files:
+
+- `server/auth/{service,factors,tokens,rate-limits,http,policy}.ts`, `shared/auth.ts`,
+  `routes/api/auth/{login,mfa,fresh,security}/+server.ts`: purpose/account/session-bound
+  AES-256-GCM TOTP encryption, confirmation-only activation/change, cancellation,
+  five-minute hashed password-bound pending MFA, ±one-step drift and monotonic replay
+  protection. Factor/challenge/session writes commit atomically. Pending credential
+  types cannot be passed to the cookie setter. Same-origin/session gates retained.
+- Ten 128-bit random hashed recovery codes, generation-only display/download,
+  single-use atomic consumption and regeneration invalidation. Five-minute exact
+  fresh scopes bind session/security revision and require password plus enabled
+  factor. Password changes recheck after hashing. Security/MFA/recovery/lifetime
+  changes rotate revision/cookie and revoke old sessions/challenges; revoke-all
+  also signs out the current device. Session lifetime accepts 1–30 days.
+- `components/{AuthForm,SecuritySettings}.svelte`, private Settings: working
+  MFA/recovery login, local QR/manual confirmation, fresh-auth action forms, code
+  export, password/authenticator changes, disable/regenerate/lifetime/revoke and
+  destructive confirmations/errors. Auth/appearance controls are hydration-gated
+  to prevent silent resetting of pre-hydration choices. Secrets stay transient,
+  never URLs/localStorage. QR helper `qrcode` 1.5.4/types 1.5.6 exact-pinned with
+  lockfile; no UI kit/service/schema replacement. Schema stays version 3/18 tables.
+- `scripts/auth-recover.ts`, package script, README: stopped-app VPS/filesystem-only
+  reset with explicit flag and bounded stdin JSON, no passwords in argv/env/logs.
+  Resets password, removes MFA/codes, rotates revision and revokes access without
+  erasing user content. Missing/corrupt keys fail closed; no public bypass route.
+- `tests/integration/auth-mfa.test.ts`, auth regression, unit factor/policy tests:
+  real SQLite/Argon2/CLI/RFC vectors, enrollment encryption/expiry/cancel/binding,
+  wrong/drift/replay, two-connection parallel consumption, restart/rollback retry,
+  scope/session/revision/expiry and password races, every security action,
+  persistent limits/table bound and actual operator command. Routine DTO/DB
+  dumps exclude plaintext secrets.
+- E2E auth test, fixture launcher/teardown, Playwright config,
+  `ops/Dockerfile.browser-validation`: isolated built security deployment behind
+  ephemeral generated-cert HTTPS/trusted forwarding. Tests actual TLS production
+  cookies, QR/confirmation/recovery download, pending access denial, replay, fresh
+  scope failure and every security form. Parallel HTTP recovery attempts accept
+  exactly once. Explicit OpenSSL and both owned app children are tested/cleaned.
+- README, ARCHITECTURE 12.4 historical annotation/12.5 final contracts, test README
+  and this handoff. Product/acceptance requirements unchanged.
+
+Commands actually run (host uses pinned N/C/PATH from S00; TLS explicitly 1):
+
+| Command                                                                                         | Actual result                                                                 |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Git/status/docs/source and otplib 13.5 API inspection                                           | Clean committed S04 baseline; existing work preserved                         |
+| `npm run check && npm run test:integration`                                                     | Initial baseline PASS, 0 diagnostics and 60 integration tests                 |
+| `npm view qrcode version engines`; exact QR/types installs                                      | PASS; pinned 1.5.4/1.5.6, lock updated, zero audit vulnerabilities            |
+| `npm ci`; `npm audit`                                                                           | Final repeat PASS from lockfile; zero vulnerabilities                         |
+| `npm run format`, `npm run check`, `npm run lint`                                               | Final PASS; 0 errors/warnings, ESLint/Prettier clean                          |
+| `npm run test:unit`                                                                             | PASS, 9 files / 39 tests                                                      |
+| `npm run test:integration`                                                                      | PASS, 14 files / 72 tests, native filesystem/SQLite/CLI/build/server          |
+| `npm run test:e2e -- --grep 'confirmed MFA'`                                                    | PASS targeted built flow after fixing confirmation form bug                   |
+| `npm run test:e2e`                                                                              | PASS production build + all 18 Chromium tests, unchanged screenshot baselines |
+| `npm run build`                                                                                 | PASS; adapter-node/runtime origin/CSP preserved                               |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s02-complete .`                         | PASS fresh Linux ci/native artifacts                                          |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s02-complete` | PASS Linux check/lint/build, 39 unit + 72 integration tests                   |
+| Initial Linux `npx playwright install --with-deps chromium` + auth E2E                          | FAILED startup: OpenSSL absent; not a pass                                    |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s02-browser .`                  | PASS explicit OpenSSL/native install/Chromium dependencies                    |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s02-browser`  | PASS both Linux Chromium auth tests, including actual HTTPS MFA/security      |
+
+All host commands and both Linux image gates were repeated successfully after the
+final pending/session typing and parallel HTTP recovery test. Fixture cleanup and
+`git diff --check` pass. Passing images (precede only this final handoff update):
+
+- Native: `59ddcd3f965bc4db0b8f2c949ae7c0c227561d4f20ff4bf7f6e8be28e410b9a8`.
+- Browser: `7edecbcecd69bd96a72e2e5b8d012a315d953c280689ca9359e85f563a43b070`.
+
+Both use the S00 pinned Node 24.21.0 bookworm/glibc digest, npm 11.19.0 and the
+same constrained WSL2/2-CPU/4-GB test container context. Linux browser run covers
+AUTH-01–05, not full cross-platform shell/renderer baselines or VPS performance.
+
+Intermediate failures / corrections:
+
+- Initial check found otplib's HOTP/TOTP result union; narrowed `timeStep` presence.
+  TLS fixture JS needed explicit Server type/listen callback; fixed. Pending/session
+  discriminated union now prevents accidental pending-token cookies.
+- First targeted browser failure: Svelte interpolated `{6}` in a quoted input
+  pattern, preventing valid six-digit confirmation submission. Used literal string
+  expression; wrong-code retry and confirmation pass.
+- First full browser run: 17 pass/1 fail. Trace proved appearance fields were edited
+  before hydration and reset to initial values. Disabled auth/appearance controls
+  until mounted rather than weakening assertions; all 18 tests pass afterward.
+- First Linux browser attempt installed Chromium but lacked `openssl`; explicit
+  browser validation Dockerfile fixes this, and both tests pass. No dependency
+  blocker was skipped as a pass.
+- One formatting pass needed a second targeted Prettier pass. Failed exact-text
+  edits applied nothing; retried against unique small regions. Existing upstream
+  deprecation/native-install-review and lazy bundle warnings remain visible.
+
+Decisions / limitations / next task:
+
+- Exact contracts/scopes in ARCHITECTURE 12.5. Grants are deliberately single-use,
+  not reusable elevated cookies. Security changes keep only a rotated current
+  session except revoke-all. QR is local; no external service/raw SVG/CSP weakening.
+- No unfinished S02 feature or known S02 defect remains. Real-domain deployment,
+  target-VPS Argon2/load, Linux shell baselines and physical device/assistive-technology
+  audits remain S18. Native Sharp/SQLite and archive capability probes pass on Linux;
+  full archives/restore remain S16/S17, not claimed by probes.
+- **Next: S05**, versioned account/draft-scoped localStorage/IndexedDB, multiple
+  draft recovery, quota/missing blobs and cross-tab revision protection. Read
+  ARCHITECTURE 6/7.1/11.2, Composer/Markdown/Modal, shared Markdown/domain contracts
+  and E2E auth/markdown/shell tests. First validation:
+  `npm run check && npm run test:integration`, then full E2E. Preserve
+  no-upload-before-Post/security gates.

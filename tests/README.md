@@ -1,9 +1,9 @@
-# Foundation, shell and renderer verification (S00/S01, partial S02, S03/S04)
+# Foundation, authentication, shell and renderer verification (S00–S04)
 
 S00 tests are capability probes, not completed product features. S01 tests
-exercise the actual persistence foundation. Partial S02 tests exercise real
-setup, password sessions and private route protection; MFA/fresh-auth and note
-endpoints are not yet implemented. All fixtures are synthetic and generated at runtime. No personal data or fixed
+exercise the actual persistence foundation. S02 tests exercise real setup,
+password/MFA sessions, recovery codes, fresh-auth/security changes, operator recovery
+and private route protection. Note endpoints are not yet implemented. All fixtures are synthetic and generated at runtime. No personal data or fixed
 production credential is committed.
 
 | Suite                         | Scope / acceptance foundations                                                                                                                                                       |
@@ -34,7 +34,7 @@ full attachment deletion or restore/crash rollback. Linux checks execute POSIX
 permission/fsync assertions; Windows uses operator ACLs instead. No existing
 schema is pushed or runtime database migration hidden in a page request.
 
-## Partial S02 coverage (step remains in progress)
+## S02 coverage (AUTH-01–05)
 
 | Suite                                | Scope                                                                                                                                                                                                                                                                                                                               |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -44,11 +44,23 @@ schema is pushed or runtime database migration hidden in a page request.
 | `integration/auth-http.test.ts`      | JSON-only authentication body, actual streamed byte limits, generic internal error responses and rate-limit retry headers                                                                                                                                                                                                           |
 | `e2e/auth.test.ts`                   | Built adapter app setup/login/logout, no plaintext credentials in ordinary DTOs/SSR, private API/file/backup paths, production cookie flags, CSRF failures and input retention on wrong password                                                                                                                                    |
 
-MFA-enabled account rows are tested to **fail closed**. This does not claim
-AUTH-02/03 completion. TOTP, recovery codes, fresh-auth scope/expiry, security
-changes/revoke-all and operator recovery remain the next S02 slice. The production
-cookie flags are tested on Chromium's loopback HTTP Secure-cookie exception;
-a real HTTPS deployment/browser drill still belongs to the full S02/S18 gate.
+`integration/auth-mfa.test.ts` adds real encrypted enrollment/confirmation, expiry/
+cancellation/session binding, drift/replay, parallel TOTP/recovery consumption on two
+SQLite connections, restart/rollback retry, ten hashed generation-only codes,
+regeneration/secret change, single-use exact fresh scopes/session/revision/expiry,
+password races, security revocation, lifetime changes and stdin-confirmed operator
+CLI recovery. `unit/auth-factors.test.ts` covers RFC 6238 vectors and strict request
+schemas. AUTH-02/03/04 are implemented and tested, not fail-closed placeholders.
+
+`e2e/auth.test.ts` also exercises the full security UI on a separate built deployment
+behind a generated-cert HTTPS proxy: real TLS and Secure/HttpOnly/Strict cookies,
+local QR, confirmation failure/retry, recovery file download and generation-only
+display, password→MFA login, unauthorized pending access, replay, fresh scope failure,
+recovery regeneration, password/authenticator change, MFA disable, session lifetime
+and revoke-all. Test contexts trust only the synthetic self-signed certificate.
+OpenSSL is required to generate it; no private TLS key is tracked. The second fixture
+keeps actual persistent rate limits enabled without consuming other suites' budgets.
+Target-VPS load and real-domain deployment/certificate audits remain S18.
 `npm run auth:benchmark` performs five synthetic hash/verify samples, records
 10 ms sampled RSS and confirms concurrent rejection without printing credentials.
 
@@ -128,10 +140,12 @@ Sharp fixtures are tiny except a generated 2800x1400 resize test; no originals
 are written to application storage. Test helpers live in `tests/spikes/`, not
 `src/lib`, to avoid mistaking probes for the eventual production implementation.
 
-Playwright owns ports 4173/4174 and refuses to reuse existing servers. It builds
+Playwright owns ports 4173/4174/4175/4176 and refuses to reuse existing servers. It builds
 and runs the adapter-node app with a fixture-only `.e2e-data/run-*` directory;
 it explicitly migrates storage and issues a disposable operator token before
-serving. Its teardown stops the test-owned adapter child before removing `.e2e-data`
+serving. The separate security fixture uses `.e2e-data/security/run-*`, a generated
+HTTPS certificate on 4175 and private upstream on 4176. Teardown stops both test-owned
+adapter children before removing `.e2e-data`
 (Windows SQLite handles cannot be removed while open). Separate **test-only Vite
 harnesses** host the legacy Mermaid probe, production renderer attack fixtures and
 synthetic shell under response CSP. The built private composer also renders real
@@ -150,8 +164,17 @@ podman run --rm --cpus=2 --memory=4g pandanote-validation
 
 Replace `podman` with `docker` if appropriate. This pins the Linux/glibc base
 image by digest and installs native dependencies inside the image. It is an
-initial validation image, **not production deployment instructions**. S18 will
-add a minimal non-root runtime, persistent volume, HTTPS proxy and runbook.
+initial validation image, **not production deployment instructions**. For the
+Linux authentication browser gate (fresh native modules, OpenSSL and Chromium):
+
+```sh
+podman build -f ops/Dockerfile.browser-validation -t pandanote-browser-validation .
+podman run --rm --cpus=2 --memory=4g pandanote-browser-validation
+```
+
+That image runs both `e2e/auth.test.ts` scenarios; it does not claim Linux shell
+screenshot baselines. S18 will add a minimal non-root runtime, persistent volume,
+real-domain HTTPS proxy and runbook.
 
 ## Probe limitations / later gates
 
@@ -173,6 +196,6 @@ add a minimal non-root runtime, persistent volume, HTTPS proxy and runbook.
   paths fit this subset. S16/S17 must add the real manifest, DB schema/key/file
   validation, second-pass staged extraction and crash-safe replacement. Never
   use this probe alone as a restore feature.
-- Setup/password sessions are implemented in partial S02, but MFA/fresh-auth and
-  security settings/recovery are unfinished. S01 implements validated settings
-  persistence only; S03 now adds the appearance subset of the settings UI.
+- S02 implements authentication/security/lifetime settings and operator recovery;
+  S03 adds appearance. Calendar/storage/backups and their sensitive handlers are
+  later steps. Fresh-auth primitives alone do not implement backup/restore.

@@ -119,6 +119,11 @@ it('rejects missing/foreign/null origins and cross-site mutations, including log
 });
 it('public allowlist is exact, method-aware, and never includes files/backups/registration', () => {
   expect(isPublicAuthRoute('/api/auth/login', 'POST')).toBe(true);
+  expect(isPublicAuthRoute('/api/auth/mfa', 'POST')).toBe(true);
+  expect(isPublicAuthRoute('/api/auth/mfa', 'GET')).toBe(false);
+  expect(isPublicAuthRoute('/api/auth/fresh', 'POST')).toBe(false);
+  expect(isPublicAuthRoute('/api/auth/security', 'POST')).toBe(false);
+  expect(isPublicAuthRoute('/api/auth/recover', 'POST')).toBe(false);
   expect(isPublicAuthRoute('/setup', 'GET')).toBe(true);
   for (const path of [
     '/setup/',

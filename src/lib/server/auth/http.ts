@@ -72,13 +72,17 @@ export function authErrorResponse(error: unknown): Response {
         message: 'Authentication is temporarily unavailable. Please retry.',
       };
   const status =
-    body.code === 'unauthorized'
-      ? 401
-      : body.code === 'rate-limited'
-        ? 429
-        : body.code === 'validation'
-          ? 400
-          : 503;
+    body.code === 'fresh-auth-required'
+      ? 403
+      : body.code === 'conflict'
+        ? 409
+        : body.code === 'unauthorized'
+          ? 401
+          : body.code === 'rate-limited'
+            ? 429
+            : body.code === 'validation'
+              ? 400
+              : 503;
   return Response.json(
     { ok: false, error: body },
     {

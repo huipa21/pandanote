@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { untrack, onMount } from 'svelte';
+  import SecuritySettings from '#lib/components/SecuritySettings.svelte';
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
   let { data } = $props();
@@ -8,6 +9,10 @@
   let theme = $state<Appearance['theme']>(initial.theme);
   let density = $state<Appearance['density']>(initial.density);
   let collapseLongNotes = $state(initial.collapseLongNotes);
+  let ready = $state(false);
+  onMount(() => {
+    ready = true;
+  });
   let saving = $state(false);
   let signingOut = $state(false);
   let message = $state('');
@@ -74,7 +79,7 @@
     page load. Follow system is the initial theme.
   </p>
   <form onsubmit={save}>
-    <fieldset disabled={saving}>
+    <fieldset disabled={saving || !ready}>
       <label for="theme">Theme</label>
       <select id="theme" bind:value={theme}
         ><option value="system">Follow system</option><option value="light"
@@ -106,11 +111,7 @@
   <p role="alert">{error}</p>
 </section>
 <section class="surface">
-  <h2>Security & session</h2>
-  <p class="muted">
-    Password login and sessions are available. Optional MFA, recovery codes,
-    fresh authentication and all-device signout are unfinished S02 work.
-  </p>
+  <SecuritySettings />
   <button onclick={signOut} disabled={signingOut}
     >{signingOut ? 'Signing out…' : 'Sign out'}</button
   >

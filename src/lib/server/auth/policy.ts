@@ -79,7 +79,8 @@ export function isPublicAuthRoute(path: string, method: string): boolean {
   return (
     (['GET', 'HEAD'].includes(method) &&
       ['/health', '/setup', '/login'].includes(path)) ||
-    (method === 'POST' && ['/api/auth/setup', '/api/auth/login'].includes(path))
+    (method === 'POST' &&
+      ['/api/auth/setup', '/api/auth/login', '/api/auth/mfa'].includes(path))
   );
 }
 export function usesUnauthorizedResponse(

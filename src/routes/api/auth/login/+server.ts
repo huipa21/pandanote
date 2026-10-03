@@ -20,6 +20,13 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
       parsed.data.password,
       locals.clientIp!,
     );
+    if (credential.mfaRequired)
+      return Response.json({
+        ok: true,
+        mfaRequired: true,
+        challenge: credential.token,
+        expiresAt: credential.expiresAt,
+      });
     setSessionCookie(cookies, credential, runtime.policy.production);
     return Response.json({ ok: true });
   } catch (error) {

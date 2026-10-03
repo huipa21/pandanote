@@ -1,7 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  let ready = $state(false);
+  onMount(() => {
+    ready = true;
+  });
   let { setup = false }: { setup?: boolean } = $props();
   let password = $state('');
   let token = $state('');
+  let challenge = $state('');
+  let code = $state('');
   let busy = $state(false);
   let message = $state('');
 
@@ -12,12 +19,22 @@
     message = '';
     try {
       const response = await fetch(
-        setup ? '/api/auth/setup' : '/api/auth/login',
+        challenge
+          ? '/api/auth/mfa'
+          : setup
+            ? '/api/auth/setup'
+            : '/api/auth/login',
         {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(setup ? { token, password } : { password }),
+          body: JSON.stringify(
+            challenge
+              ? { challenge, code }
+              : setup
+                ? { token, password }
+                : { password },
+          ),
         },
       );
       const result = await response.json();
@@ -27,6 +44,14 @@
       }
       password = '';
       token = '';
+      if (result.mfaRequired) {
+        challenge = result.challenge;
+        message =
+          'Enter your authenticator code or a single-use recovery code. This challenge expires in five minutes.';
+        return;
+      }
+      code = '';
+      challenge = '';
       window.location.assign('/');
     } catch {
       message =
@@ -50,7 +75,7 @@
     </p>
   {/if}
   <form onsubmit={submit}>
-    <fieldset disabled={busy}>
+    <fieldset disabled={busy || !ready}>
       {#if setup}
         <label for="setup-token">One-time setup token</label>
         <input
@@ -63,23 +88,48 @@
           maxlength="43"
         />
       {/if}
-      <label for="password">{setup ? 'Choose a password' : 'Password'}</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autocomplete={setup ? 'new-password' : 'current-password'}
-        bind:value={password}
-        required
-        minlength={setup ? 12 : 1}
-        maxlength="256"
-        aria-describedby={setup ? 'password-help' : undefined}
-      />
-      {#if setup}<p id="password-help">
-          Use 12–256 characters. Keep this password safely.
-        </p>{/if}
+      {#if challenge}
+        <label for="mfa-code">Authenticator or recovery code</label>
+        <input
+          id="mfa-code"
+          autocomplete="one-time-code"
+          bind:value={code}
+          required
+          maxlength="80"
+        />
+        <button
+          type="button"
+          onclick={() => {
+            challenge = '';
+            code = '';
+            message = '';
+          }}>Start again</button
+        >
+      {:else}
+        <label for="password">{setup ? 'Choose a password' : 'Password'}</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete={setup ? 'new-password' : 'current-password'}
+          bind:value={password}
+          required
+          minlength={setup ? 12 : 1}
+          maxlength="256"
+          aria-describedby={setup ? 'password-help' : undefined}
+        />
+        {#if setup}<p id="password-help">
+            Use 12–256 characters. Keep this password safely.
+          </p>{/if}
+      {/if}
       <button type="submit"
-        >{busy ? 'Please wait…' : setup ? 'Create account' : 'Sign in'}</button
+        >{busy
+          ? 'Please wait…'
+          : challenge
+            ? 'Verify code'
+            : setup
+              ? 'Create account'
+              : 'Sign in'}</button
       >
     </fieldset>
     <p role="alert">{message}</p>

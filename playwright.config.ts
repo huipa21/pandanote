@@ -12,6 +12,12 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
+      command: `"${process.execPath}" scripts/e2e-server.mjs security`,
+      url: 'https://127.0.0.1:4175/health',
+      ignoreHTTPSErrors: true, // Trust only this generated test certificate.
+      reuseExistingServer: false,
+    },
+    {
       command: `"${process.execPath}" scripts/e2e-server.mjs`,
       url: 'http://127.0.0.1:4173/health',
       reuseExistingServer: false,
