@@ -21,3 +21,5 @@
 !ops/**
 !docs/
 !docs/**
+!migrations/
+!migrations/**

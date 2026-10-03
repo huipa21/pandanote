@@ -5,9 +5,11 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["tests/**/*.ts", "*.config.ts"]
+  "include": ["tests/**/*.ts", "scripts/**/*.ts", "*.config.ts"]
 }

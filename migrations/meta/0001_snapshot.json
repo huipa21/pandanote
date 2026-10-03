@@ -1,0 +1,1363 @@
+{
+  "id": "7e6f3bde-5b9e-4494-9934-1f1d36d209d1",
+  "prevId": "00f01c01-70d9-41c6-8e11-21918cb4588c",
+  "version": "6",
+  "dialect": "sqlite",
+  "tables": {
+    "account": {
+      "name": "account",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "singleton": {
+          "name": "singleton",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "totp_secret_encrypted": {
+          "name": "totp_secret_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "totp_enabled": {
+          "name": "totp_enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_totp_step": {
+          "name": "last_totp_step",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "security_revision": {
+          "name": "security_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "account_singleton": {
+          "name": "account_singleton",
+          "columns": ["singleton"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "account_singleton_check": {
+          "name": "account_singleton_check",
+          "value": "\"account\".\"singleton\" = 1"
+        },
+        "account_security_check": {
+          "name": "account_security_check",
+          "value": "\"account\".\"security_revision\" >= 1 AND \"account\".\"totp_enabled\" IN (0,1) AND (\"account\".\"totp_enabled\" = 0 OR \"account\".\"totp_secret_encrypted\" IS NOT NULL) AND (\"account\".\"last_totp_step\" IS NULL OR \"account\".\"last_totp_step\" >= 0)"
+        }
+      }
+    },
+    "app_settings": {
+      "name": "app_settings",
+      "columns": {
+        "singleton": {
+          "name": "singleton",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value_json": {
+          "name": "value_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "settings_singleton_check": {
+          "name": "settings_singleton_check",
+          "value": "\"app_settings\".\"singleton\" = 1"
+        },
+        "settings_json_check": {
+          "name": "settings_json_check",
+          "value": "json_valid(\"app_settings\".\"value_json\")"
+        }
+      }
+    },
+    "attachments": {
+      "name": "attachments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "original_filename": {
+          "name": "original_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "detected_mime": {
+          "name": "detected_mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "incoming_digest": {
+          "name": "incoming_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "incoming_bytes": {
+          "name": "incoming_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "readiness": {
+          "name": "readiness",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "display_bytes": {
+          "name": "display_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "display_digest": {
+          "name": "display_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "thumbnail_bytes": {
+          "name": "thumbnail_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "thumbnail_digest": {
+          "name": "thumbnail_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "thumbnail_width": {
+          "name": "thumbnail_width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "thumbnail_height": {
+          "name": "thumbnail_height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "file_bytes": {
+          "name": "file_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "file_digest": {
+          "name": "file_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "attachments_batch_identity": {
+          "name": "attachments_batch_identity",
+          "columns": ["batch_id", "id"],
+          "isUnique": true
+        },
+        "attachments_readiness": {
+          "name": "attachments_readiness",
+          "columns": ["readiness", "created_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "attachments_batch_id_upload_batches_id_fk": {
+          "name": "attachments_batch_id_upload_batches_id_fk",
+          "tableFrom": "attachments",
+          "columnsFrom": ["batch_id"],
+          "tableTo": "upload_batches",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "attachment_kind_check": {
+          "name": "attachment_kind_check",
+          "value": "\"attachments\".\"kind\" IN ('image','file') AND \"attachments\".\"readiness\" IN ('pending','ready','failed') AND \"attachments\".\"incoming_bytes\" >= 0"
+        },
+        "attachment_ready_check": {
+          "name": "attachment_ready_check",
+          "value": "\"attachments\".\"readiness\" <> 'ready' OR (\"attachments\".\"kind\" = 'file' AND \"attachments\".\"file_bytes\" IS NOT NULL AND \"attachments\".\"file_bytes\" >= 0 AND \"attachments\".\"file_digest\" IS NOT NULL AND length(\"attachments\".\"file_digest\") = 64 AND \"attachments\".\"display_bytes\" IS NULL AND \"attachments\".\"thumbnail_bytes\" IS NULL AND \"attachments\".\"width\" IS NULL AND \"attachments\".\"height\" IS NULL) OR (\"attachments\".\"kind\" = 'image' AND \"attachments\".\"file_bytes\" IS NULL AND \"attachments\".\"file_digest\" IS NULL AND \"attachments\".\"display_bytes\" IS NOT NULL AND \"attachments\".\"display_bytes\" > 0 AND \"attachments\".\"display_digest\" IS NOT NULL AND length(\"attachments\".\"display_digest\") = 64 AND \"attachments\".\"thumbnail_bytes\" IS NOT NULL AND \"attachments\".\"thumbnail_bytes\" > 0 AND \"attachments\".\"thumbnail_digest\" IS NOT NULL AND length(\"attachments\".\"thumbnail_digest\") = 64 AND \"attachments\".\"width\" IS NOT NULL AND \"attachments\".\"width\" > 0 AND \"attachments\".\"height\" IS NOT NULL AND \"attachments\".\"height\" > 0 AND \"attachments\".\"thumbnail_width\" IS NOT NULL AND \"attachments\".\"thumbnail_width\" > 0 AND \"attachments\".\"thumbnail_height\" IS NOT NULL AND \"attachments\".\"thumbnail_height\" > 0)"
+        }
+      }
+    },
+    "auth_challenges": {
+      "name": "auth_challenges",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "session_hash": {
+          "name": "session_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "security_revision": {
+          "name": "security_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload_encrypted": {
+          "name": "payload_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "auth_challenges_expiry": {
+          "name": "auth_challenges_expiry",
+          "columns": ["expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "auth_challenges_account_id_account_id_fk": {
+          "name": "auth_challenges_account_id_account_id_fk",
+          "tableFrom": "auth_challenges",
+          "columnsFrom": ["account_id"],
+          "tableTo": "account",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "auth_challenges_session_hash_sessions_token_hash_fk": {
+          "name": "auth_challenges_session_hash_sessions_token_hash_fk",
+          "tableFrom": "auth_challenges",
+          "columnsFrom": ["session_hash"],
+          "tableTo": "sessions",
+          "columnsTo": ["token_hash"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "challenge_kind_check": {
+          "name": "challenge_kind_check",
+          "value": "\"auth_challenges\".\"kind\" IN ('mfa','fresh-auth','enrollment')"
+        },
+        "challenge_hash_check": {
+          "name": "challenge_hash_check",
+          "value": "length(\"auth_challenges\".\"token_hash\") = 64 AND \"auth_challenges\".\"token_hash\" NOT GLOB '*[^0-9a-f]*'"
+        }
+      }
+    },
+    "auth_rate_limits": {
+      "name": "auth_rate_limits",
+      "columns": {
+        "key_hash": {
+          "name": "key_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "window_started_at": {
+          "name": "window_started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "blocked_until": {
+          "name": "blocked_until",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "auth_rate_limits_expiry": {
+          "name": "auth_rate_limits_expiry",
+          "columns": ["expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "rate_attempts_check": {
+          "name": "rate_attempts_check",
+          "value": "\"auth_rate_limits\".\"attempts\" >= 0"
+        }
+      }
+    },
+    "backup_jobs": {
+      "name": "backup_jobs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "archive_id": {
+          "name": "archive_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bytes": {
+          "name": "bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "progress": {
+          "name": "progress",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "backup_jobs_state": {
+          "name": "backup_jobs_state",
+          "columns": ["state", "created_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "backup_state_check": {
+          "name": "backup_state_check",
+          "value": "\"backup_jobs\".\"state\" IN ('pending','capturing','archiving','complete','failed') AND \"backup_jobs\".\"progress\" BETWEEN 0 AND 100 AND (\"backup_jobs\".\"state\" <> 'complete' OR (\"backup_jobs\".\"archive_id\" IS NOT NULL AND \"backup_jobs\".\"bytes\" IS NOT NULL AND \"backup_jobs\".\"bytes\" > 0))"
+        }
+      }
+    },
+    "file_cleanup_jobs": {
+      "name": "file_cleanup_jobs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attachment_id": {
+          "name": "attachment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cleanup_attachment_unique": {
+          "name": "cleanup_attachment_unique",
+          "columns": ["attachment_id"],
+          "isUnique": true
+        },
+        "cleanup_pending": {
+          "name": "cleanup_pending",
+          "columns": ["state", "created_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "file_cleanup_jobs_attachment_id_attachments_id_fk": {
+          "name": "file_cleanup_jobs_attachment_id_attachments_id_fk",
+          "tableFrom": "file_cleanup_jobs",
+          "columnsFrom": ["attachment_id"],
+          "tableTo": "attachments",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "cleanup_state_check": {
+          "name": "cleanup_state_check",
+          "value": "\"file_cleanup_jobs\".\"state\" IN ('pending','running','failed') AND \"file_cleanup_jobs\".\"attempts\" >= 0"
+        }
+      }
+    },
+    "mutation_receipts": {
+      "name": "mutation_receipts",
+      "columns": {
+        "mutation_id": {
+          "name": "mutation_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_digest": {
+          "name": "request_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "result_json": {
+          "name": "result_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "mutation_receipts_created": {
+          "name": "mutation_receipts_created",
+          "columns": ["created_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "mutation_receipts_account_id_account_id_fk": {
+          "name": "mutation_receipts_account_id_account_id_fk",
+          "tableFrom": "mutation_receipts",
+          "columnsFrom": ["account_id"],
+          "tableTo": "account",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "receipt_json_check": {
+          "name": "receipt_json_check",
+          "value": "json_valid(\"mutation_receipts\".\"result_json\")"
+        }
+      }
+    },
+    "note_attachments": {
+      "name": "note_attachments",
+      "columns": {
+        "note_id": {
+          "name": "note_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attachment_id": {
+          "name": "attachment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "note_attachments_order": {
+          "name": "note_attachments_order",
+          "columns": ["note_id", "ordinal"],
+          "isUnique": true
+        },
+        "note_attachments_attachment_note": {
+          "name": "note_attachments_attachment_note",
+          "columns": ["attachment_id", "note_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "note_attachments_note_id_notes_id_fk": {
+          "name": "note_attachments_note_id_notes_id_fk",
+          "tableFrom": "note_attachments",
+          "columnsFrom": ["note_id"],
+          "tableTo": "notes",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "note_attachments_attachment_id_attachments_id_fk": {
+          "name": "note_attachments_attachment_id_attachments_id_fk",
+          "tableFrom": "note_attachments",
+          "columnsFrom": ["attachment_id"],
+          "tableTo": "attachments",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "note_attachments_note_id_attachment_id_pk": {
+          "columns": ["note_id", "attachment_id"],
+          "name": "note_attachments_note_id_attachment_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "attachment_order_check": {
+          "name": "attachment_order_check",
+          "value": "\"note_attachments\".\"ordinal\" >= 0"
+        }
+      }
+    },
+    "note_search": {
+      "name": "note_search",
+      "columns": {
+        "note_id": {
+          "name": "note_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body_normalized": {
+          "name": "body_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tag_fields_json": {
+          "name": "tag_fields_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "filename_fields_json": {
+          "name": "filename_fields_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_revision": {
+          "name": "source_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "note_search_note_id_notes_id_fk": {
+          "name": "note_search_note_id_notes_id_fk",
+          "tableFrom": "note_search",
+          "columnsFrom": ["note_id"],
+          "tableTo": "notes",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "search_fields_check": {
+          "name": "search_fields_check",
+          "value": "json_valid(\"note_search\".\"tag_fields_json\") AND json_type(\"note_search\".\"tag_fields_json\") = 'array' AND json_valid(\"note_search\".\"filename_fields_json\") AND json_type(\"note_search\".\"filename_fields_json\") = 'array' AND \"note_search\".\"source_revision\" >= 1"
+        }
+      }
+    },
+    "note_tags": {
+      "name": "note_tags",
+      "columns": {
+        "note_id": {
+          "name": "note_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "note_tags_tag_note": {
+          "name": "note_tags_tag_note",
+          "columns": ["tag_id", "note_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "note_tags_note_id_notes_id_fk": {
+          "name": "note_tags_note_id_notes_id_fk",
+          "tableFrom": "note_tags",
+          "columnsFrom": ["note_id"],
+          "tableTo": "notes",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "note_tags_tag_id_tags_id_fk": {
+          "name": "note_tags_tag_id_tags_id_fk",
+          "tableFrom": "note_tags",
+          "columnsFrom": ["tag_id"],
+          "tableTo": "tags",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "note_tags_note_id_tag_id_pk": {
+          "columns": ["note_id", "tag_id"],
+          "name": "note_tags_note_id_tag_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "notes": {
+      "name": "notes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "body_markdown": {
+          "name": "body_markdown",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "prior_status": {
+          "name": "prior_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "timeline_at": {
+          "name": "timeline_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content_edited_at": {
+          "name": "content_edited_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "accuracy": {
+          "name": "accuracy",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location_label": {
+          "name": "location_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "notes_status_timeline": {
+          "name": "notes_status_timeline",
+          "columns": ["status", "\"timeline_at\" DESC", "\"id\" DESC"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "note_status_check": {
+          "name": "note_status_check",
+          "value": "\"notes\".\"status\" IN ('published','draft','trash')"
+        },
+        "note_trash_check": {
+          "name": "note_trash_check",
+          "value": "(\"notes\".\"status\" = 'trash' AND \"notes\".\"prior_status\" IS NOT NULL AND \"notes\".\"prior_status\" IN ('published','draft')) OR (\"notes\".\"status\" <> 'trash' AND \"notes\".\"prior_status\" IS NULL)"
+        },
+        "note_revision_check": {
+          "name": "note_revision_check",
+          "value": "\"notes\".\"revision\" BETWEEN 1 AND 9007199254740991"
+        },
+        "note_time_check": {
+          "name": "note_time_check",
+          "value": "\"notes\".\"timeline_at\" BETWEEN 0 AND 8640000000000000 AND \"notes\".\"created_at\" BETWEEN 0 AND 8640000000000000 AND \"notes\".\"updated_at\" BETWEEN \"notes\".\"created_at\" AND 8640000000000000 AND (\"notes\".\"content_edited_at\" IS NULL OR \"notes\".\"content_edited_at\" BETWEEN \"notes\".\"created_at\" AND \"notes\".\"updated_at\")"
+        },
+        "note_location_check": {
+          "name": "note_location_check",
+          "value": "(\"notes\".\"latitude\" IS NULL AND \"notes\".\"longitude\" IS NULL AND \"notes\".\"accuracy\" IS NULL AND \"notes\".\"location_label\" IS NULL) OR (\"notes\".\"latitude\" IS NOT NULL AND \"notes\".\"longitude\" IS NOT NULL AND \"notes\".\"latitude\" BETWEEN -90 AND 90 AND \"notes\".\"longitude\" BETWEEN -180 AND 180 AND (\"notes\".\"accuracy\" IS NULL OR \"notes\".\"accuracy\" BETWEEN 0 AND 1.7976931348623157e308) AND (\"notes\".\"location_label\" IS NULL OR length(\"notes\".\"location_label\") <= 200))"
+        }
+      }
+    },
+    "recovery_codes": {
+      "name": "recovery_codes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "code_hash": {
+          "name": "code_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "recovery_code_unique": {
+          "name": "recovery_code_unique",
+          "columns": ["account_id", "code_hash"],
+          "isUnique": true
+        },
+        "recovery_unconsumed": {
+          "name": "recovery_unconsumed",
+          "columns": ["account_id", "consumed_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "recovery_codes_account_id_account_id_fk": {
+          "name": "recovery_codes_account_id_account_id_fk",
+          "tableFrom": "recovery_codes",
+          "columnsFrom": ["account_id"],
+          "tableTo": "account",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "security_revision": {
+          "name": "security_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sessions_expiry": {
+          "name": "sessions_expiry",
+          "columns": ["expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sessions_account_id_account_id_fk": {
+          "name": "sessions_account_id_account_id_fk",
+          "tableFrom": "sessions",
+          "columnsFrom": ["account_id"],
+          "tableTo": "account",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "session_hash_check": {
+          "name": "session_hash_check",
+          "value": "length(\"sessions\".\"token_hash\") = 64 AND \"sessions\".\"token_hash\" NOT GLOB '*[^0-9a-f]*'"
+        }
+      }
+    },
+    "tag_changes": {
+      "name": "tag_changes",
+      "columns": {
+        "generation": {
+          "name": "generation",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "old_key": {
+          "name": "old_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_key": {
+          "name": "target_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "tag_changes_old_key": {
+          "name": "tag_changes_old_key",
+          "columns": ["old_key", "generation"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "tag_change_check": {
+          "name": "tag_change_check",
+          "value": "(\"tag_changes\".\"action\" = 'remove' AND \"tag_changes\".\"target_key\" IS NULL) OR (\"tag_changes\".\"action\" IN ('rename','merge') AND \"tag_changes\".\"target_key\" IS NOT NULL)"
+        }
+      }
+    },
+    "tags": {
+      "name": "tags",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "normalized_key": {
+          "name": "normalized_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "display": {
+          "name": "display",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "tags_normalized_key": {
+          "name": "tags_normalized_key",
+          "columns": ["normalized_key"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "tag_length_check": {
+          "name": "tag_length_check",
+          "value": "length(\"tags\".\"normalized_key\") BETWEEN 1 AND 64 AND length(\"tags\".\"display\") BETWEEN 1 AND 64"
+        }
+      }
+    },
+    "upload_batches": {
+      "name": "upload_batches",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mutation_id": {
+          "name": "mutation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_digest": {
+          "name": "request_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "activity_at": {
+          "name": "activity_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "upload_batches_mutation": {
+          "name": "upload_batches_mutation",
+          "columns": ["mutation_id"],
+          "isUnique": true
+        },
+        "upload_batches_activity": {
+          "name": "upload_batches_activity",
+          "columns": ["status", "activity_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "upload_batches_account_id_account_id_fk": {
+          "name": "upload_batches_account_id_account_id_fk",
+          "tableFrom": "upload_batches",
+          "columnsFrom": ["account_id"],
+          "tableTo": "account",
+          "columnsTo": ["id"],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "batch_status_check": {
+          "name": "batch_status_check",
+          "value": "\"upload_batches\".\"status\" IN ('pending','committed','abandoned')"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  },
+  "internal": {
+    "indexes": {
+      "notes_status_timeline": {
+        "columns": {
+          "\"timeline_at\" DESC": {
+            "isExpression": true
+          },
+          "\"id\" DESC": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,9 +1,10 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Currently a technical bootstrap, not a usable note-taking application.**
+**Currently a persistence foundation, not a usable note-taking application.**
 The only application routes are a small shell and `/health` (process liveness).
-No account, notes, uploads, backups or persistent product schema exist yet.
+Explicit migrations, private storage/key initialization and typed server contracts
+exist; account setup, note services, uploads and backup/restore are not implemented.
 
 ## Start here
 
@@ -31,10 +32,40 @@ npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
-Open `http://localhost:5173`. `.env.example` documents the eventual environment
+Open `http://localhost:5173`. `.env.example` documents the environment
 contract. `/health` exposes only `{ "status": "ok" }` with no-store caching;
 it does **not** yet check database/storage readiness. This scaffold is not
 ready for an Internet-facing deployment.
+
+## Private persistence initialization (S01)
+
+```sh
+# Set DATA_DIR in your environment or a private .env (see .env.example).
+# Stop the app before migrating; run from the repository root.
+npm run db:migrate
+```
+
+This creates private directories, random portable key material, the current SQLite
+schema and validated settings defaults. **It creates no account or demo content.**
+Production requires an absolute `DATA_DIR` outside source/build/public assets, on
+persistent local disk. Keep `migrations/` with the trusted application installation.
+Do not use schema-push or copy a live SQLite file without its WAL.
+See [`migrations/README.md`](migrations/README.md) for generation/upgrade rules.
+
+Linux directories are owner-only `0700`; keys/database/WAL/SHM are `0600`. On
+Windows, POSIX mode bits are not ACL protection: restrict the data directory's
+NTFS ACL to the operator/application account. Symlink/junction paths and
+user-controlled filenames are rejected as storage paths. Losing key material for
+an existing database fails closed rather than silently generating a replacement.
+No browser/file access endpoint exposes this tree.
+
+`Persistence.write` combines the maintenance gate with a synchronous IMMEDIATE
+transaction. Use it for every domain mutation; `Persistence.close()` drains active
+write leases and closes the database. The S02 application lifecycle must wire this
+foundation into setup/authentication and process shutdown. Pending filesystem
+journals block opening/migrating data until recovery; the S17 restore state machine
+and S06/S07 cleanup worker are still future work, not implemented restore/deletion.
+Initial timezone is UTC until setup/settings explicitly accepts a browser proposal.
 
 ## Validation
 
@@ -77,6 +108,6 @@ application data, browser profiles or backup archives in git or public assets.
 > outcomes including failures, and leave an exact handoff in PROGRESS.
 > A blocked native/browser/Linux check is not a pass.
 
-See PROGRESS for S00 validation results and the next implementation task.
+See PROGRESS for S00/S01 validation results and the next implementation task.
 Production deployment, performance and independent backup/restore drills remain
 part of the final S18 gate; this repository does not claim product completion.

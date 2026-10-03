@@ -1,7 +1,8 @@
-# S00 verification
+# Foundation verification (S00/S01)
 
-These are capability probes and bootstrap tests, not completed product features.
-All fixtures are synthetic and generated at runtime. No personal data or fixed
+S00 tests are capability probes, not completed product features. S01 tests
+exercise the actual persistence foundation; authentication and note endpoints
+are not implemented yet. All fixtures are synthetic and generated at runtime. No personal data or fixed
 production credential is committed.
 
 | Suite                         | Scope / acceptance foundations                                                                                                                                                       |
@@ -14,6 +15,23 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S01 coverage
+
+| Suite                                    | Scope / acceptance foundations                                                                                                                                                                                                                                         |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/domain.test.ts`                    | UUID/UTC/revision/location/status transitions, strict DTOs and bounded validated settings                                                                                                                                                                              |
+| `unit/coordinator.test.ts`               | Async draining, maintenance refusal, timeout/failure release, exclusive-capability expiry and idempotent shutdown                                                                                                                                                      |
+| `integration/migrations.test.ts`         | Real fresh/repeated/forward migrations, failed-upgrade/fresh rollback, modified/unknown/newer history rejection, read-only integrity/FKs/index order, empty account/content, settings restart                                                                          |
+| `integration/domain-persistence.test.ts` | Single account, SQLite location/status/revision/immutable creation checks, stale revision predicates, ready/FK/shared/Trash references, transactional cleanup/receipt/search/joins, retry mismatch, maintenance-gated settings (NOTE-01/02/03, POST-02/03 foundations) |
+| `integration/private-storage.test.ts`    | Production path/symlink/ID checks, random stable/lost/corrupt keys, Linux permissions, bounded durable journals, startup recovery blocking and real repeated migration CLI                                                                                             |
+| `integration/server-boundary.test.ts`    | Actual SvelteKit production builds reject direct/indirect client imports of persistence, with inherited test-mode bypass disabled                                                                                                                                      |
+
+`tests/helpers/persistence.ts` is test-only seeding/isolated cleanup; product code
+never imports it. Cleanup enqueueing and journal primitives are tested, **not**
+full attachment deletion or restore/crash rollback. Linux checks execute POSIX
+permission/fsync assertions; Windows uses operator ACLs instead. No existing
+schema is pushed or runtime database migration hidden in a page request.
 
 ## Run
 
@@ -48,8 +66,8 @@ Browser profiles/downloads/traces are not tracked. Linux browser runs need
 From the repository root with Docker or Podman:
 
 ```sh
-podman build -f ops/Dockerfile.validation -t pandanote-s00 .
-podman run --rm --cpus=2 --memory=4g pandanote-s00
+podman build -f ops/Dockerfile.validation -t pandanote-s01 .
+podman run --rm --cpus=2 --memory=4g pandanote-s01
 ```
 
 Replace `podman` with `docker` if appropriate. This pins the Linux/glibc base
@@ -76,5 +94,5 @@ add a minimal non-root runtime, persistent volume, HTTPS proxy and runbook.
   paths fit this subset. S16/S17 must add the real manifest, DB schema/key/file
   validation, second-pass staged extraction and crash-safe replacement. Never
   use this probe alone as a restore feature.
-- Authentication/settings helpers are pinned but no account, session, MFA or
-  settings behavior is implemented in S00.
+- Authentication helpers are pinned but account/session/MFA behavior remains
+  S02. S01 implements validated settings persistence only, not a settings UI.

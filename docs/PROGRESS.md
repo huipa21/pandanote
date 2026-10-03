@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** technical bootstrap complete; product implementation remains unfinished.
-- **Completed step:** S00 — Bootstrap and validate technical assumptions — **done**.
-- **Next unfinished step:** S01 — Database, domain schema, and persistent storage foundation — **not started**.
-- **Repository:** git initialized; no commit created. Planning and bootstrap files remain uncommitted and must be preserved.
-- **Implemented:** minimal SvelteKit/adapter-node shell, liveness endpoint, strict tooling, separated real-library suites and test-only Mermaid harness; no product screens/domain persistence/authentication yet.
-- **Validation:** Windows check/lint/build, 17 unit + 27 integration + 4 Chromium tests passed. Pinned Linux/glibc image independently passed check/lint/build and the same 17 unit + 27 integration tests. No unresolved S00 blocker; detailed results and limitations are below and in `tests/README.md`.
-- **Runtime:** Node 24.21.0 LTS; tested npm 11.12.1 (Windows) and 11.19.0 (Linux). System Node 24.15.0 was not upgraded; this session used a separately downloaded 24.21.0 executable and explicit PATH.
+- **Phase:** persistence foundation complete; product implementation remains unfinished.
+- **Completed steps:** S00 and S01 — **done**.
+- **Next unfinished step:** S02 — Single-user authentication and optional TOTP — **not started**.
+- **Repository:** session began clean at S00 commit `3508c22`. S01 changes are uncommitted; no commit created this session.
+- **Implemented:** explicit migratable 17-table schema, private data/key initialization, validated settings, shared domain/error/receipt contracts, maintenance/draining/shutdown and cleanup/journal primitives. Existing shell/liveness/probes preserved. No account setup, note endpoints or private file UI yet.
+- **Validation:** Windows check/lint/build, 23 unit + 40 integration + 4 Chromium tests passed. Pinned Linux/glibc image independently passed check/lint/build and the same 23 unit + 40 integration tests, including POSIX permissions, actual CLI and browser-import rejection builds. No unresolved S01 blocker; details below and in `tests/README.md`.
+- **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md` and all planning documents; especially ARCHITECTURE sections 2.1–5, 12–13; IMPLEMENTATION_PLAN S01; acceptance persistence/security/backup invariants; this S00 history.
-2. Inspect git and preserve the existing uncommitted tree. Read `package.json`, `vite.config.ts`, `tsconfig.json`, `tests/README.md`, `tests/integration/sqlite.test.ts`, and `ops/Dockerfile.validation`. Verify Node 24.21.0 is actually used by npm child processes; do not disable TLS verification.
-3. Begin **S01 only**: create server-only database initialization and explicit versioned migrations (`src/lib/server/db/`, `migrations/`), with real temporary SQLite migration tests. Then add the S01 private data-root/key/settings/coordinator and typed-contract foundations. Do not import `tests/spikes` into product modules or start visual feature work.
-4. First validation: `npm ci && npm run check && npm run test:integration`. Revalidate Drizzle Kit's TypeScript schema generation with the scoped esbuild override when adding migrations (S00 only exercised its version CLI and Drizzle SQL connection).
-5. Complete S01's common gates and repeat the Linux image tests before declaring it done. Update this document with actual results and the next unfinished task.
+1. Read `AGENTS.md` and planning documents; especially ARCHITECTURE 2.1, 4.3, 12–13; IMPLEMENTATION_PLAN S02; ACCEPTANCE_TESTS AUTH-01–05; this S01 history.
+2. Inspect git and preserve S01's uncommitted work. Read `src/lib/server/db/{connection,schema,migrations}.ts`, `src/lib/server/storage/private-storage.ts`, `src/lib/server/maintenance/{coordinator,journal}.ts`, `src/lib/shared/{domain,settings}.ts`, `scripts/migrate.ts`, `migrations/README.md`, and `tests/helpers/persistence.ts`.
+3. Begin **S02 only**, starting with operator-held one-time bootstrap/setup and Argon2id cost/concurrency measurement, using the real singleton account schema and `Persistence.write`. Wire the single application persistence lifecycle and graceful shutdown; never migrate in a request. Verify installed Kit 3 origin/cookie/hook APIs and use `#lib` aliases, not old `$lib` examples.
+4. First validation: `npm ci && npm run check && npm run test:integration` on pinned Node with TLS verification explicitly enabled. Add actual setup-token reuse/sole-account integration tests before UI/session/MFA work. Do not import test seed helpers into product modules or generate a demo account.
+5. Complete S02's common/authentication/browser gates and repeat Linux validation. All future mutations must use the shared coordinator; journal/cleanup primitives are not finished restore/deletion features.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -25,7 +25,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | Step | Description                        | State       |
 | ---- | ---------------------------------- | ----------- |
 | S00  | Bootstrap and technical validation | Done        |
-| S01  | Schema and persistent storage      | Not started |
+| S01  | Schema and persistent storage      | Done        |
 | S02  | Authentication and optional TOTP   | Not started |
 | S03  | Design tokens and responsive shell | Not started |
 | S04  | Markdown/code/Mermaid/tag parsing  | Not started |
@@ -204,3 +204,117 @@ checks passed on Windows. No native/Linux requirement was skipped.
 - `/health` is process liveness only; there is no durable data/schema yet. Do not expose this scaffold as a finished private application.
 - No release/performance/accessibility/independent restore drill claimed. S18 remains not started.
 - **Next session:** implement S01 server-only connection + explicit migrations and real migration tests first. Read the files listed in the current handoff. First command: `npm ci && npm run check && npm run test:integration` on the pinned runtime; then exercise Drizzle schema generation before creating the durable schema. Preserve uncommitted bootstrap files and this history.
+
+### Session 2026-10-03 — S01 database and persistent storage foundation
+
+**State: done.** S01's acceptance gate passed on Windows and Linux. S02 was not started.
+
+Implemented / touched files:
+
+- `src/lib/server/db/{schema,connection,migrations}.ts`, `drizzle.config.ts`,
+  `migrations/0000_foundation.sql`, `0001_invariant_guards.sql`, Drizzle snapshots/
+  journal and `migrations/README.md`: 17 domain tables, required indexes/FKs/checks,
+  singleton account/settings, no titles/roles. Note identity/creation/revision and
+  ready/reference-safe attachment triggers. WAL/FULL/FKs/5s busy timeout,
+  trusted-schema off, synchronous IMMEDIATE transactions and draining close.
+- `scripts/migrate.ts`, `package.json`, `tsconfig.tests.json`: explicit operator
+  migration/init command, reviewed Drizzle generation, current schema version 2,
+  hash-checked contiguous ledger and all-pending transactional upgrades. Unknown,
+  modified, newer schemas and failed upgrades do not overwrite prior state.
+  Native Node TS stripping uses erasable syntax and explicit relative extensions;
+  `#lib` package imports map Kit 3 client/server aliases. Dependency pins/lockfile
+  remain unchanged (lockfile-only reconciliation made no dependency diff).
+- `src/lib/server/storage/private-storage.ts`: environment-configurable private
+  root, absolute path required in production, source/public/symlink/junction/path
+  rejection; generated UUIDv4 IDs/known variants, fsynced private JSON creation/
+  replacement, random stable portable keys and missing/corrupt-key refusal.
+  POSIX directories 0700, keys/DB/WAL/SHM 0600; NTFS ACLs documented for Windows.
+- `src/lib/shared/{domain,settings}.ts`, `src/lib/server/settings/repository.ts`,
+  `src/lib/server/db/receipts.ts`: strict safe DTO/error/UTC/location/revision/
+  transition/result contracts, future-date validation, bounded settings defaults,
+  validated singleton persistence, transactional receipt primitives with mismatch
+  rejection. Initial timezone UTC pending explicit setup/browser proposal.
+- `src/lib/server/maintenance/{coordinator,cleanup,journal}.ts`: synchronous and
+  async write leases, bounded drain/exclusive gate, expiring maintenance capability,
+  failure/timeout release and idempotent shutdown. Transactional, reference-checked
+  cleanup enqueueing; generated-ID-only durable bounded restore journal primitive.
+  Pending recovery journals block normal opening/migration; no restore claimed.
+- `tests/helpers/persistence.ts`, new domain/coordinator unit tests and four new
+  persistence/storage/migration/server-boundary integration files. Real read-only
+  inspection connections assert integrity/FKs/index direction and invariants;
+  seeding is test-only. Browser-boundary tests run actual isolated production
+  builds for both direct and indirect server imports with test-mode bypass off.
+- `.dockerignore`, `.env.example`, `ops/Dockerfile.validation`, README,
+  ARCHITECTURE 4.3, `tests/README.md`, this handoff. Docker context now includes
+  trusted migrations but still excludes runtime data/secrets/host native artifacts.
+  No route/UI or settled product requirement changed.
+
+Checks actually run:
+
+Host commands used the S00 `N`/`C` executable paths and pinned PATH (see above).
+Final network/validation commands explicitly exported
+`NODE_TLS_REJECT_UNAUTHORIZED=1`.
+
+| Command                                                                   | Actual result                                                                                                        |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `git status --short`, `git log -1`, repository/doc/file reads             | Clean S00 baseline; preserved all existing files                                                                     |
+| `"$N" "$C" ci && ... run check && ... run test:integration`               | PASS initial clean install, 0 audit vulnerabilities, baseline 27 integration tests                                   |
+| `"$N" "$C" exec -- drizzle-kit generate --name=foundation`                | PASS after correcting SQLite index API; generated 17-table migration with scoped esbuild override                    |
+| `"$N" "$C" exec -- drizzle-kit generate --custom --name=invariant_guards` | PASS, custom SQL migration/snapshot prepared and invariant triggers implemented                                      |
+| `"$N" "$C" install --package-lock-only`                                   | PASS final rerun with TLS verification, no dependency/lockfile change, 0 vulnerabilities                             |
+| `"$N" "$C" run db:generate -- --name=verify_no_drift`                     | PASS, no schema changes/nothing to migrate                                                                           |
+| `"$N" "$C" run format`                                                    | PASS                                                                                                                 |
+| `"$N" "$C" run check`                                                     | PASS, 0 errors/warnings including native-CLI erasable syntax/test tooling                                            |
+| `"$N" "$C" run lint`                                                      | PASS, ESLint/Prettier                                                                                                |
+| `"$N" "$C" run test:unit`                                                 | PASS, 4 files / 23 tests                                                                                             |
+| `"$N" "$C" run test:integration`                                          | PASS, 8 files / 40 tests, actual repeated CLI, SQLite/filesystem and isolated browser-import rejection builds        |
+| `"$N" "$C" run test:e2e`                                                  | PASS, production build + all 4 Chromium smoke/Mermaid regression tests                                               |
+| `"$N" "$C" run build`                                                     | PASS, adapter-node output; no persistence or test fixture route in the client                                        |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s01 .`            | PASS, fresh Linux npm ci/native artifacts, 0 vulnerabilities                                                         |
+| `podman run --rm --cpus=2 --memory=4g pandanote-s01`                      | PASS, Linux check/lint, 23 unit, 40 integration, build; POSIX/fsync/key/SQLite/Sharp/archive checks execute on Linux |
+| `git diff --check`                                                        | PASS; only host autocrlf informational warnings                                                                      |
+
+Passing Linux code-gate image:
+`cae8c409453337091ec922343c27fff647980a77a15380b538478bf3907b8a28`.
+Same pinned Node 24.21.0 bookworm/glibc base digest as S00; npm 11.19.0.
+Linux Chromium was not run in this foundation image; full browser regressions
+passed on Windows. This is native compatibility evidence, not a VPS performance
+or full archive-restore drill (S17/S18).
+
+Resolved intermediate failures / observations:
+
+- Initial Drizzle generation used a PostgreSQL-style `.desc()` column method,
+  unavailable on SQLite columns. Switched to typed SQL DESC index expressions;
+  generated SQL/index_xinfo and no-drift generation verified actual order.
+- Initial check found better-sqlite3 pragma results typed `unknown`; added narrow
+  inspection casts. No type-check errors remain.
+- Real CLI test rejected TS parameter properties in Node strip-only mode.
+  Replaced them with ordinary fields and added `erasableSyntaxOnly` checking;
+  repeated actual Node CLI passes on both hosts without a TS loader dependency.
+- Initial boundary test failed on removed `$lib`, then missing `#lib` mapping.
+  Added installed Kit 3 package imports mappings. A subsequent build unexpectedly
+  succeeded because Vitest's inherited test environment bypassed Kit's import
+  guard. The child explicitly sets TEST/VITEST false and NODE_ENV production;
+  direct and indirect imports now genuinely fail at the server/client boundary.
+- One lockfile-only command inherited harness TLS verification value `0` and
+  emitted Node's insecure TLS warning. This was not intentionally configured by
+  project code. Inspected the inherited value, explicitly set it to `1`, and reran
+  the network command and final validation. Future sessions must set it explicitly.
+- Existing upstream Drizzle-loader/prebuild-install deprecation and Linux npm
+  native install-script review warnings remain; installs/native tests passed.
+  No dependency change, service/stack expansion or security exception was added.
+
+Remaining scope / exact next task:
+
+- No S01 blocker. The schema/contract foundations are not account setup, full
+  idempotent note services, file cleanup processing, search/FTS or restore. S07
+  must enforce revision predicates and atomic content/tag/link/search/receipt
+  writes; schema triggers are defense in depth, not service authorization.
+- Low-level Drizzle/native handles exist for reads/migrations/online backup;
+  domain mutations must use `Persistence.write`, never bypass the shared gate.
+  S02 must integrate a single runtime instance with setup/auth and signal shutdown.
+- Begin S02 operator-held setup token + single account and measured/bounded
+  Argon2id implementation. Read the exact files in the current handoff; first
+  validation is `npm ci && npm run check && npm run test:integration` using the
+  pinned runtime and verified TLS. Add sole-account/token-reuse integration tests
+  before sessions/MFA/UI. No new product functionality was deferred from S01.

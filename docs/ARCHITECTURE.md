@@ -182,6 +182,59 @@ Indexes at minimum:
 
 Use a read-only test inspection connection to assert these invariants; mocks alone are insufficient.
 
+### 4.3 S01 persistence contracts and implemented choices
+
+- `schema.ts` defines 17 domain tables and their indexes/checks. The first two
+  migrations contain generated table SQL and custom invariant triggers. FTS5 is
+  deliberately deferred to S10; `note_search` reserves a normalized body plus
+  separate JSON arrays of tag and filename fields, with source revision. It is
+  derived data, not a product search service yet.
+- `npm run db:migrate` is explicit operator initialization/upgrade, from the
+  repository root while the app is stopped. It seeds settings only, never an
+  account or notes. The runner consumes Drizzle SQL/journal files with a custom
+  contiguous SHA-256 ledger and `user_version`; hashes normalize CRLF to LF.
+  All pending SQL/ledger changes and integrity checks run in one IMMEDIATE
+  transaction. Modified histories, unknown DBs and downgrades fail closed.
+  See `migrations/README.md`. Runtime opens only the current migrated schema.
+- UTC epoch milliseconds are numeric, IDs are lowercase UUIDv4, ordering ties
+  use SQLite's default BINARY text ordering. Note triggers preserve ID/creation
+  time and require revision exactly +1 for every row update. Service-layer
+  expected-revision predicates, content-edited timing and atomic joins/search/
+  receipts remain required when S07 implements note mutations.
+- A ready attachment cannot be linked if queued for cleanup; an attachment with
+  any note reference (including Trash) cannot have its metadata changed or be
+  deleted. Cleanup records use generated attachment IDs, never arbitrary paths.
+  Enqueueing is transactional and idempotent; byte deletion/worker recovery is
+  S06/S07, not claimed in S01. Metadata stays until safe cleanup is complete.
+- `PrivateStorage` resolves operator-configured `DATA_DIR`, requires an absolute
+  production path, rejects source/build/public roots and symlink/junction paths,
+  and uses generated IDs/known variants only. POSIX directories are `0700` and
+  keys/DB/WAL/SHM `0600`; Windows needs operator-set NTFS ACLs. The private tree is
+  trusted against writes by other UIDs, not an OS attacker controlling the app UID.
+- Portable key material is a versioned JSON file containing a random key ID and
+  32-byte TOTP encryption key. Exclusive, fsynced creation never overwrites keys;
+  missing keys alongside an existing DB are an operator-recovery failure.
+  S02 defines authenticated AES-GCM encryption/enrollment, not S01.
+- Settings are singleton validated JSON, schema version 1, with the agreed
+  appearance/upload defaults and a seven-day session lifetime. Initial timezone
+  is **UTC** until setup/settings explicitly accepts the browser proposal;
+  never use the VPS timezone as a silent default.
+- `Persistence.write` always acquires the shared coordinator and runs a
+  synchronous IMMEDIATE Drizzle transaction. `writeAsync` leases protect future
+  filesystem operations; exclusive maintenance refuses new writes and drains
+  active leases with a bounded timeout. Exclusive capabilities expire on exit;
+  close drains and permanently closes the coordinator. Domain code must not
+  bypass this using the exposed low-level migration/online-backup handles.
+- Journals use bounded validated private JSON and fsynced single-file replacement.
+  Pending journals block normal initialization/opening. This is a primitive, not
+  the S17 journaled multi-directory restore/recovery state machine.
+- Shared DTO/validation modules contain no secrets or server dependencies.
+  Kit 3 uses package `imports` mappings for `#lib`/`#lib/*`, not implicit `$lib`.
+  Real production-build tests reject direct and indirect browser imports of
+  persistence (test child processes disable inherited Vitest/Kit test mode).
+  The operator CLI uses Node 24 native TS stripping; its import graph must use
+  erasable syntax and explicit relative `.ts` imports.
+
 ## 5. Internal endpoints and DTO contracts
 
 Exact path names can change, but define and test typed contracts before client integration. This is an internal API inside SvelteKit, not a separately deployed backend.

@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
+  },
   "engines": {
     "node": ">=24.21.0 <25",
     "npm": ">=11 <12"
@@ -19,6 +23,8 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "vite build && playwright test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts",
     "spike:browser": "vite --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4174 --strictPort"
   },
   "overrides": {
