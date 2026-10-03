@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mermaid capability probe (test only)</title>
+  </head>
+  <body>
+    <h1>Mermaid capability probe</h1>
+    <label for="source">Diagram or SVG source</label>
+    <textarea id="source">
+flowchart LR
+      A[Write] --> B[Read]</textarea>
+    <button id="render" type="button">Render diagram</button>
+    <button id="sanitize" type="button">Sanitize SVG</button>
+    <p id="status" role="status">Not loaded</p>
+    <div id="output"></div>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+# Allowlist: runtime data, secrets, archives and Windows native modules never enter a build.
+**
+!package.json
+!package-lock.json
+!.npmrc
+!.node-version
+!.env.example
+!.prettierrc.json
+!.prettierignore
+!*.config.*
+!tsconfig*.json
+!AGENTS.md
+!README.md
+!src/
+!src/**
+!tests/
+!tests/**
+!scripts/
+!scripts/**
+!ops/
+!ops/**
+!docs/
+!docs/**
