@@ -34,6 +34,24 @@ export const account = sqliteTable(
     ),
   ],
 );
+// Operator-issued runtime credential; exclude this table from full backups.
+export const setupTokens = sqliteTable(
+  'setup_tokens',
+  {
+    singleton: integer('singleton').primaryKey().notNull().default(1),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+    createdAt: created(),
+  },
+  (t) => [
+    check('setup_singleton_check', sql`${t.singleton} = 1`),
+    check(
+      'setup_hash_check',
+      sql`length(${t.tokenHash}) = 64 AND ${t.tokenHash} NOT GLOB '*[^0-9a-f]*'`,
+    ),
+    check('setup_expiry_check', sql`${t.expiresAt} > ${t.createdAt}`),
+  ],
+);
 export const sessions = sqliteTable(
   'sessions',
   {

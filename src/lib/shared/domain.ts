@@ -73,6 +73,7 @@ export const expectedRevisionSchema = revisionSchema;
 export type ErrorCode =
   | 'validation'
   | 'unauthorized'
+  | 'rate-limited'
   | 'fresh-auth-required'
   | 'conflict'
   | 'mutation-mismatch'

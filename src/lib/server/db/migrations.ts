@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 const journalSchema = z.object({
   dialect: z.literal('sqlite'),
   entries: z.array(

@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** persistence foundation complete; product implementation remains unfinished.
+- **Phase:** authentication first slice implemented; product implementation remains unfinished.
 - **Completed steps:** S00 and S01 — **done**.
-- **Next unfinished step:** S02 — Single-user authentication and optional TOTP — **not started**.
-- **Repository:** session began clean at S00 commit `3508c22`. S01 changes are uncommitted; no commit created this session.
-- **Implemented:** explicit migratable 17-table schema, private data/key initialization, validated settings, shared domain/error/receipt contracts, maintenance/draining/shutdown and cleanup/journal primitives. Existing shell/liveness/probes preserved. No account setup, note endpoints or private file UI yet.
-- **Validation:** Windows check/lint/build, 23 unit + 40 integration + 4 Chromium tests passed. Pinned Linux/glibc image independently passed check/lint/build and the same 23 unit + 40 integration tests, including POSIX permissions, actual CLI and browser-import rejection builds. No unresolved S01 blocker; details below and in `tests/README.md`.
+- **Current unfinished step:** S02 — Authentication and optional TOTP — **in progress**, not done.
+- **Repository:** session began clean at S01 commit `ea7b9ee`. S02 changes are uncommitted; no commit created this session. Prior history preserved.
+- **Implemented:** operator-only expiring setup token, atomic sole-account setup, bounded Argon2id, persistent rate limits, password login/logout and hashed seven-day sessions, central private route/Origin/proxy policy, minimal setup/login UI and runtime shutdown. Schema now version 3 / 18 tables. TOTP-enabled account rows fail closed; no working MFA/fresh-auth/security settings yet.
+- **Validation:** Windows check/lint/build, 28 unit + 53 integration + 5 Chromium tests passed. Final pinned Linux/glibc image passed check/lint/build and the same 28 unit + 53 integration tests, including production server restart, two runtime origins and graceful shutdown. Argon2 measured on both hosts; details below. No unresolved first-slice blocker; full S02 gate remains outstanding.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md` and planning documents; especially ARCHITECTURE 2.1, 4.3, 12–13; IMPLEMENTATION_PLAN S02; ACCEPTANCE_TESTS AUTH-01–05; this S01 history.
-2. Inspect git and preserve S01's uncommitted work. Read `src/lib/server/db/{connection,schema,migrations}.ts`, `src/lib/server/storage/private-storage.ts`, `src/lib/server/maintenance/{coordinator,journal}.ts`, `src/lib/shared/{domain,settings}.ts`, `scripts/migrate.ts`, `migrations/README.md`, and `tests/helpers/persistence.ts`.
-3. Begin **S02 only**, starting with operator-held one-time bootstrap/setup and Argon2id cost/concurrency measurement, using the real singleton account schema and `Persistence.write`. Wire the single application persistence lifecycle and graceful shutdown; never migrate in a request. Verify installed Kit 3 origin/cookie/hook APIs and use `#lib` aliases, not old `$lib` examples.
-4. First validation: `npm ci && npm run check && npm run test:integration` on pinned Node with TLS verification explicitly enabled. Add actual setup-token reuse/sole-account integration tests before UI/session/MFA work. Do not import test seed helpers into product modules or generate a demo account.
-5. Complete S02's common/authentication/browser gates and repeat Linux validation. All future mutations must use the shared coordinator; journal/cleanup primitives are not finished restore/deletion features.
+1. Read `AGENTS.md` and planning documents; especially ARCHITECTURE 12.1–12.4, IMPLEMENTATION_PLAN S02, ACCEPTANCE_TESTS AUTH-01–05 and this latest handoff.
+2. Inspect git and preserve partial S02 work. Read `src/lib/server/auth/{service,passwords,tokens,rate-limits,policy,http}.ts`, `src/lib/server/runtime.ts`, `src/hooks.server.ts`, `src/lib/shared/auth.ts`, `src/lib/server/db/{schema,connection}.ts`, `src/lib/server/storage/private-storage.ts`, `vite.config.ts` and new auth/runtime tests.
+3. Continue **S02 only**: first add authenticated AES-GCM TOTP secret storage and confirmed enrollment, using the existing private portable key and real `auth_challenges`/account tables. Verify pinned otplib 13.5 APIs: epoch is seconds, successful verification reports `timeStep`, drift is explicit/bounded; replay consumption must commit atomically. Add real replay/expiry/parallel consumption tests before UI.
+4. Then implement pending-MFA login challenges (password must not create a full session), 10 single-use hashed recovery codes, scoped five-minute fresh-auth, password/MFA changes, session/revision rotation and all-device revocation, security UI including local QR and generation-only recovery download, and an explicit operator-only recovery command/runbook. Extend persistent rate-limit scopes and bound/expire challenge storage. Do not add public recovery or bypass Origin checks.
+5. First validation: `npm run check && npm run test:integration` on pinned Node with TLS verification enabled. Complete the common and auth/browser gates and repeat Linux validation before marking S02 done. Retain the runtime-origin adapter wrapper: adapter 6 does not read runtime ORIGIN itself. Real HTTPS/proxy/browser validation and target-VPS Argon2 measurements are still outstanding, not claimed by loopback tests.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -26,7 +26,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | ---- | ---------------------------------- | ----------- |
 | S00  | Bootstrap and technical validation | Done        |
 | S01  | Schema and persistent storage      | Done        |
-| S02  | Authentication and optional TOTP   | Not started |
+| S02  | Authentication and optional TOTP   | In progress |
 | S03  | Design tokens and responsive shell | Not started |
 | S04  | Markdown/code/Mermaid/tag parsing  | Not started |
 | S05  | Browser drafts and recovery        | Not started |
@@ -318,3 +318,144 @@ Remaining scope / exact next task:
   validation is `npm ci && npm run check && npm run test:integration` using the
   pinned runtime and verified TLS. Add sole-account/token-reuse integration tests
   before sessions/MFA/UI. No new product functionality was deferred from S01.
+
+### Session 2026-10-03 — S02 first slice: setup, password sessions and route privacy
+
+**State: in progress.** This session intentionally implemented a tested first slice;
+S02's optional TOTP/fresh-auth/security gate is **not complete**. No S03 work started.
+
+Implemented / touched files:
+
+- `src/lib/server/auth/{passwords,tokens,rate-limits,service,policy,http}.ts`,
+  `src/lib/shared/auth.ts`, shared error code: Argon2id v19 with random salt,
+  64 MiB / three passes / one lane / 32-byte output; a process-wide concurrency
+  cap of one with no waiting queue. Exact Unicode password bytes, 12-codepoint
+  minimum, 256 UTF-16 unit / 1024-byte maximum. Generic failed-login responses.
+- `src/lib/server/db/{schema,migrations}.ts`, `migrations/0002_setup_tokens.sql`,
+  snapshot/journal and README: version 3 / 18 tables. Operator-held 32-byte token
+  hashes, one-hour expiry/reissue; account creation, token deletion and initial
+  session commit together. Account singleton constraint preserved. Setup-token
+  runtime state explicitly excluded from the later full backup design.
+- `scripts/{setup-token,auth-benchmark}.ts`, `package.json`, `.env.example`:
+  operator token issuance (no public endpoint), synthetic secret-free benchmark,
+  explicit `.env` loading for dev/start/CLI. Token output is deliberately displayed
+  once to the operator terminal, not logged by the server. No dependency/pin/lock
+  resolution change; lockfile-only reconciliation produced no actual lock diff.
+- Persistent fixed-window limits: independent setup/login scopes, 10 attempts/IP
+  and 30 account-wide per 15 minutes, including successes, no sliding lockout.
+  Keyed IP digests, expiry cleanup, protected account buckets and hard 1024-row cap.
+- Hashed random bearer sessions, default seven-day absolute expiry via settings,
+  host-only HttpOnly/Secure-production/SameSite=Strict cookies, expiry/revocation/
+  security revision checks, current-session logout, expired pruning and 100-session
+  bound with oldest eviction. Login rechecks account/hash/revision after async
+  verification. MFA-enabled rows currently deny password-only access entirely.
+- `src/lib/server/runtime.ts`, `src/hooks.server.ts`, `src/app.d.ts`: one lazy
+  explicitly migrated runtime, safe initialization errors, coordinator-backed
+  writes and adapter post-request graceful shutdown. Method-aware exact public
+  allowlist; private page redirects and API/file/backup 401s, required configured
+  Origin on mutations, ignored untrusted forwarded headers and explicit exact-IP
+  proxy trust. Authentication JSON has a 4 KiB actual streamed-byte cap. Safe
+  no-store/nosniff/referrer/frame/CSP headers; no auth secrets in routine DTOs.
+- `vite.config.ts`: adapter 6's generated origin handoff is narrowly replaced
+  after the stock adapter build with a canonical runtime ORIGIN reader. The
+  expected export must occur exactly once; upstream drift or build-time origin
+  configuration fails closed. No dependency source patch, baked-in domain,
+  wildcard trusted origin or disabled CSRF. Same artifact tested at two origins.
+- `src/lib/components/AuthForm.svelte`, setup/login pages, auth API routes, root
+  page/load: functional minimal setup/login/logout, accessible labels/feedback,
+  duplicate-submit prevention and retained input on failures. The private root is
+  still an explicitly labeled technical scaffold, not a notes/security-settings UI.
+- `tests/unit/auth-policy.test.ts`, `tests/integration/{auth,auth-http,runtime-server}.test.ts`,
+  migration test update, `tests/e2e/auth.test.ts`, smoke/teardown and e2e server
+  fixture initialization: real SQLite/Argon2/CLI/browser tests, setup races and
+  transaction failure retry, revision races, session/rate bounds/restart, streaming
+  limits, built private routes and production cookie flags. E2E teardown now stops
+  its own app before removing Windows-locked SQLite files; fixtures cleaned.
+- README, ARCHITECTURE 12.4/backup runtime exclusions, migrations/test README and
+  this handoff. No PRODUCT_SPEC requirements, stack or scope changes.
+
+Checks actually run (host uses the S00 N/C paths and pinned PATH; TLS explicitly 1):
+
+| Command                                                                             | Actual result                                                                                                                                         |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git status --short`, `git log -2`, docs/API/source reads                           | Clean S01 baseline `ea7b9ee`; planning docs read fully; installed Argon2, Kit 3/adapter 6 sources inspected                                           |
+| `"$N" "$C" ci && ... run check && ... run test:integration`                         | PASS baseline: clean install, zero audit vulnerabilities, 0 diagnostics and all original 40 integration tests                                         |
+| `"$N" "$C" run db:generate -- --name=setup_tokens`                                  | PASS, reviewed new singleton table migration/snapshot; version incremented to 3                                                                       |
+| `"$N" "$C" run db:generate -- --name=verify_no_drift`                               | PASS, no schema drift/nothing to migrate                                                                                                              |
+| `"$N" "$C" install --package-lock-only`                                             | PASS, zero audit vulnerabilities, no dependency/lock resolution change                                                                                |
+| `"$N" "$C" run format`                                                              | PASS; final source/docs formatted                                                                                                                     |
+| `"$N" "$C" run check`                                                               | PASS final, zero errors/warnings including test/tool/CLI TypeScript                                                                                   |
+| `"$N" "$C" run lint`                                                                | PASS final ESLint/Prettier                                                                                                                            |
+| `"$N" "$C" run test:unit`                                                           | PASS final, 5 files / 28 tests                                                                                                                        |
+| `"$N" "$C" run test:integration`                                                    | PASS final, 11 files / 53 tests, real native/filesystem/CLI and production-server tests                                                               |
+| `"$N" "$C" run test:e2e`                                                            | PASS final, production build + all 5 Chromium tests, including full password setup/login/logout and existing Mermaid CSP regressions                  |
+| `"$N" "$C" run build`                                                               | PASS final adapter-node build with runtime origin handoff                                                                                             |
+| `"$N" "$C" run auth:benchmark`                                                      | PASS, synthetic native measurements and explicit concurrent-operation rejection (below)                                                               |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s02-partial .`              | PASS final fresh Linux ci, native artifacts and zero audit vulnerabilities                                                                            |
+| `podman run --rm --cpus=2 --memory=4g pandanote-s02-partial`                        | PASS final Linux check/lint, 28 unit + 53 integration, build; actual production restart/two-origin/form-CSRF/graceful-shutdown test executes on Linux |
+| `podman run --rm --cpus=2 --memory=4g pandanote-s02-partial npm run auth:benchmark` | PASS final Linux synthetic probe, concurrency bound enforced                                                                                          |
+| `git diff --check`; `test ! -e .e2e-data`                                           | PASS; host autocrlf informational warnings only, E2E fixture cleanup verified                                                                         |
+
+Final passing Linux code-gate image:
+`0d3336f5c9e5db5300a46fb0d801203cb7a24f23101b7f4bac021e681f85303f`.
+Same pinned Node 24.21.0 bookworm/glibc base digest as S00/S01; npm 11.19.0.
+This image precedes the final progress-log-only update. Linux Chromium was not
+run; all five browser tests passed on Windows. No full S02 pass is claimed.
+
+Argon2 measurements (five hash + five verify samples; 10 ms RSS sampler):
+
+| Host                                          | Hash median / p95 | Verify median / p95 | Baseline / peak RSS |
+| --------------------------------------------- | ----------------- | ------------------- | ------------------- |
+| Windows x64, Node 24.21.0                     | 123 / 134 ms      | 131 / 136 ms        | 66 / 131 MiB        |
+| Linux x64, final 2-CPU/4-GB-limited container | 139 / 178 ms      | 137 / 166 ms        | 81 / 146 MiB        |
+
+Each probe confirmed that a second concurrent hash is rejected, with no queue.
+Linux uses the same WSL2 VM described in S00 (VM memory 2 GiB), not a real VPS.
+These small synthetic samples justify the initial bounded 64 MiB parameters,
+**not** a target-VPS benchmark or load-testing guarantee. Recheck on deployment.
+
+Resolved intermediate failures / observations:
+
+- First check had two unused root CSS selector warnings after replacing its link
+  with logout; selectors corrected. Final check has zero warnings.
+- Initial integration run had 3 failures: Argon2 0.45.1 serializes PHC parameters
+  as `m,p,t`, not assumed `m,t,p`; the overly strict verifier rejected its own
+  hashes and broke login. Now accepts only those two explicitly bounded orders.
+  Rate-limit test incorrectly expected later IP buckets to expire at the earlier
+  account deadline; corrected the test to the actual fixed-window expiry.
+- First new e2e run failed reading a response body after navigation and then hit
+  the 240-second command timeout during fixture teardown with live SQLite handles.
+  Test assertion no longer races navigation; teardown explicitly stops the
+  test-owned child before deletion. A stale fixture directory was removed only
+  after confirming that the timed-out test servers had exited.
+- Second e2e run expected an authenticated APIRequestContext request to send a
+  Secure cookie over loopback HTTP. Chromium accepts the loopback exception but
+  APIRequestContext does not; the private probe now explicitly sends its captured
+  test credential. It verifies real authenticated 404, not a followed login 200.
+- Next e2e run revealed a real logout 403: adapter 6 no longer honors runtime
+  ORIGIN, and inferred HTTPS made Kit's pre-hook form CSRF disagree with HTTP
+  loopback. Implemented the version-checked adapter wrapper described above;
+  added a real production-server regression at both loopback and a configured
+  HTTPS origin on the same build. Kit and central CSRF stay enabled; final
+  login/logout tests pass. HTTP transport in that test simulates a TLS proxy and
+  does not establish real HTTPS/browser correctness by itself.
+- Existing upstream Drizzle/prebuild-install deprecations and Linux npm native
+  install-script review warnings remain. Native installs/tests passed, with zero
+  audit vulnerabilities; no security exception or dependency change introduced.
+
+Remaining work / exact next task:
+
+- **S02 remains in progress.** No TOTP enrollment/QR/confirmation, pending MFA
+  completion, atomic replay protection/recovery codes, five-minute scoped fresh
+  auth, password/MFA changes, revoke-all, security UI or implemented operator
+  recovery command yet. MFA-enabled rows deny access; this is a safety boundary,
+  not a completed optional-MFA feature. No placeholder marked done.
+- Real HTTPS/proxy/browser drill and target-VPS Argon2/load measurement remain.
+  Linux native/runtime tests passed; Linux browser tests and full S02 acceptance
+  must be completed with the remaining features. No new native dependency blocker.
+- Continue S02 with AES-GCM encrypted TOTP enrollment and atomic time-step/recovery
+  consumption tests first; then pending challenges/fresh-auth/security actions/UI.
+  Read the files listed in the current handoff and pinned otplib types/source
+  (`epoch` seconds and valid result `timeStep`). First command:
+  `npm run check && npm run test:integration` on the pinned runtime with TLS verified.
+  Do not begin S03 or remove fail-closed login behavior before MFA completion exists.

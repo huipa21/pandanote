@@ -1,10 +1,11 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Currently a persistence foundation, not a usable note-taking application.**
-The only application routes are a small shell and `/health` (process liveness).
-Explicit migrations, private storage/key initialization and typed server contracts
-exist; account setup, note services, uploads and backup/restore are not implemented.
+**Currently an authentication/persistence foundation, not a usable note-taking application.**
+One-time operator setup, password login/logout and private route protection are
+implemented. S02 is **in progress**: optional TOTP, recovery codes, fresh-auth and
+security settings are not yet implemented. Note services, uploads and backup/restore
+remain future steps. Do not deploy this unfinished app as a complete product.
 
 ## Start here
 
@@ -29,11 +30,16 @@ installation earlier in PATH.
 ```sh
 node --version
 npm ci
+cp .env.example .env
+npm run db:migrate
+npm run auth:setup-token
 npm run dev -- --host 127.0.0.1
 ```
 
-Open `http://localhost:5173`. `.env.example` documents the environment
-contract. `/health` exposes only `{ "status": "ok" }` with no-store caching;
+Open `http://localhost:5173/setup` and enter the operator-held token to create
+the sole account; subsequent visits use `/login`. `dev`, `start` and operator
+commands load a private `.env` if present; real environment variables take precedence.
+`.env.example` documents the environment contract. `/health` exposes only `{ "status": "ok" }` with no-store caching;
 it does **not** yet check database/storage readiness. This scaffold is not
 ready for an Internet-facing deployment.
 
@@ -61,11 +67,49 @@ No browser/file access endpoint exposes this tree.
 
 `Persistence.write` combines the maintenance gate with a synchronous IMMEDIATE
 transaction. Use it for every domain mutation; `Persistence.close()` drains active
-write leases and closes the database. The S02 application lifecycle must wire this
-foundation into setup/authentication and process shutdown. Pending filesystem
+write leases and closes the database. The application now uses one lazy runtime
+instance; adapter-node's post-request `sveltekit:shutdown` event drains and closes it.
+Requests never initialize keys or migrate schema. Pending filesystem
 journals block opening/migrating data until recovery; the S17 restore state machine
 and S06/S07 cleanup worker are still future work, not implemented restore/deletion.
 Initial timezone is UTC until setup/settings explicitly accepts a browser proposal.
+
+## Authentication first slice (S02, incomplete)
+
+`npm run auth:setup-token` requires operator/VPS filesystem access and a stopped
+app with migrated private storage. It prints one random token to your terminal,
+valid for one hour. Keep it out of shell history/log collectors; do not put it in
+a URL. Reissue invalidates the previous token. Account creation, token consumption
+and the initial session commit atomically. A lost success response can be recovered
+by signing in with the chosen password. An existing account prevents token issuance;
+there is no public registration or public password/MFA bypass.
+
+Passwords use Argon2id (64 MiB, three passes, one lane), with only one hashing or
+verification operation in flight and no queue. `npm run auth:benchmark` reports
+synthetic latency/RSS measurements; it never prints passwords or hashes. Sessions
+use a host-only HttpOnly, SameSite=Strict cookie, Secure in production, and a hashed
+random bearer token in SQLite. Default expiry is seven days, without rolling renewal.
+Persistent fixed-window limits apply per client IP and account, including across
+restarts. All mutations require the exact configured Origin; all data/page routes
+are private except the method-aware health/setup/login allowlist.
+
+Proxy trust: keep `ADDRESS_HEADER`, `HOST_HEADER`, `PROTOCOL_HEADER` and `PORT_HEADER`
+unset. Set canonical `ORIGIN` explicitly (HTTPS outside loopback, no trailing slash).
+Adapter 6 no longer reads runtime ORIGIN itself; our version-checked build wrapper
+supplies it through the generated adapter handoff, preserving Kit's form CSRF
+checks and allowing the same build to run at a different domain. Do not configure
+build-time `kit.paths.origin`. The application uses the
+actual peer address unless it matches `TRUSTED_PROXY_IPS` (at most 16 exact IPs).
+A trusted edge must overwrite `X-Forwarded-For` with **one** client IP, not append a
+chain; missing/invalid trusted headers fail closed. Bind the Node listener privately
+behind that edge. Untrusted forwarded headers are ignored.
+
+TOTP-enabled database rows currently **fail closed** on password login; enrollment,
+MFA completion, single-use recovery codes, fresh authentication, password changes,
+all-device revocation, security UI and an explicit operator-only recovery command
+remain the next S02 work. Do not manually toggle MFA or edit account rows. If access
+is lost at this unfinished stage, stop the app and retain private data for operator
+recovery; do not delete the database or reopen public setup.
 
 ## Validation
 
@@ -108,6 +152,6 @@ application data, browser profiles or backup archives in git or public assets.
 > outcomes including failures, and leave an exact handoff in PROGRESS.
 > A blocked native/browser/Linux check is not a pass.
 
-See PROGRESS for S00/S01 validation results and the next implementation task.
+See PROGRESS for S00/S01 and partial S02 validation results and the next task.
 Production deployment, performance and independent backup/restore drills remain
 part of the final S18 gate; this repository does not claim product completion.

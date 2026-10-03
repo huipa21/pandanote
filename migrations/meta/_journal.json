@@ -15,6 +15,13 @@
       "when": 1791024428359,
       "tag": "0001_invariant_guards",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791026083576,
+      "tag": "0002_setup_tokens",
+      "breakpoints": true
     }
   ]
 }

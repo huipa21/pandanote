@@ -1,23 +1,24 @@
 import { expect, test } from '@playwright/test';
 
-test('adapter-node shell and minimal health response work', async ({
+test('adapter-node login gate and minimal health response work', async ({
   page,
   request,
 }) => {
   await page.goto('/');
-  await expect(page).toHaveTitle('PandaNote');
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveTitle('Sign in — PandaNote');
   await expect(page.getByRole('heading', { name: 'PandaNote' })).toBeVisible();
-  await expect(
-    page.getByText('Note-taking features are not implemented yet.', {
-      exact: false,
-    }),
-  ).toBeVisible();
+  await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
   const health = await request.get('/health');
   expect(health.status()).toBe(200);
   expect(health.headers()['cache-control']).toBe('no-store');
   expect(await health.json()).toEqual({ status: 'ok' });
   // Technical harness routes must never ship in production.
-  expect((await request.get('/__spikes/mermaid')).status()).toBe(404);
+  const privateProbe = await request.get('/__spikes/mermaid', {
+    maxRedirects: 0,
+  });
+  expect(privateProbe.status()).toBe(303);
+  expect(privateProbe.headers().location).toBe('/login');
 });
 
 test('smoke shell has no horizontal overflow on a small viewport', async ({

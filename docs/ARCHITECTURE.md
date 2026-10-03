@@ -459,6 +459,60 @@ Same-origin/CSRF enforcement for all mutations, including uploads. Tight trusted
 
 LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects server access, not a compromised device/XSS or a downloaded unencrypted backup. Explain these limits accurately.
 
+### 12.4 S02 first-slice contracts (in progress, not the MFA gate)
+
+- Migration `0002_setup_tokens.sql` adds a singleton **runtime** setup-token
+  table (schema version 3 / 18 tables). The operator CLI issues/reissues a
+  random 32-byte token, persists its domain-separated SHA-256 hash, and limits
+  validity to one hour. Account creation, token deletion and initial session
+  creation commit together through `Persistence.write`. No environment-token
+  alternative is needed for this CLI-first slice; no public issuance endpoint.
+- Passwords preserve exact Unicode bytes, require at least 12 codepoints and
+  at most 256 UTF-16 units / 1024 UTF-8 bytes. Argon2id v19 uses 64 MiB, three
+  passes, one lane, random salts and 32-byte output. A process-wide one-operation
+  bound rejects concurrent work with retryable `busy`; there is no waiting queue.
+  Supported encoded parameter orders are explicitly checked before verification
+  to prevent corrupt hashes requesting arbitrary resources. Windows/Linux synthetic
+  measurements are recorded in PROGRESS; target-VPS measurement remains required.
+- Setup/login have independent fixed 15-minute rate windows: 10 attempts/IP and
+  30 account-wide, counting successful attempts too. Denied requests do not extend
+  expiry. SQLite persists attempts; keyed, domain-separated IP digests avoid storing
+  plaintext addresses. Expired buckets are deleted on attempts, with a hard 1024-row
+  cap and eviction of earliest non-account buckets. MFA/fresh-auth scopes still need
+  to be added before those credential paths exist.
+- Session tokens are 32 random bytes, stored only as domain-separated hashes.
+  Host-only `pandanote_session` cookies are HttpOnly, SameSite=Strict, path `/`,
+  Secure in production, with absolute configured 1–30 day expiry (default seven).
+  Expiry, revocation and account security revision are checked on every request.
+  Expired sessions are pruned on login; at most 100 sessions are retained, with
+  oldest-session eviction. Logout deletes only the current session. MFA-enabled
+  account rows fail closed until MFA challenges/completion are implemented.
+- **Adapter 6 API correction:** unlike older releases it ignores the runtime
+  `ORIGIN` variable and exports build-time `kit.paths.origin` in its generated
+  `adapter-node.js` handoff. `vite.config.ts` wraps the adapter's `adapt` method:
+  after the stock build it replaces exactly one known `origin = undefined`
+  export with a canonical runtime `process.env.ORIGIN` reader. API drift or
+  setting `kit.paths.origin` fails the build; no dependency files are patched,
+  no domain is baked into artifacts, and no wildcard/disabled CSRF is used.
+  Built same-origin logout exercises both Kit's form CSRF and the central hook.
+- `ORIGIN` is explicit and canonical (no trailing slash); HTTP only on loopback
+  development/test origins. Adapter forwarding overrides are rejected. Peer IP comes from installed Kit 3's
+  `getClientAddress`; only peers in `TRUSTED_PROXY_IPS` (16 exact IPs maximum)
+  may supply one overwritten `X-Forwarded-For` IP. No guessed forwarding chains.
+  Central hooks enforce Origin even on JSON/login/setup, reject OPTIONS/cross-site
+  mutations, authorize all non-allowlisted routes and use no-store/private security
+  headers. Static build assets have no private user content. Endpoint authorization
+  and fresh-auth checks must still be added as sensitive domains appear.
+- One lazy runtime requires explicitly migrated storage, never creates keys/schema
+  in a request, and exposes safe 503 failures. Adapter 6's `sveltekit:shutdown`
+  event runs after request draining; runtime close is idempotent and uses the write
+  coordinator. A `beforeExit` fallback covers tools/development. Public `/health`
+  remains process liveness only and does not open persistence.
+- Authentication bodies are JSON-only with a 4 KiB actual streaming byte cap.
+  Routine DTOs never include credentials/hashes. Operator CLI output is an explicit
+  one-time terminal display, not server logging. Security/MFA DTOs and sensitive
+  action scopes are the next S02 slice, not completed functionality.
+
 ## 13. Full backup/restore design
 
 ### 13.1 Format
@@ -476,7 +530,7 @@ files/<generated-id>/<known-variant>
 
 Manifest includes format/schema/app compatibility versions, created time, entry paths/sizes/SHA-256 checksums, note/attachment counts, and clearly described included/excluded sections. The manifest lists payload checksums, not its own recursive checksum. Do not include source archive/backups/staging/WAL/live session credentials.
 
-The snapshot includes account/MFA/recovery-code state and settings. Remove sessions/challenges/rate-limit runtime state, upload batches, unreferenced/pending attachment rows, pending cleanup jobs, and source backup-job paths from the staged database. Preserve useful successful mutation receipts for included notes so a recovered client can recognize a previously committed post. Clear pending batch associations on referenced ready attachments. Rebuild search after restore.
+The snapshot includes account/MFA/recovery-code state and settings. Remove sessions/challenges/rate-limit/setup-token runtime state, upload batches, unreferenced/pending attachment rows, pending cleanup jobs, and source backup-job paths from the staged database. Preserve useful successful mutation receipts for included notes so a recovered client can recognize a previously committed post. Clear pending batch associations on referenced ready attachments. Rebuild search after restore.
 
 Backup-job records from the source are not valid paths on a destination; reset the catalog and rediscover existing completed destination archives using bounded, validated manifest reads. Never include those archives in the restored source payload or automatically delete them.
 

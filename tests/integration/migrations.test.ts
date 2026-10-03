@@ -160,7 +160,7 @@ it('upgrades an existing earlier schema without losing notes and rolls back a fa
     expect(db.pragma('foreign_key_check')).toEqual([]);
     const badHistory = [
       { ...migrations[0], hash: '0'.repeat(64) },
-      migrations[1],
+      ...migrations.slice(1),
     ];
     expect(() => applyMigrations(db, badHistory)).toThrow(/changed/);
     expect(() => applyMigrations(db, migrations.slice(0, 1))).toThrow(/newer/);

@@ -4,6 +4,9 @@
 Kit 0.31.11. `0001_invariant_guards.sql` is a reviewed custom migration for
 revision/identity, ready-reference and reference-safe cleanup triggers. Drizzle
 snapshots describe tables/indexes/checks, not these custom triggers.
+`0002_setup_tokens.sql` adds the singleton hashed, expiring operator setup token
+(S02 first slice). Schema version is now 3. Pending setup tokens are runtime
+credentials and must be excluded from S16 full backup snapshots.
 
 - Generate table changes: `npm run db:generate -- --name=<name>`.
 - Generate custom SQL: `npm run db:generate -- --custom --name=<name>`.

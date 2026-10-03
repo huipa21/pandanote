@@ -1,8 +1,9 @@
-# Foundation verification (S00/S01)
+# Foundation verification (S00/S01 and partial S02)
 
 S00 tests are capability probes, not completed product features. S01 tests
-exercise the actual persistence foundation; authentication and note endpoints
-are not implemented yet. All fixtures are synthetic and generated at runtime. No personal data or fixed
+exercise the actual persistence foundation. Partial S02 tests exercise real
+setup, password sessions and private route protection; MFA/fresh-auth and note
+endpoints are not yet implemented. All fixtures are synthetic and generated at runtime. No personal data or fixed
 production credential is committed.
 
 | Suite                         | Scope / acceptance foundations                                                                                                                                                       |
@@ -33,6 +34,24 @@ full attachment deletion or restore/crash rollback. Linux checks execute POSIX
 permission/fsync assertions; Windows uses operator ACLs instead. No existing
 schema is pushed or runtime database migration hidden in a page request.
 
+## Partial S02 coverage (step remains in progress)
+
+| Suite                                | Scope                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/auth-policy.test.ts`           | Bounded exact Unicode credentials, configured HTTPS/loopback origin, exact proxy trust and ignored spoofed headers, same-origin mutation and method-aware public route allowlist (AUTH-05)                                                                                                                                          |
+| `integration/auth.test.ts`           | Actual Argon2id salts/verification/concurrency cap; operator token issue/reissue/expiry/reuse, racing setup and transactional failure retry; hashed/expired/revoked/security-revision sessions, configured lifetime/logout; persisted IP/account rate limits and cap; real native-TS operator CLI (AUTH-01, AUTH-04/05 first slice) |
+| `integration/runtime-server.test.ts` | Actual production build + two sequential deployments with different runtime origins on one artifact; private routes, cookie flags, both Kit/form and JSON CSRF, durable password restart and Linux graceful shutdown (HTTP transport simulates a TLS-terminating proxy; not an actual HTTPS drill)                                  |
+| `integration/auth-http.test.ts`      | JSON-only authentication body, actual streamed byte limits, generic internal error responses and rate-limit retry headers                                                                                                                                                                                                           |
+| `e2e/auth.test.ts`                   | Built adapter app setup/login/logout, no plaintext credentials in ordinary DTOs/SSR, private API/file/backup paths, production cookie flags, CSRF failures and input retention on wrong password                                                                                                                                    |
+
+MFA-enabled account rows are tested to **fail closed**. This does not claim
+AUTH-02/03 completion. TOTP, recovery codes, fresh-auth scope/expiry, security
+changes/revoke-all and operator recovery remain the next S02 slice. The production
+cookie flags are tested on Chromium's loopback HTTP Secure-cookie exception;
+a real HTTPS deployment/browser drill still belongs to the full S02/S18 gate.
+`npm run auth:benchmark` performs five synthetic hash/verify samples, records
+10 ms sampled RSS and confirms concurrent rejection without printing credentials.
+
 ## Run
 
 Use Node from `.node-version` and npm 11. Do not disable TLS verification.
@@ -56,7 +75,9 @@ are written to application storage. Test helpers live in `tests/spikes/`, not
 
 Playwright owns ports 4173/4174 and refuses to reuse existing servers. It builds
 and runs the adapter-node app with a fixture-only `.e2e-data/run-*` directory;
-its teardown removes `.e2e-data`. Mermaid runs in a **separate test-only Vite
+it explicitly migrates storage and issues a disposable operator token before
+serving. Its teardown stops the test-owned adapter child before removing `.e2e-data`
+(Windows SQLite handles cannot be removed while open). Mermaid runs in a **separate test-only Vite
 harness** with response CSP, never a debug route in the production application.
 Browser profiles/downloads/traces are not tracked. Linux browser runs need
 `npx playwright install --with-deps chromium`.
@@ -94,5 +115,6 @@ add a minimal non-root runtime, persistent volume, HTTPS proxy and runbook.
   paths fit this subset. S16/S17 must add the real manifest, DB schema/key/file
   validation, second-pass staged extraction and crash-safe replacement. Never
   use this probe alone as a restore feature.
-- Authentication helpers are pinned but account/session/MFA behavior remains
-  S02. S01 implements validated settings persistence only, not a settings UI.
+- Setup/password sessions are implemented in partial S02, but MFA/fresh-auth and
+  security settings/recovery are unfinished. S01 implements validated settings
+  persistence only, not a settings UI.
