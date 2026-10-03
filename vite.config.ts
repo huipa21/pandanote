@@ -51,6 +51,7 @@ export default defineConfig({
           'default-src': ['self'],
           'script-src': ['self'],
           'style-src': ['self', 'unsafe-inline'],
+          'img-src': ['self', 'blob:'],
           'object-src': ['none'],
           'base-uri': ['self'],
           'frame-ancestors': ['none'],

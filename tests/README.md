@@ -1,4 +1,4 @@
-# Foundation and shell verification (S00/S01, partial S02 and S03)
+# Foundation, shell and renderer verification (S00/S01, partial S02, S03/S04)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. Partial S02 tests exercise real
@@ -91,6 +91,22 @@ cross-platform browser audits remain part of the integrated S18 release review,
 not claims made by these automated scenarios. No physical-device pass is claimed;
 S05/S08 will separately test real draft recovery and working posting.
 
+## S04 coverage (MD-01/02, TAG-01 and TAG-03 parsing foundations)
+
+| Suite                                 | Scope                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/tags.test.ts`                   | Unicode/NFKC/case/deduplication, literal source offsets/UTF-16/CRLF, excluded code/HTML/escapes/URLs/destinations, precise rename/remove and length/count limits                                                                                                                                                                                                                                            |
+| `unit/diagram-policy.test.ts`         | Ordinary flow/sequence arrows, pre-import directive/encoded-HTML/asset/CSS rejection and complexity limits                                                                                                                                                                                                                                                                                                  |
+| `integration/markdown-render.test.ts` | Actual production remark/rehype/Shiki, GFM, sanitized HTML/links/images, descriptor-backed direct/reference-style images, nested/reordered footnote code, unknown language and inert Mermaid metadata                                                                                                                                                                                                       |
+| `e2e/markdown.test.ts`                | Built private composer under production CSP with zero upload/mutation requests; exact clipboard write plus native clipboard round trip; real highlighted code and flow/sequence SVG geometry/theme, visible-only import, stale preview suppression, hostile asset no-fetch, separate SVG sanitizer, size/syntax errors, deadline/denied-copy recovery, desktop/mobile Write/Preview and disabled publishing |
+
+`browser/MarkdownFixture.svelte` reuses the product renderer and SVG sanitizer, not
+spike implementations. Its stalled-render injection exercises only the timeout
+branch; ordinary diagram tests run the unmodified library. No debug/fault-injection
+route ships in the built application. Clipboard denial and Windows-native newline
+conversion are tested explicitly. Rendering/tag management are separate: the parser
+is complete, transactional tag edits/history remain S07/S14.
+
 ## Run
 
 Use Node from `.node-version` and npm 11. Do not disable TLS verification.
@@ -116,8 +132,10 @@ Playwright owns ports 4173/4174 and refuses to reuse existing servers. It builds
 and runs the adapter-node app with a fixture-only `.e2e-data/run-*` directory;
 it explicitly migrates storage and issues a disposable operator token before
 serving. Its teardown stops the test-owned adapter child before removing `.e2e-data`
-(Windows SQLite handles cannot be removed while open). Mermaid runs in a **separate test-only Vite
-harness** with response CSP (also hosting the synthetic shell), never a debug route in the production application.
+(Windows SQLite handles cannot be removed while open). Separate **test-only Vite
+harnesses** host the legacy Mermaid probe, production renderer attack fixtures and
+synthetic shell under response CSP. The built private composer also renders real
+Markdown/Mermaid in the browser; no debug route ships in the product.
 Browser profiles/downloads/traces are not tracked. Linux browser runs need
 `npx playwright install --with-deps chromium`.
 
@@ -126,8 +144,8 @@ Browser profiles/downloads/traces are not tracked. Linux browser runs need
 From the repository root with Docker or Podman:
 
 ```sh
-podman build -f ops/Dockerfile.validation -t pandanote-s01 .
-podman run --rm --cpus=2 --memory=4g pandanote-s01
+podman build -f ops/Dockerfile.validation -t pandanote-validation .
+podman run --rm --cpus=2 --memory=4g pandanote-validation
 ```
 
 Replace `podman` with `docker` if appropriate. This pins the Linux/glibc base
@@ -140,14 +158,15 @@ add a minimal non-root runtime, persistent volume, HTTPS proxy and runbook.
 - Search eligibility is deliberately conservative (letters/numbers/spaces and
   at least three codepoints). S10 must implement full all-term/phrase/field,
   randomized-oracle, pagination and benchmark contracts.
-- The Markdown rewrite probe establishes source spans, not the complete tag
-  grammar. Mixed inline HTML, entity/escape mappings, all URL forms and tag
-  history remain S04/S14.
+- The legacy Markdown rewrite probe remains a feasibility test. Product S04
+  parsing/rendering is tested separately; transactional tag management/history is S14.
 - Image probe is in-memory; streaming input caps, private storage, original
   cleanup, concurrency/deadlines, file detection and authorization remain S06.
 - Mermaid permits inline **styles**, not inline script or eval. It disables
-  HTML labels and removes active/external SVG constructs. Production policies,
-  directive overrides, complexity bounds/timeouts and theme tests remain S04.
+  HTML labels and removes active/external SVG constructs. S04 separately tests
+  production directive/asset rejection, SVG/CSS isolation, complexity/deadline and
+  theme/geometry behavior. Main-thread deadlines are cooperative, not CPU preemption;
+  target-device worst-case measurements remain S18.
 - Archive probe requires regular USTAR entries without PAX/GNU extensions:
   `tar-stream` otherwise hides those headers before entry callbacks. A raw
   bounded streaming guard rejects them first. Application-owned short ASCII

@@ -2,22 +2,22 @@
 
 ## Current state
 
-- **Phase:** authentication/persistence foundation plus responsive shell; product implementation remains unfinished.
-- **Completed steps:** S00, S01 and S03 — **done**.
+- **Phase:** authentication/persistence foundation, responsive shell and Markdown renderer; product implementation remains unfinished.
+- **Completed steps:** S00, S01, S03 and S04 — **done**.
 - **Earliest unfinished step:** S02 — Authentication and optional TOTP — **in progress**, not done.
-- **Requested work this session:** S03 — Design tokens and responsive fixed shell — **done**. Its implementation-plan gate is satisfied. The user explicitly requested and confirmed this out-of-order slice; unfinished S02 remains tracked separately, not folded into S03.
-- **Repository:** session began clean at `6ea8b8e` (S02 first-slice commit). S03 changes are uncommitted; no commit created. Prior handoff history is preserved.
-- **Implemented:** warm light/dark/system tokens, comfortable/compact and collapse-preference persistence, no-flash SSR appearance, private desktop fixed sidebar/composer/filters/notes scroller, mobile drawer/full-screen editor shell, native dialog keyboard/focus handling, navigation and functional appearance settings. Schema stays version 3 / 18 tables. No note/post/search/calendar/draft lifecycle functionality is claimed; placeholders identify later owners. Composer text is in-memory only. S02 password/session protection remains intact; TOTP-enabled rows still fail closed.
-- **Validation:** Windows check/lint/build, 30 unit + 55 integration + all 11 Chromium tests pass, including three reviewed baselines, actual native 200% zoom, nonzero safe-area/keyboard-shrink scenarios, touch navigation and accessibility-tree labels. Linux check/lint/build and all 30 unit + 55 integration tests pass; final image details below. Physical phone/OS IME, assistive-technology read-aloud and Linux browser baselines are unclaimed release-level audits. S02 is not done; S03 is done, not the whole product.
+- **Requested work this session:** S04 — Markdown rendering, code copy, Mermaid and tag parser — **done**. The user explicitly selected this out-of-order step; unfinished S02 remains separately tracked and fail-closed.
+- **Repository:** began at `6ea8b8e` with existing uncommitted S03 work, preserved throughout. During this session HEAD advanced to `b85aba2` (S03 commit); this agent created no commits. S04 changes are uncommitted; prior handoff history is preserved.
+- **Implemented:** shared safe Markdown/GFM pipeline, descriptor-backed internal images, lazy/cached themed Shiki, exact original-code copy with feedback, visible-only lazy strict/sanitized Mermaid with complexity/deadline errors, debounced Write/Preview and reliable Unicode source-span tag extraction/rewrites. S03 remains intact, including shortest-height/mobile/zoom regressions. Schema stays version 3 / 18 tables; dependencies/lockfile unchanged. Composer text remains in-memory only; no upload/post/draft lifecycle, tag-management transaction, timeline or backup feature is claimed.
+- **Validation:** Windows check/lint/build, 37 unit + 60 integration + all 17 Chromium tests pass. Linux fresh native install, check/lint/build and all 37 unit + 60 integration tests pass (image below). Actual production CSP/code/diagram/no-upload, hostile no-fetch, exact clipboard, real SVG geometry/theme and recovery checks pass. Light/dark renderer screenshots were reviewed. Linux browser baselines, physical-device/IME, full assistive-technology and target-VPS performance audits remain S18 work, not claimed passes.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md` and planning documents; especially ARCHITECTURE 11.1/12.1–12.4, IMPLEMENTATION_PLAN S02/S03, ACCEPTANCE_TESTS AUTH-01–05/UI-01–02 and the latest handoff below.
-2. Inspect git and preserve S03 work. Read auth/runtime files from the S02 history, plus `src/lib/{components/{AppShell,Sidebar,Composer,Modal}.svelte,styles/{tokens,global}.css,shared/appearance.ts}`, root layouts/hook, `(app)/settings`, appearance endpoint/repository and `tests/e2e/shell.test.ts`.
-3. The user explicitly requested S03 ahead of the unfinished S02 dependency; this was an isolated visual slice, not permission to remove authentication safeguards or mark MFA done. Unless explicitly directed otherwise, return to **S02**: AES-GCM TOTP storage/confirmed enrollment and real replay/expiry/parallel consumption tests first. Verify pinned otplib 13.5 APIs (`epoch` seconds, successful `timeStep`). Then pending MFA, recovery codes, scoped fresh-auth, security changes/revocation/UI and operator recovery, as detailed in S02 history.
-4. S03 is complete; preserve its real zoom/touch/safe-area/keyboard and accessibility-label regressions. Physical-device/OS IME and assistive-technology read-aloud audits remain explicitly unverified for the final S18 integrated review. Review Linux/other-platform screenshots before creating their baselines; do not treat missing baselines or native browser dependencies as passing.
-5. First validation: `npm run check && npm run test:integration` on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`, then `npm run test:e2e`. Default next work is the earlier unfinished S02; S04 may begin if explicitly selected by the user, using the completed S03 tokens/shell. Retain the runtime-origin adapter wrapper and no-inline-script theme mechanism.
+1. Read `AGENTS.md`, planning documents and the latest S04 handoff. Relevant contracts: ARCHITECTURE 11.1–11.2/12.1–12.4, IMPLEMENTATION_PLAN S02/S05, ACCEPTANCE_TESTS AUTH-01–05/MD-01–02/TAG-01/DRAFT-01–04.
+2. Inspect git and preserve S04 work. For default S02 continuation read `src/lib/server/auth/{service,passwords,tokens,rate-limits,policy,http}.ts`, runtime, private key material, DB account/challenge/recovery schema and auth integration tests. Retain fail-closed MFA protection.
+3. Default next task: **S02** AES-GCM encrypted TOTP enrollment with explicit confirmation and real replay/expiry/parallel-consumption integration tests. Verify otplib 13.5 APIs (`epoch` seconds, successful `timeStep`), then complete pending MFA/recovery/scoped fresh-auth/security/revoke-all/UI/operator recovery. S03/S04 being done does not mark S02 done.
+4. If the user explicitly selects S05 instead: read `shared/markdown/*.ts`, `client/markdown/mermaid.ts`, `components/{Composer,Markdown,Modal}.svelte`, styles and `tests/e2e/markdown.test.ts`; add versioned account/draft-scoped localStorage/IndexedDB repositories first. Use descriptor-backed blob previews and revoke URLs in S05; never upload before Post. Do not rewrite browser drafts silently on tag changes.
+5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e`, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Preserve production CSP, runtime-origin wrapper, no-flash theme, real zoom/safe-area/keyboard and renderer attack regressions. Linux browser baselines/physical-device/performance audits remain unclaimed final-gate work.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -29,7 +29,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S01  | Schema and persistent storage      | Done        |
 | S02  | Authentication and optional TOTP   | In progress |
 | S03  | Design tokens and responsive shell | Done        |
-| S04  | Markdown/code/Mermaid/tag parsing  | Not started |
+| S04  | Markdown/code/Mermaid/tag parsing  | Done        |
 | S05  | Browser drafts and recovery        | Not started |
 | S06  | Private uploads and Sharp          | Not started |
 | S07  | Atomic/idempotent note lifecycle   | Not started |
@@ -660,5 +660,131 @@ Next task:
 - Read ARCHITECTURE 11.1/12.4, auth service/key/challenge schema and pinned otplib
   sources for S02; IMPLEMENTATION_PLAN S04 and shared shell/appearance modules if
   that step is explicitly selected.
+- First validation: `npm run check && npm run test:integration`, then
+  `npm run test:e2e`, with pinned Node and TLS verification enabled.
+
+### Session 2026-10-03 — S04 Markdown rendering, code copy, Mermaid and tag parser
+
+**State: done.** S04's common and user-facing acceptance gates passed. The user
+explicitly requested this step after S03; unfinished S02 remains fail-closed and
+in progress. No product/release completion or note publishing is claimed.
+
+Implemented / touched files:
+
+- `src/lib/shared/markdown/{parse,render,highlight,tags}.ts`: shared bounded
+  remark/GFM AST, sanitized rehype HTML, safe URL policy, descriptor-only direct/
+  reference-style internal images, original-code metadata, offset-associated
+  nested/footnote code, lazy bounded Shiki with no-eval JavaScript engine and
+  themed CSS, Unicode/NFKC/deduplicated tags and exact reverse-span rewrites.
+- `src/lib/client/markdown/mermaid.ts`: pre-import directive/HTML/encoded-asset/
+  click/custom-style rejection; strict SVG-native library configuration, serial
+  visible rendering, 12k/160/300 complexity defaults, five-second async deadline,
+  separate DOMPurify + scoped SVG/CSS sanitizer, bounded cache and unique SVG IDs.
+- `src/lib/components/{Markdown,Composer,Modal}.svelte`,
+  `src/lib/styles/markdown.css`: stale-safe debounced Write/Preview, copy success/
+  denied-copy feedback, diagram visibility/theme/cleanup and syntax/size errors,
+  shared content/table/code styles. Short mobile editor spacing was adjusted to
+  preserve one full text line with the new tabs at 260px plus safe-area insets.
+  Text stays in memory, Post stays disabled; no publish shortcut was added.
+- `vite.config.ts` plus browser CSP: image policy allows only same-origin and
+  ephemeral blob images. Script CSP remains self-only; no eval/WASM/inline-script
+  exception or external image origin. Dependencies, lockfile and schema unchanged.
+- New `tests/unit/{tags,diagram-policy}.test.ts`,
+  `tests/integration/markdown-render.test.ts`, `tests/e2e/markdown.test.ts` and
+  `tests/browser/{MarkdownFixture.svelte,markdown.html,markdown.ts}`. The actual
+  built private composer is tested under production CSP with zero upload requests;
+  separate fixtures exercise real product attack policies and injected deadline/
+  clipboard failures. No fixture/debug route or synthetic note ships in the app.
+- README, ARCHITECTURE 11.2, tests README and this handoff. Existing S03 work and
+  all prior history were preserved. HEAD advanced externally from `6ea8b8e` to
+  `b85aba2` during the session; this agent created no commit.
+
+Commands actually run:
+
+Host commands used the explicit Node 24.21.0 `N`, npm CLI `C` and pinned PATH from
+S00, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. No dependencies were changed.
+
+| Command                                                                                                              | Actual result                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git status --short`, full required document/source/API reads                                                        | Preserved existing S03 work; verified installed Shiki 4 HAST/engine and Mermaid 12 APIs                                                      |
+| `"$N" "$C" run format`                                                                                               | PASS, repeated after edits                                                                                                                   |
+| `"$N" "$C" run check`                                                                                                | PASS final, zero errors/warnings, application and tooling/test TS                                                                            |
+| `"$N" "$C" run lint`                                                                                                 | PASS final ESLint/Prettier                                                                                                                   |
+| `"$N" "$C" run test:unit`                                                                                            | PASS final, 8 files / 37 tests                                                                                                               |
+| `"$N" "$C" run test:integration`                                                                                     | PASS final, 13 files / 60 tests with actual libraries/SQLite/filesystem/native/build/server                                                  |
+| `"$N" "$C" run test:e2e -- --grep 'production Markdown\|production diagrams\|production sanitizers\|composer Write'` | Initial 2 fail/2 pass; fixes below, rerun 4/4 pass                                                                                           |
+| `"$N" "$C" run test:e2e`                                                                                             | PASS final production build + all 17 Chromium tests; unchanged S03 screenshot baselines, no snapshot updates                                 |
+| `"$N" "$C" run build`                                                                                                | PASS final adapter-node build; large lazy library chunk warnings remain visible, not suppressed                                              |
+| `"$N" .browser-spike/inspect-s04.mjs`                                                                                | Final PASS; reviewed real light/dark code/flowchart screenshots and SVG geometry. Temporary ignored diagnostic artifacts, no production code |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s04 .`                                                       | PASS, fresh Linux ci/native install, zero reported vulnerabilities                                                                           |
+| `podman run --rm --cpus=2 --memory=4g pandanote-s04`                                                                 | PASS Linux check/lint, 37 unit + 60 integration, production build                                                                            |
+| `git diff --check`; `test ! -e .e2e-data`                                                                            | PASS, no private E2E leftovers; autocrlf informational warnings only                                                                         |
+
+Passing Linux image: `947f62a4bb611419d76e018f859ee21e86463207e94d19853868ab35ba9cca8d`.
+Same pinned Node 24.21.0 bookworm/glibc base digest and constrained WSL2/2-CPU/4-GB
+container context as previous sessions; npm 11.19.0. Actual Sharp/SQLite/archive
+probes pass with Linux-native artifacts. Image precedes this progress-log-only
+update. Linux Chromium was not run; Windows full browser suite passed. This is
+native compatibility evidence, not target-VPS performance or full restore evidence.
+
+Intermediate failures / corrections (not counted as passes):
+
+- Initial TypeScript checks found HAST child/doctype types, Shiki tabindex typing,
+  nullable image alt and CSP's required `blob:` syntax; corrected narrow types.
+  ESLint identified the explicit sanitized-HTML boundaries, nonreactive observer
+  bookkeeping, control-regex policy and an unnecessary regex escape; documented
+  only the intentional exceptions and fixed the rest. Final check/lint are clean.
+- First code-copy browser expectation differed only because Windows' native
+  clipboard changes LF to CRLF. Tests now assert the exact `writeText` argument
+  separately and verify the actual clipboard round trip with OS newline handling.
+- Sequence arrows were initially over-rejected by a security regex; corrected
+  longest-arrow matching and added ordinary flow/sequence policy tests. Invalid
+  syntax, oversized graphs and malicious assets remain isolated errors.
+- Visual probing revealed that `display:none` gave Mermaid a 16x16 empty viewBox
+  despite text existing in the SVG. Replaced it with invisible offscreen layout;
+  tests now assert real diagram width and theme-dependent paint, not just SVG presence.
+  Early visual probes failed while waiting for an offscreen lazy diagram and then
+  while expecting stripped Shiki classes; neither was counted as a visual pass.
+- Shiki 4 emits `class`/`tabindex`, not canonical HAST properties; normalization
+  prevents the sanitizer stripping highlight classes/focus. The JavaScript engine
+  avoids relaxing CSP for WASM. Tests require real `.shiki` output under both
+  fixture and production CSP and no policy violations.
+- Removing an entire Mermaid stylesheet for animation/import syntax also removed
+  safe colors. Detached CSS parsing now retains only diagram-ID-scoped paint/text
+  rules and strips global selectors/URLs/imports/font faces/animations. Reviewed
+  light/dark diagrams remain readable and hostile assets never fetch/execute.
+- Full browser regression initially failed the shortest mobile textarea geometry
+  after tabs consumed extra height (14 pass/1 fail). Condensed editor spacing;
+  all original touch/safe-area/native-zoom regressions now pass (17/17 final).
+- One ad-hoc diagnostic invoked system Node 24.15.0 despite the PATH prepend;
+  reran with the explicit pinned executable. All final gates used Node 24.21.0.
+  Existing upstream deprecation/native-install-review and lazy chunk-size warnings
+  remain; no install/native/browser dependency was missing or skipped as a pass.
+
+Decisions / remaining scope:
+
+- ARCHITECTURE 11.2 records the exact image/URL/SVG policies, parser grammar,
+  UTF-8/tag/highlighter/diagram cache limits and original-code newline convention.
+  Arbitrary remote images are not fetched; caller-owned internal descriptors are
+  required. Blob lifecycle/uploads remain S05/S06, not placeholder uploads.
+- Mermaid uses bounded cooperative main-thread rendering; the asynchronous deadline
+  is not hard CPU preemption. Worst-case target-device/VPS responsiveness, physical
+  IME/assistive-technology review and cross-platform browser baselines remain S18.
+  Lazy Mermaid/Shiki build chunks are large; no initial-Mermaid load was observed in
+  no-diagram tests. Final bundle/performance budgets are not claimed complete.
+- No known unfinished S04 feature or failing S04 test. Tag management/history and
+  note transactions remain S07/S14; editor recovery is S05 and posting S08.
+  S02 optional MFA/recovery/fresh-auth/security/revocation/operator recovery remains
+  unfinished. Do not infer product completion from this renderer gate.
+
+Exact next task:
+
+- Default: resume S02 encrypted TOTP enrollment/confirmation with replay/expiry/
+  concurrent-consumption integration tests. Read auth service, private keys,
+  account/challenge/recovery schema, pinned otplib 13.5 sources and ARCHITECTURE 12.4.
+- If explicitly asked for S05: read ARCHITECTURE 6/7.1/11.2, the product renderer/
+  Composer and S04 tests; implement account/draft-scoped versioned localStorage/
+  IndexedDB repositories first, preserving all data on failure and never uploading
+  before explicit Post.
 - First validation: `npm run check && npm run test:integration`, then
   `npm run test:e2e`, with pinned Node and TLS verification enabled.

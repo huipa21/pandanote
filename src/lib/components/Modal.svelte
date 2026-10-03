@@ -144,6 +144,14 @@
     display: flex;
     flex-direction: column;
   }
+  @media (max-width: 899px) and (max-height: 400px) {
+    .editor header {
+      padding-block: var(--space-1);
+    }
+    .editor .dialog-body {
+      padding-block: var(--space-1);
+    }
+  }
   @media (max-width: 899px) {
     .editor {
       margin: 0;

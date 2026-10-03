@@ -1,6 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import Modal from './Modal.svelte';
+  import Markdown from './Markdown.svelte';
+  let tab = $state<'write' | 'preview'>('write');
   let text = $state('');
   let expanded = $state(false);
   let editorOpen = $state(false);
@@ -27,14 +29,34 @@
       >Write a note…</button
     >
   {:else}
-    <label class="sr-only" for="compact-note-text">Note text</label>
-    <textarea
-      id="compact-note-text"
-      bind:this={textarea}
-      bind:value={text}
-      rows="3"
-      placeholder="A thought, a small discovery…"
-      aria-describedby="composer-help"></textarea>
+    <div class="editor-tabs" role="group" aria-label="Editor mode">
+      <button
+        aria-pressed={tab === 'write'}
+        onclick={() => {
+          tab = 'write';
+        }}>Write</button
+      >
+      <button
+        aria-pressed={tab === 'preview'}
+        onclick={() => {
+          tab = 'preview';
+        }}>Preview</button
+      >
+    </div>
+    {#if tab === 'preview'}
+      <div class="compact-preview preview-pane">
+        <Markdown source={text} debounce={300} />
+      </div>
+    {:else}
+      <label class="sr-only" for="compact-note-text">Note text</label>
+      <textarea
+        id="compact-note-text"
+        bind:this={textarea}
+        bind:value={text}
+        rows="3"
+        placeholder="A thought, a small discovery…"
+        aria-describedby="composer-help"></textarea>
+    {/if}
     <div class="composer-actions">
       <button
         onclick={() => {
@@ -50,8 +72,8 @@
       <button class="primary" disabled>Post</button>
     </div>
     <p class="help" id="composer-help">
-      Editor shell only. Text is not saved yet (S05); posting comes in S08. Keep
-      a copy before leaving.
+      Text is not saved yet (S05); posting comes in S08. Keep a copy before
+      leaving.
     </p>
   {/if}
 </div>
@@ -63,14 +85,34 @@
 >
 
 <Modal bind:open={editorOpen} title="Write a note" kind="editor">
-  <label class="sr-only" for="expanded-note-text">Note text</label>
-  <textarea
-    id="expanded-note-text"
-    class="expanded-text"
-    bind:value={text}
-    data-initial-focus
-    aria-describedby="expanded-help"
-    placeholder="A thought, a small discovery…"></textarea>
+  <div class="editor-tabs" role="group" aria-label="Editor mode">
+    <button
+      aria-pressed={tab === 'write'}
+      onclick={() => {
+        tab = 'write';
+      }}>Write</button
+    >
+    <button
+      aria-pressed={tab === 'preview'}
+      onclick={() => {
+        tab = 'preview';
+      }}>Preview</button
+    >
+  </div>
+  {#if tab === 'preview'}
+    <div class="expanded-preview preview-pane">
+      <Markdown source={text} debounce={300} />
+    </div>
+  {:else}
+    <label class="sr-only" for="expanded-note-text">Note text</label>
+    <textarea
+      id="expanded-note-text"
+      class="expanded-text"
+      bind:value={text}
+      data-initial-focus
+      aria-describedby="expanded-help"
+      placeholder="A thought, a small discovery…"></textarea>
+  {/if}
   <div class="editor-footer">
     <p class="help" id="expanded-help">
       <span class="full-help"
@@ -86,6 +128,26 @@
 </Modal>
 
 <style>
+  .editor-tabs {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .editor-tabs [aria-pressed='true'] {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .preview-pane {
+    min-height: 0;
+    overflow: auto;
+  }
+  .compact-preview {
+    max-height: 12rem;
+  }
+  .expanded-preview {
+    flex: 1;
+    height: 40dvh;
+  }
   .desktop-composer {
     padding: var(--space-3);
   }
@@ -134,6 +196,16 @@
     display: none;
   }
   @media (max-width: 899px) and (max-height: 400px) {
+    .editor-tabs {
+      margin-bottom: var(--space-1);
+    }
+    .editor-footer {
+      padding-top: var(--space-1);
+    }
+    .editor-tabs button {
+      min-height: 2rem;
+      padding-block: 0;
+    }
     .full-help {
       display: none;
     }

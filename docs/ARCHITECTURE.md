@@ -468,6 +468,64 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   CDP, and touch/accessibility labels in a mobile browser context. Physical-device
   and full assistive-technology audits remain part of S18's integrated gate.
 
+### 11.2 S04 Markdown and tag contracts
+
+- `shared/markdown/{parse,render,highlight,tags}.ts` is the product pipeline, not
+  an import of the S00 probes. One remark/GFM parser enforces a 1 MiB UTF-8 text
+  limit. `renderMarkdown` works in Node and the browser and returns sanitized HTML
+  plus separate original mdast code values and diagram sources. Code is associated
+  by source offset, not traversal order (footnotes reorder their rendered content).
+  Markdown HTML is dropped, never passed through `rehype-raw`. Safe relative,
+  HTTP(S) and mailto links remain; control/backslash/protocol-relative/active schemes
+  do not. Application-owned controls are inserted after sanitizing user-derived HAST.
+- Images resolve only descriptor-backed UUIDv4 `attachment:` references, including
+  reference-style Markdown. Allowed outputs are the matching ID's private relative
+  display/thumbnail route or a caller-owned ephemeral blob URL. Arbitrary remote
+  images are intentionally not fetched (privacy/tracking and asset safety); missing
+  descriptors show an unavailable-image label. S05/S06 own blob lifetime, descriptor
+  validation and actual private routes. CSP now allows `img-src 'self' blob:`; script
+  policy is unchanged and no external image origins are added.
+- Shiki is dynamically imported for code, uses the JavaScript RegExp engine under
+  the existing no-eval/no-WASM script CSP, caches one highlighter and at most 64
+  outputs (32 KiB maximum highlighted code). Grammar registrations are bounded by
+  the loaded-language inventory (48 including aliases); unsupported/oversized code
+  stays readable. Shiki 4's HTML-style `class`/`tabindex` properties are normalized
+  to HAST before sanitization. Light/dark CSS variables switch without retokenizing.
+  Copy uses the stored code value, not rendered text or Shiki's added line markup.
+  The fenced block's structural closing newline is not part of mdast's code value;
+  intentional trailing blank lines and spaces are preserved. Native Windows
+  clipboard LF/CRLF conversion is separately distinguished from the exact write argument.
+- `Markdown.svelte` provides stale-result suppression, debounced preview (300 ms in
+  Composer), accessible copy success/failure and intersection-driven diagrams.
+  Observers respect clipping/scroll containers, keep theme refresh to currently
+  visible diagrams, and disconnect/abort queued work on replacement or unmount.
+  Compact and expanded/mobile editors have Write/Preview controls. No keyboard
+  publishing shortcut, upload, persistence or enabled Post was added.
+- Mermaid dynamically loads only for visible fenced `mermaid` blocks, uses strict
+  security and SVG-native labels, serializes work, caches 32 sanitized outputs, and
+  rebases cached SVG IDs for each insertion. Invisible offscreen layout (not
+  `display:none`) supplies real text/bounds measurements. Defaults: 12,000 source
+  characters, 160 lines/node constructs, 300 connection constructs/edges and a
+  five-second asynchronous render deadline with clean error/recovery. These are
+  bounded main-thread renders; the deadline is cooperative, not CPU preemption.
+  S18 must still measure worst-case responsiveness on target hardware.
+- User configuration/frontmatter, click/callback/link clauses, HTML, encoded HTML,
+  image/icon assets and custom styles are rejected before Mermaid's temporary DOM
+  exists. This deliberately excludes those active/customization features, not normal
+  flow/sequence rendering. DOMPurify plus a separate detached SVG/CSS policy removes
+  links/scripts/foreignObject/images/use/animation/filter/resources. Only ordinary
+  SVG-ID-scoped paint/text CSS survives; imports/font faces/animations/URLs and
+  page-global selectors do not. Strict mode alone is not the sanitizer boundary.
+- Tags use literal hashtag spans in AST text nodes: Unicode letters/numbers/marks,
+  underscore/hyphen, start/whitespace/opening punctuation boundaries, NFKC lowercase
+  identity, first display spelling, 64 codepoints/tag and 100 unique tags/note.
+  Code, heading marker runs, HTML (including paired inline HTML contents), escapes,
+  URL/autolink text, image alt text and link destinations are excluded; explicit
+  human-authored link labels are eligible. Entity-generated markers are not literal
+  source hashtags. `rewriteTag` replaces matching UTF-16 spans right-to-left without
+  Markdown reserialization. Server transactions/history/stale-local-tag resolution
+  remain S07/S14; parser completion does not claim tag-management completion.
+
 ## 12. Authentication and threat boundaries
 
 ### 12.1 Initialization

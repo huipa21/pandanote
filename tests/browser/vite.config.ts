@@ -6,7 +6,7 @@ export const probeCsp = [
   "default-src 'none'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  "img-src 'self' data: blob:",
   "font-src 'self'",
   "connect-src 'self' ws://127.0.0.1:4174",
   "base-uri 'none'",
