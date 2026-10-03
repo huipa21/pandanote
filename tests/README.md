@@ -1,4 +1,4 @@
-# Foundation verification (S00/S01 and partial S02)
+# Foundation and shell verification (S00/S01, partial S02 and S03)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. Partial S02 tests exercise real
@@ -52,6 +52,45 @@ a real HTTPS deployment/browser drill still belongs to the full S02/S18 gate.
 `npm run auth:benchmark` performs five synthetic hash/verify samples, records
 10 ms sampled RSS and confirms concurrent rejection without printing credentials.
 
+## S03 coverage (UI-01/02 foundations)
+
+| Suite                            | Scope                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/appearance.test.ts`        | Strict small appearance DTO/SSR attribute substitution; WCAG AA text and 3:1 control/focus contrast measured from actual light/dark CSS tokens                                                                                                                                                                                              |
+| `integration/appearance.test.ts` | Real SQLite updates/reopening, appearance-only merge without changing security/storage, invalid/extra-key rejection and maintenance write refusal                                                                                                                                                                                           |
+| `e2e/shell.test.ts`              | Built private shell and API auth/CSRF/validation, no-JavaScript dark SSR, preference save/reload/system changes/failure retry; 360/390/768/1440 widths, short screens, drawer/editor/nested-dialog focus/Escape/return, reduced motion, disabled Post, editor content retention, notes-only keyboard scrolling and searchable 200-tag panel |
+
+Three reviewed Windows/Chromium screenshot baselines live in
+`e2e/shell.test.ts-snapshots/`; viewport-matrix images are also attached to each
+browser result. Regenerate only after visual review with
+`npm run test:e2e -- --update-snapshots`, then run normally to verify comparisons.
+Native system fonts make these platform-specific: Linux baselines have **not**
+been generated/reviewed and Linux browser verification is not claimed.
+
+`browser/ShellFixture.svelte` imports the real shell with 60 synthetic cards and
+200 tags through the separate Vite browser harness. It is not a product renderer,
+public app route, database seed or completed timeline/tag filtering. The real app
+has no seeded notes. Composer text is in-memory only until S05; no recovery/post
+completion is claimed. Collapse is preference plumbing, not card functionality.
+
+Keyboard-shrink tests exercise mobile content heights 390/320/260 with nonzero
+safe-area insets set through Chromium's `Emulation.setSafeAreaInsetsOverride`.
+Controls must fit fully inside the safe area and the textarea must retain at least
+one full visible line. A touch-capable mobile context navigates exclusively by taps;
+its accessibility-tree snapshot verifies dialog/control names and disabled state.
+
+A separate temporary MV3 test extension calls `chrome.tabs.setZoom(..., 2)` for
+**actual native 200% browser zoom**. The test verifies CSS viewport 720x450,
+`devicePixelRatio=2` and pinch scale 1 on a 1440x900 browser viewport, then checks
+drawer/editor/focus/overflow. The extension/profile are temporary synthetic fixtures,
+cleaned on exit and never added to application code or a user's browser. This is
+not CSS zoom, pinch zoom or just a viewport-size approximation.
+
+S03's shell gate is complete. Physical phone/OS IME, VoiceOver/NVDA read-aloud and
+cross-platform browser audits remain part of the integrated S18 release review,
+not claims made by these automated scenarios. No physical-device pass is claimed;
+S05/S08 will separately test real draft recovery and working posting.
+
 ## Run
 
 Use Node from `.node-version` and npm 11. Do not disable TLS verification.
@@ -78,7 +117,7 @@ and runs the adapter-node app with a fixture-only `.e2e-data/run-*` directory;
 it explicitly migrates storage and issues a disposable operator token before
 serving. Its teardown stops the test-owned adapter child before removing `.e2e-data`
 (Windows SQLite handles cannot be removed while open). Mermaid runs in a **separate test-only Vite
-harness** with response CSP, never a debug route in the production application.
+harness** with response CSP (also hosting the synthetic shell), never a debug route in the production application.
 Browser profiles/downloads/traces are not tracked. Linux browser runs need
 `npx playwright install --with-deps chromium`.
 
@@ -117,4 +156,4 @@ add a minimal non-root runtime, persistent volume, HTTPS proxy and runbook.
   use this probe alone as a restore feature.
 - Setup/password sessions are implemented in partial S02, but MFA/fresh-auth and
   security settings/recovery are unfinished. S01 implements validated settings
-  persistence only, not a settings UI.
+  persistence only; S03 now adds the appearance subset of the settings UI.

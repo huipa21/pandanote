@@ -1,0 +1,92 @@
+:root {
+  color-scheme: light;
+  --page: #faf9f6;
+  --surface: #ffffff;
+  --text: #242b25;
+  --muted: #626c64;
+  --border: #e2e6df;
+  --control-border: #78837a;
+  --accent: #3f6b4d;
+  --on-accent: #ffffff;
+  --accent-soft: #eaf1e9;
+  --danger: #952c2c;
+  --warning: #785414;
+  --overlay: rgb(16 24 18 / 45%);
+  --font-body:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Noto Sans CJK SC', 'Noto Sans CJK JP', 'Microsoft YaHei', 'Yu Gothic',
+    sans-serif;
+  --font-code: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --text-size: 1rem;
+  --line-height: 1.6;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius: 0.625rem;
+  --target: 2.75rem;
+  --sidebar-width: 17rem;
+  --column-width: 47.5rem;
+  --outer-gap: 1.5rem;
+  --card-padding: 1.25rem;
+  --card-gap: 1rem;
+  --collapsed-height: 26.25rem;
+  --focus-width: 3px;
+  --motion-duration: 120ms;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page: #171c18;
+  --surface: #202822;
+  --text: #edf2ed;
+  --muted: #a1b0a4;
+  --border: #3d493f;
+  --control-border: #778b7d;
+  --accent: #88b695;
+  --on-accent: #132117;
+  --accent-soft: #293d2e;
+  --danger: #f1a6a6;
+  --warning: #e1bf79;
+  --overlay: rgb(0 0 0 / 65%);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system'] {
+    color-scheme: dark;
+    --page: #171c18;
+    --surface: #202822;
+    --text: #edf2ed;
+    --muted: #a1b0a4;
+    --border: #3d493f;
+    --control-border: #778b7d;
+    --accent: #88b695;
+    --on-accent: #132117;
+    --accent-soft: #293d2e;
+    --danger: #f1a6a6;
+    --warning: #e1bf79;
+    --overlay: rgb(0 0 0 / 65%);
+  }
+}
+:root[data-density='compact'] {
+  --card-padding: 0.8125rem;
+  --card-gap: 0.75rem;
+}
+:root[data-collapse='false'] {
+  --collapsed-height: none;
+}
+@media (max-width: 899px) {
+  :root {
+    --outer-gap: 0.75rem;
+    --collapsed-height: 20rem;
+  }
+  :root[data-collapse='false'] {
+    --collapsed-height: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0ms;
+  }
+}

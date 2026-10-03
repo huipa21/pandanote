@@ -1,10 +1,11 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Currently an authentication/persistence foundation, not a usable note-taking application.**
+**Currently an authentication/persistence foundation with a responsive shell, not a usable note-taking application.**
 One-time operator setup, password login/logout and private route protection are
 implemented. S02 is **in progress**: optional TOTP, recovery codes, fresh-auth and
-security settings are not yet implemented. Note services, uploads and backup/restore
+security settings are not yet implemented. S03 adds design tokens, private navigation,
+mobile drawer/editor shells and persisted appearance preferences. Note services, uploads and backup/restore
 remain future steps. Do not deploy this unfinished app as a complete product.
 
 ## Start here
@@ -111,6 +112,26 @@ remain the next S02 work. Do not manually toggle MFA or edit account rows. If ac
 is lost at this unfinished stage, stop the app and retain private data for operator
 recovery; do not delete the database or reopen public setup.
 
+## Responsive shell and appearance (S03)
+
+The authenticated app has a fixed desktop sidebar/composer/filter region and an
+independent notes pane. Below 900 CSS pixels, navigation is a keyboard-accessible
+drawer and Compose opens a full-screen editor shell. Short screens may scroll
+sidebar sections independently so navigation is not clipped.
+
+`/settings` saves Light/Dark/Follow system, Comfortable/Compact, and the long-note
+collapse preference in SQLite. Validated attributes are rendered on the initial
+HTML document; CSS handles system dark mode without a pre-hydration script or
+light-theme flash. Public login/setup use the default system theme. Changes apply
+on other devices on their next page load, not via live preference synchronization.
+
+The composer is **only an in-memory editor shell**: it neither saves drafts nor
+uploads/publishes anything. Text survives navigation within the shell and editor
+close/reopen, but not a reload/restart; keep a copy before leaving. Post is disabled,
+and leaving with text triggers a browser warning. Draft recovery is S05 and real
+posting is S08. Search/calendar/tags/drafts/Trash and non-appearance settings are
+explicitly labeled as later-step work; these screens are not completed features.
+
 ## Validation
 
 ```sh
@@ -152,6 +173,6 @@ application data, browser profiles or backup archives in git or public assets.
 > outcomes including failures, and leave an exact handoff in PROGRESS.
 > A blocked native/browser/Linux check is not a pass.
 
-See PROGRESS for S00/S01 and partial S02 validation results and the next task.
+See PROGRESS for S00/S01, partial S02 and S03 validation results and the next task.
 Production deployment, performance and independent backup/restore drills remain
 part of the final S18 gate; this repository does not claim product completion.

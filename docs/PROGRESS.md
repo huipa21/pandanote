@@ -2,21 +2,22 @@
 
 ## Current state
 
-- **Phase:** authentication first slice implemented; product implementation remains unfinished.
-- **Completed steps:** S00 and S01 — **done**.
-- **Current unfinished step:** S02 — Authentication and optional TOTP — **in progress**, not done.
-- **Repository:** session began clean at S01 commit `ea7b9ee`. S02 changes are uncommitted; no commit created this session. Prior history preserved.
-- **Implemented:** operator-only expiring setup token, atomic sole-account setup, bounded Argon2id, persistent rate limits, password login/logout and hashed seven-day sessions, central private route/Origin/proxy policy, minimal setup/login UI and runtime shutdown. Schema now version 3 / 18 tables. TOTP-enabled account rows fail closed; no working MFA/fresh-auth/security settings yet.
-- **Validation:** Windows check/lint/build, 28 unit + 53 integration + 5 Chromium tests passed. Final pinned Linux/glibc image passed check/lint/build and the same 28 unit + 53 integration tests, including production server restart, two runtime origins and graceful shutdown. Argon2 measured on both hosts; details below. No unresolved first-slice blocker; full S02 gate remains outstanding.
+- **Phase:** authentication/persistence foundation plus responsive shell; product implementation remains unfinished.
+- **Completed steps:** S00, S01 and S03 — **done**.
+- **Earliest unfinished step:** S02 — Authentication and optional TOTP — **in progress**, not done.
+- **Requested work this session:** S03 — Design tokens and responsive fixed shell — **done**. Its implementation-plan gate is satisfied. The user explicitly requested and confirmed this out-of-order slice; unfinished S02 remains tracked separately, not folded into S03.
+- **Repository:** session began clean at `6ea8b8e` (S02 first-slice commit). S03 changes are uncommitted; no commit created. Prior handoff history is preserved.
+- **Implemented:** warm light/dark/system tokens, comfortable/compact and collapse-preference persistence, no-flash SSR appearance, private desktop fixed sidebar/composer/filters/notes scroller, mobile drawer/full-screen editor shell, native dialog keyboard/focus handling, navigation and functional appearance settings. Schema stays version 3 / 18 tables. No note/post/search/calendar/draft lifecycle functionality is claimed; placeholders identify later owners. Composer text is in-memory only. S02 password/session protection remains intact; TOTP-enabled rows still fail closed.
+- **Validation:** Windows check/lint/build, 30 unit + 55 integration + all 11 Chromium tests pass, including three reviewed baselines, actual native 200% zoom, nonzero safe-area/keyboard-shrink scenarios, touch navigation and accessibility-tree labels. Linux check/lint/build and all 30 unit + 55 integration tests pass; final image details below. Physical phone/OS IME, assistive-technology read-aloud and Linux browser baselines are unclaimed release-level audits. S02 is not done; S03 is done, not the whole product.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md` and planning documents; especially ARCHITECTURE 12.1–12.4, IMPLEMENTATION_PLAN S02, ACCEPTANCE_TESTS AUTH-01–05 and this latest handoff.
-2. Inspect git and preserve partial S02 work. Read `src/lib/server/auth/{service,passwords,tokens,rate-limits,policy,http}.ts`, `src/lib/server/runtime.ts`, `src/hooks.server.ts`, `src/lib/shared/auth.ts`, `src/lib/server/db/{schema,connection}.ts`, `src/lib/server/storage/private-storage.ts`, `vite.config.ts` and new auth/runtime tests.
-3. Continue **S02 only**: first add authenticated AES-GCM TOTP secret storage and confirmed enrollment, using the existing private portable key and real `auth_challenges`/account tables. Verify pinned otplib 13.5 APIs: epoch is seconds, successful verification reports `timeStep`, drift is explicit/bounded; replay consumption must commit atomically. Add real replay/expiry/parallel consumption tests before UI.
-4. Then implement pending-MFA login challenges (password must not create a full session), 10 single-use hashed recovery codes, scoped five-minute fresh-auth, password/MFA changes, session/revision rotation and all-device revocation, security UI including local QR and generation-only recovery download, and an explicit operator-only recovery command/runbook. Extend persistent rate-limit scopes and bound/expire challenge storage. Do not add public recovery or bypass Origin checks.
-5. First validation: `npm run check && npm run test:integration` on pinned Node with TLS verification enabled. Complete the common and auth/browser gates and repeat Linux validation before marking S02 done. Retain the runtime-origin adapter wrapper: adapter 6 does not read runtime ORIGIN itself. Real HTTPS/proxy/browser validation and target-VPS Argon2 measurements are still outstanding, not claimed by loopback tests.
+1. Read `AGENTS.md` and planning documents; especially ARCHITECTURE 11.1/12.1–12.4, IMPLEMENTATION_PLAN S02/S03, ACCEPTANCE_TESTS AUTH-01–05/UI-01–02 and the latest handoff below.
+2. Inspect git and preserve S03 work. Read auth/runtime files from the S02 history, plus `src/lib/{components/{AppShell,Sidebar,Composer,Modal}.svelte,styles/{tokens,global}.css,shared/appearance.ts}`, root layouts/hook, `(app)/settings`, appearance endpoint/repository and `tests/e2e/shell.test.ts`.
+3. The user explicitly requested S03 ahead of the unfinished S02 dependency; this was an isolated visual slice, not permission to remove authentication safeguards or mark MFA done. Unless explicitly directed otherwise, return to **S02**: AES-GCM TOTP storage/confirmed enrollment and real replay/expiry/parallel consumption tests first. Verify pinned otplib 13.5 APIs (`epoch` seconds, successful `timeStep`). Then pending MFA, recovery codes, scoped fresh-auth, security changes/revocation/UI and operator recovery, as detailed in S02 history.
+4. S03 is complete; preserve its real zoom/touch/safe-area/keyboard and accessibility-label regressions. Physical-device/OS IME and assistive-technology read-aloud audits remain explicitly unverified for the final S18 integrated review. Review Linux/other-platform screenshots before creating their baselines; do not treat missing baselines or native browser dependencies as passing.
+5. First validation: `npm run check && npm run test:integration` on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`, then `npm run test:e2e`. Default next work is the earlier unfinished S02; S04 may begin if explicitly selected by the user, using the completed S03 tokens/shell. Retain the runtime-origin adapter wrapper and no-inline-script theme mechanism.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -27,7 +28,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S00  | Bootstrap and technical validation | Done        |
 | S01  | Schema and persistent storage      | Done        |
 | S02  | Authentication and optional TOTP   | In progress |
-| S03  | Design tokens and responsive shell | Not started |
+| S03  | Design tokens and responsive shell | Done        |
 | S04  | Markdown/code/Mermaid/tag parsing  | Not started |
 | S05  | Browser drafts and recovery        | Not started |
 | S06  | Private uploads and Sharp          | Not started |
@@ -459,3 +460,205 @@ Remaining work / exact next task:
   (`epoch` seconds and valid result `timeStep`). First command:
   `npm run check && npm run test:integration` on the pinned runtime with TLS verified.
   Do not begin S03 or remove fail-closed login behavior before MFA completion exists.
+
+### Session 2026-10-03 — S03 design tokens and responsive fixed shell
+
+**State: in progress.** Requested S03 implementation and automated gates passed.
+S02 is still incomplete, and real-device/manual UI checks are not claimed. This
+session followed the user's explicit S03 request ahead of that dependency; it did
+not silently reinterpret the S02 commit title as a completed authentication gate.
+
+Implemented / touched files:
+
+- `src/lib/styles/{tokens,global}.css`: warm off-white/white light palette, dark
+  and system themes, muted-green accent, semantic warning/danger, native CJK font
+  fallbacks, centralized layout/spacing/density/collapse/focus/motion tokens. AA
+  foreground contrast and 3:1 control/focus contrast have actual-token tests.
+- `src/lib/shared/appearance.ts`, `src/lib/server/settings/repository.ts`,
+  `src/routes/api/settings/appearance/+server.ts`: strict three-field DTO and
+  same-origin/authenticated, bounded-JSON PATCH. Coordinated transaction merges
+  only appearance with current SQLite settings. No security/storage field edits,
+  extra/sensitive keys, schema changes or dependency/lockfile changes.
+- `src/app.{html,d.ts}`, `src/hooks.server.ts`, root `+layout.{server.ts,svelte}`:
+  initial validated HTML attributes via Kit 3 `transformPageChunk`; system theme
+  handled directly in CSS, with no inline-script flash workaround or weakened CSP.
+  Authenticated pages receive saved appearance, public auth pages default to system.
+  Dynamic viewport, safe-area and content-resizing keyboard meta configuration.
+- `src/lib/components/{AppShell,Sidebar,Composer,Modal}.svelte`: fixed 272px desktop
+  sidebar, expandable composer, filter placeholder and independent notes scroller;
+  900px breakpoint, mobile header/drawer/compose/full-screen editor; short-height
+  independent sidebar scrolling/fallback, searchable Show all tag panel, native
+  modal inertness plus explicit Tab/Shift+Tab wrapping, Escape and opener return.
+- `src/routes/(app)/`: private layout and root moved from old scaffold, real
+  navigation to Drafts/Tags/Trash/Settings. Appearance settings save/reload/error
+  retry works; current-session logout now lives in Settings. Non-appearance and
+  future note screens explicitly identify their owning steps. No demo notes/tags,
+  fake counts, title field, uploads, server draft saves or publishing implemented.
+- Composer text is explicitly **in-memory only** until S05. It survives internal
+  private navigation and close/reopen, registers beforeunload when nonempty, never
+  uploads/posts, and warns to keep a copy before reload. Post is disabled. This is
+  editor/layout plumbing, not local-draft persistence or note functionality.
+- `AuthForm.svelte` now uses shared color/focus tokens; auth browser regression
+  navigates to Settings for logout. Existing route privacy/Origin checks and
+  fail-closed MFA behavior remain intact.
+- `tests/unit/appearance.test.ts`, `tests/integration/appearance.test.ts`,
+  `tests/e2e/shell.test.ts`, three Windows PNG baselines, browser fixture HTML/TS/
+  Svelte and browser Vite plugin: real preferences/SSR/API and UI tests. Separate
+  fixture reuses actual shell with 60 synthetic cards/200 tags, not production
+  content. Screenshots were opened/reviewed for desktop light, mobile light and
+  desktop dark/compact. README, ARCHITECTURE 11.1, test README and this handoff
+  document implemented contracts and explicit limitations.
+
+Checks actually run:
+
+Host commands used the existing pinned Node 24.21.0 executable/PATH and npm CLI
+`N`/`C` from the S00 handoff. `NODE_TLS_REJECT_UNAUTHORIZED=1` was exported for
+all validation/network commands; dependencies stayed pinned and unchanged.
+
+| Command                                                                 | Actual result                                                                                                   |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `git status --short`, `git log -3`, full required document/source reads | Clean baseline `6ea8b8e`; existing committed work preserved                                                     |
+| `"$N" "$C" run format`                                                  | PASS, repeated after source/document edits                                                                      |
+| `"$N" "$C" run check`                                                   | PASS final, 0 errors/warnings, including tooling/test TS                                                        |
+| `"$N" "$C" run lint`                                                    | PASS final, ESLint and Prettier                                                                                 |
+| `"$N" "$C" run test:unit`                                               | PASS final, 6 files / 30 tests                                                                                  |
+| `"$N" "$C" run test:integration`                                        | PASS final, 12 files / 55 tests, real SQLite/filesystem/native/build/runtime behavior                           |
+| `"$N" "$C" run test:e2e -- --update-snapshots`                          | First run: 7 pass / 2 fail; generated three baselines, exposed real dialog Tab/Escape problems (fixed below)    |
+| `"$N" "$C" run test:e2e`                                                | PASS final without snapshot updates, production build + all 9 Chromium tests including auth/Mermaid regressions |
+| `"$N" "$C" run build`                                                   | PASS final adapter-node build; no synthetic fixture route/production demo content                               |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s03 .`          | PASS, fresh Linux npm ci, own native artifacts, zero reported audit vulnerabilities                             |
+| `podman run --rm --cpus=2 --memory=4g pandanote-s03`                    | PASS, Linux check/lint/build, 30 unit + 55 integration tests                                                    |
+| `git diff --check`; `test ! -e .e2e-data`                               | PASS, no whitespace errors or leftover E2E private data (only host autocrlf informational warnings)             |
+
+Passing Linux image:
+`0ad387675b2797d0ada1512b89f3aafe34f0f3c887015d36b4cac5e6bfc1267b`.
+Same pinned Node 24.21.0 bookworm/glibc base digest as previous sessions, npm
+11.19.0; VM/CPU/memory context unchanged. Image precedes only this final handoff
+update. Real SQLite 3.53.2, Sharp 0.35.5/libvips 8.18.7 and archive probes passed.
+Linux Chromium/baselines were **not run**; Windows browser baselines are
+platform-specific. This is compatibility evidence, not release/performance/restore
+completion. No new native dependency was introduced.
+
+Intermediate failures / corrections:
+
+- First check: six warnings (intentional focusable scroll regions, a nonreactive
+  textarea ref and initial form snapshots). Made textarea reactive, explicitly
+  untracked the form snapshot, and documented the two necessary focusable-scroll
+  accessibility exceptions. Final check has zero warnings.
+- First lint: two unkeyed each blocks. Added stable navigation/fixture keys.
+- First browser run: native dialog Tab reached browser chrome/body for a cycle;
+  Escape in a filled search field cleared the field instead of closing the panel.
+  Reproduced with focus-event instrumentation in the separate fixture. Added
+  explicit wrapping and Escape prevention/close; nested modals stop propagation.
+  Final drawer/editor/tag-panel focus/close/return tests all pass, without weakening
+  assertions or pretending the failures were harmless.
+- One documentation edit failed exact matching; it applied no partial changes.
+  Corrected the match and reapplied. No document/history was overwritten.
+
+Remaining work / next task:
+
+- S02 prerequisite remains incomplete: encrypted TOTP confirmed enrollment,
+  pending-MFA completion, replay/atomic recovery codes, fresh-auth/security changes,
+  all-device revocation and operator recovery. Return to that work unless the user
+  explicitly requests another slice. Do not remove fail-closed MFA behavior.
+- S03 manual gate remains open: real mobile IME/virtual keyboard, safe areas and
+  touch/gesture workflow, actual 200% browser zoom and screen-reader review.
+  Automation tested 390x390 keyboard-shrink and 720x450 zoom-equivalent CSS
+  viewports, not physical hardware/native zoom. Linux browser validation and
+  reviewed Linux screenshot baselines are also unclaimed.
+- Search/calendar/tag filtering/management, persisted drafts, renderer, cards,
+  note mutations, uploads, detail and backups are later steps, not completed by
+  placeholders or a disabled Post. Collapse preference is saved/plumbed only.
+- Next read: ARCHITECTURE 11.1/12.4; auth service/private keys/challenge schema and
+  pinned otplib sources, plus shell/modal/settings files and tests listed above.
+  Next task: AES-GCM TOTP enrollment with replay/expiry/parallel integration tests;
+  then complete remaining S02 and manual S03 gates before starting S04.
+  First validation: `npm run check && npm run test:integration`, then
+  `npm run test:e2e`, on pinned Node with TLS verification enabled.
+
+### Session 2026-10-03 — S03 completion after scope clarification
+
+**State: done.** This supersedes the earlier S03 **in progress** assessment,
+without erasing its history. The user clarified that S03 must be finished this
+session. Rereading the actual S03 gate confirmed the initial status was too broad:
+MFA/fresh-auth is S02, draft persistence is S05, posting is S08, and full physical
+mobile/assistive-technology release auditing is S18. S03 explicitly permits shells
+and clearly identified later-step placeholders. The user-approved out-of-order
+S03 slice does not mark S02 complete or weaken its fail-closed security behavior.
+
+Implemented / touched files:
+
+- `tests/e2e/shell.test.ts`: two additional browser tests, beyond the original
+  viewport approximations. A temporary MV3 extension invokes Chromium's actual
+  `chrome.tabs.setZoom(..., 2)` and verifies 720x450 CSS viewport, DPR 2 and pinch
+  scale 1 from a 1440x900 browser. Drawer/editor controls, forward/reverse keyboard
+  focus, return and overflow pass at native 200% zoom. The synthetic extension and
+  isolated profile are removed in `finally`; no production extension/dependency.
+- Touch-capable mobile context navigates all private shell destinations using taps.
+  CDP sets real CSS safe-area environment values (top 24 / bottom 34 / left 12 /
+  right 18 px). Tests verify applied padding, accessibility-tree dialog/textbox/
+  close/Post labels, retained text, and keyboard-shrunken heights 390/320/260.
+  Close/Post must fit **fully** inside the safe area, and at least one full text
+  line must remain visible. This is actual Chromium layout with controlled
+  keyboard/safe-area scenarios, not a claim of physical phone/OS IME operation.
+- `src/lib/components/Composer.svelte`: condensed the explicit unsaved-text warning
+  on very short mobile screens. Screenshot review found the old verbose warning
+  left too little room for text at 260px height plus safe areas; the final full-line
+  geometry test and reviewed screenshot now pass. It still clearly says text is
+  unsaved; no fake draft saving or publishing was added.
+- `docs/PROGRESS.md`, ARCHITECTURE 11.1 and `tests/README.md`: corrected S03 status
+  and acceptance scope, documented native zoom/test-only extension, safe-area,
+  touch/keyboard and accessibility-label checks. S02 remains separately in progress.
+  Earlier history and the full product/acceptance requirements were not erased.
+
+S03 acceptance gate evidence:
+
+1. Desktop document stays at scrollY 0 while the actual notes surface scrolls;
+   sidebar and composer bounding boxes stay fixed (60-card synthetic fixture).
+2. No document/horizontal overflow at 360/390/768/1440 CSS px widths, constrained
+   heights, keyboard-shrink scenarios and native 200% zoom.
+3. Short-screen navigation remains reachable, including 200-tag searchable panel;
+   drawer/editor/nested-dialog Tab/Shift+Tab, Escape and opener return pass.
+4. Light/dark/system and comfortable/compact visibly apply and persist in SQLite;
+   no-JavaScript dark SSR prevents theme flash; contrast/focus/reduced motion pass.
+5. One chronological column, textarea shell, native dialog and plain tokenized CSS;
+   no masonry, rich editor, external fonts or added component framework.
+
+Commands actually run (pinned N/C/PATH from S00; TLS verification explicitly 1):
+
+| Command                                                             | Actual result                                                                                                                                       |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git status --short`, S03/product/UI gate and current source reads  | Preserved this session's uncommitted S03 work                                                                                                       |
+| Native zoom capability probes with pinned Node + Playwright         | Browser preference approach did not change zoom; generated test-only MV3 API did, verified viewport/DPR/pinch scale. All temporary profiles cleaned |
+| `"$N" "$C" run test:e2e -- --grep 'native Chromium\|touch-only'`    | PASS, both new tests independently of auth-test ordering                                                                                            |
+| `"$N" "$C" run format`                                              | PASS                                                                                                                                                |
+| `"$N" "$C" run check`                                               | PASS final, 0 errors/warnings                                                                                                                       |
+| `"$N" "$C" run lint`                                                | PASS final                                                                                                                                          |
+| `"$N" "$C" run test:unit`                                           | PASS final, 6 files / 30 tests                                                                                                                      |
+| `"$N" "$C" run test:integration`                                    | PASS final, 12 files / 55 tests                                                                                                                     |
+| `"$N" "$C" run test:e2e`                                            | PASS final, production build + all 11 Chromium tests, normal screenshot comparisons (no baseline updates)                                           |
+| `"$N" "$C" run build`                                               | PASS final                                                                                                                                          |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s03-done .` | PASS fresh Linux dependency/native install                                                                                                          |
+| `podman run --rm --cpus=2 --memory=4g pandanote-s03-done`           | PASS Linux check/lint/build and all 30 unit + 55 integration tests                                                                                  |
+| `git diff --check`; `test ! -e .e2e-data`                           | PASS, no E2E private-data leftovers                                                                                                                 |
+
+Final Linux image:
+`ce9e3430c3c9af54fa199df71d6ad6b0051cb7708bd23279929b0b36d21fd7b7`.
+Same Node 24.21.0 bookworm/glibc base, npm 11.19.0 and constrained VM context as
+previous checks. Image precedes only this final log append. Native probes still
+pass; Linux browser baselines/browser suite and physical-device/VoiceOver/NVDA
+read-aloud audits remain explicitly unclaimed for the integrated release gate.
+Native zoom and safe-area/keyboard screenshots were opened/reviewed. No remaining
+S03 defect or incomplete S03 feature is known. No commit was created.
+
+Next task:
+
+- Default: return to earlier unfinished S02, encrypted TOTP confirmed enrollment
+  plus replay/expiry/parallel consumption integration tests, then remaining MFA/
+  fresh-auth/security/recovery work. If the user selects S04, use the completed
+  tokens/shell and shared Modal; do not mark S02 done implicitly.
+- Read ARCHITECTURE 11.1/12.4, auth service/key/challenge schema and pinned otplib
+  sources for S02; IMPLEMENTATION_PLAN S04 and shared shell/appearance modules if
+  that step is explicitly selected.
+- First validation: `npm run check && npm run test:integration`, then
+  `npm run test:e2e`, with pinned Node and TLS verification enabled.

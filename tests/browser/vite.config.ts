@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export const probeCsp = [
   "default-src 'none'",
@@ -16,6 +17,7 @@ export const probeCsp = [
 // Separate browser-only fixture server: never included in the application build.
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
+  plugins: [svelte()],
   server: {
     headers: {
       'Content-Security-Policy': probeCsp,

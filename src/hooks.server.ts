@@ -1,4 +1,7 @@
 import type { Handle } from '@sveltejs/kit/hooks';
+import { appearanceFrom, appearanceHtml } from '#lib/shared/appearance.ts';
+import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
+import { readSettings } from '#lib/server/settings/repository.ts';
 import { getRuntime } from '#lib/server/runtime.ts';
 import {
   clientIp,
@@ -71,8 +74,18 @@ export const handle: Handle = async ({ event, resolve }) => {
         new Response(null, { status: 303, headers: { location: '/login' } }),
       );
     }
+    event.locals.appearance = appearanceFrom(
+      event.locals.identity
+        ? readSettings(runtime.persistence)
+        : DEFAULT_SETTINGS,
+    );
   } catch (error) {
     return protect(authErrorResponse(error));
   }
-  return protect(await resolve(event));
+  return protect(
+    await resolve(event, {
+      transformPageChunk: ({ html }) =>
+        appearanceHtml(html, event.locals.appearance!),
+    }),
+  );
 };

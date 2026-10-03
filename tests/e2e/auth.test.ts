@@ -91,6 +91,7 @@ test('operator setup, private routes, secure password session, CSRF, logout and 
   });
   expect(crossSiteLogout.status()).toBe(403);
   await page.reload();
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Sign out', exact: true }),
   ).toBeVisible();

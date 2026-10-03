@@ -90,14 +90,6 @@
 </main>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background: #faf9f6;
-    color: #242b25;
-    font:
-      1rem/1.6 system-ui,
-      sans-serif;
-  }
   main {
     max-width: 28rem;
     margin: 3rem auto;
@@ -117,15 +109,15 @@
     box-sizing: border-box;
     width: 100%;
     padding: 0.7rem;
-    border: 1px solid #626c64;
+    border: 1px solid var(--control-border);
     border-radius: 0.3rem;
     font: inherit;
   }
   button {
     margin-top: 1rem;
     padding: 0.7rem 1rem;
-    background: #3f6b4d;
-    color: white;
+    background: var(--accent);
+    color: var(--on-accent);
     border: 0;
     border-radius: 0.3rem;
     font: inherit;
@@ -135,14 +127,14 @@
     cursor: wait;
   }
   a {
-    color: #3f6b4d;
+    color: var(--accent);
   }
   :is(input, button, a):focus-visible {
-    outline: 2px solid #3f6b4d;
+    outline: var(--focus-width) solid var(--accent);
     outline-offset: 3px;
   }
   [role='alert'] {
-    color: #952c2c;
+    color: var(--danger);
     overflow-wrap: anywhere;
   }
 </style>

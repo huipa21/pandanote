@@ -6,6 +6,12 @@ import {
 } from '../../shared/settings.ts';
 import type { Persistence } from '../db/connection.ts';
 import { appSettings } from '../db/schema.ts';
+import { DomainError } from '../../shared/domain.ts';
+import {
+  appearanceSchema,
+  appearanceFrom,
+  type Appearance,
+} from '../../shared/appearance.ts';
 
 export function readSettings(persistence: Persistence): AppSettings {
   const row = persistence.db
@@ -29,6 +35,33 @@ export function initializeSettings(persistence: Persistence): void {
       .run();
   });
   readSettings(persistence); // Existing invalid settings are not silently replaced.
+}
+// Merge inside the write transaction so appearance never overwrites concurrent
+// security/storage settings with a stale whole-settings snapshot.
+export function updateAppearance(
+  persistence: Persistence,
+  value: unknown,
+): Appearance {
+  const parsed = appearanceSchema.safeParse(value);
+  if (!parsed.success)
+    throw new DomainError('validation', 'Choose valid appearance settings.');
+  return persistence.write((tx) => {
+    const row = tx
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.singleton, 1))
+      .get();
+    if (!row) throw new Error('Settings are not initialized');
+    const settings = settingsSchema.parse({
+      ...settingsSchema.parse(JSON.parse(row.valueJson)),
+      ...parsed.data,
+    });
+    tx.update(appSettings)
+      .set({ valueJson: JSON.stringify(settings), updatedAt: Date.now() })
+      .where(eq(appSettings.singleton, 1))
+      .run();
+    return appearanceFrom(settings);
+  });
 }
 export function replaceSettings(
   persistence: Persistence,

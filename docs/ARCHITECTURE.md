@@ -432,6 +432,42 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
 - Dark mode/density/collapse changes preserve scroll context as reasonably possible.
 - Detail modal is URL-addressable, accessible, and SSR/direct-navigation capable. Browser Back closes it without losing timeline state when opened from timeline.
 
+### 11.1 S03 shell and appearance contracts
+
+- `styles/tokens.css` centralizes both palettes, control/focus contrast, system/CJK
+  fonts, spacing, density, safe-area layout sizes and reduced-motion policy.
+  Desktop sidebar is 272 px, content maximum 760 px, breakpoint 900 CSS px.
+  Collapse preference sets a height token only; actual card collapse belongs to S09.
+- The central hook reads validated appearance for authenticated requests and
+  replaces three application-owned HTML attribute placeholders using Kit 3's
+  `transformPageChunk`. Root layout load exposes only the three-field appearance
+  DTO, not storage/security settings. CSS media queries resolve system theme
+  before hydration; no inline bootstrap script, browser-storage theme cache or
+  weakened script CSP. Public authentication pages use system/comfortable defaults.
+- `PATCH /api/settings/appearance` accepts only theme/density/collapse, JSON capped
+  at 4 KiB, central same-origin/session protection plus endpoint identity check.
+  A coordinated IMMEDIATE transaction reads/merges current settings so unrelated
+  security/storage fields are not overwritten. Ordinary appearance edits do not
+  require fresh authentication. No schema migration/dependency changes.
+- `(app)` layout keeps the composer instance across private route navigation.
+  It is explicitly **in-memory only** until S05; there are no note/upload calls,
+  Post is disabled, and nonempty text registers beforeunload protection. Closing
+  the mobile/expanded editor retains text. On very short mobile viewports the
+  warning is condensed to preserve a full visible text line and reachable actions.
+  This is not draft retention completion.
+- Native `dialog.showModal()` supplies background inertness. The small shared
+  modal additionally wraps Tab/Shift+Tab, handles Escape (including filled search
+  fields), restores opener focus, and lets nested dialogs own their keyboard
+  events. Dynamic viewport/safe-area CSS sizes drawers/mobile editors; independent
+  sidebar scrolling and a very-short-height fallback prevent inaccessible controls.
+- The production shell contains no demo notes/tags or fake activity. Later-step
+  placeholders identify their owning steps. A separate browser fixture reuses the
+  actual shell with 60 synthetic cards/200 tags for scroll/height/accessibility
+  checks; it is never a production route or initial data seed. Native 200% zoom is
+  exercised through a temporary test-only Chrome extension, safe-area values via
+  CDP, and touch/accessibility labels in a mobile browser context. Physical-device
+  and full assistive-technology audits remain part of S18's integrated gate.
+
 ## 12. Authentication and threat boundaries
 
 ### 12.1 Initialization
