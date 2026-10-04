@@ -11,6 +11,7 @@ import { browserSession } from '../helpers/browser-session.ts';
 const origin = 'http://127.0.0.1:4173';
 test.use({ hasTouch: true });
 let cookies: Cookie[] = [];
+let initialCards = 0;
 async function signIn(page: Page) {
   cookies = await browserSession(page);
 }
@@ -65,6 +66,7 @@ function receiptCount(mutationId: string) {
 async function start(page: Page, text: string) {
   await signIn(page);
   await page.goto('/');
+  initialCards = await page.getByTestId('posted-note').count();
   await page.getByRole('button', { name: 'Write a note…' }).click();
   await page.getByRole('textbox', { name: 'Note text' }).fill(text);
   await expect(page.getByTestId('composer').getByRole('status')).toHaveText(
@@ -199,7 +201,7 @@ test('explicit Post saves text/two images/file, freezes repeated clicks, retains
       ?.postingAttempt,
   ).toBeDefined();
   release();
-  await expect(page.getByTestId('posted-note')).toHaveCount(1);
+  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 1);
   await expect.poll(async () => (await records(page)).length).toBe(1);
   expect((await records(page))[0].localDraftId).toBe(other.localDraftId);
   expect(await blobCount(page)).toBe(0);
@@ -240,7 +242,7 @@ test('explicit Post saves text/two images/file, freezes repeated clicks, retains
     .getByRole('button', { name: 'Close Timeline date', exact: true })
     .click();
   await (await postButton(page)).click();
-  await expect(page.getByTestId('posted-note')).toHaveCount(2);
+  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 2);
   await expect(page.getByTestId('posted-note').nth(1)).toContainText(
     'Backdated note',
   );
@@ -287,7 +289,7 @@ test('second upload disconnect retains all local bytes; reload retries only miss
     .getByTestId('composer')
     .getByRole('button', { name: 'Retry save', exact: true })
     .click();
-  await expect(page.getByTestId('posted-note')).toHaveCount(1);
+  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 1);
   expect(retried).toHaveLength(2);
   expect(retried).not.toContain(sent[0]);
   expect(receiptCount(mutationId)).toBe(1);
@@ -330,7 +332,7 @@ test('lost response after real server commit keeps recovery until receipt-first 
     .getByTestId('composer')
     .getByRole('button', { name: 'Retry save', exact: true })
     .click();
-  await expect(page.getByTestId('posted-note')).toHaveCount(1);
+  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 1);
   expect(writes).toEqual([]);
   expect(receiptCount(frozen.postingAttempt!.command.mutationId)).toBe(1);
   await expect.poll(async () => (await records(page)).length).toBe(0);
@@ -627,7 +629,7 @@ test('reload during an active upload retains frozen recovery, never auto-posts, 
     .getByTestId('composer')
     .getByRole('button', { name: 'Retry save', exact: true })
     .click();
-  await expect(page.getByTestId('posted-note')).toHaveCount(1);
+  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 1);
   expect(retried).toHaveLength(2);
   expect(receiptCount(frozen.postingAttempt!.command.mutationId)).toBe(1);
   await expect.poll(async () => (await records(page)).length).toBe(0);
@@ -667,7 +669,7 @@ test('local confirmation-storage failure after server commit keeps the record an
     .getByTestId('composer')
     .getByRole('button', { name: 'Retry save', exact: true })
     .click();
-  await expect(page.getByTestId('posted-note')).toHaveCount(1);
+  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 1);
   expect(writes).toEqual([]);
   await expect.poll(async () => (await records(page)).length).toBe(0);
 });
@@ -713,7 +715,7 @@ test('retired-tag validation and expired-session errors are actionable and retai
     .getByTestId('composer')
     .getByRole('button', { name: 'Retry save', exact: true })
     .click();
-  await expect(page.getByTestId('posted-note')).toHaveCount(1);
+  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 1);
   await expect.poll(async () => (await records(page)).length).toBe(1);
   expect((await records(page))[0].localDraftId).toBe(frozen.localDraftId);
 });

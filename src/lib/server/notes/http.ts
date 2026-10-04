@@ -49,7 +49,10 @@ export async function readNoteJson(request: Request): Promise<unknown> {
     reader.releaseLock();
   }
 }
-export function noteErrorResponse(error: unknown): Response {
+export function noteErrorResponse(
+  error: unknown,
+  fallback = 'Note could not be saved. Keep your local work and retry.',
+): Response {
   const body: ApiError =
     error instanceof DomainError
       ? {
@@ -61,7 +64,7 @@ export function noteErrorResponse(error: unknown): Response {
         }
       : {
           code: 'busy',
-          message: 'Note could not be saved. Keep your local work and retry.',
+          message: fallback,
         };
   const status =
     body.code === 'unauthorized'

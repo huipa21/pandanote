@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments and notes (S00–S07)
+# Foundation, authentication, shell, renderer, drafts, attachments and timeline (S00–S09)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -244,10 +244,40 @@ retired-tag history resolution, not silent local rewriting. Full restore remains
   zoom/safe areas. Two light-shell baselines changed only for the intentionally
   updated product status text; reviewed images are still Windows-only baselines.
 
-The session list is bounded and explicitly not the complete S09 timeline. Full
-server edit/detail/draft entry points and conflict resolution remain S12–S14.
+S09 replaces the historical session list with the paginated SSR timeline. Posting
+assertions now include previously saved cards rather than assuming a blank session.
+Full server edit/detail/draft entry points and conflict resolution remain S12–S14.
 Linux browser validation includes the actual posting test file in addition to
 security/draft/upload regressions. Physical-device/IME and release audits remain S18.
+
+## S09 coverage (NOTE-01, TAG-02, SEARCH-03/CAL-02 foundations, UI-01–03)
+
+- `unit/timeline.test.ts`: canonical/toggle/clear filters, NFKC-expanded identities,
+  bounded query validation, timezone month/year/DST boundaries, UTF-8 preview
+  boundaries, revision-aware deduplication and backdated ordering.
+- `integration/timeline.test.ts`: real 10k multilingual SQLite fixture, first-page
+  and UTF-8 source budgets, indexed query plan and warm timings; equal-time paging
+  with no skips/duplicates, canonical filter/cursor binding, all-tag AND semantics,
+  NFKC compatibility ligatures, safe SSR HTML, published-only counts and lifecycle,
+  content revisions/location metadata and revoked-session denial.
+- `e2e/timeline.test.ts`: actual no-JavaScript first-page SSR, 30-card initial DOM,
+  private list API, filter chips/card tags, query changes and stale response rejection,
+  older loading/retry in the fixed shell, tall-card expand/collapse, top-month marker,
+  Back restoration, 300-card DOM/heap measurement, revision-conflicted action refresh
+  outside the first page, actual Trash action, mobile overflow, exact SSR code copy,
+  disabled partial-code copy, full/compact preferences and visible-only full reads.
+  Synthetic unmasked light/desktop and dark/compact/mobile screenshots are saved in
+  test results for visual review. No product fixture route or production seed.
+- Shell screenshot baselines mask only the now-variable timeline pane (private note
+  timestamps/content); layout/focus/overflow/scroll checks remain real and unmasked.
+  New timeline screenshots separately review the actual cards. Windows baselines
+  are still platform-specific; Linux browser runs do not regenerate them.
+
+Search acceleration/snippets, interactive calendar, detail/viewer, full lifecycle
+screens and location popovers remain their later steps. `ops/Dockerfile.browser-validation`
+includes auth/draft/posting/timeline/upload suites; native common gates also exercise
+actual SQLite/Sharp/archive probes. Performance samples are synthetic, not VPS p95
+or proof of unbounded-session memory stability. Virtualization remains deferred.
 
 ## Run
 

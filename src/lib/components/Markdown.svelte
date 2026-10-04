@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import {
     renderMarkdown,
     type ImageReference,
@@ -9,12 +10,18 @@
     source,
     images = [],
     debounce = 0,
+    initial,
+    allowCodeCopy = true,
   }: {
     source: string;
     images?: readonly ImageReference[];
     debounce?: number;
+    initial?: RenderedMarkdown;
+    allowCodeCopy?: boolean;
   } = $props();
-  let output = $state<RenderedMarkdown>({ html: '', codes: [], diagrams: [] });
+  let output = $state<RenderedMarkdown>(
+    untrack(() => initial ?? { html: '', codes: [], diagrams: [] }),
+  );
   let error = $state('');
   let loading = $state(false);
   let root: HTMLDivElement;
@@ -23,6 +30,12 @@
     const text = source;
     const refs = images;
     const current = ++generation;
+    if (initial) {
+      output = initial;
+      loading = false;
+      error = '';
+      return;
+    }
     loading = true;
     const timer = setTimeout(() => {
       void renderMarkdown(text, refs)
@@ -44,6 +57,20 @@
       clearTimeout(timer);
       generation++;
     };
+  });
+  $effect(() => {
+    // SSR copy controls wait for the delegated handler/hydrated DOM. Preview
+    // replacements use the same boundary, never a swallowed pre-hydration click.
+    const codes = output.codes;
+    if (codes.length)
+      root
+        .querySelectorAll<HTMLButtonElement>('button[data-code]')
+        .forEach((button) => {
+          button.disabled = !allowCodeCopy;
+          button.title = allowCodeCopy
+            ? ''
+            : 'Show more to copy the complete original code.';
+        });
   });
   $effect(() => {
     const diagrams = output.diagrams;
@@ -123,6 +150,7 @@
     };
   });
   async function copy(event: MouseEvent) {
+    if (!allowCodeCopy) return;
     const target =
       event.target instanceof Element
         ? event.target.closest<HTMLButtonElement>('button[data-code]')

@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** composer posting/recovery; product implementation remains unfinished.
-- **Completed steps:** S00–S08 — **done**.
-- **Current requested step:** S08 — Composer posting orchestration and upload UX — **done**. Next unfinished step: S09 — Timeline cards, lazy pagination, and filter state.
-- **Repository:** clean starting HEAD `31a83fb` (committed S07). Existing work preserved; S08 changes are uncommitted. No commit created by this agent.
-- **Implemented:** persisted frozen attempts, explicit Post/Save changes, receipt-first readiness/upload/commit retries, byte/processing progress, recovery-base checks, local retention through confirmation failures, scoped success cleanup, renamed-image insertion, remove/reorder, timezone Date dialog, recoverable server errors and a bounded date-sorted session list. Full SSR timeline/detail/lifecycle/search/storage/backup screens remain later steps. Dependencies, lockfile and DB schema are unchanged (v3/18 tables).
-- **Validation:** Windows check/lint/build, all 69 unit + 98 integration + 39 Chromium tests pass. Fresh Linux-native image passes check/lint/build and 69 unit + 98 integration tests; Linux Chromium passes all 23 auth/draft/posting/upload regressions. Failed/interrupted intermediate runs are recorded below, not counted as passes. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
+- **Phase:** persisted timeline/cards and filter state; product implementation remains unfinished.
+- **Completed steps:** S00–S09 — **done**.
+- **Current requested step:** S09 — Timeline cards, lazy pagination, and filter state — **done**. Next unfinished step: S10 — SQLite exact multilingual search and snippets.
+- **Repository:** clean starting HEAD `4391fb8` (committed S08). Existing work preserved; S09 changes are uncommitted. No commit created by this agent.
+- **Implemented:** published-only SSR/cursor timeline, bounded Unicode previews, safe Markdown cards/private thumbnails/files, collapse/density, optional location/edited rows, tag AND filters/chips/counts, confirmed card actions/conflict refresh, sorted mutation invalidation, lazy loading/retry/stale cancellation, month tracking and ID/offset Back restoration. Search/calendar/detail/full lifecycle/storage/backup screens remain later steps. Dependencies, lockfile and DB schema are unchanged (v3/18 tables).
+- **Validation:** Windows check/lint/build and all 74 unit + 103 integration + 43 Chromium tests pass (normal screenshot comparisons). Fresh Linux image passes check/lint/build, 74 unit + 103 integration tests, and all 27 auth/draft/posting/timeline/upload Chromium tests. Intermediate failures are recorded below, not counted as passes. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, planning documents and the latest S08 handoff. Relevant contracts: ARCHITECTURE 4.4/7.5/10/11, IMPLEMENTATION_PLAN S09, ACCEPTANCE_TESTS NOTE-01, SEARCH-03, CAL-02 and UI-01–03.
-2. Inspect git and preserve S08 work. Read `shared/{notes,attachments,domain}.ts`, `server/notes/service.ts`, `server/db/schema.ts`, `(app)/+page.{server.ts,svelte}`, AppShell/Markdown/Composer, `client/drafts/workspace.svelte.ts`, `client/uploads/*`, and `tests/e2e/{posting,shell,drafts}.test.ts`. The existing root loader is not yet a timeline query.
-3. Next task: **S09**, define a bounded published-only list DTO and canonical filter/cursor contract, then implement SQLite `(timeline_at DESC, id DESC)` pagination and SSR first page (about 30, server cap 100), with equal-timestamp/filter-binding integration tests before cards/lazy loading. Never fetch the whole collection.
-4. Replace the explicitly temporary 30-item session list with the unified timeline state. Reuse confirmed mutation invalidation/snapshot data; deduplicate by ID/revision, sort backdated saves correctly, and preserve useful scroll anchors. Keep no-premature-upload, frozen retry, local recovery, safe rendering, privacy/CSRF and revision checks intact. Do not implement FTS/search/calendar/detail/lifecycle screens ahead of their steps.
-5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e -- tests/e2e/posting.test.ts` and the full suite, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL, owns ports 4173–4176 and starts with the real empty-account auth test. Reuse only verified server-issued synthetic sessions (test helper) rather than weakening login limits. Retain Linux native/browser and CSP/no-flash/zoom/safe-area regressions.
+1. Read `AGENTS.md`, required planning documents and the latest S09 handoff. Relevant contracts: ARCHITECTURE 4.4/8/10.3/11, IMPLEMENTATION_PLAN S10, ACCEPTANCE_TESTS SEARCH-01–04 and TAG-02/CAL-02/UI-03.
+2. Inspect git and preserve S09 work. Read `shared/{timeline,notes,domain}.ts`, `server/notes/{timeline,service,content}.ts`, DB schema/migrations, `(app)/+page.{server.ts,svelte}`, Sidebar/AppShell/NoteCard/Markdown, workspace saved-event hook, and unit/integration/e2e timeline tests. The root/API now share one bounded published list; a TimelineCard can have truncated source and must never serve as an editor/recovery base snapshot.
+3. Next task: **S10**, implement the bounded quoted-phrase/all-term literal parser + deterministic NFKC/lowercase oracle, then add FTS5 trigram migration/reindex and synchronous mutation hooks. Preserve separate body/tag/filename fields so phrases cannot span unrelated fields. Short CJK/punctuation fallback defines correctness, not FTS syntax.
+4. Extend the existing canonical list filters/cursor fingerprint with search (and typed day-range foundation as needed); do not create a parallel results list or an implicit calendar-month restriction. Add safe snippets/highlight segments and debounced cancellation using current generations/anchors. Keep all-tag AND, retry identity, private files, no-premature-upload and safe rendering intact. Calendar/detail/full lifecycle/location/backup UI remain later steps.
+5. First validation: `npm run check && npm run test:integration`, then add parser/oracle/migration tests before browser search UI. Run `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts` and the full suite. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and requires OpenSSL. Preserve genuine server-issued synthetic sessions and Linux native/browser checks.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -33,7 +33,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S06  | Private uploads and Sharp          | Done        |
 | S07  | Atomic/idempotent note lifecycle   | Done        |
 | S08  | Composer posting orchestration     | Done        |
-| S09  | Cards, cursor timeline and filters | Not started |
+| S09  | Cards, cursor timeline and filters | Done        |
 | S10  | Exact multilingual SQLite search   | Not started |
 | S11  | Month calendar and scroll sync     | Not started |
 | S12  | Detail/edit/conflict/image viewer  | Not started |
@@ -1444,3 +1444,136 @@ Decisions / remaining scope / exact next task:
   preserving deduplication/scroll anchors and no premature uploads. First command:
   `npm run check && npm run test:integration`, then posting and full browser regressions
   on pinned Node with TLS verification enabled.
+
+### Session 2026-10-04 — S09 timeline cards, lazy pagination and filter state
+
+**State: done.** Started clean at `4391fb8` (S08). Preserved all existing code and
+handoff history; no commit created. S09's common, affected-browser and Linux gates
+pass. Search/calendar/detail/lifecycle/storage/backup and product release remain
+unfinished; this is not a final acceptance claim.
+
+Implemented / touched files:
+
+- `shared/timeline.ts`, `server/notes/timeline.ts`, root loader and GET
+  `routes/api/notes/+server.ts`: one typed, published-only SSR/API list, 30 default/
+  100 maximum, DESC timestamp/BINARY ID cursors, fixed timezone/month-end anchor,
+  canonical tag fingerprint and all-tag AND. Wrong-filter/timezone cursors and
+  malformed/unbounded queries fail safely. Read-transaction batched tag/file joins
+  and published sidebar counts; no offset/whole-note collection fetch.
+- Explicit 8 KiB UTF-8 card previews and 192 KiB page-source budget, SQLite substr
+  selection and contiguous cursor boundary. Safe SSR Markdown/code/diagram metadata,
+  private thumbnails with dimensions and file download rows. Full source loads on
+  expansion or visibility with full-card preference. Partial code cannot be copied
+  as the complete original; controls wait for hydration. A card is not a full
+  editor/recovery snapshot.
+- `components/NoteCard.svelte`, Markdown/shared renderer, Sidebar/AppShell, private
+  layout and appearance help: timeline/actual Edited rows, optional location text/
+  files, clickable tags/chips/counts, collapse/density, inert clipped controls,
+  Markdown copy, confirmed draft/Trash actions and revision-conflicted refresh
+  including older loaded cards. Detail/viewer/server lifecycle/location popovers
+  remain S12/S13/S15, clearly identified in UI.
+- `client/timeline/scroll.ts`, root Svelte page and workspace saved event replace
+  the temporary session list: sorted revision-aware mutation merging/invalidation,
+  no navigation or artificially prepended backdates. Saves outside filters/loaded
+  dates explain how to find them. Lazy loading/error/retry, stale response/observer
+  cancellation, ID/offset anchors, month separators/top-visible tracking and Kit 3
+  snapshot() Back restoration. Show less returns to its card, not the list bottom;
+  tracking never fetches calendar data or writes history.
+- Five unit + five integration + four browser cases in `tests/{unit,integration,
+e2e}/timeline.test.ts`: actual 10k SQLite/300-card DOM measurements, equal-date
+  completeness, source/query bounds, canonical/NFKC keys, AND/status/privacy/version
+  guarantees, no-JS SSR, stale responses, retry/Back, collapse/full/compact, exact
+  code copy/disabled partial copy, older-card conflict refresh, Trash and mobile.
+- Posting tests include persisted prior cards. Three shell baselines intentionally
+  regenerated/reviewed for sidebar/filter/preferences changes, masking only the
+  variable timeline timestamps/content in screenshot comparisons. Layout/focus/
+  overflow checks remain real/unmasked. Separate unmasked light/desktop and dark/
+  compact/mobile timeline screenshots were opened/reviewed. Linux browser Docker
+  scope now includes timeline cases. README, ARCHITECTURE 10.3, tests README and
+  this handoff document actual contracts/scope. `server/notes/http.ts` supports a
+  safe list-failure message. No dependency/lockfile/migration change (v3/18 tables).
+
+Commands actually run:
+
+Host used explicit Node **24.21.0** executable/PATH and npm **11.12.1** CLI N/C
+from S00, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Final host commands were sequential;
+Linux installed its own native modules from the unchanged lockfile.
+
+| Command                                                                                                                                                                                                                                                                                                                                                                                         | Final actual result                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `git status --short`, `git log -1`, complete required docs and source/Kit 3 snapshot/Temporal API reads                                                                                                                                                                                                                                                                                         | Clean S08 baseline preserved                                                          |
+| `npm exec -- prettier --write <touched text files>`                                                                                                                                                                                                                                                                                                                                             | PASS                                                                                  |
+| `npm run check`                                                                                                                                                                                                                                                                                                                                                                                 | PASS, 0 errors/warnings, application and test/tooling TS                              |
+| `npm run lint`                                                                                                                                                                                                                                                                                                                                                                                  | PASS, ESLint/Prettier                                                                 |
+| `npm run test:unit`                                                                                                                                                                                                                                                                                                                                                                             | PASS, 14 files / 74 tests                                                             |
+| `npm exec -- vitest run --config vitest.integration.config.ts tests/integration/timeline.test.ts` (early slice)                                                                                                                                                                                                                                                                                 | PASS, original four cases; expanded fifth also passes final suite                     |
+| `npm run test:integration`                                                                                                                                                                                                                                                                                                                                                                      | PASS, 17 files / 103 actual tests                                                     |
+| `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts` and targeted history/timeline reruns                                                                                                                                                                                                                                                          | Affected cases pass final suite; intermediate failures below                          |
+| `npm run test:e2e -- --update-snapshots`                                                                                                                                                                                                                                                                                                                                                        | PASS, 43 tests; only three intended shell baselines changed/reviewed                  |
+| `npm run test:e2e` (final normal comparisons)                                                                                                                                                                                                                                                                                                                                                   | PASS, build + all 43 Chromium tests                                                   |
+| `npm run build` (standalone final)                                                                                                                                                                                                                                                                                                                                                              | PASS, adapter-node/runtime origin/server-boundary/CSP retained                        |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s09-browser .`                                                                                                                                                                                                                                                                                                                  | PASS, fresh Linux native/OpenSSL/Chromium installation; zero reported vulnerabilities |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s09-browser sh -c 'node --version && npm --version && npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build && npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/drafts.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts tests/e2e/uploads.test.ts'` | PASS, Linux check/lint/build, 74 unit + 103 integration, all 27 scoped Chromium tests |
+| `git diff --check`; `test ! -e .e2e-data`                                                                                                                                                                                                                                                                                                                                                       | PASS, no private host fixtures remain; autocrlf informational warnings only           |
+
+Passing Linux code-gate image (precedes only final handoff documentation):
+`8549b7de10116fbeb469aeb93ed73efc4030e5fcc81ddb1efc0f0a77b1e60b20`.
+Same S00 Node 24.21.0 bookworm/glibc digest, npm 11.19.0, WSL2 VM with 2 GiB RAM,
+container limited to two CPUs/4 GiB. Actual SQLite/Sharp/private files and archive
+capability regressions pass; this is not a full restore drill or real VPS benchmark.
+Linux browser scope excludes unreviewed platform-specific shell snapshots.
+
+Measurements (synthetic, not target-VPS budgets):
+
+- 10k multilingual synthetic notes, roughly 2 KiB bodies, hourly timeline spread,
+  all tagged Work. Thirty-card JSON page **131,276 bytes** (~128 KiB), never 10k
+  bodies. Ten warm all-match tag queries **including safe SSR rendering**: Windows
+  p50 **50.8 ms**, p95 **56.3 ms**; Linux p50 **46.8 ms**, p95 **66.1 ms**. SQLite
+  EXPLAIN confirms indexed descending access. No compressed-network, cold startup,
+  target-VPS or rare/no-match query latency claim.
+- After ten pages: **300 cards / 12,143 elements**. Sampled JS heap: Windows
+  **8.7 -> 46.6 MiB**, Linux **8.7 -> 47.4 MiB** (not forced-GC/RSS or leak proof).
+  Normal DOM paging retained; virtualization/trimming deferred pending longer-
+  session/image/diagram/release measurements.
+
+Intermediate failures / corrections (not counted as passes):
+
+- Initial check caught missing Temporal ZonedDateTime.toPlainYearMonth and a
+  nonreactive retry identity. Used toPlainDate month keys and reactive state;
+  final check has zero diagnostics.
+- Early browser runs exposed extra paging around Show less/history and stale
+  filter scroll. IO is generation/geometry guarded, query navigation resets
+  restoration state, and tall-card collapse returns to its header. Synthetic
+  scroll instrumentation traced the extra-page cause to collapse clamping at the
+  list bottom, not lost Back pages. All diagnostic instrumentation/delays removed.
+- Back raw scrollTop differed by 50 px when a restored bounded-preview label
+  replaced a loaded full card. Tests now assert the correct exact visible ID and
+  pixel offset, not unchanged total pixels above it. Final Windows/Linux pass.
+- Intended screenshot changes stopped appearance cleanup in the first full run,
+  leaving later tests dark/full. Timeline tests now explicitly set appearance;
+  baselines were updated with variable pane masking and separate card review.
+  Final normal screenshot comparisons pass, geometry checks unchanged.
+- NFKC tests initially created a tag exceeding S07's existing normalized
+  64-codepoint domain bound. Kept that bound and used valid expansions/Arabic
+  spaces instead; normalized registry keys must not be revalidated as raw hashtag
+  source grammar. Actual creation/filter round trips now pass.
+- One formatting command included Dockerfile.browser-validation (no Prettier
+  parser); repeated text-file formatting without it. No missing native/browser
+  dependency or failed gate was skipped. Existing install-script/deprecation and
+  lazy bundle-size warnings remain visible.
+
+Decisions / remaining scope / exact next task:
+
+- ARCHITECTURE 10.3 records byte budgets, partial-card contracts, canonical
+  query/cursor/NFKC keys, current-month versus all-month tag anchors, SSR/copy and
+  scroll/history integration. Defaults documented; no stack/security/scope change.
+- No known unfinished S09 gate or reproducible S09 defect. Larger DOM/history
+  storage growth, target-VPS/cold/rare-match performance, physical-device/IME,
+  assistive technology, Linux visual baselines, real-domain HTTPS and full archive
+  restore remain later release checks. Three hundred cards are not evidence of
+  unlimited scalability. No premature upload/server draft autosave/extra service.
+- **Next: S10.** Read ARCHITECTURE 8/10.3, shared/server timeline, note mutation/
+  search hooks, DB migrations and timeline tests. Implement bounded literal/phrase
+  parsing plus oracle tests first, then FTS migration/reindex and transactional
+  updates on the same paginated list. First validation:
+  `npm run check && npm run test:integration`, on pinned Node/PATH with verified TLS.

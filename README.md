@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Composer posting and recovery are implemented; the full timeline and later features remain unfinished.**
+**Composer posting, recovery and the paginated timeline are implemented; later features remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -14,7 +14,10 @@ S06 adds private resumable uploads, bounded static-image WebP processing and
 safe authenticated downloads. S07 adds atomic, idempotent note mutation APIs with
 revision conflicts and draft/Trash lifecycle. S08 connects explicit composer posting
 with frozen, receipt-first retries, upload progress and confirmed-success cleanup.
-The full timeline/lifecycle screens and backup/restore remain future steps. Do not deploy this unfinished app as a complete product.
+S09 adds server-rendered chronological cards, private cursor paging, all-tag filtering,
+collapse/density preferences and scroll/history restoration. Search, calendar controls,
+detail/lifecycle screens and backup/restore remain future steps. Do not deploy this
+unfinished app as a complete product.
 
 ## Start here
 
@@ -302,9 +305,31 @@ ambiguous local times. Recovery bases recheck ID, revision and canonical snapsho
 identity before new uploads, including after restore. Full edit/conflict/draft
 screens still arrive in S12/S13; there is no background server draft saving.
 
-All notes shows a bounded, date-sorted **session list** of confirmed saves without
-reloading the page, including processed images and private file download rows.
-This is not the complete persisted timeline: S09 will add SSR paging and cards.
+Confirmed saves update the persisted, date-sorted timeline without a full page reload.
+A backdated save is never artificially prepended. If it is outside the current filters
+or already-loaded date range, the UI explains how to find it.
+
+## Timeline and tag filters (S09)
+
+All notes renders the first published page on the server (normally 30 cards), then
+loads older cursor pages inside the notes pane. Timestamp ties use descending ID;
+cursors are bound to canonical tag filters and app timezone. Multiple selected tags
+mean **match all**. Sidebar/card tags toggle visible removable chips; Clear all resets
+filters, and browser Back restores loaded pages and a useful reading position.
+
+Cards show timeline time, actual content-edited indicators, safe Markdown/code,
+private lazy thumbnails with reserved dimensions, file download rows and optional
+location text. Show more/less follows the collapse preference; compact density uses
+the saved spacing tokens. Large bodies use explicitly labeled bounded previews;
+full source loads on expansion (or visibility with full-card preference). Partial
+code is never offered as the complete original by Copy. Copy Markdown, confirmed
+Move to Drafts/Trash and revision-conflict refresh are available from Note actions.
+The actual Drafts/Trash server screens remain S13; detail/image viewer remains S12.
+
+Month separators and top-visible-month tracking are ready for S11, but there is no
+calendar navigation/day filter yet. Literal search stays S10, not a second list API.
+10k-note paging and 300-card DOM measurements are recorded in `docs/PROGRESS.md`;
+virtualization is deferred pending evidence from longer reading sessions.
 
 ## Validation
 

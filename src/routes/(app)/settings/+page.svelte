@@ -110,7 +110,7 @@
         />Collapse long notes by default</label
       >
       <p class="help">
-        The collapse preference is saved now; timeline cards will use it in S09.
+        Long cards follow this preference. Show more expands an individual card.
       </p>
       <button class="primary" type="submit"
         >{saving ? 'Saving…' : 'Save appearance'}</button

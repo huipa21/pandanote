@@ -2,6 +2,25 @@ import type { RequestHandler } from './$types';
 import { DomainError } from '#lib/shared/domain.ts';
 import { noteMutationSchema } from '#lib/shared/notes.ts';
 import { noteErrorResponse, readNoteJson } from '#lib/server/notes/http.ts';
+import { timelinePage } from '#lib/server/notes/timeline.ts';
+
+export const GET: RequestHandler = async ({ locals, url }) => {
+  try {
+    if (!locals.identity)
+      throw new DomainError('unauthorized', 'Sign in to continue.');
+    const data = await timelinePage(
+      locals.runtime!.persistence,
+      locals.identity,
+      url.searchParams,
+    );
+    return Response.json({ ok: true, data });
+  } catch (error) {
+    return noteErrorResponse(
+      error,
+      'Notes could not be loaded. Retry in a moment.',
+    );
+  }
+};
 
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {

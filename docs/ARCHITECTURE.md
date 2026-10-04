@@ -661,6 +661,60 @@ Compute local day/month start and next start using the timezone utility, convert
 
 Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent times must be handled deliberately with validation or documented disambiguation.
 
+### 10.3 S09 implemented timeline contracts
+
+- `shared/timeline.ts` defines `TimelinePage`, `TimelineCard`, tags, canonical
+  filter/query serialization, UTC month anchoring, Unicode-safe previews and
+  revision-aware ID merging. `GET /api/notes` and root SSR use the same published-only
+  query; POST retains its existing create contract. Default page size 30, hard
+  cap 100. Read transactions recheck the session and batch-read ordered tag/file
+  joins; no whole-note collection fetch or offset pagination.
+- Repeated `tag` query params are NFKC/lowercase, deduplicated and binary-sorted;
+  at most 20 tags combine with AND. Filters address **normalized registry keys**,
+  not new hashtag input: bounded keys can include NFKC expansion/spaces (e.g. Arabic
+  ligatures), so the 64-source-codepoint creation grammar is not reapplied to them.
+  Query transport is capped at 8192 characters, cursor at 2048, normalized key at
+  64 codepoints (the existing S07 domain bound); controls/hashtag markers and
+  unknown query names fail clearly.
+  Search/day/month controls remain S10/S11 and are not silently accepted as filters.
+- Versioned base64url cursors carry `(timeline_at,id)`, fixed month-end anchor and
+  timezone, plus a SHA-256 fingerprint of canonical filters/timezone/anchor. They
+  bind query context, **not authorization**; all session/status/tag predicates
+  still apply. Equal-time IDs use SQLite BINARY DESC. Unfiltered first pages start
+  before the current app-local month end; tag mode covers all months. A page can
+  cross several months, skipping empty dates without one request per month.
+- SQLite bounds body selection with `substr`; each card preview is at most 8 KiB
+  UTF-8, pages at most 192 KiB source, ending on a contiguous ordering boundary.
+  `bodyTruncated` is explicit; metadata/files/tags remain complete. A list card is
+  **not a full editor/recovery snapshot**. Full source still comes from the existing
+  private GET by ID. Safe rendered HTML/code/diagram metadata is SSR'd through the
+  shared pipeline, then hydrated without rerendering initial content. Thumbnail
+  dimensions reserve aspect ratio. Copy controls are disabled until hydration;
+  truncated code cannot be copied as if it were the full original.
+- `NoteCard.svelte` implements collapse/full and density preferences, safe code,
+  tags, edited time, optional location text/files, Markdown copy and confirmed
+  revision-checked draft/Trash actions. Full source loads only on explicit expansion
+  or visibility with full-card preference, never for every offscreen long note.
+  Clipped controls become inert; Show less returns to that card rather than falling
+  to the list bottom and accidentally loading more pages. Location popovers and
+  detail/viewer/lifecycle screens remain S12/S13/S15.
+- Composer completion emits one authoritative mutation/snapshot event, not a
+  parallel session list. The timeline merges newer revisions, refreshes a changed
+  older card and sidebar counts, keeps cursor boundaries, and does not invent a
+  gap to show a backdated save beyond the loaded range. Follow-up GET failure cannot
+  undo a receipt. Status actions use the existing idempotent API; uncertain retries
+  retain identity in the mounted dialog, conflicts offer refresh, never force writes.
+- Bottom/top observers use the actual notes scroller. Abort + generation/query
+  checks reject stale responses, including after DOM flush; stale queued observer
+  deliveries recheck geometry. Month tracking uses the actual first visible card,
+  including tall cards, and never writes history or initiates calendar fetches.
+  Kit 3's `snapshot()` helper preserves loaded cards/cursor/expansion plus ID/offset
+  scroll anchors on Back. Paging controls are excluded from native scroll anchoring.
+  History snapshots contain only already-fetched private cards, not local drafts.
+- Real 10k SQLite and 300-card Chromium measurements are in PROGRESS. Normal DOM
+  paging remains deliberate; no speculative virtualization/page trimming, new
+  dependency, schema change, external service or security-policy weakening.
+
 ## 11. Rendering and frontend performance
 
 - SSR first note page/basic content; keep initial payload bounded and never fetch all notes.

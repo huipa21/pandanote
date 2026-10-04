@@ -1,16 +1,21 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
+  import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
   export interface ShellTag {
     id: string;
     label: string;
+    key?: string;
+    count?: number;
   }
   let {
     active = '/',
     tags = [],
+    filters = { tags: [] },
     onNavigate = () => {},
   }: {
     active?: string;
     tags?: ShellTag[];
+    filters?: TimelineFilters;
     onNavigate?: () => void;
   } = $props();
   const id = $props.id();
@@ -73,17 +78,24 @@
       </div>
       {#if tags.length}
         <ul class="tag-list">
-          {#each tags.slice(0, 6) as tag (tag.id)}<li>#{tag.label}</li>{/each}
+          {#each tags.slice(0, 6) as tag (tag.id)}<li>
+              <a
+                href={toggleTag(filters, tag.key ?? tag.label)}
+                aria-current={filters.tags.includes(tag.key ?? tag.label)
+                  ? 'true'
+                  : undefined}
+                onclick={onNavigate}
+                >#{tag.label}{#if tag.count !== undefined}
+                  <span class="muted">({tag.count})</span>{/if}</a
+              >
+            </li>{/each}
         </ul>
         {#if tags.length > 6}<button
             onclick={() => {
               showTags = true;
             }}>Show all tags ({tags.length})</button
           >{/if}
-        <p class="help">Tag filtering comes in S09.</p>
-      {:else}<p class="help">
-          No tags to show yet. Tag extraction comes in S04.
-        </p>{/if}
+      {:else}<p class="help">No published tags yet.</p>{/if}
     </section>
   </div>
   <nav class="sidebar-bottom" aria-label="Utilities">
@@ -109,10 +121,23 @@
     data-initial-focus
   />
   <ul class="tag-list">
-    {#each filteredTags as tag (tag.id)}<li>#{tag.label}</li>{/each}
+    {#each filteredTags as tag (tag.id)}<li>
+        <a
+          href={toggleTag(filters, tag.key ?? tag.label)}
+          aria-current={filters.tags.includes(tag.key ?? tag.label)
+            ? 'true'
+            : undefined}
+          onclick={() => {
+            showTags = false;
+            onNavigate();
+          }}
+          >#{tag.label}{#if tag.count !== undefined}
+            <span class="muted">({tag.count})</span>{/if}</a
+        >
+      </li>{/each}
   </ul>
   {#if !filteredTags.length}<p class="muted">No matching tags.</p>{/if}
-  <p class="help">This panel lists tags only. Note filtering comes in S09.</p>
+  <p class="help">Select tags to show notes matching all of them.</p>
 </Modal>
 
 <style>
@@ -205,6 +230,15 @@
     list-style: none;
     padding: 0;
     margin-block: var(--space-2);
+  }
+  .tag-list a {
+    display: block;
+    color: var(--accent);
+    min-height: var(--target);
+  }
+  .tag-list a[aria-current='true'] {
+    font-weight: 650;
+    background: var(--accent-soft);
   }
   .tag-list li {
     padding-block: var(--space-2);

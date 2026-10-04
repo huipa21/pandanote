@@ -48,7 +48,11 @@ export class DraftWorkspace {
   postRequiresLogin = $state(false);
   postConflict = $state<NoteSnapshot | null>(null);
   postProgress = $state<PostingProgress | null>(null);
-  posted = $state<NoteSnapshot[]>([]);
+  saved = $state<{
+    serial: number;
+    result: import('#lib/shared/domain.ts').MutationResult;
+    snapshot?: NoteSnapshot;
+  } | null>(null);
   get frozen() {
     return Boolean(this.active?.postingAttempt);
   }
@@ -635,16 +639,11 @@ export class DraftWorkspace {
           }
           const warning = await repository.complete(draft);
           if (!this.disposed) {
-            if (snapshot?.status === 'published')
-              this.posted = [
-                ...this.posted.filter((n) => n.id !== snapshot!.id),
-                snapshot,
-              ]
-                .sort(
-                  (a, b) =>
-                    b.timelineAt - a.timelineAt || (a.id < b.id ? 1 : -1),
-                )
-                .slice(0, 30);
+            this.saved = {
+              serial: (this.saved?.serial ?? 0) + 1,
+              result,
+              snapshot,
+            };
             this.active = null;
             this.activePersisted = false;
             this.dirty = false;

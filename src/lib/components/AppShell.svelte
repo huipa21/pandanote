@@ -3,11 +3,18 @@
   import Sidebar, { type ShellTag } from './Sidebar.svelte';
   import Modal from './Modal.svelte';
   import Composer from './Composer.svelte';
+  import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
   let {
     active = '/',
     tags = [],
+    filters = { tags: [] },
     children,
-  }: { active?: string; tags?: ShellTag[]; children: Snippet } = $props();
+  }: {
+    active?: string;
+    tags?: ShellTag[];
+    filters?: TimelineFilters;
+    children: Snippet;
+  } = $props();
   let drawerOpen = $state(false);
   onMount(() => {
     const desktop = window.matchMedia('(min-width: 900px)');
@@ -22,7 +29,7 @@
 <a class="skip-link" href="#notes-pane">Skip to notes</a>
 <div class="app-shell">
   <aside class="desktop-sidebar" aria-label="Sidebar">
-    <Sidebar {active} {tags} />
+    <Sidebar {active} {tags} {filters} />
   </aside>
   <div class="main-column">
     <header class="mobile-header">
@@ -38,9 +45,22 @@
     <div class="fixed-region">
       <div class="column-inner"><Composer /></div>
       <section class="filter-region column-inner" aria-label="Active filters">
-        <span class="muted">All notes · no active filters</span><span
-          class="help">Filters come in S09</span
-        >
+        {#if active === '/' && filters.tags.length}
+          <div class="filter-chips">
+            {#each filters.tags as tag (tag)}
+              <a
+                class="filter-chip"
+                href={toggleTag(filters, tag)}
+                aria-label={`Remove tag filter ${tag}`}>#{tag} ×</a
+              >
+            {/each}
+          </div>
+          <a href="/">Clear all</a>
+        {:else}<span class="muted"
+            >{active === '/'
+              ? 'All notes · no active filters'
+              : 'Your notebook'}</span
+          >{/if}
       </section>
     </div>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (The primary scroll surface must be keyboard-scrollable.) -->
@@ -58,6 +78,7 @@
   <Sidebar
     {active}
     {tags}
+    {filters}
     onNavigate={() => {
       drawerOpen = false;
     }}
@@ -101,6 +122,19 @@
     flex-wrap: wrap;
     font-size: 0.875rem;
     padding: var(--space-3) 0;
+  }
+  .filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .filter-chip {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: var(--radius);
+    padding: var(--space-2);
+    text-decoration: none;
+    overflow-wrap: anywhere;
   }
   .notes-scroller {
     flex: 1;

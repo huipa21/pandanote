@@ -26,4 +26,9 @@
   });
 </script>
 
-<AppShell active={page.url.pathname}>{@render children()}</AppShell>
+<AppShell
+  active={page.url.pathname}
+  tags={data.availableTags}
+  filters={page.data.timeline?.filters ?? { tags: [] }}
+  >{@render children()}</AppShell
+>

@@ -170,7 +170,10 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
     ).toBeVisible();
     await noOverflow(page);
     if (width === 390 || (width === 1440 && height === 900))
-      await expect(page).toHaveScreenshot(`shell-light-${width}x${height}.png`);
+      await expect(page).toHaveScreenshot(
+        `shell-light-${width}x${height}.png`,
+        { mask: [page.locator('#notes-pane')] },
+      );
     await testInfo.attach(`shell-${width}x${height}`, {
       body: await page.screenshot(),
       contentType: 'image/png',

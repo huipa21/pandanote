@@ -167,6 +167,7 @@ export async function renderMarkdown(
                   'button',
                   {
                     type: 'button',
+                    disabled: true,
                     dataCode: index,
                     ariaLabel: `Copy ${language || 'text'} code`,
                   },
