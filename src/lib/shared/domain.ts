@@ -50,6 +50,9 @@ export type NoteMetadata = z.infer<typeof noteMetadataSchema>;
 export interface NoteSnapshot extends NoteMetadata {
   bodyMarkdown: string;
   attachmentIds: string[];
+  // Optional for older recovery snapshots; current server reads include safe,
+  // ordered descriptors so processed media and download rows use detected kind.
+  attachments?: import('./attachments.ts').ReadyAttachment[];
   tags: string[];
 }
 // Intentionally no account/security fields in browser contracts.

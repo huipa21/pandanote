@@ -2,6 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { expect, test } from '@playwright/test';
+import { browserSession } from '../helpers/browser-session.ts';
 import type {
   InitializeBatchResult,
   UploadBatchDto,
@@ -12,21 +13,7 @@ test('private resumable uploads, processed variants, safe active-file download a
   page,
   browser,
 }) => {
-  const password = 'synthetic-e2e-only-secret 密碼';
-  let login = await page.request.post('/api/auth/login', {
-    headers: { origin },
-    data: { password },
-  });
-  if (login.status() === 401) {
-    const { token } = JSON.parse(
-      readFileSync('.e2e-data/fixture.json', 'utf8'),
-    ) as { token: string };
-    login = await page.request.post('/api/auth/setup', {
-      headers: { origin },
-      data: { token, password },
-    });
-  }
-  expect(login.status()).toBe(200);
+  await browserSession(page);
   const cookie = (await page.context().cookies()).find(
     (entry) => entry.name === 'pandanote_session',
   )!;

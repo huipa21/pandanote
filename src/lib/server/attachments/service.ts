@@ -44,7 +44,7 @@ function validId(id: string): void {
   if (!idSchema.safeParse(id).success)
     throw new DomainError('validation', 'Invalid attachment or batch ID.');
 }
-function dto(row: AttachmentRow): ReadyAttachment {
+export function attachmentDto(row: AttachmentRow): ReadyAttachment {
   return {
     id: row.id,
     kind: row.kind,
@@ -108,7 +108,7 @@ export class AttachmentService {
         .from(attachments)
         .where(eq(attachments.batchId, id))
         .all()
-        .map(dto),
+        .map(attachmentDto),
     };
   }
   initialize(identity: SessionIdentity, input: unknown): InitializeBatchResult {
@@ -352,7 +352,7 @@ export class AttachmentService {
                 'conflict',
                 'Upload readiness changed. Retry the posting attempt.',
               );
-            return dto(current); // A duplicate PUT still validates bytes, never overwrites.
+            return attachmentDto(current); // A duplicate PUT still validates bytes, never overwrites.
           }
           mkdirSync(output, { mode: 0o700 });
           let values: Partial<typeof attachments.$inferInsert>;
@@ -430,7 +430,7 @@ export class AttachmentService {
               .set({ activityAt: Date.now() })
               .where(eq(uploadBatches.id, batchId))
               .run();
-            return dto(
+            return attachmentDto(
               tx
                 .select()
                 .from(attachments)
@@ -526,7 +526,7 @@ export class AttachmentService {
             .where(eq(fileCleanupJobs.attachmentId, row.id))
             .get(),
       )
-      .map(dto);
+      .map(attachmentDto);
   }
   async download(
     identity: SessionIdentity,

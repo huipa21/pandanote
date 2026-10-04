@@ -204,7 +204,7 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
   await page.keyboard.press('Control+Enter');
   await expect(
     editor.getByRole('button', { name: 'Post', exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   // Resize emulates a content-resizing virtual keyboard; not a real device IME.
   await page.setViewportSize({ width: 390, height: 390 });
   await expect(
@@ -221,7 +221,7 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
   await page.getByRole('button', { name: 'Continue writing' }).click();
   await expect(text).toHaveValue(/Unsaved synthetic thought 香港/);
   await page.keyboard.press('Escape');
-  // No saved drafts yet; acknowledge the genuine beforeunload safety prompt.
+  // Acknowledge a genuine beforeunload prompt if the final local flush is pending.
   page.on('dialog', (dialog) => dialog.accept());
   await page.goto('/');
 });
@@ -469,7 +469,10 @@ test('touch-only private navigation and safe-area/keyboard-shrink scenarios expo
     expect(tree).toContain('dialog "Write a note"');
     expect(tree).toContain('textbox "Note text"');
     expect(tree).toContain('button "Close Write a note"');
-    expect(tree).toContain('button "Post" [disabled]');
+    expect(tree).toContain('button "Post"');
+    await expect(
+      editor.getByRole('button', { name: 'Post', exact: true }),
+    ).toBeEnabled();
     // The shell uses interactive-widget=resizes-content. Resize its actual
     // mobile content viewport with nonzero safe areas for several keyboard sizes.
     for (const height of [390, 320, 260]) {

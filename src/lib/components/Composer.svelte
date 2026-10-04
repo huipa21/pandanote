@@ -5,6 +5,7 @@
     type DraftWorkspace,
   } from '#lib/client/drafts/workspace.svelte.ts';
   import DraftFeedback from './DraftFeedback.svelte';
+  import TimelineOptions from './TimelineOptions.svelte';
   const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
@@ -87,6 +88,22 @@
   });
 </script>
 
+{#snippet postButton()}
+  <button
+    class="primary"
+    disabled={!workspace?.canPost}
+    onclick={() => workspace?.post()}
+  >
+    {workspace?.posting
+      ? 'Saving…'
+      : workspace?.frozen
+        ? 'Retry save'
+        : workspace?.active?.kind === 'edit-published'
+          ? 'Save changes'
+          : 'Post'}
+  </button>
+{/snippet}
+
 {#if workspace}
   <input
     class="sr-only"
@@ -94,7 +111,7 @@
     aria-label="Choose local files"
     type="file"
     multiple
-    disabled={!workspace.ready}
+    disabled={!workspace.ready || workspace.busy || workspace.frozen}
     bind:this={fileInput}
     onchange={(event) => {
       addFiles(Array.from(event.currentTarget.files ?? []));
@@ -128,9 +145,12 @@
         }}>Preview</button
       >
       {#if workspace}<button
-          disabled={!workspace.ready || workspace.busy || workspace.conflict}
+          disabled={!workspace.ready ||
+            workspace.busy ||
+            workspace.conflict ||
+            workspace.frozen}
           onclick={() => fileInput.click()}>Add files</button
-        >{/if}
+        ><TimelineOptions {workspace} />{/if}
     </div>
     {#if tab === 'preview'}
       <div class="compact-preview preview-pane">
@@ -146,7 +166,9 @@
         id="compact-note-text"
         bind:this={textarea}
         value={text}
-        disabled={Boolean(workspace && (!workspace.ready || workspace.busy))}
+        disabled={Boolean(
+          workspace && (!workspace.ready || workspace.busy || workspace.frozen),
+        )}
         oninput={changed}
         onselect={rememberCursor}
         onkeyup={rememberCursor}
@@ -175,12 +197,12 @@
         }}
         disabled={Boolean(text)}>Collapse editor</button
       >
-      <button class="primary" disabled>Post</button>
+      {@render postButton()}
     </div>
     <p class="help" id="composer-help">
       {#if workspace}<span role="status"
           >{workspace.status ||
-            'Device-only draft · posting comes in S08.'}</span
+            'Device-only draft · publish only with Post.'}</span
         >{:else}Text is not saved yet (S05); posting comes in S08. Keep a copy
         before leaving.{/if}
     </p>
@@ -209,9 +231,12 @@
       }}>Preview</button
     >
     {#if workspace}<button
-        disabled={!workspace.ready || workspace.busy || workspace.conflict}
+        disabled={!workspace.ready ||
+          workspace.busy ||
+          workspace.conflict ||
+          workspace.frozen}
         onclick={() => fileInput.click()}>Add files</button
-      >{/if}
+      ><TimelineOptions {workspace} />{/if}
   </div>
   {#if tab === 'preview'}
     <div class="expanded-preview preview-pane">
@@ -223,7 +248,9 @@
       id="expanded-note-text"
       class="expanded-text"
       value={text}
-      disabled={Boolean(workspace && (!workspace.ready || workspace.busy))}
+      disabled={Boolean(
+        workspace && (!workspace.ready || workspace.busy || workspace.frozen),
+      )}
       oninput={changed}
       onselect={rememberCursor}
       onkeyup={rememberCursor}
@@ -243,7 +270,7 @@
     <p class="help" id="expanded-help">
       {#if workspace}<span role="status"
           >{workspace.status ||
-            'Device-only draft · posting comes in S08.'}</span
+            'Device-only draft · publish only with Post.'}</span
         >{:else}
         <span class="full-help"
           >Text stays here while navigating this shell, but is not saved on
@@ -254,7 +281,7 @@
         >
       {/if}
     </p>
-    <button class="primary" disabled>Post</button>
+    {@render postButton()}
   </div>
 </Modal>
 

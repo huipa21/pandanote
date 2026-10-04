@@ -7,7 +7,10 @@
   } from '#lib/client/drafts/workspace.svelte.ts';
   import AppShell from '#lib/components/AppShell.svelte';
   let { children, data } = $props();
-  const workspace = new DraftWorkspace(untrack(() => data.account.id));
+  const workspace = new DraftWorkspace(
+    untrack(() => data.account.id),
+    untrack(() => data.timezone),
+  );
   setContext(DRAFT_WORKSPACE, workspace);
   onMount(() => {
     let ended = false;

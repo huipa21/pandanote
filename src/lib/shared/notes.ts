@@ -62,6 +62,36 @@ export const noteMutationSchema = z.discriminatedUnion('action', [
 ]);
 export type NoteMutation = z.infer<typeof noteMutationSchema>;
 
+/** Recovery identity includes the complete base, not just revision (restore can
+ * bring back the same ID/revision with different content). Derived descriptors
+ * are omitted; the ordered stable attachment IDs are authoritative. */
+export function canonicalNoteSnapshot(
+  note: import('./domain.ts').NoteSnapshot,
+): string {
+  return JSON.stringify([
+    'pandanote-note-snapshot-v1',
+    note.id,
+    note.bodyMarkdown,
+    note.status,
+    note.priorStatus,
+    note.timelineAt,
+    note.createdAt,
+    note.updatedAt,
+    note.contentEditedAt,
+    note.revision,
+    note.location
+      ? [
+          note.location.latitude,
+          note.location.longitude,
+          note.location.accuracy,
+          note.location.label,
+        ]
+      : null,
+    note.attachmentIds,
+    note.tags,
+  ]);
+}
+
 /** Versioned, deterministic UTF-8 JSON to hash with SHA-256 on client and server.
  * Object key order is fixed here; attachment array order IS meaningful. No
  * caller-supplied digest is accepted by the commit endpoint. */

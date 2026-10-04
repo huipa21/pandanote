@@ -269,7 +269,7 @@ test('local selection, paste, drop, autosave and preview send no draft/upload re
   expect(urlState.storage).not.toContain('blob:');
   await expect(
     page.getByRole('button', { name: 'Post', exact: true }).first(),
-  ).toBeDisabled();
+  ).toBeEnabled();
   expect(mutations).toEqual([]);
 });
 

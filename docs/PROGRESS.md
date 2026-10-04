@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** trustworthy backend persistence/security/attachments/note lifecycle (Milestone A); product implementation remains unfinished.
-- **Completed steps:** S00–S07 — **done**.
-- **Current requested step:** S07 — Note mutation service and idempotent lifecycle — **done**. Next unfinished step: S08 — Composer posting orchestration and upload UX.
-- **Repository:** clean starting HEAD `6e13a43` (committed S06). Existing work preserved; S07 changes are uncommitted. No commit created by this agent.
-- **Implemented:** atomic create/update/draft publication, revision-checked draft/Trash/restore/permanent deletion, server-computed canonical request digests, receipt-first retries, safe conflict snapshots, ready/authorized/physical-file validation, transactional tags/derived search/batch commitment and last-reference cleanup queues. Composer Post stays disabled; new local selection/autosave still sends no content/files. Posting/timeline/detail/lifecycle screens, production search, storage UI and backups remain later steps. Dependencies, lockfile and DB schema remain unchanged (v3/18 tables).
-- **Validation:** Windows check/lint/build, 60 unit + 98 integration + all 31 Chromium tests pass. Linux fresh native install/check/lint/build and all 60 unit + 98 integration tests pass; Linux Chromium passes all 15 auth/draft/upload regressions. S07 adds real rollback/restart/two-connection/file tests and production HTTP lifecycle/CSRF checks. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
+- **Phase:** composer posting/recovery; product implementation remains unfinished.
+- **Completed steps:** S00–S08 — **done**.
+- **Current requested step:** S08 — Composer posting orchestration and upload UX — **done**. Next unfinished step: S09 — Timeline cards, lazy pagination, and filter state.
+- **Repository:** clean starting HEAD `31a83fb` (committed S07). Existing work preserved; S08 changes are uncommitted. No commit created by this agent.
+- **Implemented:** persisted frozen attempts, explicit Post/Save changes, receipt-first readiness/upload/commit retries, byte/processing progress, recovery-base checks, local retention through confirmation failures, scoped success cleanup, renamed-image insertion, remove/reorder, timezone Date dialog, recoverable server errors and a bounded date-sorted session list. Full SSR timeline/detail/lifecycle/search/storage/backup screens remain later steps. Dependencies, lockfile and DB schema are unchanged (v3/18 tables).
+- **Validation:** Windows check/lint/build, all 69 unit + 98 integration + 39 Chromium tests pass. Fresh Linux-native image passes check/lint/build and 69 unit + 98 integration tests; Linux Chromium passes all 23 auth/draft/posting/upload regressions. Failed/interrupted intermediate runs are recorded below, not counted as passes. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, planning documents and the latest S07 handoff. Relevant contracts: ARCHITECTURE 4.4/6/7/12.5, IMPLEMENTATION_PLAN S08, ACCEPTANCE_TESTS POST-01–03, DRAFT-02–05 and NOTE-03.
-2. Inspect git and preserve S07 work. Read `shared/{notes,attachments,domain}.ts`, `server/{notes/*,attachments/service.ts}`, note/upload routes, `client/drafts/{model,repository,blobs,workspace.svelte}.ts`, Composer/DraftFeedback, `tests/{unit/notes,integration/notes,integration/runtime-server,e2e/drafts,e2e/uploads}.test.ts`.
-3. Next task: **S08**, persist a frozen posting attempt in the local repository with strict note command, mutation ID, canonical UTF-8 SHA-256 digest and frozen new-blob manifest. Initialize receipt-first, resume readiness, upload missing blobs and commit explicitly. Freeze editor changes or retain later changes separately; only confirmed success clears submitted local data. Reload/lost-response retry must not duplicate notes/files.
-4. No upload initialization from selection/autosave and no background server draft saves. New notes use create; published edits use update; server drafts use publish with unchanged explicit timeline date unless deliberately edited. New unreferenced uploads must belong to that exact mutation batch; referenced files can be reused for conflict copies. Preserve local text/files on conflicts and every failure. Do not claim timeline/detail/draft/Trash screens or FTS before their steps.
-5. First validation: `npm run check && npm run test:integration`, then new posting E2E and the full suite, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL, owns ports 4173–4176 and starts with the real empty-account auth test. Retain Linux native/browser evidence and all CSP/origin/no-premature-upload/no-flash/zoom/safe-area/attack regressions.
+1. Read `AGENTS.md`, planning documents and the latest S08 handoff. Relevant contracts: ARCHITECTURE 4.4/7.5/10/11, IMPLEMENTATION_PLAN S09, ACCEPTANCE_TESTS NOTE-01, SEARCH-03, CAL-02 and UI-01–03.
+2. Inspect git and preserve S08 work. Read `shared/{notes,attachments,domain}.ts`, `server/notes/service.ts`, `server/db/schema.ts`, `(app)/+page.{server.ts,svelte}`, AppShell/Markdown/Composer, `client/drafts/workspace.svelte.ts`, `client/uploads/*`, and `tests/e2e/{posting,shell,drafts}.test.ts`. The existing root loader is not yet a timeline query.
+3. Next task: **S09**, define a bounded published-only list DTO and canonical filter/cursor contract, then implement SQLite `(timeline_at DESC, id DESC)` pagination and SSR first page (about 30, server cap 100), with equal-timestamp/filter-binding integration tests before cards/lazy loading. Never fetch the whole collection.
+4. Replace the explicitly temporary 30-item session list with the unified timeline state. Reuse confirmed mutation invalidation/snapshot data; deduplicate by ID/revision, sort backdated saves correctly, and preserve useful scroll anchors. Keep no-premature-upload, frozen retry, local recovery, safe rendering, privacy/CSRF and revision checks intact. Do not implement FTS/search/calendar/detail/lifecycle screens ahead of their steps.
+5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e -- tests/e2e/posting.test.ts` and the full suite, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL, owns ports 4173–4176 and starts with the real empty-account auth test. Reuse only verified server-issued synthetic sessions (test helper) rather than weakening login limits. Retain Linux native/browser and CSP/no-flash/zoom/safe-area regressions.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -32,7 +32,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S05  | Browser drafts and recovery        | Done        |
 | S06  | Private uploads and Sharp          | Done        |
 | S07  | Atomic/idempotent note lifecycle   | Done        |
-| S08  | Composer posting orchestration     | Not started |
+| S08  | Composer posting orchestration     | Done        |
 | S09  | Cards, cursor timeline and filters | Not started |
 | S10  | Exact multilingual SQLite search   | Not started |
 | S11  | Month calendar and scroll sync     | Not started |
@@ -1292,4 +1292,155 @@ Decisions / remaining scope:
   enabling Post. Preserve local work on upload failure, conflict, response loss and
   reload; clear only confirmed submitted data. First validation:
   `npm run check && npm run test:integration`, then posting-specific and full E2E
+  on pinned Node with TLS verification enabled.
+
+### Session 2026-10-04 — S08 composer posting orchestration and upload UX
+
+**State: done.** Started clean at `31a83fb`; S00–S07 implementation and all prior
+handoff history preserved. The interrupted session was resumed from its actual
+validation logs. No commit created. This completes composer-to-server posting,
+not the full persisted timeline, later lifecycle screens or product release.
+
+Implemented / touched files:
+
+- `client/uploads/{attempt,protocol,date,file-kind}.ts`, `client/drafts/{model,
+repository,workspace.svelte}.ts`: optional additive v1 frozen attempts with
+  strict create/update/publish commands, canonical UTF-8 SHA-256 identity, frozen
+  original-blob manifests, phase/batch/readiness/confirmation persistence and
+  revision checks. Post flushes/freezes before networking; per-draft Web Locks
+  serialize orchestrators separately from account repository locks. Every retry
+  checks the receipt first, then server readiness and exact missing-file hashes.
+  No upload/initialization from autosave/selection/preview/startup/reload.
+- Sequential XHR uploads show actual byte transfer and subsequent processing;
+  complete-note save has separate feedback. Timeouts/errors/reloads retain text,
+  blobs and mutation identity. Double clicks cannot start another save. Editor
+  mutations stay locked across uncertain failures; explicit editable copies retain
+  originals, allocate new local attachment IDs and remap parsed image destinations
+  without rewriting code/alt/title/prose. Existing server references are reused.
+  Original-file repair preserves attachment order.
+- Confirmation persists before scoped tombstone/blob cleanup. Local quota failure
+  after server commit or response loss can replay the original successful receipt;
+  no duplicate commit/files, optimistic deletion or false irreversible success.
+  Other drafts remain untouched. Server conflict/stale-tag/auth/storage failures
+  retain work and expose comparison/retry/copy/sign-in actions. Rich conflict and
+  stale-history resolution remain S12/S14; no background server draft saving.
+- `components/{Composer,DraftFeedback,TimelineOptions}.svelte`: enabled Post/Save
+  changes, frozen retry controls, bounded feedback scroll region, local removal/
+  reorder, existing cursor/paste/drop/Write/Preview/expanded modes, and secondary
+  Date dialog. Temporal uses the configured app timezone; future/ambiguous/
+  nonexistent local times reject instead of clamp. Local byte magic inserts a
+  renamed raster selected through the generic picker at the cursor; the server
+  remains authoritative for kind/animation/input/pixel validation.
+- `shared/{notes,domain}.ts`, `server/{notes,attachments}/service.ts`, private layout:
+  canonical base-snapshot identity rechecks server recovery before new uploads
+  (after receipt lookup), catching same-revision/different-content restored bases.
+  Safe GET/409 snapshots include ordered ready descriptors, never paths/checksums/
+  batch IDs/secrets. Layout exposes only the timezone alongside account identity.
+- `(app)/+page.svelte`: refresh just the confirmed saved snapshot and update a
+  date/ID-sorted deduplicated **30-item session list**, without page navigation;
+  actual processed images and private file download rows. Backdating does not
+  prepend artificially. This interim list is explicitly labeled, not claimed as
+  S09's persisted SSR/cursor timeline. Published/server-draft composer capability
+  is tested through seeded local recovery; full entry screens remain S12/S13.
+- `tests/unit/posting.test.ts`, expanded unit drafts and `e2e/posting.test.ts`:
+  nine additional unit and eight real browser scenarios. Native/read-only receipt
+  inspection proves one successful mutation; uploads and commits use the actual
+  production app/SQLite/Sharp/files, not mock success routes. Coverage includes
+  second-upload disconnect, active-upload reload, post-commit dropped response,
+  confirmation-storage quota, renamed/oriented images, exact file bytes, image/
+  file-only/empty validation, mobile progress/errors, date order, server draft/
+  published recovery, stale base/history and expired-session retry.
+- Existing draft/shell assertions now reflect enabled explicit Post. Two light
+  shell screenshots were regenerated for intentionally updated status text and
+  opened/reviewed; no contrast/focus/viewport checks were weakened. Test-only
+  `helpers/browser-session.ts` shares verified server-issued synthetic sessions
+  across posting/upload workers through private ignored `.e2e-data`, preserving
+  unchanged production rate limits. `scripts/e2e-server.mjs` has bounded cleanup
+  retries after Windows child shutdown; persistent failure still reports an error.
+- `ops/Dockerfile.browser-validation`, README, ARCHITECTURE 7.5, tests README and
+  this handoff. No dependency, lockfile or migration change (schema v3/18 tables).
+
+Commands actually run:
+
+Host used explicit Node **24.21.0** executable and PATH plus npm **11.12.1** CLI
+N/C from S00, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Final host runs were repeated
+sequentially after the interrupted parallel environment, not inferred from partial
+logs. Linux installs its own native modules from the unchanged lockfile.
+
+| Command                                                                                                                                                                                                                                                                                                                                                              | Final actual result                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `git status --short`, `git log -1`, all required docs/source reads                                                                                                                                                                                                                                                                                                   | Clean S07 baseline preserved; all prior history retained                                                        |
+| `npm exec -- prettier --write <touched files>`                                                                                                                                                                                                                                                                                                                       | PASS                                                                                                            |
+| `npm run check`                                                                                                                                                                                                                                                                                                                                                      | PASS, zero errors/warnings including test/tooling TS                                                            |
+| `npm run lint`                                                                                                                                                                                                                                                                                                                                                       | PASS, ESLint/formatting                                                                                         |
+| `npm run test:unit`                                                                                                                                                                                                                                                                                                                                                  | PASS, 13 files / 69 tests                                                                                       |
+| `npm run test:integration`                                                                                                                                                                                                                                                                                                                                           | PASS, 16 files / 98 real native/SQLite/filesystem/server tests                                                  |
+| `npm run test:e2e -- tests/e2e/posting.test.ts` and targeted mobile/shell runs                                                                                                                                                                                                                                                                                       | Final targeted PASS; failed intermediate attempts below                                                         |
+| `npm run test:e2e` (final)                                                                                                                                                                                                                                                                                                                                           | PASS, build + all 39 Chromium tests, normal screenshot comparisons                                              |
+| `npm run build` (standalone final)                                                                                                                                                                                                                                                                                                                                   | PASS, adapter-node production artifact                                                                          |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s08 .` + `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s08`                                                                                                                                                                                                              | PASS initial Linux check/lint/build, 69 unit + 98 integration before final test-harness hardening               |
+| `podman machine start` (after interruption)                                                                                                                                                                                                                                                                                                                          | PASS, restarted stopped validation VM                                                                           |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s08-browser .` (final)                                                                                                                                                                                                                                                                               | PASS, fresh Linux ci/Sharp/SQLite/OpenSSL/Chromium, zero reported vulnerabilities                               |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s08-browser sh -c 'node --version && npm --version && npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build && npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/drafts.test.ts tests/e2e/posting.test.ts tests/e2e/uploads.test.ts'` | PASS final Linux 69 unit + 98 integration, check/lint/build and all 23 auth/draft/posting/upload Chromium tests |
+| `git diff --check`; `test ! -e .e2e-data`                                                                                                                                                                                                                                                                                                                            | PASS; no host private E2E fixture remains                                                                       |
+
+Passing final Linux code-gate image (precedes only final handoff documentation):
+`f46267ba6082e5a24d5a51e9a09f85d9bd34fd4fe9a8cf8ae9fe2b06768dce74`.
+The initial native-only image was
+`11db53c2a3888e3b8b306dfd82b29a8df59b9058605ce0e8aca504e234595289`.
+Same S00 pinned Node 24.21.0 bookworm/glibc base digest, npm 11.19.0, existing
+WSL2 VM (2 GiB VM memory) and two-CPU/4-GB-limited container. Final Linux image
+runs all native/common gates as well as its 23-browser scope. This is compatibility
+and reliability evidence, not target-VPS performance, Linux shell baselines or
+implemented full archive restore; archive capability regressions still pass.
+
+Intermediate failures / corrections (not counted as passes):
+
+- Early check found a leftover renamed attachment DTO call, wrong settings-reader
+  argument and overly broad command return type; corrected and reran checks.
+  Later test-session refactor removed `readFileSync` still needed for the upload
+  download assertion; restored the import after actual host/Linux check failures.
+- First posting browser run: 4 pass/1 fail from checking separate-copy storage
+  before its asynchronous locked write finished. Poll the real persisted record;
+  exact bytes/new-ID and enabled-editor assertions remain. Subsequent cases pass.
+- Full regression exposed obsolete disabled-Post assertions, removed sign-in
+  status text and intentionally changed light-shell copy. Kept the accurate sign-in
+  status, updated Post expectations, reviewed only the two changed light baselines.
+- Short safe-area/keyboard geometry caught the new inline Date row leaving less
+  than a full text line. Moved Date into a toolbar-owned secondary dialog and bounded
+  the feedback region; original full-line/control/focus assertions pass unchanged.
+- A later full browser run: 38 pass/1 fail, last suite HTTP 429 from spending an
+  additional login. Added verified real-session test sharing; no production auth
+  bypass/rate-limit change. Final Windows 39/39 and Linux 23/23 pass.
+- The interrupted parallel final run recorded worker exits 1073807364/3221226091
+  (8 pass, 8 failed, 23 not run), and Linux build stopped before a final image;
+  Podman's VM was stopped on resume. No application cause was established and no
+  failed/missing gate was treated as passed. Restarted VM and reran sequentially;
+  complete host/Linux gates pass without suppressing assertions.
+- First resumed Windows browser run passed 39 tests but emitted transient fixture
+  `EPERM` after child exit. Global cleanup removed it; added the same bounded
+  Windows deletion retries to the fixture launcher and explicit error handling,
+  then repeated all host and final Linux gates with clean teardown.
+- Existing native install-script/deprecation and lazy bundle-size warnings remain
+  visible. No missing browser/native dependency, skipped gate or security exception.
+
+Decisions / remaining scope / exact next task:
+
+- ARCHITECTURE 7.5 records additive local schema, frozen protocol/locks/copy IDs,
+  confirmation cleanup, canonical recovery identity, Date/DST, safe descriptors
+  and interim list boundary. The temporary session list avoids implementing an
+  unbounded or counterfeit complete timeline before S09; it uses real saved notes.
+  No settled stack/scope/security requirement changed.
+- No known unfinished S08 gate or reproducible S08 defect. S09 persisted timeline,
+  S10 search, S11 calendar, S12–S14 detail/conflict/lifecycle/history UI, S15 location/
+  storage and S16/S17 backups/restore remain unfinished. Browser storage remains
+  plaintext/evictable/not backup; original-file repair or explicit copies may be
+  needed. A copy does not cancel an uncertain committed original save.
+- Physical-device/OS IME, assistive technology, Linux visual baselines, real-domain
+  HTTPS/VPS performance and full backup/restore drills remain later release gates.
+- **Next: S09.** Read the exact files listed in the current handoff; start a bounded
+  published-only SQLite list/cursor/SSR contract with equal-date/filter-binding
+  tests. Replace session-only posting results with unified sorted timeline state,
+  preserving deduplication/scroll anchors and no premature uploads. First command:
+  `npm run check && npm run test:integration`, then posting and full browser regressions
   on pinned Node with TLS verification enabled.

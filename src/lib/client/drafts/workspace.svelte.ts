@@ -3,12 +3,30 @@ import { IndexedDraftBlobs } from './blobs.ts';
 import {
   DraftError,
   draftSchema,
+  commandForDraft,
+  hasContent,
   newDraft,
   removeImageReferences,
   type LocalDraft,
   type DraftAttachment,
 } from './model.ts';
 import type { ImageReference } from '#lib/shared/markdown/render.ts';
+
+import {
+  commandDigest,
+  sha256,
+  postingAttemptSchema,
+  type PostingAttempt,
+} from '../uploads/attempt.ts';
+import {
+  runPosting,
+  PostingError,
+  type PostingProgress,
+} from '../uploads/protocol.ts';
+import type { ApiResult, NoteSnapshot } from '#lib/shared/domain.ts';
+import { canonicalNoteSnapshot } from '#lib/shared/notes.ts';
+import { browserPostingTransport } from '../uploads/protocol.ts';
+import { localImage } from '../uploads/file-kind.ts';
 
 export const DRAFT_WORKSPACE = Symbol('draft workspace');
 export class DraftWorkspace {
@@ -25,6 +43,25 @@ export class DraftWorkspace {
   dirty = $state(false);
   conflict = $state(false);
   openEditor = $state(0);
+  posting = $state(false);
+  postError = $state('');
+  postRequiresLogin = $state(false);
+  postConflict = $state<NoteSnapshot | null>(null);
+  postProgress = $state<PostingProgress | null>(null);
+  posted = $state<NoteSnapshot[]>([]);
+  get frozen() {
+    return Boolean(this.active?.postingAttempt);
+  }
+  get canPost() {
+    return (
+      this.ready &&
+      !this.busy &&
+      !this.posting &&
+      !this.conflict &&
+      Boolean(this.active && hasContent(this.active)) &&
+      (!this.missing.length || this.frozen)
+    );
+  }
   private repository?: DraftRepository;
   private timer?: ReturnType<typeof setTimeout>;
   private queue: Promise<void> = Promise.resolve();
@@ -35,8 +72,10 @@ export class DraftWorkspace {
   private channel?: BroadcastChannel;
   private urlGeneration = 0;
   readonly accountId: string;
-  constructor(accountId: string) {
+  readonly timezone: string;
+  constructor(accountId: string, timezone = 'UTC') {
     this.accountId = accountId;
+    this.timezone = timezone;
   }
 
   async start(): Promise<() => void> {
@@ -141,7 +180,7 @@ export class DraftWorkspace {
       if (document.visibilityState === 'hidden') flush();
     };
     const unload = (event: BeforeUnloadEvent) => {
-      if (this.dirty || this.busy || this.conflict) {
+      if (this.dirty || this.busy || this.conflict || this.posting) {
         flush();
         event.preventDefault();
         event.returnValue = '';
@@ -178,7 +217,7 @@ export class DraftWorkspace {
       this.conflict = true;
   }
   change(bodyMarkdown: string) {
-    if (!this.ready || this.busy) return;
+    if (!this.ready || this.busy || this.frozen || this.posting) return;
     if (!this.active) {
       this.active = newDraft(this.accountId);
       this.activePersisted = false;
@@ -193,7 +232,7 @@ export class DraftWorkspace {
     }, 300);
   }
   updateMetadata(values: Pick<LocalDraft, 'timelineAt' | 'location'>) {
-    if (!this.ready || this.busy) return;
+    if (!this.ready || this.busy || this.frozen || this.posting) return;
     if (!this.active) {
       this.active = newDraft(this.accountId);
       this.activePersisted = false;
@@ -273,6 +312,8 @@ export class DraftWorkspace {
       this.dirty = false;
       this.conflict = false;
       this.error = '';
+      this.postError = '';
+      this.postConflict = null;
       this.status =
         record.kind === 'new'
           ? 'Recovered on this device.'
@@ -283,7 +324,14 @@ export class DraftWorkspace {
     });
   }
   async addFiles(files: File[], start: number, end: number): Promise<void> {
-    if (this.busy || !this.ready || this.conflict) return;
+    if (
+      this.busy ||
+      !this.ready ||
+      this.conflict ||
+      this.frozen ||
+      this.posting
+    )
+      return;
     this.busy = true;
     try {
       if (!this.active) {
@@ -295,9 +343,7 @@ export class DraftWorkspace {
       await this.enqueue(async () => {
         if (!this.repository || !this.active || this.disposed) return false;
         for (const file of files) {
-          const image =
-            /^(image\/(png|jpeg|webp|gif|avif|bmp|tiff))$/i.test(file.type) ||
-            /\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$/i.test(file.name);
+          const image = await localImage(file);
           if (file.size > (image ? 20 : 50) * 1024 * 1024)
             throw new DraftError(
               'invalid',
@@ -346,7 +392,14 @@ export class DraftWorkspace {
     }
   }
   async removeAttachment(id: string) {
-    if (!this.active || this.busy || this.conflict) return;
+    if (
+      !this.active ||
+      this.busy ||
+      this.conflict ||
+      this.frozen ||
+      this.posting
+    )
+      return;
     this.active = {
       ...this.active,
       attachments: this.active.attachments.filter((a) => a.id !== id),
@@ -372,11 +425,7 @@ export class DraftWorkspace {
             'Choose the original file with the same filename and size, or remove the missing attachment.',
           );
         // Restoring bytes requires the same revision guard as adding bytes.
-        const without = {
-          ...draft,
-          attachments: draft.attachments.filter((a) => a.id !== id),
-        };
-        this.active = await this.repository!.add(without, item, file);
+        this.active = await this.repository!.repair(draft, item, file);
         this.status = 'Saved on this device.';
         this.error = '';
         this.refresh();
@@ -413,6 +462,7 @@ export class DraftWorkspace {
     });
   }
   async keepSeparate(): Promise<boolean> {
+    if (this.busy || this.posting) return false;
     return this.enqueue(async () => {
       if (!this.active || !this.repository) return false;
       this.active = await this.repository.copy($state.snapshot(this.active));
@@ -420,6 +470,8 @@ export class DraftWorkspace {
       this.dirty = false;
       this.conflict = false;
       this.error = '';
+      this.postError = '';
+      this.postConflict = null;
       this.status = 'Saved your version as another local draft.';
       this.refresh();
       await this.loadFiles();
@@ -430,6 +482,7 @@ export class DraftWorkspace {
     });
   }
   async loadSaved(): Promise<boolean> {
+    if (this.busy || this.posting) return false;
     return this.enqueue(async () => {
       const record =
         this.active && this.repository?.read(this.active.localDraftId);
@@ -446,6 +499,189 @@ export class DraftWorkspace {
       await this.loadFiles();
       return true;
     });
+  }
+  async reorderAttachment(id: string, direction: -1 | 1) {
+    if (!this.active || this.busy || this.frozen || this.conflict) return;
+    const attachments = [...this.active.attachments];
+    const index = attachments.findIndex((a) => a.id === id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= attachments.length) return;
+    [attachments[index], attachments[target]] = [
+      attachments[target],
+      attachments[index],
+    ];
+    this.active = { ...this.active, attachments };
+    this.epoch++;
+    this.dirty = true;
+    await this.flush();
+  }
+  async post(): Promise<boolean> {
+    if (!this.canPost || !this.repository || !this.active) return false;
+    this.busy = true;
+    this.posting = true;
+    this.postError = '';
+    this.postRequiresLogin = false;
+    this.postConflict = null;
+    this.postProgress = {
+      stage: 'Preparing frozen save…',
+      completed: 0,
+      total: this.active.attachments.length,
+      loaded: 0,
+      bytes: 0,
+    };
+    try {
+      if (!(await this.flush())) return false;
+      const repository = this.repository;
+      const draftId = this.active!.localDraftId;
+      await navigator.locks.request(
+        `${repository.prefix}post:${draftId}`,
+        { ifAvailable: true },
+        async (lock) => {
+          if (!lock)
+            throw new DraftError(
+              'conflict',
+              'This draft is posting in another tab. Keep your work and check that tab.',
+            );
+          let draft = $state.snapshot(this.active!);
+          if (!draft.postingAttempt) {
+            const command = commandForDraft(draft, crypto.randomUUID());
+            const items = [];
+            for (const item of draft.attachments.filter(
+              (a) => a.source === 'local',
+            )) {
+              const blob = await repository.blobs.get(
+                this.accountId,
+                draftId,
+                item.id,
+              );
+              if (!blob || blob.size !== item.size)
+                throw new DraftError(
+                  'invalid',
+                  'A local file is missing. Repair it or remove it before posting.',
+                );
+              items.push({
+                id: item.id,
+                filename: item.filename,
+                incomingBytes: blob.size,
+                incomingDigest: await sha256(blob),
+              });
+            }
+            const attempt = postingAttemptSchema.parse({
+              command,
+              manifest: {
+                mutationId: command.mutationId,
+                requestDigest: await commandDigest(command),
+                items,
+              },
+              phase: 'frozen',
+              batchId: null,
+              readyIds: [],
+              result: null,
+            });
+            draft = await repository.save({
+              ...draft,
+              postingAttempt: attempt,
+            });
+            this.active = draft;
+            this.refresh();
+          }
+          const persist = async (postingAttempt: PostingAttempt) => {
+            draft = await repository.save({ ...draft, postingAttempt });
+            if (!this.disposed) {
+              this.active = draft;
+              this.refresh();
+            }
+          };
+          const result = await runPosting(
+            draft.postingAttempt!,
+            (id) => repository.blobs.get(this.accountId, draftId, id),
+            persist,
+            (progress) => {
+              if (!this.disposed) this.postProgress = progress;
+            },
+            browserPostingTransport,
+            async () => {
+              if (!draft.serverBase) return;
+              const response = await fetch(
+                `/api/notes/${draft.serverBase.noteId}`,
+                { signal: AbortSignal.timeout(30_000) },
+              );
+              const payload =
+                (await response.json()) as ApiResult<NoteSnapshot>;
+              if (!payload.ok) throw new PostingError(payload.error);
+              const note = payload.data;
+              if (
+                note.revision !== draft.serverBase.revision ||
+                (await sha256(canonicalNoteSnapshot(note))) !==
+                  draft.serverBase.snapshotDigest
+              )
+                throw new PostingError({
+                  code: 'conflict',
+                  message:
+                    'The server base changed (possibly after restore). Compare the server version before replacing it.',
+                  conflict: note,
+                });
+            },
+          );
+          let snapshot: NoteSnapshot | undefined;
+          try {
+            const response = await fetch(`/api/notes/${result.noteId}`, {
+              signal: AbortSignal.timeout(10_000),
+            });
+            const payload = (await response.json()) as ApiResult<NoteSnapshot>;
+            if (payload.ok) snapshot = payload.data;
+          } catch {
+            /* Receipt is authoritative even if the follow-up GET is lost. */
+          }
+          const warning = await repository.complete(draft);
+          if (!this.disposed) {
+            if (snapshot?.status === 'published')
+              this.posted = [
+                ...this.posted.filter((n) => n.id !== snapshot!.id),
+                snapshot,
+              ]
+                .sort(
+                  (a, b) =>
+                    b.timelineAt - a.timelineAt || (a.id < b.id ? 1 : -1),
+                )
+                .slice(0, 30);
+            this.active = null;
+            this.activePersisted = false;
+            this.dirty = false;
+            this.missing = [];
+            this.revokeUrls();
+            this.error = warning;
+            this.status = 'Saved on server.';
+            this.refresh();
+          }
+        },
+      );
+      return true;
+    } catch (error) {
+      if (!this.disposed) {
+        if (error instanceof DraftError) this.fail(error);
+        this.postError =
+          error instanceof PostingError
+            ? `${error.message} Your draft and files are kept. Retry this save or edit a separate copy.`
+            : error instanceof DraftError
+              ? error.message
+              : 'Save interrupted or confirmation unavailable. Your draft and files are kept. Retry the same save to check for success safely.';
+        this.postRequiresLogin =
+          error instanceof PostingError && error.detail.code === 'unauthorized';
+        this.postConflict =
+          error instanceof PostingError
+            ? (error.detail.conflict ?? null)
+            : null;
+        this.status = '';
+      }
+      return false;
+    } finally {
+      if (!this.disposed) {
+        this.busy = false;
+        this.posting = false;
+        this.postProgress = null;
+      }
+    }
   }
   private revokeUrls() {
     this.urlGeneration++;

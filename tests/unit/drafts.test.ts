@@ -8,11 +8,13 @@ import {
   decodeRecord,
   draftSchema,
   newDraft,
+  commandForDraft,
   excerpt,
   recoveryMatches,
   removeImageReferences,
   type DraftAttachment,
 } from '../../src/lib/client/drafts/model.ts';
+import { commandDigest, sha256 } from '../../src/lib/client/uploads/attempt.ts';
 import type { BinaryRepository } from '../../src/lib/client/drafts/blobs.ts';
 
 const account = '11111111-1111-4111-8111-111111111111';
@@ -357,4 +359,71 @@ it('keeps losing text as a separate recoverable copy when a referenced file was 
   expect((await repo.reconcile(copy.localDraftId)).missing).toEqual([
     descriptor.id,
   ]);
+});
+it('freezes retry identity across tabs, copies pending IDs safely, and removes bytes only on confirmed completion', async () => {
+  const { repo, blobs, second } = fixture();
+  const descriptor = { ...item(), kind: 'image' as const };
+  const blob = new Blob(['abc']);
+  let draft = await repo.add(await repo.create(), descriptor, blob);
+  draft = await repo.save({
+    ...draft,
+    bodyMarkdown: `![quiet](attachment:${descriptor.id})`,
+  });
+  const stale = draft;
+  const command = commandForDraft(draft, crypto.randomUUID());
+  draft = await repo.save({
+    ...draft,
+    postingAttempt: {
+      command,
+      manifest: {
+        mutationId: command.mutationId,
+        requestDigest: await commandDigest(command),
+        items: [
+          {
+            id: descriptor.id,
+            filename: descriptor.filename,
+            incomingBytes: blob.size,
+            incomingDigest: await sha256(blob),
+          },
+        ],
+      },
+      phase: 'frozen',
+      batchId: null,
+      readyIds: [],
+      result: null,
+    },
+  });
+  await expect(second.save(stale)).rejects.toThrow(/another tab/);
+  await expect(
+    repo.save({ ...draft, postingAttempt: undefined }),
+  ).rejects.toThrow(/frozen/);
+  await expect(repo.complete(draft)).rejects.toThrow(/confirmation/);
+  const copy = await repo.copy(draft);
+  expect(copy.postingAttempt).toBeUndefined();
+  expect(copy.attachments[0].id).not.toBe(descriptor.id);
+  expect(copy.bodyMarkdown).toContain(`attachment:${copy.attachments[0].id}`);
+  expect(
+    await (await blobs.get(
+      account,
+      copy.localDraftId,
+      copy.attachments[0].id,
+    ))!.text(),
+  ).toBe('abc');
+  draft = await repo.save({
+    ...draft,
+    postingAttempt: {
+      ...draft.postingAttempt!,
+      phase: 'confirmed',
+      result: {
+        noteId: crypto.randomUUID(),
+        revision: 1,
+        status: 'published',
+        deleted: false,
+      },
+    },
+  });
+  expect(await repo.complete(draft)).toBe('');
+  expect(repo.read(draft.localDraftId)?.deleted).toBe(true);
+  expect(await blobs.list(account, draft.localDraftId)).toEqual([]);
+  expect(await blobs.list(account, copy.localDraftId)).toHaveLength(1);
 });

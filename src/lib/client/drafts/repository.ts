@@ -4,6 +4,7 @@ import {
   draftSchema,
   DraftError,
   newDraft,
+  remapImageReferences,
   type LocalDraft,
   type DraftRecord,
   type DraftAttachment,
@@ -71,6 +72,17 @@ export class DraftRepository {
       throw new DraftError(
         'conflict',
         'This draft changed or was discarded in another tab. Your edits are still here.',
+      );
+    if (
+      record.postingAttempt &&
+      (JSON.stringify(record.postingAttempt.command) !==
+        JSON.stringify(draft.postingAttempt?.command) ||
+        JSON.stringify(record.postingAttempt.manifest) !==
+          JSON.stringify(draft.postingAttempt?.manifest))
+    )
+      throw new DraftError(
+        'conflict',
+        'This draft has a frozen posting attempt. Retry it or edit a separate copy.',
       );
     return record;
   }
@@ -183,6 +195,32 @@ export class DraftRepository {
       return saved;
     });
   }
+  async repair(
+    draft: LocalDraft,
+    item: DraftAttachment,
+    blob: Blob,
+  ): Promise<LocalDraft> {
+    return this.exclusive(async () => {
+      this.assertCurrent(draft);
+      if (
+        item.source !== 'local' ||
+        item.size !== blob.size ||
+        !draft.attachments.some((a) => a.id === item.id)
+      )
+        throw new DraftError(
+          'invalid',
+          'Original file metadata does not match.',
+        );
+      await this.blobs.put(this.accountId, draft.localDraftId, item.id, blob);
+      const saved = draftSchema.parse({
+        ...draft,
+        revision: draft.revision + 1,
+        modifiedLocallyAt: Date.now(),
+      });
+      this.store(saved);
+      return saved;
+    });
+  }
   async reconcile(id: string): Promise<{ missing: string[]; warning: string }> {
     return this.exclusive(async () => {
       const record = this.read(id);
@@ -236,19 +274,42 @@ export class DraftRepository {
       }
     });
   }
+  /** The returned cleanup warning never undoes confirmed server success. */
+  async complete(draft: LocalDraft): Promise<string> {
+    if (draft.postingAttempt?.phase !== 'confirmed')
+      throw new DraftError(
+        'invalid',
+        'Server confirmation is required before removing recovery data.',
+      );
+    return this.discard(draft);
+  }
   async copy(draft: LocalDraft): Promise<LocalDraft> {
     draftSchema.parse(draft);
     if (draft.accountId !== this.accountId)
       throw new DraftError('invalid', 'Draft account does not match.');
     return this.exclusive(async () => {
+      // A pending upload owns its IDs. A new attempt must not borrow those IDs.
+      const ids = new Map(
+        draft.postingAttempt
+          ? draft.attachments
+              .filter((a) => a.source === 'local')
+              .map((a) => [a.id, crypto.randomUUID()])
+          : [],
+      );
       const copy = draftSchema.parse({
         ...draft,
+        postingAttempt: undefined,
+        bodyMarkdown: remapImageReferences(draft.bodyMarkdown, ids),
+        attachments: draft.attachments.map((a) => ({
+          ...a,
+          id: ids.get(a.id) ?? a.id,
+        })),
         localDraftId: crypto.randomUUID(),
         revision: 1,
         createdLocallyAt: Date.now(),
         modifiedLocallyAt: Date.now(),
       });
-      for (const item of copy.attachments)
+      for (const item of draft.attachments)
         if (item.source === 'local') {
           const blob = await this.blobs.get(
             this.accountId,
@@ -263,7 +324,7 @@ export class DraftRepository {
           await this.blobs.put(
             this.accountId,
             copy.localDraftId,
-            item.id,
+            ids.get(item.id) ?? item.id,
             blob,
           );
         }

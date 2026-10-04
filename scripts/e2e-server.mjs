@@ -105,16 +105,28 @@ await writeFile(resolve(parent, 'server.pid'), String(child.pid));
 for (const signal of ['SIGTERM', 'SIGINT']) {
   process.on(signal, () => child.kill('SIGTERM'));
 }
-child.on('exit', (code) => {
+/** Bounded retry for transient Windows locks after the child stops.
+ * @param {number} exitCode
+ */
+async function cleanup(exitCode) {
   proxy?.close();
-  void rm(data, { recursive: true, force: true }).finally(() => {
-    process.exitCode = code ?? 1;
-  });
+  try {
+    await rm(data, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
+    process.exitCode = exitCode;
+  } catch {
+    console.error('E2E private fixture cleanup failed');
+    process.exitCode = 1;
+  }
+}
+child.on('exit', (code) => {
+  void cleanup(code ?? 1);
 });
 child.on('error', (error) => {
-  proxy?.close();
   console.error(error.message);
-  void rm(data, { recursive: true, force: true }).finally(() => {
-    process.exitCode = 1;
-  });
+  void cleanup(1);
 });

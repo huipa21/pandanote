@@ -92,7 +92,7 @@ Keyboard-shrink tests exercise mobile content heights 390/320/260 with nonzero
 safe-area insets set through Chromium's `Emulation.setSafeAreaInsetsOverride`.
 Controls must fit fully inside the safe area and the textarea must retain at least
 one full visible line. A touch-capable mobile context navigates exclusively by taps;
-its accessibility-tree snapshot verifies dialog/control names and disabled state.
+its accessibility-tree snapshot verifies dialog/control names and Post state (enabled for valid content since S08).
 
 A separate temporary MV3 test extension calls `chrome.tabs.setZoom(..., 2)` for
 **actual native 200% browser zoom**. The test verifies CSS viewport 720x450,
@@ -104,7 +104,7 @@ not CSS zoom, pinch zoom or just a viewport-size approximation.
 S03's shell gate is complete. Physical phone/OS IME, VoiceOver/NVDA read-aloud and
 cross-platform browser audits remain part of the integrated S18 release review,
 not claims made by these automated scenarios. No physical-device pass is claimed;
-S05/S08 will separately test real draft recovery and working posting.
+S05/S08 separately test real draft recovery and working posting.
 
 ## S04 coverage (MD-01/02, TAG-01 and TAG-03 parsing foundations)
 
@@ -133,7 +133,7 @@ is complete; transactional note tag joins are S07 and management/history is S14.
 - `e2e/drafts.test.ts`: actual built private app, localStorage + IndexedDB under CSP,
   two independent image/file drafts, exact bytes on reload and full Chromium process
   restart, confirmed scoped discard, file picker/paste/drop, zero premature mutation
-  requests, Enter/Ctrl/Cmd+Enter with disabled Post, URL revocation, text/blob quotas,
+  requests, Enter/Ctrl/Cmd+Enter without publication (Post enabled since S08), URL revocation, text/blob quotas,
   actual transaction abort after request success, persistence denial, missing-file
   repair/removal, two-tab conflicts/separate-copy/tombstone safety (including a
   losing edit with evicted files kept as repairable text), signout/relogin,
@@ -144,8 +144,8 @@ is complete; transactional note tag joins are S07 and management/history is S14.
   limits remain unchanged; the expanded suite must not spend a new login per draft
   scenario and exhaust the legitimate ten-attempt/IP window.
 
-Metadata/recovery repository capabilities are tested; date/location UI and server
-recovery association are later steps. No upload or note endpoint is simulated as
+Metadata/recovery repository capabilities are tested; S08 adds date UI and base
+rechecking. Location and full server recovery entry screens remain later steps. No upload or note endpoint is simulated as
 completed posting, and no test-only draft route is shipped. Physical device/IME,
 full assistive technology and cross-platform shell baselines remain S18.
 
@@ -179,7 +179,7 @@ full assistive technology and cross-platform shell baselines remain S18.
   RSS and timings. The Linux 2-CPU/4-GB image and actual values are in PROGRESS.
 
 These are ready upload/download primitives. S07 integrates note commits; browser
-posting/image viewing remain S08/S12. Unused-ready inventory/storage cleanup UI remains S15.
+posting is S08 and full image viewing remains S12. Unused-ready inventory/storage cleanup UI remains S15.
 Sharp subprocesses avoid cached private open-file handles and provide a hard
 wall-clock deadline, not a fake Promise timeout over still-running native work.
 
@@ -207,10 +207,47 @@ wall-clock deadline, not a fake Promise timeout over still-running native work.
   remain. No mock API or test-only note route is shipped.
 
 S07 is backend-only. The full existing browser regression suite runs at Milestone A;
-Post remains disabled. Frozen browser posting/loss recovery is S08, timeline/search
+Post was disabled at that backend-only gate. Frozen browser posting/loss recovery is S08, timeline/search
 is S09/S10, conflict/detail UI S12 and draft/Trash screens S13. Derived fields are
 transactional, but a production FTS/search API is not yet claimed. S14 supplies
 retired-tag history resolution, not silent local rewriting. Full restore remains S17.
+
+## S08 coverage (POST-01–03, DRAFT-02/04/05, NOTE-01/03, UI-02/03)
+
+- `unit/posting.test.ts`: frozen phase transitions/readiness/progress, receipt-first
+  response-loss retries without blob reads, readiness reuse, changed-byte/digest
+  rejection, upload and local-persistence failures, server error propagation,
+  restored missing receipts, create/update/publish/date contracts, additive v1
+  draft decoding, parsed image destination remapping and DST/future validation.
+- `unit/drafts.test.ts`: frozen command/manifest immutability and stale-tab checks,
+  separate-copy new local IDs/exact blobs, no removal before confirmation, scoped
+  confirmed cleanup. Existing quota/cross-tab/tombstone tests remain unchanged.
+- `e2e/posting.test.ts`: real built composer + actual SQLite/Sharp/files, text/two
+  images/file with cursor insertion and renamed-image detection, repeated clicks,
+  upload progress and editor locks, unchanged download/WebP/metadata bytes, only
+  submitted-draft cleanup, no-navigation/date-sorted session insertion/backdating,
+  second-upload disconnect/readiness reuse across reload, response dropped after
+  real server commit/receipt-first retry, active-upload reload with no automatic
+  posting, local confirmation-storage quota after commit, file/image-only/empty
+  validation on mobile, animation rejection/separate editable copy, server-draft
+  local-file boundary/date retention, published Save changes/base digest conflict,
+  actual retired-tag history rejection, expired-session feedback/safe retry.
+  SQLite read-only receipt inspection asserts one committed mutation; synthetic
+  history insertion is test setup, never a production debug route.
+- `helpers/browser-session.ts` shares only verified real server-issued synthetic
+  sessions across posting/upload workers through a private ignored fixture file,
+  removed at teardown. Production login limits remain unchanged. The fixture
+  launcher retries transient Windows file locks after child exit with a bounded
+  limit; persistent cleanup failures are reported, not silently treated as success.
+- Existing full auth/draft/Markdown/shell/upload tests continue to assert no
+  premature upload, CSP/CSRF/privacy, reload/tab/quota retention and mobile/native
+  zoom/safe areas. Two light-shell baselines changed only for the intentionally
+  updated product status text; reviewed images are still Windows-only baselines.
+
+The session list is bounded and explicitly not the complete S09 timeline. Full
+server edit/detail/draft entry points and conflict resolution remain S12–S14.
+Linux browser validation includes the actual posting test file in addition to
+security/draft/upload regressions. Physical-device/IME and release audits remain S18.
 
 ## Run
 

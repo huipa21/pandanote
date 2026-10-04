@@ -33,6 +33,7 @@ import { findReceipt, insertReceipt } from '../db/receipts.ts';
 import { readSettings } from '../settings/repository.ts';
 import { enqueueAttachmentCleanup } from '../maintenance/cleanup.ts';
 import { inspectContent } from './content.ts';
+import { attachmentDto } from '../attachments/service.ts';
 
 export function noteMutationDigest(value: NoteMutation): string {
   return createHash('sha256')
@@ -92,6 +93,14 @@ function snapshot(db: Reader, row: NoteRow): NoteSnapshot {
             label: row.locationLabel,
           },
     attachmentIds: linkedIds(db, row.id),
+    attachments: db
+      .select({ attachment: attachments })
+      .from(noteAttachments)
+      .innerJoin(attachments, eq(noteAttachments.attachmentId, attachments.id))
+      .where(eq(noteAttachments.noteId, row.id))
+      .orderBy(asc(noteAttachments.ordinal))
+      .all()
+      .map(({ attachment }) => attachmentDto(attachment)),
     tags: db
       .select({ key: tags.normalizedKey })
       .from(noteTags)

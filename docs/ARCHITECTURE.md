@@ -531,6 +531,60 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
   existed; initial compose controls now wait for mount, and file input waits for the
   local workspace. A delayed-entry-module browser assertion protects this boundary.
 
+### 7.5 S08 implemented composer orchestration
+
+- `client/uploads/{attempt,protocol}.ts` defines validated frozen create/update/
+  publish commands, input SHA-256 manifests, phase/batch/readiness/confirmation
+  recovery and actual byte-progress transport. The optional additive
+  `postingAttempt` field preserves existing v1 draft records unchanged; unknown
+  storage versions still fail closed. Repository saves forbid changing/removing
+  a persisted attempt's command or manifest. Nothing initializes a batch from
+  selection, autosave, paste/drop, preview, startup or reload.
+- Explicit Post/Save changes first flushes and locks editing, hashes local blobs
+  sequentially and persists the frozen identity before networking. Every retry
+  POSTs the identical manifest to receipt-first initialization. Returned readiness
+  replaces the local cache; ready files are never retransmitted. Missing uploads
+  verify exact original bytes/hash, transfer one at a time with XHR byte progress,
+  then show processing and complete-note saving. JSON requests have bounded client
+  deadlines; XHR timeout includes server image processing. The server remains
+  authoritative for MIME/kind, limits and image safety.
+- A per-draft Web Lock serializes whole posting attempts across tabs, separately
+  from the account repository lock. Phase/readiness/result writes retain local
+  revision checks; another-tab changes produce recoverable conflict rather than
+  overwrite. No automatic post/retry on reload and no publication keyboard shortcut.
+  Editor mutation/removal/reorder controls remain locked even after failure until
+  confirmation or an explicit separate copy; original-file repair preserves order.
+- Receipt confirmation is durably recorded before `DraftRepository.complete`
+  writes the tombstone/removes bytes. Failure to persist confirmation or tombstone
+  leaves an exact retryable recovery record, even if the server already committed.
+  Blob cleanup failure retains the tombstone and warns/retries startup cleanup.
+  Only the submitted draft is cleared. A separate copy of a frozen attempt drops
+  retry identity and remaps local file/image IDs and parsed Markdown destinations;
+  referenced server IDs remain reusable. UI warns copying does not cancel an
+  uncertain original save; richer server conflict resolution remains S12/S14.
+- `canonicalNoteSnapshot` hashes the full ordered base metadata/body/IDs/tags,
+  omitting derived attachment descriptors. For recovery edits, after receipt lookup
+  and before new uploads, the composer rechecks the private server snapshot against
+  stored ID/revision/base digest. This catches restored same-revision/different-body
+  data as well as normal edits. New drafts use create; published recovery uses
+  update; server drafts use publish with the unchanged explicit timeline instant.
+- Local magic inspection makes renamed raster files selected through the generic
+  picker insert images at the cursor without uploading. Server detection remains
+  authoritative. File references can be removed/reordered locally; Write/Preview
+  and expanded/mobile modes reuse the existing renderer. The Date secondary dialog
+  uses the saved app timezone via Temporal, preserving explicit draft dates and
+  rejecting future/ambiguous/nonexistent times. It sits in the toolbar rather than
+  consuming another permanent line on very short mobile keyboards. Feedback has
+  one bounded scroll area to keep primary controls reachable.
+- Safe GET/conflict snapshots now include ordered ready attachment descriptors
+  (no private paths/digests/batch IDs); older typed recovery fixtures may omit them.
+  A successful composer save refreshes only that note and updates a date/ID-sorted,
+  deduplicated, 30-item **in-memory session list** with real processed images/file
+  downloads. A follow-up GET failure does not undo an authoritative receipt. This
+  interim list is explicitly not S09's complete SSR/cursor timeline. S09 must reuse
+  the mutation invalidation hook instead of fetching every note or prepending a
+  backdated save. No schema/dependency/lockfile change or new server autosave API.
+
 ## 8. Search details
 
 ### 8.1 Normalization and semantics

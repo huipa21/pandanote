@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Currently an authentication/persistence foundation with a responsive shell, not a usable note-taking application.**
+**Composer posting and recovery are implemented; the full timeline and later features remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -12,8 +12,9 @@ source-span tag parsing. S05 adds multiple browser-local text/file drafts, reloa
 and restart recovery, missing-file repair, quota warnings and cross-tab conflicts.
 S06 adds private resumable uploads, bounded static-image WebP processing and
 safe authenticated downloads. S07 adds atomic, idempotent note mutation APIs with
-revision conflicts and draft/Trash lifecycle. Composer posting, timeline/lifecycle
-screens and backup/restore remain future steps. Do not deploy this unfinished app as a complete product.
+revision conflicts and draft/Trash lifecycle. S08 connects explicit composer posting
+with frozen, receipt-first retries, upload progress and confirmed-success cleanup.
+The full timeline/lifecycle screens and backup/restore remain future steps. Do not deploy this unfinished app as a complete product.
 
 ## Start here
 
@@ -175,8 +176,8 @@ HTML document; CSS handles system dark mode without a pre-hydration script or
 light-theme flash. Public login/setup use the default system theme. Changes apply
 on other devices on their next page load, not via live preference synchronization.
 
-The composer now saves **browser-local drafts** (S05) with Write/Preview, but does
-not upload or publish anything. Post remains disabled until S08. Search/calendar,
+The composer saves **browser-local drafts** (S05) with Write/Preview, and uploads
+only on explicit Post/Save changes (S08). Search/calendar,
 server drafts/Trash, tag administration and calendar/storage/backup settings are
 explicitly labeled as later-step work; these are not completed features.
 
@@ -192,8 +193,8 @@ Raw HTML and active URL schemes are disabled. Images require known internal
 attachment descriptors; arbitrary remote images are not fetched. Mermaid links,
 callbacks, HTML/assets, configuration overrides and custom styling are disabled;
 SVG output is separately sanitized. See ARCHITECTURE 11.2 for limits/contracts.
-Attachments can be selected, pasted or dropped locally (S05). S06 server upload
-primitives exist, but the composer does not call them until posting arrives in S08.
+Attachments can be selected, pasted or dropped locally (S05). S08 calls the S06
+upload primitives only after explicit Post/Save changes, never during selection or preview.
 
 The shared Unicode tag parser deduplicates by NFKC/lowercase identity and preserves
 source spans for precise rewrites, ignoring code/HTML/escapes/URLs. Tag autocomplete,
@@ -219,12 +220,12 @@ This is **not backup or encrypted storage**. Clearing site data, private browsin
 storage eviction or losing this device can remove drafts. Other devices and server
 backups do not contain them. Signing out leaves drafts on the browser/device;
 anyone controlling it can read them. Local preview URLs are temporary and revoked.
-Server draft integration, date/location controls and real posting remain later steps.
+S08 adds posting and an app-timezone timeline-date dialog. Server draft/detail
+entry points and location controls remain S12/S13/S15.
 
 ## Private attachments and bounded images (S06)
 
-Server primitives are integrated with S07 note commits; **Post is still disabled**
-until S08 wires the browser posting protocol.
+Server primitives are integrated with S07 note commits and S08 browser posting.
 `POST /api/uploads` initializes/resumes a frozen manifest of stable IDs, filenames,
 exact byte sizes and SHA-256 checksums. Query readiness through the batch GET,
 then PUT missing raw file bodies only. Reusing an ID with different bytes fails
@@ -258,10 +259,11 @@ see ARCHITECTURE 7.4 and PROGRESS for exact contracts and measured limitations.
 
 The backend supports text/image/file-only creation, optimistic published edits,
 move-to-draft, edited draft publication, Trash/restore and confirmed permanent
-deletion. Server draft edits are never background-saved. The UI remains S08/S12/S13.
+deletion. Server draft edits are never background-saved. S08 supplies the composer
+protocol; full detail/edit and lifecycle entry screens remain S12/S13.
 
 - `POST /api/notes`: strict `create` command.
-- `GET /api/notes/<id>`: private body/metadata/revision/tag/attachment-ID snapshot.
+- `GET /api/notes/<id>`: private body/metadata/revision/tag/ordered attachment-descriptor snapshot.
 - `PATCH /api/notes/<id>`: strict `update` command for published notes.
 - `POST /api/notes/<id>/actions`: `publish`, `move-to-draft`, `trash`, `restore`,
   `permanent-delete`; all require expected revision and client mutation ID.
@@ -275,6 +277,34 @@ Permanent deletion requires Trash plus `confirmed: true`; shared/Trash file byte
 survive until the final reference is removed and durable cleanup completes.
 Creation dates are immutable. Updates/republishing retain an explicit timeline date;
 body/attachment changes alone set the content-edited indicator. See ARCHITECTURE 4.4.
+
+## Composer posting and retry (S08)
+
+Post is the only publishing action; Enter and Ctrl/Cmd+Enter never publish. New
+notes use Post, published recovery edits use Save changes, and server-draft recovery
+uses Post. Selecting new files, autosave, and preview remain browser-only.
+
+On activation, the composer freezes its validated payload, mutation ID, SHA-256
+manifest and retry state in localStorage before sending anything. Editing is locked
+until confirmation; failures/reloads retain the exact attempt and local files.
+Retry checks the server receipt first, then authoritative upload readiness, sending
+only missing files. Upload bytes, processing and complete-note save have visible
+feedback; double clicks and concurrent tabs cannot submit changed payloads.
+
+Only confirmed success removes the submitted record/blobs; other drafts remain.
+Storage failure after a server commit can be retried safely. Error/conflict/stale-tag
+messages keep work intact; sign in again when needed. An editable separate copy
+allocates new IDs for local files and leaves the original uncertain attempt intact.
+Retry first: copying cannot cancel a save that may already have committed.
+
+The Date dialog uses the configured app timezone and rejects future/nonexistent/
+ambiguous local times. Recovery bases recheck ID, revision and canonical snapshot
+identity before new uploads, including after restore. Full edit/conflict/draft
+screens still arrive in S12/S13; there is no background server draft saving.
+
+All notes shows a bounded, date-sorted **session list** of confirmed saves without
+reloading the page, including processed images and private file download rows.
+This is not the complete persisted timeline: S09 will add SSR paging and cards.
 
 ## Validation
 
