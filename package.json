@@ -27,6 +27,7 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts",
     "auth:setup-token": "node --env-file-if-exists=.env scripts/setup-token.ts",
     "auth:benchmark": "node scripts/auth-benchmark.ts",
+    "images:benchmark": "node scripts/images-benchmark.ts",
     "auth:recover": "node --env-file-if-exists=.env scripts/auth-recover.ts",
     "spike:browser": "vite --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4174 --strictPort"
   },

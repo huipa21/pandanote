@@ -36,6 +36,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     return protect(await resolve(event));
   try {
     const runtime = getRuntime();
+    await runtime.ready;
     event.locals.runtime = runtime;
     if (!sameOrigin(event.request, runtime.policy))
       return protect(

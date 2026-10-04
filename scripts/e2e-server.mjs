@@ -17,6 +17,7 @@ const env = {
   ORIGIN: security ? 'https://127.0.0.1:4175' : `http://127.0.0.1:${port}`,
   DATA_DIR: data,
   NODE_ENV: 'production',
+  BODY_SIZE_LIMIT: '512M',
   TRUSTED_PROXY_IPS: security ? '127.0.0.1,::ffff:127.0.0.1' : '',
   ADDRESS_HEADER: '',
   HOST_HEADER: '',

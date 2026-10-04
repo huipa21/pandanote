@@ -53,7 +53,9 @@
   let editorOpen = $state(false);
   let textarea = $state<HTMLTextAreaElement>();
   let desktop = $state(false);
+  let mounted = $state(false);
   onMount(() => {
+    mounted = true;
     const media = matchMedia('(min-width: 900px)');
     const changed = () => {
       desktop = media.matches;
@@ -92,6 +94,7 @@
     aria-label="Choose local files"
     type="file"
     multiple
+    disabled={!workspace.ready}
     bind:this={fileInput}
     onchange={(event) => {
       addFiles(Array.from(event.currentTarget.files ?? []));
@@ -104,8 +107,11 @@
 {/if}
 <div class="desktop-composer surface" data-testid="composer">
   {#if !expanded}
-    <button class="start-writing" onfocus={expand} onclick={expand}
-      >Write a note…</button
+    <button
+      class="start-writing"
+      disabled={!mounted}
+      onfocus={expand}
+      onclick={expand}>Write a note…</button
     >
   {:else}
     <div class="editor-tabs" role="group" aria-label="Editor mode">
@@ -182,6 +188,7 @@
 </div>
 <button
   class="mobile-compose primary"
+  disabled={!mounted}
   onclick={() => {
     editorOpen = true;
   }}>{text ? 'Continue writing' : 'Compose a note'}</button

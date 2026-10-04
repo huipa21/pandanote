@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer and browser drafts (S00–S05)
+# Foundation, authentication, shell, renderer, drafts and attachments (S00–S06)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -29,8 +29,8 @@ production credential is committed.
 | `integration/server-boundary.test.ts`    | Actual SvelteKit production builds reject direct/indirect client imports of persistence, with inherited test-mode bypass disabled                                                                                                                                      |
 
 `tests/helpers/persistence.ts` is test-only seeding/isolated cleanup; product code
-never imports it. Cleanup enqueueing and journal primitives are tested, **not**
-full attachment deletion or restore/crash rollback. Linux checks execute POSIX
+never imports it. S06 adds real queued attachment-byte cleanup; note lifecycle
+and restore/crash rollback are still later steps, not claimed by these tests. Linux checks execute POSIX
 permission/fsync assertions; Windows uses operator ACLs instead. No existing
 schema is pushed or runtime database migration hidden in a page request.
 
@@ -147,6 +147,40 @@ Metadata/recovery repository capabilities are tested; date/location UI and serve
 recovery association are later steps. No upload or note endpoint is simulated as
 completed posting, and no test-only draft route is shipped. Physical device/IME,
 full assistive technology and cross-platform shell baselines remain S18.
+
+## S06 coverage (IMAGE-01, FILE-01, AUTH-05, POST-02 upload boundary)
+
+- `unit/attachments.test.ts`: strict manifest/filename/checksum/ID bounds, disk
+  reservation accounting, queue overload/deadline/recovery, expiring async-write
+  leases that can finish while exclusive maintenance drains.
+- `integration/attachments.test.ts`: product services with real SQLite/private files
+  and native Sharp subprocesses, frozen manifest/receipt-first resume, exact variant
+  checksums/orientation/metadata/alpha/no upscale/static GIF, animated GIF/WebP/APNG,
+  corrupt/pixel/streamed-byte/MIME failures, failed SQLite commit rollback/retry,
+  unchanged active-file download headers, identity/revocation checks, receive bound
+  and native concurrency=1, hard killed-worker/receive deadlines, disk reserve,
+  restart temporary/crash-output cleanup, preserved ready retries and last-reference
+  deletion with cloned/Trash references and interrupted durable cleanup jobs.
+- `e2e/uploads.test.ts`: built authenticated routes, same-origin and anonymous
+  gates, retry/mismatch/readiness, actual processed image bytes, HEAD/variant checks,
+  browser download of hostile HTML without execution, Unicode download names,
+  zero-byte files and a >512 KiB file proving the transport configuration, and
+  unchanged no-upload-before-Post local selection. The Linux browser image sets
+  `LANG/LC_ALL=C.UTF-8`; an ASCII locale makes Chromium fall back to “download”
+  despite a valid UTF-8 response header. The upload test runs after first-account
+  setup (`uploads.test.ts`), preserving the real auth test's empty-deployment gate.
+  Delayed actual entry modules assert initial compose/file controls cannot swallow
+  a pre-hydration action; route teardown waits for held handlers to finish.
+- `tests/helpers/images.ts` creates a genuine two-frame APNG with valid CRC/deflate
+  payloads; no real photos or precise location data are fixtures.
+- `npm run images:benchmark` measures the production worker with three synthetic
+  jobs, 50 MP orientation plus 20 MP high-entropy JPEG, sampled parent/peak worker
+  RSS and timings. The Linux 2-CPU/4-GB image and actual values are in PROGRESS.
+
+These are ready upload/download primitives, not published notes or a completed
+image viewer (S07/S08/S12). Unused-ready inventory/storage cleanup UI remains S15.
+Sharp subprocesses avoid cached private open-file handles and provide a hard
+wall-clock deadline, not a fake Promise timeout over still-running native work.
 
 ## Run
 

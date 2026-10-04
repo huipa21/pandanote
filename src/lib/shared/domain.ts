@@ -92,8 +92,8 @@ export type ApiResult<T> =
 
 export class DomainError extends Error {
   readonly code: ErrorCode;
-  constructor(code: ErrorCode, message: string) {
-    super(message);
+  constructor(code: ErrorCode, message: string, options?: ErrorOptions) {
+    super(message, options);
     this.code = code;
     this.name = 'DomainError';
   }

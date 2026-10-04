@@ -1,10 +1,12 @@
-# S02/S05 Linux/Chromium security and browser-draft gate, not production.
+# S02/S05/S06 Linux/Chromium security, drafts and attachment gate, not production.
 FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:5cbc7caba8c2c0f0bca675d1b61b9f2857e1cf1853c6164ee9dd409501a936e7
 WORKDIR /app
+# Chromium needs a UTF-8 filesystem locale to preserve Unicode download names.
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 COPY . .
 RUN npm ci \
     && apt-get update \
     && apt-get install -y --no-install-recommends openssl \
     && npx playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
-CMD ["sh", "-c", "npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/drafts.test.ts"]
+CMD ["sh", "-c", "npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/drafts.test.ts tests/e2e/uploads.test.ts"]

@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** authentication/persistence, responsive shell, Markdown and browser drafts; product implementation remains unfinished.
-- **Completed steps:** S00–S05 — **done**.
-- **Current requested step:** S05 — Browser-local draft repositories and recovery — **done**. Next unfinished step: S06 — Private attachments and bounded image processing.
-- **Repository:** clean starting HEAD `f0fb21e` (committed S02 completion). Existing work preserved; S05 changes are uncommitted. No commit created by this agent.
-- **Implemented:** versioned account/draft localStorage records and rebuildable index; real IndexedDB blobs, debounced recovery workspace, multiple local draft list/resume/create/confirmed discard, tombstones and orphan/missing-file repair, Web-Lock revision checks and cross-tab notifications/conflict-copy UI, local picker/paste/drop/internal images, ephemeral previews, persistence/quota warnings, signout retention and typed server recovery bases. Post remains disabled; uploads/server note services/server drafts/backups are not claimed. No dependencies, lockfile or server database schema changed.
-- **Validation:** Windows check/lint/build, 52 unit + 72 integration + all 30 Chromium tests pass. Linux fresh native install/check/lint/build and all 52 unit + 72 integration tests pass; Linux Chromium passes all 14 auth/draft tests. Draft evidence includes process restart/exact blobs, transaction-abort/quota faults, missing repair, competing tabs (including evicted files), account/version boundaries, unsupported locks and mobile picker/shrunken editor. Existing Windows snapshots/CSP/auth/renderer regressions remain passing. Physical-device/IME, assistive-technology, Linux shell baselines, real-domain/VPS performance and full restore audits remain S18.
+- **Phase:** private persistence/authentication, shell/Markdown, local drafts and server attachment primitives; product implementation remains unfinished.
+- **Completed steps:** S00–S06 — **done**.
+- **Current requested step:** S06 — Private attachments and bounded image processing — **done**. Next unfinished step: S07 — Atomic/idempotent note lifecycle.
+- **Repository:** clean starting HEAD `f18ad32` (committed S05). Existing work preserved; S06 changes are uncommitted. No commit created by this agent.
+- **Implemented:** receipt-first frozen upload manifests and resumable readiness, streamed limits/checksums, bounded single-worker Sharp subprocess with hard deadline, static display/thumbnail WebP/orientation/metadata stripping and animation rejection (including APNG), safe private downloads, disk reservations, temporary/startup cleanup and durable last-reference deletion worker. Composer initial controls are hydration-safe. Local file selection still does not upload; Post remains disabled for S08. Note services/server draft lifecycle/storage UI/backups are not claimed. Dependencies, lockfile and DB schema remain unchanged (v3/18 tables).
+- **Validation:** Windows check/lint/build, 56 unit + 85 integration + all 31 Chromium tests pass. Linux fresh native install/check/lint/build and all 56 unit + 85 integration tests pass; Linux Chromium passes all 15 auth/draft/upload tests, with UTF-8 download locale. Native probe: oriented 50 MP + noisy 20 MP jobs serialized, conservative combined RSS peak 613 MiB on Linux. Prior snapshots/CSP/auth/draft regressions pass. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full restore audits remain S18.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, planning documents and the latest S05 handoff. Relevant contracts: ARCHITECTURE 6.3/7/12.5, IMPLEMENTATION_PLAN S06, ACCEPTANCE_TESTS IMAGE-01/FILE-01/DRAFT-01–04/AUTH-05.
-2. Inspect git and preserve S05 work. Read `client/drafts/*`, `components/{Composer,DraftFeedback,Markdown}.svelte`, private layout/Drafts, server DB/schema/storage/coordinator/runtime/auth HTTP and `tests/{unit/drafts,e2e/drafts,integration/images,integration/private-storage}.test.ts`.
-3. Next task: **S06**, authenticated resumable batches/private streaming uploads, Sharp detection/limits/queue, generated paths/private download routes and disk reserve/cleanup. Invoke none of these from file selection or draft autosave; Post orchestration is S08.
-4. Keep browser drafts and auth regressions intact. Actual mutations must use the maintenance coordinator; sensitive future backup/restore handlers consume exact fresh-auth scopes inside their transaction. No background server draft saving.
-5. First validation: `npm run check && npm run test:integration`, then `npm run test:e2e`, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL and owns ports 4173–4176. Linux browser image now runs auth and drafts; native Sharp/SQLite/image processing also require real Linux evidence. Preserve CSP/runtime origin, no-flash settings, zoom/safe-area and attack tests.
+1. Read `AGENTS.md`, planning documents and the latest S06 handoff. Relevant contracts: ARCHITECTURE 4/7.4/12.5, IMPLEMENTATION_PLAN S07, ACCEPTANCE_TESTS POST-02/03, NOTE-01–03, FILE-01 and AUTH-05.
+2. Inspect git and preserve S06 work. Read `server/{attachments/*,db/{schema,receipts,connection}.ts,maintenance/{coordinator,cleanup}.ts,runtime.ts}`, `shared/{domain,settings,attachments,markdown/tags}.ts`, upload/private routes, and `tests/integration/{attachments,domain-persistence,runtime-server}.test.ts`.
+3. Next task: **S07**, note mutation services/endpoints: calculate canonical request digest, receipt-first create/update, authorized ready attachment joins plus tags/search/receipt in one IMMEDIATE transaction; then optimistic draft/trash/restore/permanent-delete transitions and last-reference cleanup. Include zero-byte ready files and content validation; never trust a caller-supplied digest or incomplete/missing image references.
+4. Keep Post disabled until S08. No upload initialization from selection/autosave, no background server draft saves. Preserve immutable creation/timeline semantics and local conflict data. All mutations use the coordinator; admitted async writes use their expiring lease when maintenance drains. Future sensitive backup/restore grants are consumed in their exact action transaction.
+5. First validation: `npm run check && npm run test:integration`, then full E2E, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL, owns ports 4173–4176 and starts with the real empty-account auth test. Linux browser image runs auth/drafts/uploads with UTF-8 locale; native image/SQLite/deletion tests need real Linux evidence. Keep CSP/origin, no-flash settings, zoom/safe-area and attack regressions.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -30,7 +30,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S03  | Design tokens and responsive shell | Done        |
 | S04  | Markdown/code/Mermaid/tag parsing  | Done        |
 | S05  | Browser drafts and recovery        | Done        |
-| S06  | Private uploads and Sharp          | Not started |
+| S06  | Private uploads and Sharp          | Done        |
 | S07  | Atomic/idempotent note lifecycle   | Not started |
 | S08  | Composer posting orchestration     | Not started |
 | S09  | Cards, cursor timeline and filters | Not started |
@@ -1025,3 +1025,160 @@ Decisions / limitations / exact next task:
   Do not invoke upload initialization from selection/autosave; S08 owns explicit Post.
   First validation: `npm run check && npm run test:integration`, then full E2E and
   real Linux native/image/resource tests. Preserve S05 blobs/conflicts and auth gates.
+
+### Session 2026-10-04 — S06 private attachments and bounded image processing
+
+**State: done.** Final common/browser gates pass on Windows and Linux. Started
+clean at `f18ad32`; preserved prior implementation and handoff history. No commit
+created. This is ready upload/download infrastructure, not note posting or a
+completed note-taking application.
+
+Implemented / touched files:
+
+- `src/lib/shared/attachments.ts`, `server/attachments/service.ts`: strict frozen
+  manifest, stable IDs/input SHA-256/byte-size identity, receipt-first initialization,
+  account-owned resumable batch/readiness DTOs, mismatched mutation/file-ID rejection,
+  bounded pending metadata, duplicate PUT verification without overwriting. Safe
+  inventory of unreferenced ready retries for S15; no automatic ready-file expiry.
+- `server/attachments/{files,images,resources}.ts`: raw streamed bodies with actual
+  byte counting/receive deadline/hash, generated exclusive private staging paths,
+  raster magic independent of filename/client MIME, decoded/input/configured limits,
+  orientation/no-upscale/alpha/WebP outputs and stripped metadata. Native pages plus
+  APNG/WebP/HEIF container checks reject animation. Sharp cache disabled/thread=1,
+  one Node subprocess/at most two bounded waiters, hard 30-second kill deadline;
+  at most three admitted receives. Ordinary files (including HTML/SVG and zero-byte
+  files) are unchanged and download-only. Variant dimensions/bytes/digests
+  are exact. Disk claims include conservative incoming/output space and protect
+  max(5 GiB, 10% capacity), with operator-only reserve override.
+- `server/attachments/{cleanup,http}.ts`, `server/maintenance/{coordinator,cleanup}.ts`:
+  fsynced output installation before SQLite readiness; original image deletion before
+  commit; failure/unready crash output and startup staging cleanup. Durable queued
+  byte deletion drains active writers, rechecks clone/Trash references, deletes
+  immutable generated files before job/metadata, and retries interrupted/failed
+  jobs on startup in bounded pages. Async writers receive an expiring capability
+  so an admitted upload can finish while exclusive maintenance is draining.
+- `routes/api/uploads/{+server,[batchId]/+server,[batchId]/[attachmentId]/+server}.ts`,
+  `routes/api/attachments/[attachmentId]/[variant]/+server.ts`, runtime/hook:
+  current-session/ownership/revocation checks, central same-origin protection,
+  safe errors and no public files. Private GET/HEAD WebP/file variants; portable
+  sanitized Unicode basename + RFC 5987 disposition, octet-stream for all ordinary
+  files, nosniff/sandbox/private-no-store headers. Explicit HEAD closes its handle.
+  No original-image variant. Runtime awaits queued startup cleanup.
+- `components/Composer.svelte`: final regression exposed pre-hydration compose clicks
+  being swallowed before handlers existed. Initial compose controls now wait for
+  mount; file input waits for local workspace readiness. No uploads were wired into
+  selection, and Post is still disabled. This is small adjacent loss-prevention
+  hardening, not S08 orchestration or a new editor scope.
+- `tests/{unit/attachments,integration/attachments,e2e/uploads}.test.ts`,
+  `tests/helpers/images.ts`: actual SQLite/files/native subprocess/HTTP/browser
+  failures, retries, checksums/orientation/metadata/animation, concurrency/deadlines,
+  disk reserve, revocation, failed DB commit cleanup, startup recovery/ready-file
+  preservation, cloned/Trash last reference and interrupted deletion. Genuine
+  two-frame APNG with CRCs/deflate data. Browser checks unchanged/no premature upload,
+  hostile HTML download without execution, Unicode names, zero-byte and >512 KiB
+  files, HEAD/privacy/CSRF and deliberately delayed entry-module hydration.
+- `scripts/images-benchmark.ts`, package script, `.env.example`, E2E launcher,
+  `ops/Dockerfile.browser-validation`: synthetic native resource probe, adapter
+  `BODY_SIZE_LIMIT=512M`, reserve documentation and Linux UTF-8 browser locale.
+  README, ARCHITECTURE 7.4 and test README record actual contracts/scope. No dependency,
+  lockfile or migration change; schema stays v3/18 tables.
+
+Commands actually run:
+
+Host uses the explicit Node 24.21.0 executable/PATH and npm CLI N/C from S00,
+with `NODE_TLS_REJECT_UNAUTHORIZED=1`. All final gates below were repeated after
+filename/locale and hydration fixes; no failed/filtered run is counted as a full pass.
+
+| Command                                                                                                         | Final actual result                                                         |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `git status --short`, `git log -1`, full required document/source/installed API reads                           | Clean S05 baseline; current Sharp/Kit streaming/HEAD/adapter APIs inspected |
+| `npm exec -- prettier --write <touched files>`                                                                  | PASS; source/docs formatted                                                 |
+| `npm run check`                                                                                                 | PASS, zero errors/warnings including test/tooling TS                        |
+| `npm run lint`                                                                                                  | PASS, ESLint and formatting                                                 |
+| `npm run test:unit`                                                                                             | PASS, 11 files / 56 tests                                                   |
+| `npm run test:integration`                                                                                      | PASS, 15 files / 85 real integration tests                                  |
+| `npm run test:e2e -- tests/e2e/uploads.test.ts`                                                                 | PASS targeted final upload/hydration test; earlier runs/fixes below         |
+| `npm run test:e2e`                                                                                              | PASS final build + all 31 Chromium tests, unchanged prior screenshots       |
+| `npm run build`                                                                                                 | PASS final standalone adapter-node production build                         |
+| `npm run images:benchmark`                                                                                      | PASS Windows synthetic native probe (below)                                 |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s06 .`                                                  | PASS, fresh Linux ci/own native artifacts, zero audit vulnerabilities       |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s06`                          | PASS Linux check/lint/build, 56 unit + 85 integration                       |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s06 npm run images:benchmark` | PASS Linux probe with the same production worker code                       |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s06-browser .`                                  | PASS fresh native/OpenSSL/Chromium install and UTF-8 locale                 |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s06-browser`                  | PASS all 15 Linux auth/draft/upload Chromium tests                          |
+| `git diff --check`; `test ! -e .e2e-data`                                                                       | PASS; only host autocrlf informational warnings                             |
+
+Passing final code-gate images (precede only this progress-log close update):
+
+- Native: `4596986306b62f1dd30996ffa8cb3583ad14934640efa21f7ea54cc9f5823812`.
+- Browser: `b96ec1055b72e9ce7c17ec261f564f00a9ca9322c9988f8a56f62e49d6344a03`.
+
+Both use the S00 Node 24.21.0 bookworm/glibc digest, npm 11.19.0 and existing WSL2
+VM (2 GiB VM memory; containers capped at two CPUs/4 GiB). Linux browser scope is
+15 auth/draft/upload tests, not unreviewed Linux shell screenshot baselines.
+
+Native measurements (Sharp 0.35.5/libvips 8.18.7):
+
+| Host                          | Three native job times | Batch wall | Parent baseline / peak | Worker peak | Conservative combined peak |
+| ----------------------------- | ---------------------- | ---------- | ---------------------- | ----------- | -------------------------- |
+| Windows x64 / Node 24.21.0    | 424 / 861 / 406 ms     | 2148 ms    | 82 / 432 MiB           | 133 MiB     | 565 MiB                    |
+| Linux x64 / two-CPU container | 484 / 887 / 402 ms     | 1984 ms    | 105 / 464 MiB          | 149 MiB     | 613 MiB                    |
+
+Fixtures: two 50 MP JPEGs with EXIF orientation 6 (0.28 MiB each) and a 19,998,000
+pixel noisy JPEG (10.04 MiB), all under the 20 MiB input default. Outputs have
+long edge 2560; all three calls queue concurrently but execute one native worker.
+RSS includes parent-side synthetic fixture generation and sums separate peaks
+conservatively, not a claim that peaks coincide or a target-VPS p95 benchmark.
+Native kill/queue/receive overload tests use real workers/streams, not mocked Sharp.
+
+Intermediate failures / corrections:
+
+- First native tests: six failures from Windows fsync on a read-only output handle.
+  Open output for read/write during fsync; all actual files remain `0600`. A fixture
+  then held a Sharp filename cache handle across temp deletion; inspect output via
+  buffers instead. Final product worker disables cache and exits before cleanup.
+- One early full Windows integration run returned a generic unexpected storage
+  failure on a valid retry (84 pass/1 fail). Cause was not captured then and did
+  not reproduce in eight isolated repetitions or subsequent complete suites.
+  Added server-only Error.cause for diagnosis (HTTP still sends only safe code/
+  message). This transient is recorded, not claimed as a proven fixed root cause;
+  investigate if it recurs. Final Windows/Linux suites pass with retry/error tests.
+- First lint found an unused synthetic-root argument and unnecessary suppression;
+  removed both. Targeted formatting needed a second pass once. A hydration test
+  variable collided with the earlier batch-resume response; renamed it after the
+  real TypeScript failure. Final check/lint have zero diagnostics.
+- First upload browser test tried Add files while composer was collapsed; use the
+  real Drafts/create flow. Initial alphabetical `attachments.test.ts` created an
+  account before auth's empty-deployment test; renamed to `uploads.test.ts`, without
+  weakening authentication or introducing an auth bypass.
+- First Linux browser gate: 14 pass/1 fail, valid exact downloaded bytes but Unicode
+  filename became “download”. An ASCII-name probe passed; UTF-8 LANG/LC_ALL proved
+  the actual root cause. Set the browser image locale, keep the Unicode assertion
+  and safe portable basename; final 15/15 pass. Temporary diagnostic container
+  removed; synthetic traces/probes remain only in ignored `.browser-spike`.
+- A later Windows full browser run caught the real pre-hydration compose action
+  issue (30 pass/1 fail); disabled initial controls until mounted/ready. Added held
+  entry-module evidence. Initial route teardown double-handled a request; waiting
+  for handlers with `unrouteAll({ behavior: 'wait' })` fixed the test race. Final
+  Windows 31/31 and Linux 15/15 pass, including the delayed-module assertions.
+- Existing upstream install-script/deprecation and lazy chunk-size warnings remain
+  visible; no missing native/browser dependency was skipped as a pass.
+
+Decisions / remaining scope / exact next task:
+
+- ARCHITECTURE 7.4 documents the embedded subprocess, container animation checks,
+  disk accounting, frozen identity, expiring admitted-writer lease and cleanup
+  ordering. This adds no service/dependency/stack replacement or security bypass.
+- No known reproducible S06 defect or unfinished S06 gate remains. App note commits,
+  frozen client posting/progress/confirmed-success cleanup, image viewer and Storage
+  UI remain S07/S08/S12/S15. Ready retries are preserved; temporary inputs are not
+  backup. No original download, automatic backup or new background draft save.
+- Real VPS/p95/worst-content load, screenshot readability, physical device/IME,
+  assistive technology, Linux shell baselines and full backup/restore remain later
+  gates. Current native archive probes are not implemented restore evidence.
+- **Next: S07**. Read ARCHITECTURE 4/7.4, shared domain/attachment/tag contracts,
+  server schema/receipts/attachment service/coordinator/cleanup and actual integration
+  tests. Start receipt-first create/update with canonical request digest and atomic
+  tags/authorized-ready joins/search/receipt, then revision-safe lifecycle/deletion.
+  Keep Post disabled until S08 and preserve all local recovery data. First command:
+  `npm run check && npm run test:integration`, then full E2E with pinned Node/TLS.

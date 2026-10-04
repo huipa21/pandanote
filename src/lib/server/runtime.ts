@@ -2,11 +2,15 @@ import { PrivateStorage } from './storage/private-storage.ts';
 import { Persistence } from './db/connection.ts';
 import { readSettings } from './settings/repository.ts';
 import { AuthService } from './auth/service.ts';
+import { AttachmentService } from './attachments/service.ts';
+import { runAttachmentCleanup } from './attachments/cleanup.ts';
 import { authPolicy, type AuthPolicy } from './auth/policy.ts';
 
 export interface Runtime {
   persistence: Persistence;
   auth: AuthService;
+  attachments: AttachmentService;
+  ready: Promise<void>;
   policy: AuthPolicy;
   close: () => Promise<void>;
 }
@@ -20,9 +24,12 @@ export function getRuntime(): Runtime {
   try {
     readSettings(persistence);
     const auth = new AuthService(persistence);
+    const attachments = new AttachmentService(persistence);
+    const ready = runAttachmentCleanup(persistence);
     let closing: Promise<void> | undefined;
-    const close = (): Promise<void> => (closing ??= persistence.close());
-    current = { persistence, auth, policy, close };
+    const close = (): Promise<void> =>
+      (closing ??= ready.then(() => persistence.close()));
+    current = { persistence, auth, attachments, ready, policy, close };
     const onShutdown = (): void => {
       void close().catch(() => {
         console.error(

@@ -5,8 +5,8 @@ import type { DomainTransaction } from '../db/connection.ts';
 import { attachments, fileCleanupJobs, noteAttachments } from '../db/schema.ts';
 
 /** Enqueue only after committed reference removal, in that same transaction.
- * No filenames/absolute paths are stored. S06/S07 add a restartable worker that
- * rechecks references and removes immutable variants before metadata deletion.
+ * No filenames/absolute paths are stored. attachments/cleanup.ts provides the
+ * restartable worker; S07 enqueues after committed note reference removal.
  * A queued attachment cannot gain a new reference (database trigger).
  */
 export function enqueueAttachmentCleanup(

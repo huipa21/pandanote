@@ -395,6 +395,79 @@ Use pending uploads for interrupted attempts only, not permanent published origi
 - Files download with `Content-Disposition: attachment`, safe filename escaping, `nosniff`, and conservative MIME where needed.
 - Image/file routes authenticate requests; backups have extra fresh-auth checks. No directory listing.
 
+### 7.4 S06 implemented private upload contracts
+
+- `POST /api/uploads` accepts a strict, capped 64 KiB manifest with mutation ID,
+  frozen request digest and at most 100 `{id, filename, incomingBytes,
+incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
+  MIME/kind are deliberately **not trusted manifest fields**. Initialization checks
+  a successful receipt first, otherwise creates/resumes the account-owned batch.
+  Reused mutation/attachment IDs with different input metadata fail with
+  `mutation-mismatch`. At most 100 pending batches bound uncommitted metadata.
+  S07 must calculate/validate the actual note request digest in its transaction;
+  the caller's initialization digest is not proof that a note payload is valid.
+- `GET /api/uploads/<batch-id>` returns only safe descriptors/readiness.
+  `PUT /api/uploads/<batch-id>/<attachment-id>` streams a raw body (not buffered
+  multipart), with a 60-second receive deadline, actual byte counting, SHA-256 and
+  frozen-size checks. Content-Length is only an early rejection aid. A duplicate
+  PUT verifies the bytes and never overwrites ready output; clients should query
+  readiness first to avoid retransmission. No route is called by local selection,
+  autosave or preview; S08 owns explicit Post orchestration.
+- Magic selects raster processing even for an octet-stream/file-picker upload.
+  Supported native formats are static JPEG/PNG/WebP/GIF/TIFF/AVIF (HEIC where the
+  deployed libvips decoder supports it); unsupported/corrupt raster containers fail.
+  Animation/page metadata plus PNG `acTL`, WebP animation chunks and HEIF sequence
+  brands are checked: **libvips alone reads APNG as a static first frame**. SVG is
+  unchanged download-only; an image-MIME SVG request is rejected. Ordinary MIME
+  metadata recognizes PDF/ZIP/HTML/SVG signatures, otherwise stays conservative
+  octet-stream; no client MIME becomes an inline active response.
+- The process-wide image queue runs one job, at most two waiters with 30-second
+  waiting deadlines. An application-owned **Node subprocess**, not another service,
+  loads installed Sharp, disables its cache and uses one libvips thread. A hard
+  30-second wall-clock kill includes metadata and both WebP outputs; a native
+  cooperative timeout is additional defense. Subprocess isolation avoids pretending
+  Promise.race can stop a native decode. The embedded worker ships in the server
+  bundle; no user source/filenames are executed. Three admitted receives maximum
+  and a per-ID in-flight lock bound staging/processing work. Default 20 MiB/image,
+  50 MiB/file, 50 MP and output quality/edge limits come from validated settings.
+- Generated per-attempt staging paths, exclusive `0600` original creation, fsynced
+  `0600` outputs and an atomic same-filesystem directory rename precede ready DB
+  metadata. Original images are deleted **before** committing readiness; file inputs
+  become the unchanged immutable attachment.bin. Failure/revocation/timeout rolls
+  back installed unready outputs and retains manifest identity for retry. Startup
+  removes upload staging and crash-installed output without a ready row, never a
+  ready retry file. Dimensions/variant sizes/checksums are persisted. Missing/corrupt
+  deployment files require operator inspection, not silently regenerated originals.
+- `GET/HEAD /api/attachments/<id>/{display,thumbnail,file}` require a current
+  session plus a note reference or this account's pending batch. Wrong variants,
+  unready or cleanup-queued IDs are unavailable. Images are only image/webp;
+  `?download=1` names the processed WebP. Files always use octet-stream,
+  RFC 5987 download disposition with a portable sanitized basename (original name
+  remains in metadata), nosniff, sandbox CSP and private/no-store headers.
+  HEAD explicitly closes its file handle. There is no original-image route.
+- Disk reservations include incoming bytes plus conservative output space and count
+  concurrent claims against statfs available bytes. Default reserve is max(5 GiB,
+  10% total filesystem capacity); optional operator `DISK_RESERVE_BYTES` overrides it.
+  Adapter-node still needs `BODY_SIZE_LIMIT=512M` (documented environment example)
+  and a suitable streaming reverse proxy; its old 512 KiB default is insufficient.
+  Domain caps remain smaller and authoritative, including when transport caps rise.
+- Async coordinator writers now receive an expiring lease so an already-admitted
+  upload can commit while maintenance **drains**, without admitting new mutations.
+  Queued cleanup uses an exclusive drain, rechecks all note references (including
+  clone/Trash), deletes generated bytes then transactionally removes the job/metadata.
+  Pending/running/failed jobs retry at runtime startup, in bounded pages; failed
+  deletion keeps its durable job. Unreferenced ready retry inventory is available
+  through `AttachmentService.unusedReady` for S15's explicit Storage cleanup UI;
+  there is no timer or automatic expiry of recoverable ready uploads.
+- `npm run images:benchmark` measures three synthetic native jobs (two oriented
+  50 MP inputs and a 20 MP noisy JPEG), parent sampled RSS plus worker peak RSS.
+  Windows/Linux results are recorded in PROGRESS; this is bounded-native evidence,
+  not target-VPS latency, screenshot readability or final release performance.
+  No dependency or schema version change was needed (v3/18 tables). Full regression
+  testing also found a pre-hydration compose click could disappear before its handler
+  existed; initial compose controls now wait for mount, and file input waits for the
+  local workspace. A delayed-entry-module browser assertion protects this boundary.
+
 ## 8. Search details
 
 ### 8.1 Normalization and semantics

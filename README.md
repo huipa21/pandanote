@@ -10,7 +10,8 @@ mobile drawer/editor shells and persisted appearance preferences. S04 adds safe
 Markdown/GFM preview, highlighted code copy, lazy sanitized Mermaid and Unicode
 source-span tag parsing. S05 adds multiple browser-local text/file drafts, reload
 and restart recovery, missing-file repair, quota warnings and cross-tab conflicts.
-Note services, uploads and backup/restore
+S06 adds private resumable uploads, bounded static-image WebP processing and
+safe authenticated downloads. Note services, posting and backup/restore
 remain future steps. Do not deploy this unfinished app as a complete product.
 
 ## Start here
@@ -69,7 +70,8 @@ Windows, POSIX mode bits are not ACL protection: restrict the data directory's
 NTFS ACL to the operator/application account. Symlink/junction paths and
 user-controlled filenames are rejected as storage paths. Losing key material for
 an existing database fails closed rather than silently generating a replacement.
-No browser/file access endpoint exposes this tree.
+Only authenticated ID/variant attachment routes expose authorized immutable bytes;
+no directory listing or arbitrary filesystem path is served.
 
 `Persistence.write` combines the maintenance gate with a synchronous IMMEDIATE
 transaction. Use it for every domain mutation; `Persistence.close()` drains active
@@ -77,7 +79,8 @@ write leases and closes the database. The application now uses one lazy runtime
 instance; adapter-node's post-request `sveltekit:shutdown` event drains and closes it.
 Requests never initialize keys or migrate schema. Pending filesystem
 journals block opening/migrating data until recovery; the S17 restore state machine
-and S06/S07 cleanup worker are still future work, not implemented restore/deletion.
+remains future work. S06 implements a restartable reference-safe attachment cleanup
+worker; actual note reference removal is S07, not implemented note deletion.
 Initial timezone is UTC until setup/settings explicitly accepts a browser proposal.
 
 ## Authentication and security (S02)
@@ -188,8 +191,8 @@ Raw HTML and active URL schemes are disabled. Images require known internal
 attachment descriptors; arbitrary remote images are not fetched. Mermaid links,
 callbacks, HTML/assets, configuration overrides and custom styling are disabled;
 SVG output is separately sanitized. See ARCHITECTURE 11.2 for limits/contracts.
-Attachments can be selected, pasted or dropped locally (S05); server uploads and
-posting are not implemented yet (S06/S08).
+Attachments can be selected, pasted or dropped locally (S05). S06 server upload
+primitives exist, but the composer does not call them until posting arrives in S08.
 
 The shared Unicode tag parser deduplicates by NFKC/lowercase identity and preserves
 source spans for precise rewrites, ignoring code/HTML/escapes/URLs. Tag autocomplete,
@@ -216,6 +219,38 @@ storage eviction or losing this device can remove drafts. Other devices and serv
 backups do not contain them. Signing out leaves drafts on the browser/device;
 anyone controlling it can read them. Local preview URLs are temporary and revoked.
 Server draft integration, date/location controls and real posting remain later steps.
+
+## Private attachments and bounded images (S06)
+
+Server primitives are ready for S07/S08 integration; **Post is still disabled**.
+`POST /api/uploads` initializes/resumes a frozen manifest of stable IDs, filenames,
+exact byte sizes and SHA-256 checksums. Query readiness through the batch GET,
+then PUT missing raw file bodies only. Reusing an ID with different bytes fails
+rather than overwriting. A successful note receipt is checked before initializing
+another batch; actual atomic note commits arrive in S07.
+
+Raster magic, not the filename/client MIME, triggers orientation-corrected,
+metadata-stripped display/thumbnail WebP. Static GIF is supported; animation,
+including APNG, and corrupt/over-limit images are rejected. Defaults: 20 MiB input,
+50 MP decoded, display edge 2560/quality 85, thumbnail 480/quality 75, no upscale.
+Only one native job runs, with two bounded waiters and a hard 30-second subprocess
+deadline. Other files remain byte-identical (50 MiB default), download-only.
+Original server images are deleted before readiness; temporary/crash inputs are
+cleaned at startup. Ready retry outputs survive until explicit cleanup in S15.
+
+Private GET/HEAD variants require login and an authorized reference/pending batch;
+files use safe Unicode download names, octet-stream, nosniff and sandbox headers.
+Only processed image WebP can be downloaded, never an original. Queued byte cleanup
+rechecks clone/draft/Trash references and survives restart; it cannot remove a
+still-referenced attachment. Storage controls/UI remain S15.
+
+Set adapter `BODY_SIZE_LIMIT=512M` as in `.env.example` and configure the eventual
+reverse proxy for streaming uploads. The adapter otherwise defaults to 512 KiB;
+server byte/pixel limits still apply independently. Disk reserve is max(5 GiB,
+10% filesystem capacity), optionally overridden by operator `DISK_RESERVE_BYTES`.
+Concurrent uploads reserve estimated peak space rather than spending OS reserve.
+`npm run images:benchmark` uses synthetic inputs only and reports native latency/RSS;
+see ARCHITECTURE 7.4 and PROGRESS for exact contracts and measured limitations.
 
 ## Validation
 
@@ -258,6 +293,6 @@ application data, browser profiles or backup archives in git or public assets.
 > outcomes including failures, and leave an exact handoff in PROGRESS.
 > A blocked native/browser/Linux check is not a pass.
 
-See PROGRESS for S00–S05 validation results and the exact next task (S06).
+See PROGRESS for S00–S06 validation results and the exact next task (S07).
 Production deployment, performance and independent backup/restore drills remain
 part of the final S18 gate; this repository does not claim product completion.

@@ -47,11 +47,21 @@ export class WriteCoordinator {
       release();
     }
   }
-  async writeAsync<T>(operation: () => Promise<T>): Promise<T> {
+  async writeAsync<T>(
+    operation: (lease: MaintenanceLease) => Promise<T>,
+  ): Promise<T> {
     const release = this.acquire();
+    let valid = true;
+    const lease: MaintenanceLease = {
+      write: <R>(work: () => R): R => {
+        if (!valid) throw new DomainError('busy', 'Write lease has expired.');
+        return synchronous(work);
+      },
+    };
     try {
-      return await operation();
+      return await operation(lease);
     } finally {
+      valid = false;
       release();
     }
   }
