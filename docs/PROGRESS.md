@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** private persistence/authentication, shell/Markdown, local drafts and server attachment primitives; product implementation remains unfinished.
-- **Completed steps:** S00–S06 — **done**.
-- **Current requested step:** S06 — Private attachments and bounded image processing — **done**. Next unfinished step: S07 — Atomic/idempotent note lifecycle.
-- **Repository:** clean starting HEAD `f18ad32` (committed S05). Existing work preserved; S06 changes are uncommitted. No commit created by this agent.
-- **Implemented:** receipt-first frozen upload manifests and resumable readiness, streamed limits/checksums, bounded single-worker Sharp subprocess with hard deadline, static display/thumbnail WebP/orientation/metadata stripping and animation rejection (including APNG), safe private downloads, disk reservations, temporary/startup cleanup and durable last-reference deletion worker. Composer initial controls are hydration-safe. Local file selection still does not upload; Post remains disabled for S08. Note services/server draft lifecycle/storage UI/backups are not claimed. Dependencies, lockfile and DB schema remain unchanged (v3/18 tables).
-- **Validation:** Windows check/lint/build, 56 unit + 85 integration + all 31 Chromium tests pass. Linux fresh native install/check/lint/build and all 56 unit + 85 integration tests pass; Linux Chromium passes all 15 auth/draft/upload tests, with UTF-8 download locale. Native probe: oriented 50 MP + noisy 20 MP jobs serialized, conservative combined RSS peak 613 MiB on Linux. Prior snapshots/CSP/auth/draft regressions pass. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full restore audits remain S18.
+- **Phase:** trustworthy backend persistence/security/attachments/note lifecycle (Milestone A); product implementation remains unfinished.
+- **Completed steps:** S00–S07 — **done**.
+- **Current requested step:** S07 — Note mutation service and idempotent lifecycle — **done**. Next unfinished step: S08 — Composer posting orchestration and upload UX.
+- **Repository:** clean starting HEAD `6e13a43` (committed S06). Existing work preserved; S07 changes are uncommitted. No commit created by this agent.
+- **Implemented:** atomic create/update/draft publication, revision-checked draft/Trash/restore/permanent deletion, server-computed canonical request digests, receipt-first retries, safe conflict snapshots, ready/authorized/physical-file validation, transactional tags/derived search/batch commitment and last-reference cleanup queues. Composer Post stays disabled; new local selection/autosave still sends no content/files. Posting/timeline/detail/lifecycle screens, production search, storage UI and backups remain later steps. Dependencies, lockfile and DB schema remain unchanged (v3/18 tables).
+- **Validation:** Windows check/lint/build, 60 unit + 98 integration + all 31 Chromium tests pass. Linux fresh native install/check/lint/build and all 60 unit + 98 integration tests pass; Linux Chromium passes all 15 auth/draft/upload regressions. S07 adds real rollback/restart/two-connection/file tests and production HTTP lifecycle/CSRF checks. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, planning documents and the latest S06 handoff. Relevant contracts: ARCHITECTURE 4/7.4/12.5, IMPLEMENTATION_PLAN S07, ACCEPTANCE_TESTS POST-02/03, NOTE-01–03, FILE-01 and AUTH-05.
-2. Inspect git and preserve S06 work. Read `server/{attachments/*,db/{schema,receipts,connection}.ts,maintenance/{coordinator,cleanup}.ts,runtime.ts}`, `shared/{domain,settings,attachments,markdown/tags}.ts`, upload/private routes, and `tests/integration/{attachments,domain-persistence,runtime-server}.test.ts`.
-3. Next task: **S07**, note mutation services/endpoints: calculate canonical request digest, receipt-first create/update, authorized ready attachment joins plus tags/search/receipt in one IMMEDIATE transaction; then optimistic draft/trash/restore/permanent-delete transitions and last-reference cleanup. Include zero-byte ready files and content validation; never trust a caller-supplied digest or incomplete/missing image references.
-4. Keep Post disabled until S08. No upload initialization from selection/autosave, no background server draft saves. Preserve immutable creation/timeline semantics and local conflict data. All mutations use the coordinator; admitted async writes use their expiring lease when maintenance drains. Future sensitive backup/restore grants are consumed in their exact action transaction.
-5. First validation: `npm run check && npm run test:integration`, then full E2E, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL, owns ports 4173–4176 and starts with the real empty-account auth test. Linux browser image runs auth/drafts/uploads with UTF-8 locale; native image/SQLite/deletion tests need real Linux evidence. Keep CSP/origin, no-flash settings, zoom/safe-area and attack regressions.
+1. Read `AGENTS.md`, planning documents and the latest S07 handoff. Relevant contracts: ARCHITECTURE 4.4/6/7/12.5, IMPLEMENTATION_PLAN S08, ACCEPTANCE_TESTS POST-01–03, DRAFT-02–05 and NOTE-03.
+2. Inspect git and preserve S07 work. Read `shared/{notes,attachments,domain}.ts`, `server/{notes/*,attachments/service.ts}`, note/upload routes, `client/drafts/{model,repository,blobs,workspace.svelte}.ts`, Composer/DraftFeedback, `tests/{unit/notes,integration/notes,integration/runtime-server,e2e/drafts,e2e/uploads}.test.ts`.
+3. Next task: **S08**, persist a frozen posting attempt in the local repository with strict note command, mutation ID, canonical UTF-8 SHA-256 digest and frozen new-blob manifest. Initialize receipt-first, resume readiness, upload missing blobs and commit explicitly. Freeze editor changes or retain later changes separately; only confirmed success clears submitted local data. Reload/lost-response retry must not duplicate notes/files.
+4. No upload initialization from selection/autosave and no background server draft saves. New notes use create; published edits use update; server drafts use publish with unchanged explicit timeline date unless deliberately edited. New unreferenced uploads must belong to that exact mutation batch; referenced files can be reused for conflict copies. Preserve local text/files on conflicts and every failure. Do not claim timeline/detail/draft/Trash screens or FTS before their steps.
+5. First validation: `npm run check && npm run test:integration`, then new posting E2E and the full suite, on pinned Node with `NODE_TLS_REJECT_UNAUTHORIZED=1`. E2E requires OpenSSL, owns ports 4173–4176 and starts with the real empty-account auth test. Retain Linux native/browser evidence and all CSP/origin/no-premature-upload/no-flash/zoom/safe-area/attack regressions.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -31,7 +31,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S04  | Markdown/code/Mermaid/tag parsing  | Done        |
 | S05  | Browser drafts and recovery        | Done        |
 | S06  | Private uploads and Sharp          | Done        |
-| S07  | Atomic/idempotent note lifecycle   | Not started |
+| S07  | Atomic/idempotent note lifecycle   | Done        |
 | S08  | Composer posting orchestration     | Not started |
 | S09  | Cards, cursor timeline and filters | Not started |
 | S10  | Exact multilingual SQLite search   | Not started |
@@ -1182,3 +1182,114 @@ Decisions / remaining scope / exact next task:
   tags/authorized-ready joins/search/receipt, then revision-safe lifecycle/deletion.
   Keep Post disabled until S08 and preserve all local recovery data. First command:
   `npm run check && npm run test:integration`, then full E2E with pinned Node/TLS.
+
+### Session 2026-10-04 — S07 note mutation service and idempotent lifecycle
+
+**State: done. Milestone A passed.** Started clean at `6e13a43`; existing S00–S06
+implementation and all history preserved. No commit created. This is trustworthy
+backend lifecycle, not a completed composer/timeline or a release claim.
+
+Implemented / touched files:
+
+- `src/lib/shared/notes.ts`: strict typed create/update/publish/status/delete
+  commands, full content replacement, explicit revisions/confirmation and bounded
+  body/ordered unique IDs/location. A versioned fixed-order canonical JSON array
+  supplies the exact UTF-8 SHA-256 input shared with S08's future browser hashing.
+  The server accepts no caller-supplied commit digest.
+- `src/lib/server/notes/{service,content,http}.ts`: coordinated IMMEDIATE note
+  mutations, receipt-first original-success replay even after edits/deletion,
+  digest/batch binding, optimistic predicates and complete safe 409 snapshots,
+  empty/UTF-8/date/location/tag/AST image validation, authorized ready file joins
+  with actual immutable variant existence/type/size checks. Text/image/file-only,
+  including zero-byte ordinary files, are supported; incomplete/unready/foreign
+  attempt IDs, files used as images and omitted manifest files fail before commit.
+- Note/tag/attachment joins, separate normalized search fields and source revision,
+  upload batch commitment, durable last-reference cleanup jobs and receipt change
+  atomically. Final receipt-write fault injection proves rollback of all preceding
+  changes. Creation is immutable; date/location/status-only changes do not imply a
+  content edit. Draft publication requires its explicit timeline instant, normally
+  the original. Both prior Trash statuses/data/files restore correctly. Permanent
+  deletion is Trash-only, confirmed, revision-checked and receipt-retaining.
+- `src/routes/api/notes/{+server,[noteId]/+server,[noteId]/actions/+server}.ts`,
+  runtime: real private GET/create/update and lifecycle endpoints, path/command
+  binding, strict streamed JSON (6 MiB + 64 KiB escaping allowance, 15-second
+  deadline), stable safe errors, current-session and central same-origin protection.
+  `auth/identity.ts` shares the existing transaction/session recheck with the
+  attachment service. Upload initialization now checks committed receipts before
+  current settings limits, so tightened limits cannot hide lost-response success.
+  No draft autosave endpoint, force-overwrite flag or new
+  public route was added. Post stays disabled for S08.
+- `tests/{unit/notes,integration/notes}.test.ts`, expanded built
+  `integration/runtime-server.test.ts`: 4 new unit + 13 real integration scenarios,
+  concurrent two-connection create/update/revision conflicts, receipt mismatch
+  binding, atomic failure/retry, read-only integrity/FK inspection, native files,
+  clone/Trash reference preservation/cleanup, settings bounds/retired-tag guard,
+  maintenance/revocation, reopen/startup recovery and actual HTTP lifecycle calls
+  across two configured origins/restart with no private content logged.
+- README, ARCHITECTURE 4.4, tests README and this progress/handoff. No dependency,
+  lockfile or migration change; schema remains v3/18 tables. No client storage or
+  composer behavior was changed in this backend-only step.
+
+Commands actually run:
+
+Host used the existing explicit Node **24.21.0** executable and PATH plus npm
+**11.12.1** CLI from S00, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Linux builds
+installed their own native artifacts from the unchanged lockfile.
+
+| Command                                                                                                                                               | Actual result                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `git status --short`, `git log -1`, full required docs/source reads                                                                                   | Clean committed S06 baseline, preserved                                     |
+| `npm run check && npm run test:integration` (initial)                                                                                                 | PASS, 0 diagnostics / original 85 integration tests                         |
+| `npm exec -- prettier --write <touched files>`                                                                                                        | PASS                                                                        |
+| `npm run check`                                                                                                                                       | PASS, zero errors/warnings including test/tooling TS                        |
+| `npm run lint`                                                                                                                                        | PASS, ESLint/Prettier                                                       |
+| `npm run test:unit`                                                                                                                                   | PASS, 12 files / 60 tests                                                   |
+| `npm exec -- vitest run --config vitest.integration.config.ts tests/integration/notes.test.ts tests/integration/runtime-server.test.ts` (early slice) | PASS, 12 tests before two additional scenarios were added                   |
+| `npm run test:integration` (final)                                                                                                                    | PASS, 16 files / 98 actual integration tests                                |
+| `npm run test:e2e`                                                                                                                                    | PASS, production build + all 31 Chromium regressions; unchanged screenshots |
+| `npm run build` (standalone final)                                                                                                                    | PASS, adapter-node production artifact                                      |
+| `podman build -f ops/Dockerfile.validation -t pandanote-s07 .`                                                                                        | PASS, fresh Linux ci, 0 reported vulnerabilities                            |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s07`                                                                | PASS, Linux check/lint/build, 60 unit + 98 integration tests                |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s07-browser .`                                                                        | PASS, fresh native/OpenSSL/Chromium install                                 |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s07-browser`                                                        | PASS, all 15 Linux auth/draft/upload Chromium regressions                   |
+| `git diff --check`; `test ! -e .e2e-data`                                                                                                             | PASS at code gate, no private fixture leftovers                             |
+
+Passing code-gate images (precede only this final progress-log update):
+
+- Native: `03737aa1586cfa606897d68e2b2f385ef1001c66eda5b1f03f625987ba5cbe37`.
+- Browser: `260c9c457042e89a4e0f7088b04bd294e8f51c984acfde63ad26dfecb212c18a`.
+
+Same pinned Node 24.21.0 bookworm/glibc digest, npm 11.19.0, existing WSL2 VM
+(2 GiB VM memory) and two-CPU/4-GB-limited container context as S06. Actual
+SQLite/Sharp/private deletion and archive capability regressions pass; this is
+not target-VPS performance or implemented full archive restore. No failed test,
+missing native/browser dependency or skipped gate occurred in this session.
+Final code review found upload initialization's prior settings check could hide a
+committed receipt after limits were tightened. Moved admission validation after
+receipt lookup, added the cross-feature regression, and repeated all gates.
+Existing upstream install-script/deprecation and lazy chunk-size warnings remain
+visible; Linux installs report zero vulnerabilities. Two log reads initially
+used POSIX `/tmp` paths with the Windows read tool; resolved to actual Windows
+Temp paths and inspected the passing logs. No application changes were needed.
+
+Decisions / remaining scope:
+
+- Exact endpoint/command/digest/timestamp/attachment/transport contracts are in
+  ARCHITECTURE 4.4. Files may be cloned safely from an existing singleton-account
+  note reference, including Trash, but not borrowed from unrelated pending attempts.
+  Queued cleanup is transactional; existing restartable exclusive byte deletion
+  runs at startup, not falsely inside the note's SQL transaction.
+- Retired history keys fail closed; history creation and explicit resolution are
+  S14, not implemented tag management. FTS/query/search UI remains S10; derived
+  separate normalized fields and source revisions are real, atomic S07 hooks.
+- No known unfinished S07 gate or defect. Frozen browser posting/progress/success
+  cleanup, timeline/detail/conflict/draft/Trash UI and storage remain S08–S15.
+  Physical-device/IME, full assistive technology, Linux shell screenshot baselines,
+  real-domain/VPS performance and full backup/restore remain later gates.
+- **Next: S08.** Read the files listed in the current handoff, especially strict
+  `shared/notes.ts`, upload manifests and browser draft workspace/repository.
+  Start persisted frozen posting attempts and receipt-first retry/readiness before
+  enabling Post. Preserve local work on upload failure, conflict, response loss and
+  reload; clear only confirmed submitted data. First validation:
+  `npm run check && npm run test:integration`, then posting-specific and full E2E
+  on pinned Node with TLS verification enabled.

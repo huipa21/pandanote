@@ -11,8 +11,9 @@ Markdown/GFM preview, highlighted code copy, lazy sanitized Mermaid and Unicode
 source-span tag parsing. S05 adds multiple browser-local text/file drafts, reload
 and restart recovery, missing-file repair, quota warnings and cross-tab conflicts.
 S06 adds private resumable uploads, bounded static-image WebP processing and
-safe authenticated downloads. Note services, posting and backup/restore
-remain future steps. Do not deploy this unfinished app as a complete product.
+safe authenticated downloads. S07 adds atomic, idempotent note mutation APIs with
+revision conflicts and draft/Trash lifecycle. Composer posting, timeline/lifecycle
+screens and backup/restore remain future steps. Do not deploy this unfinished app as a complete product.
 
 ## Start here
 
@@ -80,7 +81,7 @@ instance; adapter-node's post-request `sveltekit:shutdown` event drains and clos
 Requests never initialize keys or migrate schema. Pending filesystem
 journals block opening/migrating data until recovery; the S17 restore state machine
 remains future work. S06 implements a restartable reference-safe attachment cleanup
-worker; actual note reference removal is S07, not implemented note deletion.
+worker; S07 note edits/permanent deletion atomically enqueue last-reference cleanup.
 Initial timezone is UTC until setup/settings explicitly accepts a browser proposal.
 
 ## Authentication and security (S02)
@@ -222,12 +223,13 @@ Server draft integration, date/location controls and real posting remain later s
 
 ## Private attachments and bounded images (S06)
 
-Server primitives are ready for S07/S08 integration; **Post is still disabled**.
+Server primitives are integrated with S07 note commits; **Post is still disabled**
+until S08 wires the browser posting protocol.
 `POST /api/uploads` initializes/resumes a frozen manifest of stable IDs, filenames,
 exact byte sizes and SHA-256 checksums. Query readiness through the batch GET,
 then PUT missing raw file bodies only. Reusing an ID with different bytes fails
 rather than overwriting. A successful note receipt is checked before initializing
-another batch; actual atomic note commits arrive in S07.
+another batch; S07 computes and verifies the actual atomic note payload digest.
 
 Raster magic, not the filename/client MIME, triggers orientation-corrected,
 metadata-stripped display/thumbnail WebP. Static GIF is supported; animation,
@@ -251,6 +253,28 @@ server byte/pixel limits still apply independently. Disk reserve is max(5 GiB,
 Concurrent uploads reserve estimated peak space rather than spending OS reserve.
 `npm run images:benchmark` uses synthetic inputs only and reports native latency/RSS;
 see ARCHITECTURE 7.4 and PROGRESS for exact contracts and measured limitations.
+
+## Atomic note APIs and lifecycle (S07)
+
+The backend supports text/image/file-only creation, optimistic published edits,
+move-to-draft, edited draft publication, Trash/restore and confirmed permanent
+deletion. Server draft edits are never background-saved. The UI remains S08/S12/S13.
+
+- `POST /api/notes`: strict `create` command.
+- `GET /api/notes/<id>`: private body/metadata/revision/tag/attachment-ID snapshot.
+- `PATCH /api/notes/<id>`: strict `update` command for published notes.
+- `POST /api/notes/<id>/actions`: `publish`, `move-to-draft`, `trash`, `restore`,
+  `permanent-delete`; all require expected revision and client mutation ID.
+
+Use `shared/notes.ts` for exact typed payloads and the canonical UTF-8 SHA-256 input
+for upload initialization. The commit server independently computes the digest,
+returns original receipt success on identical retries, and rejects changed payloads.
+All body/tags/file joins/search fields/receipt writes share one transaction. Stale
+revisions return a safe 409 comparison snapshot without overwriting local work.
+Permanent deletion requires Trash plus `confirmed: true`; shared/Trash file bytes
+survive until the final reference is removed and durable cleanup completes.
+Creation dates are immutable. Updates/republishing retain an explicit timeline date;
+body/attachment changes alone set the content-edited indicator. See ARCHITECTURE 4.4.
 
 ## Validation
 
@@ -293,6 +317,6 @@ application data, browser profiles or backup archives in git or public assets.
 > outcomes including failures, and leave an exact handoff in PROGRESS.
 > A blocked native/browser/Linux check is not a pass.
 
-See PROGRESS for S00–S06 validation results and the exact next task (S07).
+See PROGRESS for validation results and the exact next task.
 Production deployment, performance and independent backup/restore drills remain
 part of the final S18 gate; this repository does not claim product completion.

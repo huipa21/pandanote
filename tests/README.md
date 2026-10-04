@@ -1,9 +1,10 @@
-# Foundation, authentication, shell, renderer, drafts and attachments (S00–S06)
+# Foundation, authentication, shell, renderer, drafts, attachments and notes (S00–S07)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
 password/MFA sessions, recovery codes, fresh-auth/security changes, operator recovery
-and private route protection. Note endpoints are not yet implemented. All fixtures are synthetic and generated at runtime. No personal data or fixed
+and private route protection. S07 exercises real note mutation/lifecycle endpoints.
+All fixtures are synthetic and generated at runtime. No personal data or fixed
 production credential is committed.
 
 | Suite                         | Scope / acceptance foundations                                                                                                                                                       |
@@ -29,8 +30,8 @@ production credential is committed.
 | `integration/server-boundary.test.ts`    | Actual SvelteKit production builds reject direct/indirect client imports of persistence, with inherited test-mode bypass disabled                                                                                                                                      |
 
 `tests/helpers/persistence.ts` is test-only seeding/isolated cleanup; product code
-never imports it. S06 adds real queued attachment-byte cleanup; note lifecycle
-and restore/crash rollback are still later steps, not claimed by these tests. Linux checks execute POSIX
+never imports it. S06 adds real queued attachment-byte cleanup; S07 covers note
+lifecycle. Full archive restore/crash rollback remains S17, not these tests. Linux checks execute POSIX
 permission/fsync assertions; Windows uses operator ACLs instead. No existing
 schema is pushed or runtime database migration hidden in a page request.
 
@@ -119,7 +120,7 @@ spike implementations. Its stalled-render injection exercises only the timeout
 branch; ordinary diagram tests run the unmodified library. No debug/fault-injection
 route ships in the built application. Clipboard denial and Windows-native newline
 conversion are tested explicitly. Rendering/tag management are separate: the parser
-is complete, transactional tag edits/history remain S07/S14.
+is complete; transactional note tag joins are S07 and management/history is S14.
 
 ## S05 coverage (DRAFT-01–04, POST-01 pre-posting boundary)
 
@@ -177,10 +178,39 @@ full assistive technology and cross-platform shell baselines remain S18.
   jobs, 50 MP orientation plus 20 MP high-entropy JPEG, sampled parent/peak worker
   RSS and timings. The Linux 2-CPU/4-GB image and actual values are in PROGRESS.
 
-These are ready upload/download primitives, not published notes or a completed
-image viewer (S07/S08/S12). Unused-ready inventory/storage cleanup UI remains S15.
+These are ready upload/download primitives. S07 integrates note commits; browser
+posting/image viewing remain S08/S12. Unused-ready inventory/storage cleanup UI remains S15.
 Sharp subprocesses avoid cached private open-file handles and provide a hard
 wall-clock deadline, not a fake Promise timeout over still-running native work.
+
+## S07 coverage (POST-02/03, NOTE-01–03, FILE-01, AUTH-05)
+
+- `unit/notes.test.ts`: strict commands/confirmation/revision/location/UTF-8 limits,
+  versioned canonical digest input including action/target/revision/file order,
+  actual AST image/reference checks (not code), normalized tag-expansion bound,
+  streamed JSON cap and safe internal-error responses.
+- `integration/notes.test.ts`: real coordinator/SQLite/private files and Sharp,
+  lost-response and concurrent two-connection creates, receipt replay after edits,
+  settings changes and deletion, mismatch binding, body/tags/search/join/receipt
+  atomicity with failure injection at the final receipt write, file/batch readiness,
+  committed batch receipt-first resume, zero-byte file-only and image-only notes,
+  missing physical bytes, file-as-image rejection, omitted manifest item and limits,
+  immutable dates/location/meaningful edited indicator, both draft/published Trash
+  restores, full two-connection 409 snapshots and stale lifecycle/replace races,
+  clone/Trash reference reuse and last-reference cleanup, deletion rollback,
+  read-only integrity/FK inspection, revocation/maintenance and restart recovery.
+- `integration/runtime-server.test.ts`: one actual production build at two runtime
+  origins; real GET/create/update/publish/draft/trash/restore/permanent-delete HTTP
+  endpoints, expected revisions/409 snapshots, lost-response receipt retry across
+  app restart, path/command binding, anonymous/CSRF/no-store gates and no private
+  content in logs. Existing password/cookie/Kit form-CSRF/graceful shutdown checks
+  remain. No mock API or test-only note route is shipped.
+
+S07 is backend-only. The full existing browser regression suite runs at Milestone A;
+Post remains disabled. Frozen browser posting/loss recovery is S08, timeline/search
+is S09/S10, conflict/detail UI S12 and draft/Trash screens S13. Derived fields are
+transactional, but a production FTS/search API is not yet claimed. S14 supplies
+retired-tag history resolution, not silent local rewriting. Full restore remains S17.
 
 ## Run
 
@@ -235,8 +265,8 @@ podman build -f ops/Dockerfile.browser-validation -t pandanote-browser-validatio
 podman run --rm --cpus=2 --memory=4g pandanote-browser-validation
 ```
 
-That image runs `e2e/auth.test.ts` and `e2e/drafts.test.ts` (including actual
-browser restart and binary persistence); it does not claim Linux shell screenshot
+That image runs `e2e/auth.test.ts`, `e2e/drafts.test.ts` and `e2e/uploads.test.ts`
+(including actual browser restart and binary persistence); it does not claim Linux shell screenshot
 baselines. S18 will add a minimal non-root runtime, persistent volume,
 real-domain HTTPS proxy and runbook.
 
@@ -247,8 +277,8 @@ real-domain HTTPS proxy and runbook.
   randomized-oracle, pagination and benchmark contracts.
 - The legacy Markdown rewrite probe remains a feasibility test. Product S04
   parsing/rendering is tested separately; transactional tag management/history is S14.
-- Image probe is in-memory; streaming input caps, private storage, original
-  cleanup, concurrency/deadlines, file detection and authorization remain S06.
+- Image probe is in-memory; S06 separately implements and tests streaming input
+  caps, private storage, original cleanup, bounded processing and authorization.
 - Mermaid permits inline **styles**, not inline script or eval. It disables
   HTML labels and removes active/external SVG constructs. S04 separately tests
   production directive/asset rejection, SVG/CSS isolation, complexity/deadline and

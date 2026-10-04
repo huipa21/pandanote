@@ -235,6 +235,69 @@ Use a read-only test inspection connection to assert these invariants; mocks alo
   The operator CLI uses Node 24 native TS stripping; its import graph must use
   erasable syntax and explicit relative `.ts` imports.
 
+### 4.4 S07 implemented note mutation contracts
+
+- `shared/notes.ts` defines strict discriminated commands: `create`, `update`,
+  `publish` (full edited server-draft payload), `move-to-draft`, `trash`, `restore`,
+  `permanent-delete`. Creation only publishes; there is no create/save-server-draft
+  API. All existing-note commands require note ID and expected revision; permanent
+  deletion additionally requires `confirmed: true` and Trash status. No force-write
+  flag exists. Explicit replacement uses an ordinary newly observed revision.
+- Content is a full replacement of Markdown, timeline instant, nullable location
+  and ordered unique attachment IDs. `timelineAt: null` selects the server creation
+  instant only on create; updates/republishing require an explicit instant, normally
+  the unchanged original date. Future instants fail, never clamp. Configured limits
+  apply independently of the 1 MiB/100-ID hard bounds. JSON transport allows at most
+  6 MiB + 64 KiB for worst-case JSON escaping, with actual streamed-byte counting
+  and a 15-second receive deadline.
+- `canonicalNoteMutation` serializes a versioned fixed-order JSON array of action,
+  target, expected revision, full content/location/attachment order and deletion
+  confirmation. SHA-256 of its UTF-8 bytes is the S06 frozen batch request digest.
+  Mutation ID is the receipt key, not part of the digest. The server calculates
+  this digest from validated commands; it accepts no caller-supplied commit digest.
+  A matching successful receipt is returned before mutable revision/status/date/
+  settings/file checks, even after later edits or permanent deletion. Current
+  session authorization is still required. Changed payloads under a used ID fail.
+- `POST /api/notes` accepts create; `PATCH /api/notes/<id>` accepts update;
+  `POST /api/notes/<id>/actions` accepts other lifecycle commands; path and payload
+  IDs must match. `GET /api/notes/<id>` returns a bounded private snapshot (including
+  opted-in draft/Trash state) using one read transaction. No list/timeline/detail UI
+  is claimed. Responses use `ApiResult<MutationResult>` / `ApiResult<NoteSnapshot>`.
+  Safe 409 conflicts include current body, metadata, revision, ordered attachment
+  IDs and normalized tags. No SQL, paths, credentials or stacks reach the client.
+- `NoteService.mutate` rechecks session/account/security revision inside the shared
+  coordinator's IMMEDIATE transaction. Row writes use expected-revision predicates;
+  every successful edit/state action increments exactly once. Body, joins, tags,
+  normalized separate search fields, batch commitment, cleanup jobs and receipt are
+  atomic. FTS remains S10; derived search rows track revisions for every status,
+  and later queries must explicitly filter published source rows.
+- Ready files must either have an existing singleton-account note reference
+  (including draft/Trash, enabling conflict-copy reuse) or belong to this exact
+  pending mutation batch. A different pending attempt is not authorization. Cleanup
+  queued/unready/missing IDs fail. Generated immutable variant files are checked for
+  regular-file type and exact recorded sizes under the write lease; checksums were
+  verified at upload readiness, not rehashed on every edit. All frozen batch items
+  must be selected. Actual Markdown image nodes/reference definitions must resolve
+  to selected ready images, never ordinary files or remote/broken images; code
+  examples are not references. Whitespace without ready attachments fails; ready
+  zero-byte ordinary files still constitute file-only content.
+- Creation time never changes. Timeline/location-only and status-only edits do not
+  set content-edited time; body or attachment-order/reference changes do. Updated
+  time is monotonic even during backward clock movement. Trash records/restores its
+  exact prior status with data/dates/files intact. Permanent-delete returns a
+  terminal revision +1 and retains receipts without a note FK.
+- Removed references enqueue cleanup only after checking every remaining note
+  reference, including clones and Trash, in the same transaction. Byte deletion
+  remains the existing exclusive, restartable cleanup worker, retried on startup;
+  it is not pretended atomic with SQL and does not automatically empty Trash.
+  Registry/tag history management and resolution UI remain S14. Existing retired
+  history keys fail closed rather than silently resurrecting them; local text is
+  never rewritten. Composer Post stays disabled until S08.
+- Schema remains v3/18 tables; no dependency/lockfile change. `auth/identity.ts`
+  shares the existing upload session recheck with notes. Actual two-connection,
+  read-only inspection, native-file, rollback, restart and production HTTP tests
+  cover S07; validation evidence is in PROGRESS.
+
 ## 5. Internal endpoints and DTO contracts
 
 Exact path names can change, but define and test typed contracts before client integration. This is an internal API inside SvelteKit, not a separately deployed backend.

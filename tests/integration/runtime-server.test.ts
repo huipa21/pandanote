@@ -1,4 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import type { MutationResult } from '../../src/lib/shared/domain.ts';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -37,6 +39,18 @@ it('one production build honors two runtime origins, keeps data private, logs ou
     const setupToken = new AuthService(p).issueSetupToken();
     await p.close();
     const password = 'synthetic-runtime-only-password';
+    const content = {
+      bodyMarkdown: 'Synthetic private 香港 #Work',
+      timelineAt: 1,
+      location: null,
+      attachmentIds: [],
+    };
+    const lostResponse = {
+      action: 'create',
+      mutationId: randomUUID(),
+      content,
+    };
+    let original: MutationResult | undefined;
     for (const deployment of ['loopback', 'https'] as const) {
       const port = await unusedPort();
       const base = `http://127.0.0.1:${port}`;
@@ -117,6 +131,119 @@ it('one production build honors two runtime origins, keeps data private, logs ou
         const home = await fetch(base, { headers: { cookie } });
         expect(home.status).toBe(200);
         expect(await home.text()).not.toContain(password);
+        const noteRequest = (path: string, value: unknown, method = 'POST') =>
+          fetch(`${base}${path}`, {
+            method,
+            headers: { cookie, origin, 'content-type': 'application/json' },
+            body: JSON.stringify(value),
+          });
+        expect((await fetch(`${base}/api/notes/${randomUUID()}`)).status).toBe(
+          401,
+        );
+        expect(
+          (
+            await fetch(`${base}/api/notes`, {
+              method: 'POST',
+              headers: {
+                cookie,
+                origin: 'https://attacker.invalid',
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify(lostResponse),
+            })
+          ).status,
+        ).toBe(403);
+        const post = await noteRequest('/api/notes', lostResponse);
+        expect(post.status, await post.clone().text()).toBe(200);
+        const posted = (await post.json()).data as MutationResult;
+        if (original) expect(posted).toEqual(original);
+        else original = posted;
+        expect((await noteRequest('/api/notes', lostResponse)).status).toBe(
+          200,
+        );
+        expect(
+          (
+            await noteRequest('/api/notes', {
+              ...lostResponse,
+              content: { ...content, bodyMarkdown: 'changed retry' },
+            })
+          ).status,
+        ).toBe(409);
+        const local = await noteRequest('/api/notes', {
+          ...lostResponse,
+          mutationId: randomUUID(),
+        });
+        const current = (await local.json()).data as MutationResult;
+        const path = `/api/notes/${current.noteId}`;
+        const read = await fetch(`${base}${path}`, { headers: { cookie } });
+        expect(read.headers.get('cache-control')).toContain('no-store');
+        expect(await read.json()).toMatchObject({
+          data: {
+            bodyMarkdown: content.bodyMarkdown,
+            revision: 1,
+            tags: ['work'],
+          },
+        });
+        const change = {
+          action: 'update',
+          noteId: current.noteId,
+          mutationId: randomUUID(),
+          expectedRevision: 1,
+          content: { ...content, bodyMarkdown: 'Edited private #Work' },
+        };
+        expect((await noteRequest(path, change, 'PATCH')).status).toBe(200);
+        expect((await noteRequest(path, change, 'PATCH')).status).toBe(200);
+        const conflict = await noteRequest(
+          path,
+          { ...change, mutationId: randomUUID() },
+          'PATCH',
+        );
+        expect(conflict.status).toBe(409);
+        expect(await conflict.json()).toMatchObject({
+          error: {
+            code: 'conflict',
+            conflict: { revision: 2, bodyMarkdown: 'Edited private #Work' },
+          },
+        });
+        let revision = 2;
+        for (const name of [
+          'move-to-draft',
+          'publish',
+          'trash',
+          'restore',
+          'trash',
+          'permanent-delete',
+        ] as const) {
+          const value = {
+            action: name,
+            noteId: current.noteId,
+            mutationId: randomUUID(),
+            expectedRevision: revision,
+            ...(name === 'publish' ? { content } : {}),
+            ...(name === 'permanent-delete' ? { confirmed: true } : {}),
+          };
+          const transition = await noteRequest(`${path}/actions`, value);
+          expect(transition.status, await transition.clone().text()).toBe(200);
+          expect((await transition.json()).data.revision).toBe(++revision);
+          expect((await noteRequest(`${path}/actions`, value)).status).toBe(
+            200,
+          );
+        }
+        expect(
+          (await fetch(`${base}${path}`, { headers: { cookie } })).status,
+        ).toBe(404);
+        expect(
+          (await noteRequest(`/api/notes/${randomUUID()}`, change, 'PATCH'))
+            .status,
+        ).toBe(400);
+        for (const secret of [
+          password,
+          setupToken,
+          cookie.split('=')[1],
+          content.bodyMarkdown,
+          'Edited private #Work',
+        ])
+          expect(output).not.toContain(secret);
         const crossSite = await fetch(`${base}/api/auth/logout`, {
           method: 'POST',
           headers: { cookie, origin: 'https://attacker.invalid' },

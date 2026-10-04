@@ -19,14 +19,13 @@ import {
   type UploadBatchDto,
 } from '../../shared/attachments.ts';
 import type { SessionIdentity } from '../auth/service.ts';
+import { assertSessionIdentity as assertUploadIdentity } from '../auth/identity.ts';
 import type {
   Persistence,
   DomainDatabase,
   DomainTransaction,
 } from '../db/connection.ts';
 import {
-  account,
-  sessions,
   attachments,
   uploadBatches,
   noteAttachments,
@@ -44,34 +43,6 @@ type Reader = DomainDatabase | DomainTransaction;
 function validId(id: string): void {
   if (!idSchema.safeParse(id).success)
     throw new DomainError('validation', 'Invalid attachment or batch ID.');
-}
-export function assertUploadIdentity(
-  db: Reader,
-  identity: SessionIdentity,
-): void {
-  const owner = db
-    .select()
-    .from(account)
-    .where(eq(account.id, identity.account.id))
-    .get();
-  const session = db
-    .select()
-    .from(sessions)
-    .where(eq(sessions.tokenHash, identity.sessionHash))
-    .get();
-  if (
-    !owner ||
-    !session ||
-    session.accountId !== owner.id ||
-    session.revokedAt !== null ||
-    session.expiresAt <= Date.now() ||
-    owner.securityRevision !== identity.securityRevision ||
-    session.securityRevision !== owner.securityRevision
-  )
-    throw new DomainError(
-      'unauthorized',
-      'Sign in again, then retry with your retained local files.',
-    );
 }
 function dto(row: AttachmentRow): ReadyAttachment {
   return {
@@ -148,19 +119,6 @@ export class AttachmentService {
         'Invalid frozen upload manifest. Check IDs, filenames, sizes and checksums.',
       );
     const value = parsed.data;
-    const settings = readSettings(this.p);
-    if (
-      value.items.length > settings.maxAttachmentsPerNote ||
-      value.items.some(
-        (item) =>
-          item.incomingBytes >
-          Math.max(settings.fileMaxBytes, settings.imageInputMaxBytes),
-      )
-    )
-      throw new DomainError(
-        'validation',
-        'The upload manifest exceeds the attachment limits.',
-      );
     return this.p.write((tx) => {
       assertUploadIdentity(tx, identity);
       const receipt = findReceipt(
@@ -170,6 +128,21 @@ export class AttachmentService {
         value.requestDigest,
       );
       if (receipt) return { state: 'confirmed', result: receipt };
+      // A later limits change cannot hide a previously committed note's success.
+      // Only new/uncommitted attempts need current upload admission validation.
+      const settings = readSettings(this.p);
+      if (
+        value.items.length > settings.maxAttachmentsPerNote ||
+        value.items.some(
+          (item) =>
+            item.incomingBytes >
+            Math.max(settings.fileMaxBytes, settings.imageInputMaxBytes),
+        )
+      )
+        throw new DomainError(
+          'validation',
+          'The upload manifest exceeds the attachment limits.',
+        );
       const existing = tx
         .select()
         .from(uploadBatches)
