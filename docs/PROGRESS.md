@@ -2,20 +2,20 @@
 
 ## Current state
 
-- **Phase:** Manual full backups implemented; uploaded restore and product release remain unfinished.
-- **Completed steps:** S00–S16 — **done**.
-- **Current requested step:** S16 — **done**. Next unfinished step: S17 — Uploaded full restore and rollback.
-- **Repository:** clean starting HEAD `ec5d475` (committed S15). Prior work/history preserved; S16 changes are uncommitted. No commit created by this agent.
-- **Implemented:** versioned private `.pnb` jobs, consistent online SQLite/immutable file/key capture, staged sanitization/compaction, streaming checksum/verification/finalization, fresh-auth manual create/list/download/delete, interrupted-job recovery, sensitive/unencrypted/server-only warnings and measured resource probe. Schema v5 / 19 domain tables; dependencies and lockfile unchanged. No uploaded restore or automatic backup scheduler.
-- **Validation:** Windows check/lint/build, 94 unit + 136 integration and all 84 Chromium tests pass, with unchanged shell baselines. Linux clean `npm ci` using verified S15 native/browser caches passes common gates, the 10k backup benchmark and all 5 affected auth/backup Chromium tests. Desktop/mobile backup screenshots reviewed. Intermediate download/type/fixture failures are recorded below; cold native downloads were not retried. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS and independent uploaded restore audits remain release gates.
+- **Phase:** Full backup and uploaded restore/rollback implemented; deployment/release validation remains unfinished.
+- **Completed steps:** S00–S17 — **done**.
+- **Current requested step:** S17 — **done**. Next unfinished step: S18 — Deployment, measured performance, accessibility and release gate.
+- **Repository:** clean starting HEAD `8da746a` (committed S16). Prior code/history preserved; S17 changes are uncommitted. No commit created by this agent.
+- **Implemented:** private streamed uploaded archives, strict format/known-schema/key/data/reference/static-image trust checks, supported v4→v5 staged migration/search rebuild, fresh-auth summary/destructive confirmation, whole DB/files/key replacement, journaled rollback/startup recovery, restored password/TOTP/recovery state and invalidated sessions, destination backup rediscovery, retained browser drafts and operator runbook. Schema v5 / 19 tables; dependencies/lockfile unchanged. No automatic backup scheduler.
+- **Validation:** Windows check/lint/build, 95 unit + 160 integration and all 86 Chromium tests pass, with unchanged shell baselines. Linux clean `npm ci` using verified S16 native/browser caches passes all common gates and 7 affected auth/backup/restore Chromium tests. Independent-instance MFA/file/settings/receipt restore, nine injected-error and ten actual killed-process boundaries pass on both hosts. Desktop/mobile restore screenshots reviewed. Intermediate fixture/native-iterator/format failures are recorded below; cold native downloads were not retried. Physical-device/IME, assistive technology, Linux shell baselines, maximum-bound resources, real-domain/VPS and independent deployed-domain web restore drill remain S18 release gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, required planning docs and the latest S16 handoff. Relevant contracts: ARCHITECTURE 13 (especially 13.3–13.5)/12.5/4, IMPLEMENTATION_PLAN S17, ACCEPTANCE_TESTS RESTORE-01–04/BACKUP-01/02/AUTH-04/05.
-2. Inspect git; preserve uncommitted S16 work. Read `server/backups/{archive,service,snapshot,http}.ts`, `shared/backups.ts`, BackupSettings, private storage/keys, schema/migration ledger/search reindex, persistence/coordinator/journal/runtime and `integration/backups.test.ts`. The format verifier is no-write and deliberately NOT an untrusted SQLite/extraction/restore validator.
-3. Next task: **S17**. Implement private uploaded immutable archive staging plus no-write manifest/path/checksum/size and strict known-schema/DB/key/reference trust validation first. Never execute uploaded schema SQL. Then summary/fresh-auth destructive confirmation and journaled whole-state replacement/rollback/restart recovery. Clear sessions/rebuild search, retain destination origin/unrelated archives and browser drafts; recheck restored recovery bases.
-4. First validation: `npm run check && npm run test:integration`; retain backup/security/posting/lifecycle regressions. Runtime needs pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and OpenSSL. Schema stays v5; migrate only explicitly with the app stopped if S17 adds a migration. Linux cached clean ci is verified; cold native downloads remain a deployment check. Keep synthetic archives/runtime data/diagnostics ignored.
+1. Read `AGENTS.md`, required planning docs and latest S17 handoff. Relevant contracts: ARCHITECTURE 13.5–13.6/14/12.5, IMPLEMENTATION_PLAN S18, ACCEPTANCE_TESTS full release matrix and performance budgets, `ops/RESTORE_RUNBOOK.md`.
+2. Inspect git; preserve uncommitted S17 work. Read `ops/Dockerfile*`, `.env.example`, `vite.config.ts` runtime origin adapter, migrations/setup/operator commands, runtime/hooks/private storage and backup/restore modules/tests. Production deployment/Compose/reverse-proxy artifacts do not exist yet; validation Dockerfiles are not production deployment.
+3. Next task: **S18**. Build reproducible single-instance production Linux container/Compose/HTTPS proxy and operator install/upgrade/recovery runbook first, then actual independent-domain downloaded/uploaded restore drill, full acceptance/security/accessibility and measured 10k/mixed-media workloads. Keep private persistent data/configurable origin, explicitly stopped-app migrations and safe restore recovery; do not claim release completion before all gates pass.
+4. First validation: `npm run check && npm run test:integration`; then full E2E/build and cold native production-image install/restart/restore. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns 4173–4176/OpenSSL. S17's cached clean Linux ci is verified, not a cold download. Archive transport requires `BODY_SIZE_LIMIT=64G` plus matching streaming proxy, with smaller domain limits/disk reserve authoritative. Keep all synthetic archives/data/diagnostics ignored.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -40,7 +40,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S14  | Tag administration                 | Done        |
 | S15  | Location/settings/storage          | Done        |
 | S16  | Manual backup/create/download      | Done        |
-| S17  | Uploaded restore and rollback      | Not started |
+| S17  | Uploaded restore and rollback      | Done        |
 | S18  | VPS deployment/release validation  | Not started |
 
 ## Settled decisions most likely to be accidentally regressed
@@ -2583,3 +2583,149 @@ Decisions / remaining scope / exact next task:
 Final documentation-only close: formatted ARCHITECTURE/PROGRESS, then `npm run lint`,
 `git diff --check` and `test ! -e .e2e-data` passed. No application/test source changed
 after the final full Windows and affected Linux code gates.
+
+### Session 2026-10-05/06 — S17 uploaded full restore and rollback
+
+**State: done.** Started clean at `8da746a` (committed S16). Prior implementation
+and all handoff history preserved; no commit created. S18/product release remains
+unfinished. Schema v5 / 19 domain tables, dependency pins and lockfile unchanged.
+
+Implemented / touched files:
+
+- `shared/restores.ts`, `server/backups/{restore,trust,replacement}.ts`, existing
+  archive verifier and private `/api/restores`/`confirm`: raw private exact-byte
+  upload, early manifest disk claims, complete no-write first-pass verification,
+  second-pass bounded regular USTAR extraction and immutable private candidate.
+  Strict known migration-produced schema/ledger, disabled trusted schema/query-only
+  native inspection, singleton settings/account/bounded hash, portable AES-GCM MFA/
+  recovery state, UUID/UTC/revision/location, tags/ordered image/file references,
+  exact variants/counts/digests, static metadata-free fully decoded WebP and receipt/
+  history checks. Reject altered/newer schemas, modules/config/oversized shadow cells,
+  malformed data or missing/corrupt variants before replacement. Known v4 migrates
+  through application SQL to v5 on staging; fresh trusted FTS shadow/config state
+  and the shared source hook rebuild search cooperatively outside live maintenance.
+- `db/connection.ts`, runtime/hooks, existing backup service/HTTP/storage key schema:
+  exclusive drain, post-drain fresh identity, successful WAL checkpoint/handle closure,
+  journal-before-rename of DB directory/files directory/key, Linux parent fsync,
+  reopen/restored keys/settings/integrity and durable verified commit. Earlier failures
+  durably select rollback before inverse moves; startup chooses complete old or new
+  state before opening DB/keys or cleanup, and is idempotent through rollback crashes.
+  Unrecoverable state blocks normal access; committed cleanup is restartable, not
+  falsely reported as rollback. Unrelated destination archives are preserved and
+  verified catalog rebuilt; source sessions/challenges cannot survive replacement.
+- `components/RestoreSettings.svelte`, BackupSettings: current password/MFA for
+  upload and separately for explicit destructive replacement, actual byte progress,
+  validation feedback, safe capture/schema/status/count/MFA summary, reload/discard,
+  failure and uncertain-response instructions, archived-account login redirect.
+  No grants/passwords/factors in URLs/storage; no separate archive password, merge,
+  automatic restore or draft upload. Browser-local work is untouched; existing
+  revision/base/receipt checks remain. One process-local candidate; restart discards
+  unconfirmed uploads. `.env.example` raises archive transport ceiling to 64G;
+  image/file/JSON domain limits remain unchanged.
+- New `unit/restores.test.ts`, `integration/restores.test.ts` (24 cases) and
+  `e2e/zzrestore.test.ts` (2 cases), Linux browser validation scope. Native independent
+  initialized destination restores all statuses/source/dates/tags/location/images/
+  files/settings/keys/receipts, both archived TOTP and recovery login, old-session
+  invalidation and destination archives. Nine injected failures and ten real killed
+  subprocess boundaries cover prepared/all six renames/reopen/commit/verified,
+  different old/new keys and old-only files, usable rollback and deterministic
+  restart. Includes corruption/scope/full disk, strict schema/config/variants, v4
+  migration, admitted security-writer race and unconfirmed restart cleanup. Browser
+  uses actual downloaded archive then Settings upload/summary/reload/confirmation/
+  login; old revision restored, local recovery retained, bad uploads/CSRF/auth rejected.
+- `ops/RESTORE_RUNBOOK.md`, README, ARCHITECTURE 13.6, tests README and this handoff:
+  destination-VPS workflow, compatibility/resource/transport/disk bounds, crash
+  phases and protected stopped-app operator recovery. Desktop summary/mobile auth
+  screenshots opened/reviewed; existing shell baselines unchanged. No generated
+  archive, runtime data, credential, diagnostic or browser profile enters git.
+
+Commands actually run:
+
+Host uses S00's explicit Node **24.21.0** executable/PATH and npm **11.12.1** N/C
+CLI, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Final host/Linux runs were sequential;
+no failed/partial gate is counted as a pass.
+
+| Command                                                                                               | Actual final outcome                                                                                         |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Git/status/log, full required docs and relevant installed APIs/source                                 | Clean committed S16 preserved; SQLite native defensive/iterator behavior inspected                           |
+| `npm run check && npm run test:integration` (baseline)                                                | PASS, 0 diagnostics / original 136 integration                                                               |
+| `npm exec -- prettier --write <touched text files>`                                                   | PASS, repeated where needed                                                                                  |
+| `npm run check` / `npm run lint`                                                                      | PASS, 0 errors/warnings; ESLint/format clean                                                                 |
+| `npm run test:unit`                                                                                   | PASS, 21 files / 95 tests                                                                                    |
+| Targeted restore Vitest and auth/backup/restore Playwright                                            | PASS final; intermediate failures below                                                                      |
+| `npm run test:integration`                                                                            | PASS final, 25 files / 160 actual tests                                                                      |
+| `npm run build`                                                                                       | PASS final standalone production artifact; server-only/origin/CSP retained                                   |
+| `npm run test:e2e`                                                                                    | PASS final build + all 86 Chromium tests, normal unchanged shell baselines                                   |
+| `podman image inspect pandanote-s16-browser-cached --format '{{.Id}}'`                                | Verified base `aa31eed1c9bd4f42e9fd5836f28a85262d04a53d509ae44f2e531dcc242b11f7`                             |
+| `podman build -f .browser-spike/Dockerfile.s17-cached -t pandanote-s17-browser-cached .`              | PASS clean Linux ci with verified native/browser caches, zero audit vulnerabilities                          |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s17-browser-cached` | PASS Linux check/lint/build, 95 unit + 160 integration and all 7 affected auth/backup/restore Chromium tests |
+| `git diff --check`; `test ! -e .e2e-data`                                                             | PASS, no private host fixture left; only autocrlf informational warnings                                     |
+
+Final passing Linux image (precedes only this documentation-close update):
+`e291a8c8d4cfb482718e6adc3df571cfcfc7bea8078023e7f236a71b25a03ba3`.
+Ignored Dockerfile uses `FROM localhost/pandanote-s16-browser-cached:latest`,
+`WORKDIR /app`, TLS verification 1, `COPY . .`, `RUN npm ci`; CMD runs node/npm,
+check/lint/unit/integration/build and E2E auth/backups/zzrestore. Clean ci reinstalls
+Linux-native modules using verified caches, never Windows node_modules. Same pinned
+bookworm/glibc Node base, npm 11.19.0, WSL2 two-CPU/4-GB container context as S16.
+Earlier passing review images: `295998976c98bfe54aee5d88bcb1d014b9a01c51daeb529b8f238641b7dd986e`
+and `34c397b1237643753101e487b89275e9e5305796fb586248dd6f99897e08ce9f`.
+Native Sharp/SQLite/full restore/fsync/process-kill tests actually execute on Linux;
+this is not a real-VPS, maximum-bound, cold-download or full Linux visual audit.
+
+Intermediate failures / corrections (not passes):
+
+- First targeted run: 18 pass/2 fail. Test used nonexistent `LoginResult.kind`
+  instead of `mfaRequired` and an incorrect trigger name; corrected the fixtures/API
+  checks. Next attack sweep exceeded the unchanged ten-attempt/IP fresh-auth window;
+  independent synthetic IPs exercise all attacks under the unchanged account limit.
+  No production rate limit or security policy was weakened. Lint found one unused
+  import/conditional expression; corrected. One Prettier file needed a second pass.
+- A cooperative reindex review initially used an active SQLite iterator while
+  writing FTS; native better-sqlite3 correctly rejected it (136 pass/22 restore
+  failures). Materialize only bounded <=100k IDs, never bodies, before staged writes;
+  retain yield/deadline checks and exact shared search hook. All common/full browser
+  gates reran successfully after the fix.
+- Final FTS-corruption fixtures initially attempted direct shadow writes under
+  SQLite defensive mode (159 pass/1 fail before validation ran). Disable defensive
+  mode **only in that synthetic fixture** to forge the archive; product connections
+  retain native defensive mode. Strict config/shadow validation and fresh trusted
+  shadow recreation pass, then final Windows/Linux common/browser gates reran.
+- Review strengthened commit-record fsync ambiguity (durably select rollback before
+  any inverse rename), pending-journal refusal, WAL busy check, cooperative semantic
+  iteration and full native WebP decoding rather than metadata-only acceptance.
+  Final review shares `notes/content.ts` rather than a second image/tag AST validator,
+  preserving CommonMark first-definition-wins behavior; the independent image round
+  trip includes an ignored duplicate definition. These changes and differing-key/file
+  fault tests were validated in final full Windows and common/affected Linux gates.
+  Existing lazy-bundle and native install-script/deprecation warnings remain visible;
+  no missing native/browser dependency, skip, assertion weakening or baseline rewrite.
+
+Decisions / remaining scope / exact next task:
+
+- ARCHITECTURE 13.6/runbook record the known v4/v5 trust policy, native subprocess,
+  staged-only yielding transaction, durable old/new commit/rollback protocol, single
+  candidate/restart cleanup, destination catalog and header-only upload grant. Added
+  safety bounds (100k notes / 256 MiB Markdown / one-million ordinary rows / 16 KiB
+  non-body cells / 4 KiB keys) keep native/AST work bounded on the small deployment;
+  larger inputs fail explicitly, not partially restore. Transport 64G supports full
+  archives while smaller authoritative domain limits/disk reserve remain. No new
+  service, dependency, schema, encryption/passphrase, scheduler or stack change.
+- No known reproducible S17 defect or unfinished S17 feature gate. Browser storage
+  remains plaintext/evictable and not backed up. Physical-device/IME/read-aloud,
+  Linux shell baselines, cold native installation, maximum-bound resource checks,
+  real-domain/VPS performance/security/accessibility and independent deployed-domain
+  web-upload restore drill remain S18. Native independent-instance restore and local
+  production browser round trip pass; they are not a final deployed-VPS release drill.
+- **Next: S18** production single-instance Linux Dockerfile/Compose/HTTPS proxy with
+  persistent private DATA_DIR, explicit stopped-app initialization/migration and
+  configurable ORIGIN. Read the current handoff's files, `ops/RESTORE_RUNBOOK.md`,
+  ARCHITECTURE 13.5–13.6/14 and all acceptance/performance gates. First command:
+  `npm run check && npm run test:integration`, then cold production image native/
+  restart/independent-domain restore and full browser/measurement/audit gates. Do
+  not declare project completion before the final acceptance gate passes.
+
+Final documentation-only close: updated this handoff to the final passing Linux
+image and shared-content validation decision, formatted PROGRESS, then `npm run
+lint`, `git diff --check` and `test ! -e .e2e-data` passed. No application/test code
+changed after the final full Windows and affected Linux gates.

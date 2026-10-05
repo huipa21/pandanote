@@ -47,8 +47,12 @@ export function connectDatabase(
 }
 
 export class Persistence {
-  readonly native: Database.Database;
-  readonly db: DomainDatabase;
+  native: Database.Database;
+  db: DomainDatabase;
+  recoveryRequired = false;
+  get available(): boolean {
+    return this.native.open && !this.recoveryRequired;
+  }
   readonly storage: PrivateStorage;
   readonly coordinator: WriteCoordinator;
   constructor(storage: PrivateStorage, coordinator = new WriteCoordinator()) {
@@ -86,11 +90,37 @@ export class Persistence {
       ),
     );
   }
+  /** Only the exclusive restore owner may close/reopen native handles. The
+   * coordinator remains alive; existing domain services retain this instance. */
+  closeForReplacement(lease: MaintenanceLease): void {
+    lease.write(() => {
+      const checkpoint = this.native.pragma('wal_checkpoint(TRUNCATE)') as {
+        busy: number;
+      }[];
+      if (checkpoint.some((row) => row.busy !== 0))
+        throw new Error('Database readers prevented a safe restore checkpoint');
+      this.native.close();
+    });
+  }
+  reopenAfterReplacement(lease: MaintenanceLease): void {
+    lease.write(() => {
+      this.storage.readKeys();
+      const native = connectDatabase(this.storage.databasePath, true);
+      try {
+        assertMigrationState(native);
+      } catch (error) {
+        native.close();
+        throw error;
+      }
+      this.native = native;
+      this.db = drizzle(native, { schema });
+    });
+  }
   async close(): Promise<void> {
     await this.coordinator.shutdown(async () => {
       // Closing checkpoints WAL when this is the last connection. Do not force
       // a truncate checkpoint while another reader/online backup is active.
-      this.native.close();
+      if (this.native.open) this.native.close();
     });
   }
 }

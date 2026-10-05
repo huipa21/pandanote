@@ -196,6 +196,9 @@ export class BackupService {
     }
     return job;
   }
+  get isRunning(): boolean {
+    return this.running !== undefined;
+  }
   async wait(): Promise<void> {
     await this.running;
   }

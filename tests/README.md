@@ -1,4 +1,4 @@
-# Foundation through manual full backups (S00–S16)
+# Foundation through uploaded full restore and rollback (S00–S17)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -17,6 +17,34 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S17 coverage (RESTORE-01–04, AUTH-04/05, BACKUP-01/02)
+
+- `integration/restores.test.ts`: independent real SQLite/filesystem/account
+  replacement with published/server-draft/Trash, tags/date/location, processed
+  images/unchanged files, settings, password/MFA/recovery/portable keys and included
+  receipts. Both old source/destination credentials fail; restored MFA login works,
+  source-derived search is rebuilt and unrelated destination archives/catalog remain.
+  Known-v4 migration, unexpected views/triggers/virtual modules/altered schema,
+  newer version, altered FTS configuration/oversized shadow cells, bad counts/keys/
+  password/settings/tag references, checksum-consistent
+  corrupted WebP bitstreams/missing variants, wrong grants,
+  disk-full and unconfirmed/discard checks preserve live state. Nine injected-error
+  boundaries and ten real killed-child boundaries assert coherent DB/files/keys,
+  rollback usability, durable commit behavior, idempotent startup recovery and archive
+  preservation (including differing old/new keys and old-only file bytes).
+- `e2e/zzrestore.test.ts`: actual manual create/native browser download, uploaded
+  file/progress/validated summary/reload, explicit fresh destructive confirmation,
+  return to Login, invalidated old sessions, archived note revision/source, preserved
+  browser recovery and destination backups. Auth/CSRF/fresh-scope/invalid-archive and
+  mobile dialog/overflow checks use production routes, never mock successful restore.
+  Runs after other feature suites because successful restore revokes their sessions.
+- The S16 format tests still exercise checksum/truncation/traversal/duplicate/link/
+  device/PAX/GNU/size/expansion defenses used by uploaded restores. Linux runs actual
+  native Sharp/SQLite and all process-kill/rename/fsync recovery cases. Windows has
+  no directory-fsync guarantee; runtime data and archives remain ignored/private.
+- See `ops/RESTORE_RUNBOOK.md` for recovery procedures and explicit bounds. Real
+  independent-domain deployment/performance/maximum-bound drill remains S18.
 
 ## S16 coverage (BACKUP-01/02, AUTH-04/05, FILE-01)
 
@@ -175,7 +203,8 @@ production credential is committed.
 
 `tests/helpers/persistence.ts` is test-only seeding/isolated cleanup; product code
 never imports it. S06 adds real queued attachment-byte cleanup; S07 covers note
-lifecycle. Full archive restore/crash rollback remains S17, not these tests. Linux checks execute POSIX
+lifecycle. S17's separate restore suite covers full archive replacement/crash
+rollback; foundation tests alone do not. Linux checks execute POSIX
 permission/fsync assertions; Windows uses operator ACLs instead. No existing
 schema is pushed or runtime database migration hidden in a page request.
 

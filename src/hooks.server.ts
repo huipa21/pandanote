@@ -39,6 +39,19 @@ export const handle: Handle = async ({ event, resolve }) => {
     const runtime = getRuntime();
     await runtime.ready;
     event.locals.runtime = runtime;
+    if (!runtime.persistence.available)
+      return protect(
+        Response.json(
+          {
+            ok: false,
+            error: {
+              code: 'busy',
+              message: 'Restore maintenance is in progress. Retry shortly.',
+            },
+          },
+          { status: 503 },
+        ),
+      );
     if (!sameOrigin(event.request, runtime.policy))
       return protect(
         Response.json(

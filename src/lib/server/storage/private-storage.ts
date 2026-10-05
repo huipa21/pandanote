@@ -19,7 +19,7 @@ import { z } from 'zod';
 import { idSchema } from '../../shared/domain.ts';
 
 export const newPrivateId = (): string => randomUUID();
-const keySchema = z.strictObject({
+export const keySchema = z.strictObject({
   version: z.literal(1),
   keyId: idSchema,
   totpEncryptionKey: z

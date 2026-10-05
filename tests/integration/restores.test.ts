@@ -1,0 +1,768 @@
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+  mkdirSync,
+} from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import Database from 'better-sqlite3';
+import sharp from 'sharp';
+import { generateSync } from 'otplib';
+import { expect, it } from 'vitest';
+import { account } from '../../src/lib/server/db/schema.ts';
+import { withPersistence } from '../helpers/persistence.ts';
+import { Persistence } from '../../src/lib/server/db/connection.ts';
+import { writePrivateJson } from '../../src/lib/server/storage/private-storage.ts';
+import { AuthService } from '../../src/lib/server/auth/service.ts';
+import { BackupService } from '../../src/lib/server/backups/service.ts';
+import { RestoreService } from '../../src/lib/server/backups/restore.ts';
+import {
+  recoverRestores,
+  type SwapBoundary,
+} from '../../src/lib/server/backups/replacement.ts';
+import { NoteService } from '../../src/lib/server/notes/service.ts';
+import { AttachmentService } from '../../src/lib/server/attachments/service.ts';
+import { DiskBudget } from '../../src/lib/server/attachments/resources.ts';
+import {
+  verifyArchive,
+  writeArchive,
+} from '../../src/lib/server/backups/archive.ts';
+import { checksum } from '../../src/lib/server/attachments/files.ts';
+import {
+  canonicalNoteMutation,
+  type NoteMutation,
+} from '../../src/lib/shared/notes.ts';
+import { type FreshAuthScope } from '../../src/lib/shared/auth.ts';
+import { updateCalendar } from '../../src/lib/server/settings/repository.ts';
+const password = 'synthetic-restore-source 密碼 password';
+const sha = (bytes: Buffer | string) =>
+  createHash('sha256').update(bytes).digest('hex');
+async function fixture(p: Persistence, secret = password) {
+  const auth = new AuthService(p);
+  const credential = await auth.setup(
+    auth.issueSetupToken(),
+    secret,
+    '192.0.2.79',
+  );
+  let identity = auth.authenticate(credential.token)!;
+  let codes: string[] = [];
+  let grantIp = 100;
+  const grant = async (scope: FreshAuthScope) =>
+    (
+      await auth.freshAuth(
+        identity,
+        scope,
+        secret,
+        codes.shift(),
+        `192.0.2.${grantIp++}`,
+      )
+    ).token;
+  return {
+    auth,
+    credential,
+    get identity() {
+      return identity;
+    },
+    grant,
+    enable: async () => {
+      const enrollment = auth.startEnrollment(
+        identity,
+        await grant('mfa-enroll'),
+      );
+      const enabled = auth.confirmEnrollment(
+        identity,
+        enrollment.challenge,
+        generateSync({ secret: enrollment.secret, epoch: Date.now() / 1000 }),
+        '192.0.2.79',
+      );
+      identity = auth.authenticate(enabled.credential.token)!;
+      codes = enabled.codes;
+      return { enrollment, enabled };
+    },
+  };
+}
+function restore(
+  p: Persistence,
+  f: Awaited<ReturnType<typeof fixture>>,
+  options: ConstructorParameters<typeof RestoreService>[4] = {},
+) {
+  const disk = new DiskBudget(p.storage.root, 0),
+    backups = new BackupService(p, f.auth, disk);
+  return new RestoreService(p, f.auth, backups, disk, options);
+}
+async function backup(p: Persistence, f: Awaited<ReturnType<typeof fixture>>) {
+  const b = new BackupService(p, f.auth, new DiskBudget(p.storage.root, 0));
+  const job = b.create(f.identity, {
+    id: randomUUID(),
+    grant: await f.grant('backup-create'),
+  });
+  await b.wait();
+  expect(b.list(f.identity)[0].state).toBe('complete');
+  return p.storage.backupPath(job.id);
+}
+async function upload(
+  s: RestoreService,
+  f: Awaited<ReturnType<typeof fixture>>,
+  path: string,
+) {
+  const bytes = readFileSync(path);
+  return s.upload(
+    f.identity,
+    new Request('http://localhost/api/restores', {
+      method: 'POST',
+      headers: {
+        'x-archive-bytes': String(bytes.length),
+        'x-restore-grant': await f.grant('restore'),
+      },
+      body: new Uint8Array(bytes),
+    }),
+  );
+}
+function note(
+  p: Persistence,
+  f: Awaited<ReturnType<typeof fixture>>,
+  body = 'restore 香港 #Work',
+) {
+  return new NoteService(p).mutate(f.identity, {
+    action: 'create',
+    mutationId: randomUUID(),
+    content: {
+      bodyMarkdown: body,
+      timelineAt: Date.now() - 60000,
+      location: {
+        latitude: 0,
+        longitude: 0,
+        accuracy: null,
+        label: 'Synthetic',
+      },
+      attachmentIds: [],
+    },
+  });
+}
+it('restores an independent initialized instance: all statuses/date/location/tags/processed files/settings/account/MFA/recovery keys/receipts; revokes both instances’ sessions and keeps destination archives', async () => {
+  await withPersistence(async (source) => {
+    const f = await fixture(source);
+    const { enrollment, enabled } = await f.enable();
+    const notes = new NoteService(source);
+    const a = note(source, f),
+      b = note(source, f, 'draft #Work'),
+      c = note(source, f, 'trash #Work');
+    notes.mutate(f.identity, {
+      action: 'move-to-draft',
+      mutationId: randomUUID(),
+      noteId: b.noteId,
+      expectedRevision: 1,
+    });
+    notes.mutate(f.identity, {
+      action: 'trash',
+      mutationId: randomUUID(),
+      noteId: c.noteId,
+      expectedRevision: 1,
+    });
+    const image = await sharp({
+      create: { width: 20, height: 15, channels: 3, background: '#3f6b4d' },
+    })
+      .png()
+      .toBuffer();
+    const file = Buffer.from('unchanged private 香港 attachment');
+    const ids = [randomUUID(), randomUUID()];
+    const command: Extract<NoteMutation, { action: 'create' }> = {
+      action: 'create',
+      mutationId: randomUUID(),
+      content: {
+        // CommonMark duplicate definitions use the FIRST destination, just like
+        // ordinary note validation/rendering; an ignored later definition is safe.
+        bodyMarkdown: `![static][photo] #Work\n\n[photo]: attachment:${ids[0]}\n[photo]: attachment:${randomUUID()}`,
+        timelineAt: null,
+        location: null,
+        attachmentIds: ids,
+      },
+    };
+    const attachments = new AttachmentService(
+      source,
+      new DiskBudget(source.storage.root, 0),
+    );
+    const batch = attachments.initialize(f.identity, {
+      mutationId: command.mutationId,
+      requestDigest: sha(canonicalNoteMutation(command)),
+      items: ids.map((id, i) => ({
+        id,
+        filename: i ? 'document.txt' : 'image.png',
+        incomingBytes: [image, file][i].length,
+        incomingDigest: sha([image, file][i]),
+      })),
+    });
+    if (batch.state !== 'batch') throw Error('batch');
+    for (const [i, id] of ids.entries())
+      await attachments.upload(
+        f.identity,
+        batch.batch.id,
+        id,
+        new Request('http://localhost/upload', {
+          method: 'PUT',
+          body: new Uint8Array([image, file][i]),
+        }),
+      );
+    const media = notes.mutate(f.identity, command);
+    updateCalendar(source, f.identity, {
+      timezone: 'Asia/Hong_Kong',
+      weekStart: 0,
+    });
+    const archive = await backup(source, f),
+      snapshots = [a, b, c, media].map((r) => notes.get(f.identity, r.noteId));
+    await withPersistence(async (destination) => {
+      const d = await fixture(
+        destination,
+        'synthetic-temporary-destination password',
+      );
+      note(destination, d, 'old destination');
+      const kept = await backup(destination, d),
+        keptBytes = readFileSync(kept),
+        oldKeys = destination.storage.readKeys();
+      const s = restore(destination, d),
+        summary = await upload(s, d, archive);
+      expect(summary).toMatchObject({
+        notes: 4,
+        published: 2,
+        drafts: 1,
+        trash: 1,
+        attachments: 2,
+        mfaEnabled: true,
+      });
+      expect(d.auth.authenticate(d.credential.token)).not.toBeNull();
+      expect(destination.storage.readKeys()).toEqual(oldKeys);
+      await s.confirm(d.identity, {
+        id: summary.id,
+        confirmed: true,
+        grant: await d.grant('restore'),
+      });
+      expect(destination.storage.readKeys()).toEqual(source.storage.readKeys());
+      expect(d.auth.authenticate(d.credential.token)).toBeNull();
+      expect(d.auth.authenticate(enabled.credential.token)).toBeNull();
+      const login = await d.auth.login(password, '192.0.2.80');
+      expect(login.mfaRequired).toBe(true);
+      if (!login.mfaRequired) throw Error('MFA missing');
+      const credential = d.auth.completeMfa(
+        login.token,
+        enabled.codes[2],
+        '192.0.2.80',
+      );
+      const restored = d.auth.authenticate(credential.token)!;
+      const factorNow = Date.now() + 60_000;
+      const totpAuth = new AuthService(destination, () => factorNow);
+      const totpLogin = await totpAuth.login(password, '192.0.2.81');
+      if (!totpLogin.mfaRequired) throw Error('Restored MFA missing');
+      const totpCredential = totpAuth.completeMfa(
+        totpLogin.token,
+        generateSync({ secret: enrollment.secret, epoch: factorNow / 1000 }),
+        '192.0.2.81',
+      );
+      expect(totpAuth.authenticate(totpCredential.token)?.account.id).toBe(
+        f.identity.account.id,
+      );
+      const restoredNotes = new NoteService(destination);
+      for (const snapshot of snapshots)
+        expect(restoredNotes.get(restored, snapshot.id)).toEqual(snapshot);
+      expect(restoredNotes.mutate(restored, command)).toEqual(media);
+      expect(
+        readFileSync(
+          destination.storage.attachmentPath(ids[1], 'attachment.bin'),
+        ),
+      ).toEqual(file);
+      expect(
+        readFileSync(
+          destination.storage.attachmentPath(ids[0], 'display.webp'),
+        ),
+      ).toEqual(
+        readFileSync(source.storage.attachmentPath(ids[0], 'display.webp')),
+      );
+      expect(
+        destination.native.prepare('SELECT count(*) n FROM note_search').get(),
+      ).toEqual({ n: 4 });
+      expect(
+        destination.native
+          .prepare('SELECT count(*) n FROM note_search_fts')
+          .get(),
+      ).toEqual({ n: 4 });
+      expect(readFileSync(kept)).toEqual(keptBytes);
+      expect(
+        new BackupService(
+          destination,
+          d.auth,
+          new DiskBudget(destination.storage.root, 0),
+        ).list(restored),
+      ).toHaveLength(1);
+      expect(
+        destination.native.prepare('SELECT value_json FROM app_settings').get(),
+      ).toEqual(
+        source.native.prepare('SELECT value_json FROM app_settings').get(),
+      );
+      expect(enrollment.secret).not.toBe('');
+      expect(
+        readdirSync(join(destination.storage.root, 'private/journals')),
+      ).toEqual([]);
+    });
+  });
+});
+const boundaries: SwapBoundary[] = [
+  'prepared',
+  'old-db',
+  'new-db',
+  'old-files',
+  'new-files',
+  'old-key',
+  'new-key',
+  'reopened',
+  'committing',
+];
+it.each(boundaries)(
+  'injected error at %s restores complete old DB/files/keys and releases write gate',
+  async (phase) => {
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      const original = note(p, f),
+        archive = await backup(p, f);
+      note(p, f, 'newer state');
+      writePrivateJson(p.storage.keyPath, {
+        version: 1,
+        keyId: randomUUID(),
+        totpEncryptionKey: randomBytes(32).toString('base64'),
+      });
+      const oldOnly = p.storage.attachmentPath(randomUUID(), 'attachment.bin');
+      mkdirSync(join(oldOnly, '..'), { recursive: true });
+      writeFileSync(oldOnly, 'old file bytes');
+      const keys = p.storage.readKeys();
+      const s = restore(p, f, {
+        checkpoint: async (current) => {
+          if (current === phase) throw Error('synthetic swap fault');
+        },
+      });
+      const summary = await upload(s, f, archive);
+      await expect(
+        s.confirm(f.identity, {
+          id: summary.id,
+          confirmed: true,
+          grant: await f.grant('restore'),
+        }),
+      ).rejects.toThrow(/previous application was restored/);
+      expect(p.storage.readKeys()).toEqual(keys);
+      expect(readFileSync(oldOnly).toString()).toBe('old file bytes');
+      expect(f.auth.authenticate(f.credential.token)).not.toBeNull();
+      expect(new NoteService(p).get(f.identity, original.noteId).revision).toBe(
+        1,
+      );
+      expect(p.native.prepare('SELECT count(*) n FROM notes').get()).toEqual({
+        n: 2,
+      });
+      expect(p.coordinator.state).toBe('open');
+      expect(p.native.pragma('integrity_check', { simple: true })).toBe('ok');
+      note(p, f, 'usable after rollback');
+      expect(readdirSync(join(p.storage.root, 'private/journals'))).toEqual([]);
+    });
+  },
+);
+it.each([...boundaries, 'verified'] as SwapBoundary[])(
+  'actual killed process at %s is deterministically recovered before reopening (verified keeps new; earlier keeps old)',
+  async (phase) => {
+    await withPersistence(async (p, root) => {
+      const f = await fixture(p);
+      note(p, f);
+      const archive = await backup(p, f);
+      note(p, f, 'post-archive old state');
+      const archivedKeys = p.storage.readKeys();
+      writePrivateJson(p.storage.keyPath, {
+        version: 1,
+        keyId: randomUUID(),
+        totpEncryptionKey: randomBytes(32).toString('base64'),
+      });
+      const oldKeys = p.storage.readKeys();
+      const oldOnly = p.storage.attachmentPath(randomUUID(), 'attachment.bin');
+      mkdirSync(join(oldOnly, '..'), { recursive: true });
+      writeFileSync(oldOnly, 'old file bytes');
+      const storage = p.storage;
+      await p.close();
+      const url = (part: string) =>
+        pathToFileURL(join(process.cwd(), 'src/lib/server', part)).href;
+      const marker = join(root, 'marker');
+      const script = `
+      import { Persistence } from ${JSON.stringify(url('db/connection.ts'))};
+      import { PrivateStorage } from ${JSON.stringify(url('storage/private-storage.ts'))};
+      import { AuthService } from ${JSON.stringify(url('auth/service.ts'))};
+      import { BackupService } from ${JSON.stringify(url('backups/service.ts'))};
+      import { RestoreService } from ${JSON.stringify(url('backups/restore.ts'))};
+      import { DiskBudget } from ${JSON.stringify(url('attachments/resources.ts'))};
+      import { readFileSync,writeFileSync } from 'node:fs';
+      const p=new Persistence(new PrivateStorage({dataDir:${JSON.stringify(root)}}));
+      const auth=new AuthService(p), disk=new DiskBudget(p.storage.root,0);
+      const s=new RestoreService(p,auth,new BackupService(p,auth,disk),disk,{checkpoint:async current=>{
+        if(current===${JSON.stringify(phase)}) { writeFileSync(${JSON.stringify(marker)},current);await new Promise(()=>{setInterval(()=>{},1000);}); }
+      }});
+      const identity=auth.authenticate(${JSON.stringify(f.credential.token)});
+      const grant=async()=>(await auth.freshAuth(identity,'restore',${JSON.stringify(password)},undefined,'192.0.2.79')).token;
+      const bytes=readFileSync(${JSON.stringify(archive)});
+      const summary=await s.upload(identity,new Request('http://localhost/upload',{method:'POST',headers:{'x-archive-bytes':String(bytes.length),'x-restore-grant':await grant()},body:bytes}));
+      await s.confirm(identity,{id:summary.id,confirmed:true,grant:await grant()});
+    `;
+      const child = spawn(
+        process.execPath,
+        ['--input-type=module', '-e', script],
+        { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true },
+      );
+      let errors = '';
+      child.stderr.on('data', (b: Buffer) => {
+        errors += b.toString();
+      });
+      const closed = new Promise<void>((resolve) =>
+        child.on('close', () => resolve()),
+      );
+      try {
+        const until = Date.now() + 12000;
+        while (
+          !existsSync(marker) &&
+          child.exitCode === null &&
+          Date.now() < until
+        )
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(existsSync(marker), errors).toBe(true);
+      } finally {
+        child.kill('SIGKILL');
+        await closed;
+      }
+      recoverRestores(storage);
+      recoverRestores(storage);
+      const reopened = new Persistence(storage);
+      try {
+        expect(
+          reopened.native.prepare('SELECT count(*) n FROM notes').get(),
+        ).toEqual({ n: phase === 'verified' ? 1 : 2 });
+        expect(
+          new AuthService(reopened).authenticate(f.credential.token) !== null,
+        ).toBe(phase !== 'verified');
+        expect(
+          reopened.native.pragma('integrity_check', { simple: true }),
+        ).toBe('ok');
+        expect(readdirSync(join(root, 'private/journals'))).toEqual([]);
+        expect(readdirSync(join(root, 'staging/restores'))).toEqual([]);
+        expect(existsSync(archive)).toBe(true);
+        expect(storage.readKeys()).toEqual(
+          phase === 'verified' ? archivedKeys : oldKeys,
+        );
+        expect(existsSync(oldOnly)).toBe(phase !== 'verified');
+      } finally {
+        await reopened.close();
+      }
+    });
+  },
+);
+async function alteredArchive(
+  archive: string,
+  root: string,
+  change: (
+    db: Database.Database,
+    manifest: Awaited<ReturnType<typeof verifyArchive>>,
+    extracted: string,
+  ) => void,
+) {
+  const extracted = join(root, randomUUID());
+  mkdirSync(extracted);
+  const manifest = await verifyArchive(
+    archive,
+    AbortSignal.timeout(10000),
+    undefined,
+    extracted,
+  );
+  const db = new Database(join(extracted, 'snapshot/pandanote.sqlite'));
+  try {
+    change(db, manifest, extracted);
+  } finally {
+    db.close();
+  }
+  for (const entry of manifest.entries) {
+    const value = await checksum(join(extracted, entry.path));
+    entry.size = value.bytes;
+    entry.sha256 = value.digest;
+  }
+  const result = join(root, `${randomUUID()}.pnb`);
+  await writeArchive(
+    result,
+    manifest,
+    (name) => join(extracted, name),
+    AbortSignal.timeout(10000),
+  );
+  return result;
+}
+it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismatched counts/files/keys/settings and newer schema BEFORE replacement; permits trusted v4 migration', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pandanote-restore-attack-'));
+  try {
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      note(p, f);
+      const archive = await backup(p, f),
+        s = restore(p, f);
+      const changes: Array<Parameters<typeof alteredArchive>[2]> = [
+        (db) => db.exec('CREATE VIEW malicious AS SELECT * FROM account'),
+        (db) =>
+          db.exec(
+            'CREATE TRIGGER evil AFTER INSERT ON sessions BEGIN DELETE FROM notes; END',
+          ),
+        (db) => db.exec('CREATE VIRTUAL TABLE unexpected USING fts5(content)'),
+        (db) => db.exec('DROP TRIGGER notes_update_guard'),
+        (db) => {
+          // Fixture-only corruption: product connections keep native defensive mode.
+          db.unsafeMode(true);
+          db.exec(
+            "INSERT INTO note_search_fts_config(k,v) VALUES ('rank','untrusted()')",
+          );
+          db.unsafeMode(false);
+        },
+        (db) => {
+          db.unsafeMode(true);
+          db.exec(
+            'UPDATE note_search_fts_data SET block=zeroblob(17000) WHERE id=1',
+          );
+          db.unsafeMode(false);
+        },
+        (db, m) => {
+          m.schemaVersion = 6;
+          db.pragma('user_version=6');
+        },
+        (db, m) => {
+          m.counts.notes++;
+        },
+        (db, _m, extracted) => {
+          writeFileSync(join(extracted, 'snapshot/key-material.json'), '{}');
+        },
+        (db) => db.exec("UPDATE app_settings SET value_json='{}'"),
+        (db) =>
+          db.exec(
+            "UPDATE account SET password_hash='$argon2id$v=19$m=999999999,t=3,p=1$x$x'",
+          ),
+        (db) => db.exec('DELETE FROM note_tags'),
+      ];
+      for (const change of changes) {
+        const malicious = await alteredArchive(archive, root, change);
+        await expect(upload(s, f, malicious)).rejects.toMatchObject({
+          code: 'invalid-backup',
+        });
+        expect(f.auth.authenticate(f.credential.token)).not.toBeNull();
+        expect(p.native.prepare('SELECT count(*) n FROM notes').get()).toEqual({
+          n: 1,
+        });
+      }
+      const older = await alteredArchive(archive, root, (db, m) => {
+        db.exec(
+          'DROP TABLE tag_mutation_receipts; DELETE FROM __pandanote_migrations WHERE version=5;',
+        );
+        db.pragma('user_version=4');
+        m.schemaVersion = 4;
+      });
+      const summary = await upload(s, f, older);
+      expect(summary.schemaVersion).toBe(4);
+      await s.confirm(f.identity, {
+        id: summary.id,
+        confirmed: true,
+        grant: await f.grant('restore'),
+      });
+      expect(p.native.pragma('user_version', { simple: true })).toBe(5);
+      expect(
+        p.native.prepare('SELECT count(*) n FROM note_search_fts').get(),
+      ).toEqual({ n: 1 });
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+it('private streamed upload admission/byte/disk/confirmation checks retain live state and unconfirmed uploads can be discarded', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    note(p, f);
+    const archive = await backup(p, f),
+      s = restore(p, f);
+    const bytes = readFileSync(archive);
+    await expect(
+      s.upload(
+        f.identity,
+        new Request('http://localhost/upload', {
+          method: 'POST',
+          headers: {
+            'x-archive-bytes': String(bytes.length),
+            'x-restore-grant': 'a'.repeat(43),
+          },
+          body: bytes,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'fresh-auth-required' });
+    const full = new RestoreService(
+      p,
+      f.auth,
+      new BackupService(p, f.auth, new DiskBudget(p.storage.root, 0)),
+      new DiskBudget(p.storage.root, 0, () => ({ total: 1, available: 0 })),
+    );
+    await expect(upload(full, f, archive)).rejects.toMatchObject({
+      code: 'storage-full',
+    });
+    const summary = await upload(s, f, archive);
+    await expect(
+      s.confirm(f.identity, {
+        id: summary.id,
+        confirmed: false,
+        grant: 'a'.repeat(43),
+      }),
+    ).rejects.toMatchObject({ code: 'validation' });
+    await s.discard(f.identity);
+    expect(s.summary(f.identity)).toBeNull();
+    expect(p.native.prepare('SELECT count(*) n FROM notes').get()).toEqual({
+      n: 1,
+    });
+    expect(readdirSync(join(p.storage.root, 'staging/restores'))).toEqual([]);
+  });
+});
+it('rejects checksum-consistent forged image bitstreams and missing referenced variants without changing live files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pandanote-restore-image-'));
+  try {
+    await withPersistence(async (p) => {
+      const f = await fixture(p),
+        id = randomUUID();
+      const image = await sharp({
+        create: { width: 20, height: 15, channels: 3, background: '#3f6b4d' },
+      })
+        .png()
+        .toBuffer();
+      const command: Extract<NoteMutation, { action: 'create' }> = {
+        action: 'create',
+        mutationId: randomUUID(),
+        content: {
+          bodyMarkdown: `![static](attachment:${id})`,
+          timelineAt: null,
+          location: null,
+          attachmentIds: [id],
+        },
+      };
+      const service = new AttachmentService(
+        p,
+        new DiskBudget(p.storage.root, 0),
+      );
+      const batch = service.initialize(f.identity, {
+        mutationId: command.mutationId,
+        requestDigest: sha(canonicalNoteMutation(command)),
+        items: [
+          {
+            id,
+            filename: 'static.png',
+            incomingBytes: image.length,
+            incomingDigest: sha(image),
+          },
+        ],
+      });
+      if (batch.state !== 'batch') throw Error('batch');
+      await service.upload(
+        f.identity,
+        batch.batch.id,
+        id,
+        new Request('http://localhost/upload', { method: 'PUT', body: image }),
+      );
+      new NoteService(p).mutate(f.identity, command);
+      const archive = await backup(p, f),
+        s = restore(p, f),
+        original = readFileSync(p.storage.attachmentPath(id, 'display.webp'));
+      const corrupt = await alteredArchive(
+        archive,
+        root,
+        (db, _manifest, extracted) => {
+          const changed = original.subarray(0, original.length - 8);
+          writeFileSync(join(extracted, `files/${id}/display.webp`), changed);
+          const trigger = (
+            db
+              .prepare(
+                "SELECT sql FROM sqlite_schema WHERE name='attachments_referenced_guard'",
+              )
+              .get() as { sql: string }
+          ).sql;
+          db.exec('DROP TRIGGER attachments_referenced_guard');
+          db.prepare(
+            'UPDATE attachments SET display_bytes=?,display_digest=? WHERE id=?',
+          ).run(changed.length, sha(changed), id);
+          db.exec(trigger);
+        },
+      );
+      await expect(upload(s, f, corrupt)).rejects.toMatchObject({
+        code: 'invalid-backup',
+      });
+      const missing = await alteredArchive(archive, root, (_db, manifest) => {
+        manifest.entries = manifest.entries.filter(
+          (entry) => entry.path !== `files/${id}/thumbnail.webp`,
+        );
+      });
+      await expect(upload(s, f, missing)).rejects.toMatchObject({
+        code: 'invalid-backup',
+      });
+      expect(
+        readFileSync(p.storage.attachmentPath(id, 'display.webp')),
+      ).toEqual(original);
+      expect(f.auth.authenticate(f.credential.token)).not.toBeNull();
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+it('drains admitted writers, rechecks revoked security identity before swap, and restart discards only unconfirmed staging', async () => {
+  await withPersistence(async (p, root) => {
+    const f = await fixture(p);
+    note(p, f);
+    const archive = await backup(p, f),
+      s = restore(p, f);
+    const summary = await upload(s, f, archive),
+      grant = await f.grant('restore');
+    let release!: () => void;
+    const writer = p.coordinator.writeAsync(async (lease) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      p.write(
+        (tx) => tx.update(account).set({ securityRevision: 2 }).run(),
+        lease,
+      );
+    });
+    const confirming = s.confirm(f.identity, {
+      id: summary.id,
+      confirmed: true,
+      grant,
+    });
+    // Attach rejection handler before releasing the admitted security change.
+    const rejected = expect(confirming).rejects.toMatchObject({
+      code: 'unauthorized',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(p.coordinator.state).toBe('draining');
+    expect(() => note(p, f, 'must not enter maintenance')).toThrow(
+      /Maintenance/,
+    );
+    release();
+    await writer;
+    await rejected;
+    expect(p.coordinator.state).toBe('open');
+    expect(p.native.prepare('SELECT count(*) n FROM notes').get()).toEqual({
+      n: 1,
+    });
+    expect(readdirSync(join(root, 'private/journals'))).toEqual([]);
+    const storage = p.storage;
+    await p.close();
+    recoverRestores(storage);
+    const restarted = new Persistence(storage);
+    try {
+      expect(
+        restarted.native.prepare('SELECT count(*) n FROM notes').get(),
+      ).toEqual({ n: 1 });
+      expect(readdirSync(join(root, 'staging/restores'))).toEqual([]);
+      expect(existsSync(archive)).toBe(true);
+    } finally {
+      await restarted.close();
+    }
+  });
+});

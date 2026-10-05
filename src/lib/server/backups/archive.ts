@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createReadStream, createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { Transform, type TransformCallback } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createGzip, createGunzip } from 'node:zlib';
@@ -155,6 +156,8 @@ export async function verifyArchive(
   path: string,
   signal: AbortSignal,
   expected?: BackupManifest,
+  destination?: string,
+  onManifest?: (manifest: BackupManifest) => void,
 ): Promise<BackupManifest> {
   const extract = tar.extract();
   let manifest: BackupManifest | undefined;
@@ -185,6 +188,7 @@ export async function verifyArchive(
         manifest = parseManifest(Buffer.concat(chunks));
         if (expected && JSON.stringify(manifest) !== JSON.stringify(expected))
           throw new Error('Manifest mismatch');
+        onManifest?.(manifest);
         inventory = new Map(manifest.entries.map((item) => [item.path, item]));
       } else {
         const item = inventory.get(header.name);
@@ -192,10 +196,33 @@ export async function verifyArchive(
           throw new Error('Unexpected entry or size');
         const hash = createHash('sha256');
         let bytes = 0;
-        for await (const chunk of entry) {
-          bytes += (chunk as Buffer).length;
-          if (bytes > item.size) throw new Error('Entry limit exceeded');
-          hash.update(chunk as Buffer);
+        if (destination) {
+          // Only exact allowlisted manifest paths reach this branch. The caller
+          // supplies a newly created private tree, never an uploaded directory.
+          const output = join(destination, ...header.name.split('/'));
+          mkdirSync(dirname(output), { recursive: true, mode: 0o700 });
+          const checked = new Transform({
+            transform(chunk: Buffer, _encoding, callback) {
+              bytes += chunk.length;
+              hash.update(chunk);
+              callback(
+                bytes > item.size ? new Error('Entry limit exceeded') : null,
+                chunk,
+              );
+            },
+          });
+          await pipeline(
+            entry,
+            checked,
+            createWriteStream(output, { flags: 'wx', mode: 0o600 }),
+            { signal },
+          );
+        } else {
+          for await (const chunk of entry) {
+            bytes += (chunk as Buffer).length;
+            if (bytes > item.size) throw new Error('Entry limit exceeded');
+            hash.update(chunk as Buffer);
+          }
         }
         if (bytes !== item.size || hash.digest('hex') !== item.sha256)
           throw new Error('Checksum mismatch');

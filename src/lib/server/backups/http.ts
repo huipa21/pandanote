@@ -18,7 +18,7 @@ export function backupErrorResponse(error: unknown): Response {
         ? 403
         : code === 'not-found'
           ? 404
-          : code === 'validation'
+          : code === 'validation' || code === 'invalid-backup'
             ? 400
             : code === 'storage-full'
               ? 507

@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Notes, drafts, search/calendar, tags, location, Settings and manual full backups are implemented; uploaded restore and release validation remain unfinished.**
+**Notes, drafts, search/calendar, tags, location, Settings, manual full backups and uploaded restore/rollback are implemented; deployment and release validation remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -25,8 +25,10 @@ restore and confirmed permanent deletion with durable lifecycle retries.
 S14 adds tag management, exact cross-status source rewrites, safe previews/retries,
 local autocomplete and explicit stale-draft tag resolution. S15 adds explicit optional
 location, card/detail popovers and validated settings/storage usage/manual cleanup.
-Backup/restore and deployment/release validation remain future steps. Do not deploy this
-unfinished app as a complete product.
+S16 adds manual full backups; S17 adds private uploaded validation, destructive
+confirmation, whole-state replacement and journaled rollback/startup recovery.
+Deployment/release validation remains S18. Do not deploy this unfinished app as a
+complete product.
 
 ## Start here
 
@@ -92,8 +94,8 @@ transaction. Use it for every domain mutation; `Persistence.close()` drains acti
 write leases and closes the database. The application now uses one lazy runtime
 instance; adapter-node's post-request `sveltekit:shutdown` event drains and closes it.
 Requests never initialize keys or migrate schema. Pending filesystem
-journals block opening/migrating data until recovery; the S17 restore state machine
-remains future work. S06 implements a restartable reference-safe attachment cleanup
+journals block opening/migrating data until recovery; runtime startup first runs
+S17 deterministic restore recovery. See [the restore runbook](ops/RESTORE_RUNBOOK.md). S06 implements a restartable reference-safe attachment cleanup
 worker; S07 note edits/permanent deletion atomically enqueue last-reference cleanup.
 Initial timezone is UTC until setup/settings explicitly accepts a browser proposal.
 
@@ -145,8 +147,8 @@ enabled. Grants expire in five minutes, are single-use, and bind an exact action
 session and security revision. Security changes sign out other devices and rotate the
 current cookie. Sign out all devices also signs out the current device. Session lifetime
 is configurable from 1–30 days (default seven); changing it revokes existing sessions.
-Backup/restore scopes are ready for their future handlers; those features are not
-implemented yet. Credentials/grants/seeds/codes are never browser-storage settings.
+Backup actions and both restore upload/confirmation consume their exact scoped
+fresh-auth grants. Credentials/grants/seeds/codes are never browser-storage settings.
 
 ### Operator-only recovery after losing password/MFA access
 
@@ -307,7 +309,7 @@ restart, with an explicit Retry queued cleanup action; partial/failing cleanup i
 reported, not falsely confirmed. Local drafts/
 blobs remain, but an abandoned frozen retry no longer works: keep its originals and
 use **Edit a separate copy** to post with fresh IDs. Manual full backup controls are
-available (S16); uploaded restore remains S17. Server-local storage is not a disaster backup.
+available (S16), with uploaded validation and restore/rollback (S17). Server-local storage is not a disaster backup.
 
 ## Manual full backups (S16)
 
@@ -348,8 +350,32 @@ listed; at 1,000 retained jobs, delete old entries before creating another.
 `npm run backups:benchmark` creates only temporary synthetic 10k-note/32-MiB-random-
 file data and measures hardlink/copy capture, wall time, sampled disk/RSS and read/
 write responsiveness. Results and Linux validation are recorded in `docs/PROGRESS.md`.
-Actual uploaded validation/restore/rollback and an independent-instance restore
-are **not implemented/claimed by archive creation**; these remain S17/S18.
+
+## Uploaded full restore (S17)
+
+Select a `.pnb` file in **Settings → Backup & Restore**, authenticate to upload and
+validate privately, and inspect the summary. Nothing is replaced at this stage.
+Choose Replace application from backup, acknowledge the destructive replacement,
+and authenticate again. This replaces, never merges, notes/files/settings/account/
+MFA/portable keys. Search is rebuilt; all old sessions/challenges are invalidated.
+Sign in with the archived password and authenticator/unconsumed recovery code.
+Destination origin/configuration and unrelated completed archives remain; their
+verified catalog is rebuilt. Browser-local drafts/blobs remain untouched and must
+recheck restored server bases/receipt state, never auto-upload.
+
+Format/checksum/known-schema/integrity/key/reference/size/space validation runs
+before replacement. Exact known schema v4 can migrate on disposable staging to v5;
+unknown/newer or altered schemas refuse safely without executing supplied SQL.
+Native inspection is isolated with a hard deadline, and staged semantic validation/
+search rebuild yields between bounded batches. A private fsynced journal plus old
+DB/files/keys provides rollback; startup recovers before opening DB or keys.
+Unconfirmed uploads survive Settings reload but are discarded on application restart.
+If a confirmation response is lost, sign in and inspect actual state before retrying.
+
+See **[Restore and operator recovery runbook](ops/RESTORE_RUNBOOK.md)** for the
+replacement-VPS workflow, streaming transport/disk/validation bounds, deterministic
+crash phases and stopped-app recovery instructions. Real-domain deployment and
+release-scale independent browser restore/performance/audit drills remain S18.
 
 ## Private attachments and bounded images (S06)
 
@@ -375,8 +401,9 @@ Only processed image WebP can be downloaded, never an original. Queued byte clea
 rechecks clone/draft/Trash references and survives restart; it cannot remove a
 still-referenced attachment. S15 adds validated storage controls and usage/manual cleanup.
 
-Set adapter `BODY_SIZE_LIMIT=512M` as in `.env.example` and configure the eventual
-reverse proxy for streaming uploads. The adapter otherwise defaults to 512 KiB;
+Set adapter `BODY_SIZE_LIMIT=64G` as in `.env.example` for full-archive restores,
+and configure the eventual reverse proxy for streaming uploads. Ordinary file
+and image uploads retain their smaller domain limits. The adapter otherwise defaults to 512 KiB;
 server byte/pixel limits still apply independently. Disk reserve is max(5 GiB,
 10% filesystem capacity), optionally overridden by operator `DISK_RESERVE_BYTES`.
 Concurrent uploads reserve estimated peak space rather than spending OS reserve.

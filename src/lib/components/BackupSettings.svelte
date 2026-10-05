@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Modal from './Modal.svelte';
+  import RestoreSettings from './RestoreSettings.svelte';
   import { idSchema } from '#lib/shared/domain.ts';
   import type { BackupJob } from '#lib/shared/backups.ts';
   import type { FreshAuthScope } from '#lib/shared/auth.ts';
@@ -175,8 +176,8 @@
   <p class="help">
     Only manual full backups are created. A server-local copy does not protect
     against losing the VPS: download it and keep it safely elsewhere.
-    Browser-local drafts and files are not included. Restore upload and
-    replacement will be implemented in S17; restore is not available yet.
+    Browser-local drafts and files are not included. Uploaded restores replace
+    application data only after validation and explicit fresh-auth confirmation.
   </p>
   <div class="actions">
     <button
@@ -225,6 +226,7 @@
       </li>
     {/each}
   </ul>
+  <RestoreSettings />
   <form
     bind:this={downloadForm}
     action={downloadPath}

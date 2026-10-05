@@ -9,6 +9,8 @@ import { runAttachmentCleanup } from './attachments/cleanup.ts';
 import { authPolicy, type AuthPolicy } from './auth/policy.ts';
 import { BackupService } from './backups/service.ts';
 import { DiskBudget } from './attachments/resources.ts';
+import { RestoreService } from './backups/restore.ts';
+import { recoverRestores } from './backups/replacement.ts';
 
 export interface Runtime {
   persistence: Persistence;
@@ -17,6 +19,7 @@ export interface Runtime {
   notes: NoteService;
   tags: TagService;
   backups: BackupService;
+  restores: RestoreService;
   ready: Promise<void>;
   policy: AuthPolicy;
   close: () => Promise<void>;
@@ -27,13 +30,16 @@ let current: Runtime | undefined;
 export function getRuntime(): Runtime {
   if (current) return current;
   const policy = authPolicy(process.env);
-  const persistence = new Persistence(new PrivateStorage());
+  const storage = new PrivateStorage();
+  recoverRestores(storage);
+  const persistence = new Persistence(storage);
   try {
     readSettings(persistence);
     const auth = new AuthService(persistence);
     const disk = new DiskBudget(persistence.storage.root);
     const attachments = new AttachmentService(persistence, disk);
     const backups = new BackupService(persistence, auth, disk);
+    const restores = new RestoreService(persistence, auth, backups, disk);
     const notes = new NoteService(persistence);
     const tags = new TagService(persistence);
     const ready = runAttachmentCleanup(persistence);
@@ -50,6 +56,7 @@ export function getRuntime(): Runtime {
       notes,
       tags,
       backups,
+      restores,
       ready,
       policy,
       close,
