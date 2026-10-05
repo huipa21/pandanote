@@ -27,6 +27,7 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts",
     "search:reindex": "node --env-file-if-exists=.env scripts/reindex.ts",
     "search:benchmark": "node scripts/search-benchmark.ts",
+    "backups:benchmark": "node scripts/backups-benchmark.ts",
     "auth:setup-token": "node --env-file-if-exists=.env scripts/setup-token.ts",
     "auth:benchmark": "node scripts/auth-benchmark.ts",
     "images:benchmark": "node scripts/images-benchmark.ts",

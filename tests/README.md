@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar, detail, tags and settings (S00–S15)
+# Foundation through manual full backups (S00–S16)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -17,6 +17,31 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S16 coverage (BACKUP-01/02, AUTH-04/05, FILE-01)
+
+- `unit/backups.test.ts`: strict manifest scope/version/path/count/size/duplicate
+  contracts, confirmed commands and bounded unique native download-form fields.
+- `integration/backups.test.ts`: actual WAL snapshot/SQLite integrity/FKs, referenced
+  files across published/server-draft/Trash, retained note/tag receipts/history,
+  excluded runtime/upload/search/catalog data, byte-identical protected download,
+  wrong/reused scopes, revoked sessions, create retry, confirmed deletion and archive
+  non-nesting. Copy and hardlink capture survive live last-reference deletion;
+  actual streamed uploads drain, new mutations fail, reads remain available.
+  Portable encrypted MFA/recovery state decrypts with archived keys; real Sharp
+  variants match and originals are absent. Space/timeout/finalization/security-race
+  failures preserve live data. A real child is killed after archive verification;
+  restart fails its job/cleans artifacts and retains the usable live DB. The product
+  no-write verifier rejects truncation/checksum/path/duplicate/PAX/GNU/link/device
+  inputs; this does not claim S17 extraction/DB trust/restore/rollback.
+- `e2e/backups.test.ts`: built Settings fresh-password failures/create/status,
+  actual browser native POST download with exact server bytes, anonymous/ordinary/
+  GET/cross-origin rejection, explicit deletion, local-draft retention, lost-create-
+  response/reload identity discovery, and mobile dialog/overflow. No mock success.
+- `npm run backups:benchmark`: isolated synthetic 10k multilingual notes in all
+  statuses plus 32 MiB incompressible file; hardlink and forced-copy timing, sampled
+  logical/unique disk bytes, parent RSS/worker maxRSS and ongoing read/write probes.
+  No deployment content/credentials are read or logged. Actual results in PROGRESS.
 
 ## S15 coverage (GEO-01, DRAFT-01/02/03, FILE-01, AUTH-04/05, UI-01/02/03)
 

@@ -6,10 +6,11 @@ import { isRaster } from './images.ts';
 
 export async function checksum(
   path: string,
+  signal?: AbortSignal,
 ): Promise<{ bytes: number; digest: string }> {
   const hash = createHash('sha256');
   let bytes = 0;
-  for await (const chunk of createReadStream(path)) {
+  for await (const chunk of createReadStream(path, { signal })) {
     bytes += chunk.length;
     hash.update(chunk);
   }

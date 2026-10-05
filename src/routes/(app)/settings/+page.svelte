@@ -8,6 +8,7 @@
   import CalendarSettings from '#lib/components/CalendarSettings.svelte';
   import SecuritySettings from '#lib/components/SecuritySettings.svelte';
   import StorageSettings from '#lib/components/StorageSettings.svelte';
+  import BackupSettings from '#lib/components/BackupSettings.svelte';
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
   let { data } = $props();
@@ -134,6 +135,7 @@
   </p>
 </section>
 <StorageSettings initial={data.storageLimits} timezone={data.timezone} />
+<BackupSettings />
 
 <style>
   h1 {

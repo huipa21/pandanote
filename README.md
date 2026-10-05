@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Notes, drafts, search/calendar, tags, location and non-backup Settings are implemented; backup/restore and release validation remain unfinished.**
+**Notes, drafts, search/calendar, tags, location, Settings and manual full backups are implemented; uploaded restore and release validation remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -306,8 +306,50 @@ including Trash. Nothing expires automatically. Queued byte deletion survives
 restart, with an explicit Retry queued cleanup action; partial/failing cleanup is
 reported, not falsely confirmed. Local drafts/
 blobs remain, but an abandoned frozen retry no longer works: keep its originals and
-use **Edit a separate copy** to post with fresh IDs. Backup/restore controls are
-not implemented yet (S16/S17), and server-local storage is not a disaster backup.
+use **Edit a separate copy** to post with fresh IDs. Manual full backup controls are
+available (S16); uploaded restore remains S17. Server-local storage is not a disaster backup.
+
+## Manual full backups (S16)
+
+In **Settings → Backup & Restore**, create a full backup, monitor its state, download
+completed archives, and explicitly delete old backups/failed jobs. Create/download/
+delete each require your password and a new authenticator or recovery code when MFA
+is enabled. Downloads use a native POST form (not an archive-sized browser Blob),
+with grants only in the request body. A failed download request opens a safe error
+separately; check browser downloads before assuming success.
+
+Archives are **unencrypted** `.pnb` regular-USTAR tar.gz files. They contain private
+notes (including server drafts and Trash), referenced processed images/unchanged
+files, tags/history and included-note/tag receipts, settings, password/MFA/recovery
+state and portable authentication keys. Keep downloads protected elsewhere. A copy
+on the same VPS does **not** protect against losing that VPS. There is no separate
+backup passphrase and no timer/automatic creation.
+
+Browser drafts/blobs, pending or unreferenced uploads, sessions/challenges/rate/setup
+credentials, cleanup/backup catalogs, derived search, old archives, staging and
+machine/domain/TLS/application binaries are excluded. Capturing drains existing
+writers and briefly pauses new mutations, with a retryable maintenance response;
+reads continue. SQLite uses its online backup API (including WAL), not a live-main-
+file copy. Captured files are immutable hardlinks with bounded copy fallback. The
+gate releases before isolated staged-DB sanitization/compaction, hashing, streaming
+compression and verification. Only a verified, fsynced, atomically renamed archive
+is published as complete. Failed/interrupted jobs remove incomplete artifacts, not
+live data, and never resume or create another backup automatically.
+
+Format-v1 safety limits are 100,000 total entries, 16 MiB manifest, <8 GiB per payload
+and 64 GiB payload/compressed archive. Capture has a 30-second drain and 120-second
+capture deadline, with a ten-minute overall job deadline. Disk estimates reserve
+worst-case copy/compaction/incompressible archive space against the same budget as
+uploads. Oversize/insufficient space fails clearly; reduce data/free space or ask
+for an operator-assisted format upgrade rather than changing paths through the UI.
+Checksums detect corruption, **not** authenticity or encryption. Newest 100 jobs are
+listed; at 1,000 retained jobs, delete old entries before creating another.
+
+`npm run backups:benchmark` creates only temporary synthetic 10k-note/32-MiB-random-
+file data and measures hardlink/copy capture, wall time, sampled disk/RSS and read/
+write responsiveness. Results and Linux validation are recorded in `docs/PROGRESS.md`.
+Actual uploaded validation/restore/rollback and an independent-instance restore
+are **not implemented/claimed by archive creation**; these remain S17/S18.
 
 ## Private attachments and bounded images (S06)
 

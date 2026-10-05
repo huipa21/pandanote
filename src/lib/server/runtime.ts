@@ -7,6 +7,8 @@ import { NoteService } from './notes/service.ts';
 import { TagService } from './tags/service.ts';
 import { runAttachmentCleanup } from './attachments/cleanup.ts';
 import { authPolicy, type AuthPolicy } from './auth/policy.ts';
+import { BackupService } from './backups/service.ts';
+import { DiskBudget } from './attachments/resources.ts';
 
 export interface Runtime {
   persistence: Persistence;
@@ -14,6 +16,7 @@ export interface Runtime {
   attachments: AttachmentService;
   notes: NoteService;
   tags: TagService;
+  backups: BackupService;
   ready: Promise<void>;
   policy: AuthPolicy;
   close: () => Promise<void>;
@@ -28,19 +31,25 @@ export function getRuntime(): Runtime {
   try {
     readSettings(persistence);
     const auth = new AuthService(persistence);
-    const attachments = new AttachmentService(persistence);
+    const disk = new DiskBudget(persistence.storage.root);
+    const attachments = new AttachmentService(persistence, disk);
+    const backups = new BackupService(persistence, auth, disk);
     const notes = new NoteService(persistence);
     const tags = new TagService(persistence);
     const ready = runAttachmentCleanup(persistence);
     let closing: Promise<void> | undefined;
     const close = (): Promise<void> =>
-      (closing ??= ready.then(() => persistence.close()));
+      (closing ??= ready.then(async () => {
+        await backups.wait();
+        await persistence.close();
+      }));
     current = {
       persistence,
       auth,
       attachments,
       notes,
       tags,
+      backups,
       ready,
       policy,
       close,
