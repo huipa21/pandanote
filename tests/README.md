@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar, detail and tags (S00–S14)
+# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar, detail, tags and settings (S00–S15)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -17,6 +17,34 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S15 coverage (GEO-01, DRAFT-01/02/03, FILE-01, AUTH-04/05, UI-01/02/03)
+
+- `unit/location-storage.test.ts`: decimal/range/empty/zero/accuracy/label validation,
+  pure explicit OpenStreetMap URL, strict settings bounds and activity-bound cleanup
+  confirmation/ID/duplicate/path-injection rejection.
+- `integration/storage.test.ts`: actual SQLite/settings merges, native Sharp outputs
+  at configured edges/qualities, server byte/pixel limits, session revocation,
+  distinct shared/Trash/pending bytes and private filesystem measurements. Explicit
+  cleanup confirmation/quiet interval/activity/references, active streamed upload,
+  all-or-none stale selection, queue-fault rollback, exact retry and real persistence
+  restart after worker-admission failure. Files/integrity/FKs are actually inspected.
+- `e2e/location-storage.test.ts`: no automatic permission/premature upload, explicit
+  browser geolocation with genuine test-reported accuracy, manual edit/null accuracy,
+  denied/timeout/canceled late results, zero coordinates, reload/local-quota retention,
+  Post/Save changes/removal, card/detail popover, exact copy/failure and no external
+  map request before explicit Open map. Persisted cross-device storage controls,
+  failed-choice retention, private/CSRF/injection and actual HTTP/local-selection
+  limit enforcement, protected recent uploads, confirmed quiet cleanup, queued-job
+  retry and retained local work. Synthetic timestamps are aged for eligibility; a
+  synthetic committed-queue/crash fixture exercises explicit worker retry. Uploads,
+  measurement and deletion still use the real application endpoints/files.
+- The complete security, drafts/posting/conflict/tag/search/calendar suites remain
+  regression gates. Short keyboard/safe-area controls and a complete visible text
+  line remain required with the new toolbar action; reviewed screenshots do not
+  replace geometry assertions. Linux browser scope now includes S15. Physical
+  permission UX, IME/read-aloud, Linux shell baselines and real-VPS/full-restore
+  release audits remain S18, not falsely claimed by browser overrides.
 
 ## S14 coverage (TAG-01/02/03, NOTE-03, SEARCH-03, DRAFT-02, UI-02/03)
 

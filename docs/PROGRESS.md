@@ -2,20 +2,20 @@
 
 ## Current state
 
-- **Phase:** Tag management and stale local tags; product implementation remains unfinished.
-- **Completed steps:** S00–S14 — **done**.
-- **Current requested step:** S14 — **done**. Next unfinished step: S15 — Geolocation and complete settings/storage UI.
-- **Repository:** clean starting HEAD `3d2bdae` (committed S13). Prior work preserved; S14 changes are uncommitted. No commit created by this agent.
-- **Implemented:** searchable usage-count management with revision/body/history-bound previews; exact rename/case/merge/removal across published, server draft and Trash; atomic joins/revisions/FTS/history/idempotent receipts; durable management retry; explicit pre-upload local tag choices and generation-bound recreation; frozen-copy file retention; local keyboard/touch autocomplete; generation-aware timeline/status/history invalidation. Schema v5 / 19 domain tables; dependencies and lockfile unchanged. Location/storage and full backups remain later steps.
-- **Validation:** Windows check/lint/build, 90 unit + 120 integration and all 74 Chromium tests pass with unchanged normal shell screenshot comparisons. Linux clean `npm ci` with verified S13 Linux native/browser caches passes the same common gates and all 58 scoped Chromium tests. Desktop tag-preview/mobile removal screenshots reviewed. Intermediate failures/cache provenance are recorded below; cold SQLite downloads were not retried. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS and full restore audits remain later gates.
+- **Phase:** Geolocation and complete non-backup settings/storage UI; product implementation remains unfinished.
+- **Completed steps:** S00–S15 — **done**.
+- **Current requested step:** S15 — **done**. Next unfinished step: S16 — Manual full backup creation/list/download.
+- **Repository:** clean starting HEAD `cd523e9` (committed S14). Prior work preserved; S15 changes are uncommitted. No commit created by this agent.
+- **Implemented:** explicit local manual/browser location and card/detail popovers; validated persisted storage/image/note limits, supported timezone picker, distinct storage measurements and confirmed activity/reference-safe unused-attempt cleanup. Existing fresh-auth security/session controls retained. Schema v5 / 19 domain tables; dependencies and lockfile unchanged. Backup/restore remain S16/S17.
+- **Validation:** Milestone C passed: Windows check/lint/build, 92 unit + 126 integration and all 81 Chromium tests, with unchanged normal shell baselines. Linux clean `npm ci` using verified S14 native/browser caches passes the same common gates and all 65 scoped Chromium tests. Location/popover/mobile-storage/cleanup and short safe-area screenshots reviewed. Intermediate failures are recorded below; cold native downloads were not retried. Physical-device/permission/IME, assistive technology, Linux shell baselines, real-domain/VPS and full restore audits remain release gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, required planning docs and the latest S14 handoff. Relevant contracts: ARCHITECTURE 4/6/7.4/9.1/10.4/12.5, IMPLEMENTATION_PLAN S15, ACCEPTANCE_TESTS GEO-01/FILE-01/UI-02/03/AUTH-04.
-2. Inspect git; preserve uncommitted S14 work. Read shared location/settings/attachment limits, Settings/calendar/security forms, composer Date options/workspace, detail/card location rows, AttachmentService unused-ready inventory/disk budget/cleanup and settings repository.
-3. Next task: **S15**. Implement explicit manual/browser location editor plus card/detail popover with coordinates/accuracy/copy and explicit external-map opening. Keep geolocation off until user activation; preserve null manual accuracy and retain local edits. Then validated persisted upload/image/storage controls and reference-safe explicit cleanup. Backup controls remain S16/S17, not placeholders marked complete.
-4. First validation: `npm run check && npm run test:integration`; retain tag/status/detail/posting/search/calendar regressions and full browser gates at Milestone C. Runtime needs pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and OpenSSL. Run `npm run db:migrate` with app stopped for schema v5. Linux cached clean ci is verified; cold native downloads remain a deployment check. Keep synthetic runtime data/diagnostics ignored.
+1. Read `AGENTS.md`, required planning docs and the latest S15 handoff. Relevant contracts: ARCHITECTURE 4/7.4/12.5/13/15, IMPLEMENTATION_PLAN S16, ACCEPTANCE_TESTS BACKUP-01/02, AUTH-04/05 and FILE-01.
+2. Inspect git; preserve uncommitted S15 work. Read persistence/coordinator/lease, private storage/key material, DB/schema/receipts, auth fresh scopes, attachment immutable variants/cleanup/disk budget, StorageSettings and the archive spikes/raw-header guard.
+3. Next task: **S16**. Define the versioned private `.pnb` manifest and consistent online SQLite/file/key snapshot first, with actual concurrent-write/failure/native tests. Implement manual fresh-auth create/list/status/download/delete and sensitive unencrypted-archive warnings. Exclude sessions/challenges/local drafts/pending uploads/old archives; retain included-note and tag-history receipts. No automatic scheduler/passphrase or restore placeholder marked complete.
+4. First validation: `npm run check && npm run test:integration`; retain all S15/security/posting/lifecycle regressions. Runtime needs pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and OpenSSL. Run `npm run db:migrate` with app stopped for schema v5. Linux cached clean ci is verified; cold native downloads remain a deployment check. Keep synthetic runtime data/diagnostics ignored.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -38,7 +38,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S12  | Detail/edit/conflict/image viewer  | Done        |
 | S13  | Drafts and Trash screens           | Done        |
 | S14  | Tag administration                 | Done        |
-| S15  | Location/settings/storage          | Not started |
+| S15  | Location/settings/storage          | Done        |
 | S16  | Manual backup/create/download      | Not started |
 | S17  | Uploaded restore and rollback      | Not started |
 | S18  | VPS deployment/release validation  | Not started |
@@ -2275,3 +2275,150 @@ Final documentation-close checks: `npm run db:generate -- --name=verify_no_drift
 passed (19 tables, no schema drift/nothing generated); `npm exec -- prettier --write
 docs/ARCHITECTURE.md docs/PROGRESS.md`, `npm run lint`, `git diff --check` and
 `test ! -e .e2e-data` passed. Only documentation changed after the full code gates.
+
+### Session 2026-10-05 — S15 geolocation and complete non-backup Settings/storage
+
+**State: done. Milestone C passed.** Started clean at `cd523e9` (committed S14).
+Prior implementation and all handoff history preserved. No commit created. S16–S18
+and product release remain unfinished; schema v5/19 domain tables, dependency pins
+and lockfile unchanged.
+
+Implemented / touched files:
+
+- `shared/location.ts`, `components/{LocationOptions,LocationPopover}.svelte`,
+  Composer/NoteCard/NoteDetail and central Permissions-Policy: explicit current
+  location or decimal manual coordinates/optional label, strict ranges/null manual
+  accuracy, edit/remove, staged modal fields, ten-second current-position timeout,
+  denial/unavailability/HTTPS feedback and late/canceled-result guards. Location
+  metadata uses normal local revision/quota/frozen-post recovery; never auto-requested
+  or uploaded before Post/Save changes. Missing location renders no row. Native
+  small nonmodal popover offers escaped label/coordinates/known accuracy, exact copy
+  and failure feedback, and explicit new-tab OpenStreetMap action; no embed/geocoder.
+- `shared/storage.ts`, `server/settings/{repository,storage}.ts`, private settings
+  storage GET/PATCH/cleanup endpoints, Settings loader/page/StorageSettings and
+  shared layout/workspace/model: nine bounded persisted image/upload/note controls,
+  atomic session-rechecked merges, retained failed choices and cross-device defaults.
+  Native/server bounds remain authoritative. Local selection follows saved byte/count
+  limits, and local descriptors now accept the existing 500 MiB hard ceiling without
+  making prior recovery undecodable when settings shrink. Full supported-IANA
+  datalist/manual entry complements explicit browser-zone proposal. Existing fresh
+  security/MFA/recovery/session/revoke-all actions remain functional and tested.
+- Distinct live/server-draft, Trash-only, unreferenced/queued attachment byte totals
+  count shared files once; filesystem DB/WAL/SHM/staging/archive/free/reserve readings
+  expose no paths/content/keys. Measurements are bounded snapshots, not whole-OS
+  accounting or browser-draft backup. Small byte counts are displayed without
+  misleading rounding to zero. No arbitrary paths/reserve/origin/security-field
+  injection through limit settings.
+- `AttachmentService.cleanupUnused`: confirmed account-owned whole-batch cleanup,
+  observed activity binding, conservative 24-hour quiet interval, active-upload and
+  published/draft/Trash/clone reference checks. Resume and admitted transfers renew
+  protection, including duplicate/failed transfers. All selection abandonment/jobs
+  commit together or roll back; exact abandoned-batch retry is safe. Existing
+  exclusive durable worker deletes bytes/rechecks references and survives restart.
+  Confirmed Retry queued cleanup reruns only already-queued IDs. Local drafts/blobs
+  remain; UI warns an abandoned frozen attempt requires a separate editable copy
+  with fresh local IDs. No timer, automatic expiry or automatic Trash deletion.
+- `attachments/files.ts`: built HTTP limit tests found unconditional reader cancel
+  destroyed the adapter-node socket before a validation response. Ordinary rejection
+  now stops disk writes/releases the reader; inspected Kit 3 `setResponse` drains
+  unread bytes after responding. Receive deadlines still cancel; byte/pixel/hash,
+  native queue/deadline, transport and temporary-file policies remain unchanged.
+  Appearance HTTP writes now also use the bounded JSON deadline and transactional
+  session recheck rather than relying only on earlier hook authorization.
+- `tests/unit/location-storage.test.ts`, `integration/storage.test.ts`,
+  `e2e/location-storage.test.ts` and updated local-descriptor unit assertion: two
+  unit, six real SQLite/filesystem/native and seven built-browser scenarios covering
+  GEO-01/DRAFT-01–03/FILE-01/AUTH-04/05/UI-01–03. Actual browser geolocation reports
+  synthetic accuracy; manual/null/zero/denial/timeout/quota/reload/Post/removal,
+  clipboard and explicit-only map requests are verified. Real bounds/shared bytes,
+  stale/active/referenced cleanup, rollback, exact retry and restart recovery pass.
+  A synthetic committed-queue/crash fixture exercises the actual browser retry
+  endpoint/worker, not a fake deletion response. Full prior feature regressions pass.
+- README, PRODUCT_SPEC safety-default note, ARCHITECTURE 15, tests README, Linux
+  browser-image scope and this handoff. Four new desktop/mobile screenshots plus
+  the short safe-area editor were opened/reviewed; existing shell baselines were
+  not regenerated. No large UI kit, external location service or public file route.
+
+Commands actually run:
+
+Host uses the existing explicit Node **24.21.0** executable/PATH and npm **11.12.1**
+N/C CLI from S00, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Final full host and Linux
+runs were sequential; failed/partial gates below are not counted as passes.
+
+| Command                                                                                               | Final actual outcome                                                                               |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Git/status/log, full required planning/source and installed Kit adapter reads                         | Clean S14 preserved; socket/draining API verified against installed source                         |
+| `npm run check && npm run test:integration` (baseline)                                                | PASS, zero diagnostics and original 120 integration tests                                          |
+| `npm exec -- prettier --write <touched text files>`                                                   | PASS final; repeated when formatting required                                                      |
+| `npm run check` / `npm run lint`                                                                      | PASS final, zero errors/warnings, ESLint/Prettier clean                                            |
+| `npm run test:unit`                                                                                   | PASS final, 19 files / 92 tests                                                                    |
+| Targeted Vitest storage and affected location/storage/touch Playwright runs                           | PASS after corrections below; production/native paths exercised                                    |
+| `npm run test:integration`                                                                            | PASS final, 23 files / 126 actual native/SQLite/filesystem/server tests                            |
+| `npm run build`                                                                                       | PASS final standalone production artifact; runtime origin/CSP/server-only boundaries retained      |
+| `npm run test:e2e`                                                                                    | PASS final, build + all 81 Chromium tests, unchanged normal shell baselines                        |
+| `podman image inspect pandanote-s14-browser-cached --format '{{.Id}}'`                                | Verified Linux cache provenance `6e6718b49755becf86868fcbd8650fdc79c700ed340e0c10d3bbfd42ab3de795` |
+| `podman build -f .browser-spike/Dockerfile.s15-cached -t pandanote-s15-browser-cached .`              | PASS clean Linux ci with own native artifacts from verified caches; zero vulnerabilities           |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s15-browser-cached` | PASS Linux check/lint/build, 92 unit + 126 integration, all 65 scoped Chromium tests               |
+| `git diff --check`; `test ! -e .e2e-data`                                                             | PASS, no private host fixture left; only autocrlf informational warnings                           |
+
+Passing Linux code-gate image (precedes only this documentation close update):
+`de07d2b23f89dc7eea1402f895554c9c238cc6ebceee0e4861171cf79b19a26f`.
+Ignored validation Dockerfile uses `FROM localhost/pandanote-s14-browser-cached:latest`,
+`WORKDIR /app`, TLS verification 1, `COPY . .`, `RUN npm ci`. CMD runs Node/npm
+versions, check/lint/unit/integration/build and E2E auth/calendar/drafts/detail/posting/
+timeline/uploads/search-navigation/zsearch/status-notes/tag-management/location-storage.
+Clean ci reinstalls modules from Linux-native caches, never Windows node_modules.
+Same pinned bookworm/glibc Node base, npm 11.19.0, WSL2 VM and 2-CPU/4-GB container
+context as S14. Actual SQLite/Sharp/archive capability probes pass; not full archive
+restore, target-VPS performance or a cold download. Cold prebuild networking/compiler
+fallback from S11/S12 was not retried; deployment verification remains S18. Linux
+scope excludes unreviewed OS-specific shell baselines, not missing native tests.
+
+Intermediate failures / corrections:
+
+- Initial lint rejected a Svelte `RequestInit` global type; used the installed fetch
+  signature. Adding popover Escape handling required a focusable dialog tabindex;
+  warning was corrected. A formatting pass needed repetition. Exact-text edit misses
+  applied nothing and were safely retried. Final diagnostics are zero.
+- First new browser run: 1/5 passed; four failures were ambiguous status/alert selectors
+  from existing progress/appearance regions. Scoped actual feedback. Second run:
+  2/5 passed, with two obsolete saved-message assumptions and the real rejected-upload
+  socket reset. Tests now assert Saved on server; the adapter cancellation defect was
+  fixed as described above and genuine HTTP 400/local-limit validation now passes.
+- First full 80-test gate: 77 passed/3 failed. A test clipboard override lacked
+  `configurable: true`, a desktop-only test helper was invoked after its mobile
+  screenshot, and the new toolbar's location label wrapped on the shortest safe-area
+  viewport, leaving only 18 px versus the required 25.6 px text line. Corrected the
+  two test assumptions and made the short-screen trigger compact/nonwrapping; kept
+  the original full-line/control/focus assertions. Affected tests and full 80-test
+  rerun passed. Visual review then improved tiny-byte display and queued-cleanup
+  recovery, added the seventh case, and repeated complete host/Linux gates: 81/81
+  Windows and 65/65 scoped Linux pass.
+- Existing large lazy-chunk/native-install-script/upstream deprecation warnings
+  remain visible. No missing browser/native dependency, failed gate, loosened auth
+  limit, baseline rewrite or security exception was treated as a pass.
+
+Decisions / remaining scope / exact next task:
+
+- ARCHITECTURE 15 documents whole-batch/activity/24-hour protection, local hard-bound
+  adjustment, storage measurements, explicit map behavior and adapter error handling.
+  PRODUCT_SPEC records the cleanup interval as an implementation safety default,
+  justified by protecting inter-request active/recoverable posting attempts. Nothing
+  expires automatically; no major scope/stack/security change or new dependency.
+- No known reproducible S15 defect or unfinished S15 gate remains. Browser-local
+  data is plaintext/evictable and not backed up. Physical phone/permission prompt/IME,
+  assistive technology, Linux shell baselines, real-domain/VPS load/cold installation
+  and independent full restore still belong to later release gates. Backup/restore
+  are not placeholders marked complete; the application is not a finished release.
+- **Next: S16.** Read ARCHITECTURE 13/15/12.5/7.4, persistence/write coordinator,
+  private storage/keys, schema/receipt tables, disk budget/immutable files/cleanup,
+  StorageSettings and archive spikes. First implement versioned `.pnb` manifest and
+  consistent online SQLite/file/key capture with bounded maintenance/failure tests,
+  then fresh-auth manual create/list/status/download/delete. Preserve included-note
+  and tag-history receipts; exclude sessions/local drafts/pending uploads/old archives.
+  First validation: `npm run check && npm run test:integration`, then affected/full
+  browser and real Linux archive/native gates. No automatic backup scheduler.
+
+Final documentation-only close: `npm exec -- prettier --write docs/PROGRESS.md`,
+`npm run lint`, `git diff --check` and `test ! -e .e2e-data` passed. No application
+code changed after the final full host/scoped Linux code gates.

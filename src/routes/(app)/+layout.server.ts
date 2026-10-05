@@ -8,6 +8,7 @@ import {
 } from '#lib/shared/calendar.ts';
 import { publishedTags } from '#lib/server/notes/timeline.ts';
 import { sql } from 'drizzle-orm';
+import { storageLimitsFrom } from '#lib/shared/storage.ts';
 
 export const load: LayoutServerLoad = ({ locals, depends, url }) => {
   depends('pandanote:timeline', 'pandanote:calendar');
@@ -33,6 +34,7 @@ export const load: LayoutServerLoad = ({ locals, depends, url }) => {
     ),
     account: locals.identity!.account,
     timezone: settings.timezone,
+    storageLimits: storageLimitsFrom(settings),
     tagSuggestions: locals.runtime!.persistence.db.all<{
       key: string;
       display: string;

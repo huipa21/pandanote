@@ -1,4 +1,6 @@
 import { DraftRepository } from './repository.ts';
+import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
+import { storageLimitsFrom, type StorageLimits } from '#lib/shared/storage.ts';
 import { SvelteMap } from 'svelte/reactivity';
 import { IndexedDraftBlobs } from './blobs.ts';
 import {
@@ -89,6 +91,7 @@ export class DraftWorkspace {
   private urlGeneration = 0;
   readonly accountId: string;
   timezone = $state('UTC');
+  limits = $state<StorageLimits>(storageLimitsFrom(DEFAULT_SETTINGS));
   constructor(accountId: string, timezone = 'UTC') {
     this.accountId = accountId;
     this.timezone = timezone;
@@ -360,10 +363,20 @@ export class DraftWorkspace {
         if (!this.repository || !this.active || this.disposed) return false;
         for (const file of files) {
           const image = await localImage(file);
-          if (file.size > (image ? 20 : 50) * 1024 * 1024)
+          if (
+            this.active.attachments.length >= this.limits.maxAttachmentsPerNote
+          )
             throw new DraftError(
               'invalid',
-              `File is too large. Local limits: images 20 MB, other files 50 MB.`,
+              'This draft has reached the configured attachment count limit.',
+            );
+          if (
+            file.size >
+            (image ? this.limits.imageInputMaxBytes : this.limits.fileMaxBytes)
+          )
+            throw new DraftError(
+              'invalid',
+              'File exceeds the saved upload limit. Choose a smaller file or change the Storage setting.',
             );
           const descriptor: DraftAttachment = {
             id: crypto.randomUUID(),

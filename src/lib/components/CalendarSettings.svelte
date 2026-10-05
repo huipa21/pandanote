@@ -9,6 +9,14 @@
   let timezone = $state(untrack(() => initial.timezone));
   let weekStart = $state<0 | 1>(untrack(() => initial.weekStart));
   let detected = $state('');
+  let zones = $state([
+    'UTC',
+    'Asia/Hong_Kong',
+    'Asia/Tokyo',
+    'America/New_York',
+    'Europe/London',
+    'Pacific/Auckland',
+  ]);
   let ready = $state(false);
   let saving = $state(false);
   let message = $state('');
@@ -16,6 +24,8 @@
   const id = $props.id();
   onMount(() => {
     detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (typeof Intl.supportedValuesOf === 'function')
+      zones = ['UTC', ...Intl.supportedValuesOf('timeZone')];
     ready = true;
   });
   async function save(event: SubmitEvent) {
@@ -69,8 +79,7 @@
         placeholder="Asia/Hong_Kong"
       />
       <datalist id={`${id}-zones`}
-        >{#each ['UTC', 'Asia/Hong_Kong', 'Asia/Tokyo', 'America/New_York', 'Europe/London', 'Pacific/Auckland'] as zone (zone)}<option
-            value={zone}
+        >{#each zones as zone (zone)}<option value={zone}
           ></option>{/each}</datalist
       >
       {#if detected}<button

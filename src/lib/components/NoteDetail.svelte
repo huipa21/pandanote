@@ -8,6 +8,7 @@
   import type { RenderedMarkdown } from '#lib/shared/markdown/render.ts';
   import { cardImages } from '#lib/shared/timeline.ts';
   import Modal from './Modal.svelte';
+  import LocationPopover from './LocationPopover.svelte';
   import Markdown from './Markdown.svelte';
   import ImageViewer from './ImageViewer.svelte';
   let {
@@ -187,10 +188,7 @@
           <dd>{note.tags.map((tag) => `#${tag}`).join(' ')}</dd>{/if}
         {#if note.location}<dt>Location</dt>
           <dd>
-            {note.location.label ?? ''} · {note.location.latitude}, {note
-              .location.longitude}{note.location.accuracy !== null
-              ? ` · accuracy ${note.location.accuracy} m`
-              : ''}
+            <LocationPopover location={note.location} />
           </dd>{/if}
       </dl>
     </article>

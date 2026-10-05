@@ -1279,3 +1279,76 @@ Log structured safe events/timings/errors. Health endpoint reports readiness wit
 Deploy one Node instance behind HTTPS reverse proxy, with persistent DATA_DIR and pinned container image. Configure request size/timeouts suitable for files/backups without buffering all uploads in memory. Allow graceful shutdown and migration/restore maintenance. Use a Linux image with compatible libc/native builds; verify Sharp and better-sqlite3 rather than assuming Windows artifacts work.
 
 Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guarantees. Search/image/backup workloads are the main risks on a 2-core/4 GB machine.
+
+## 15. S15 optional location and non-backup Settings contracts
+
+- `shared/location.ts`, `LocationOptions.svelte` and `LocationPopover.svelte` reuse
+  the existing strict paired-coordinate/nullable-accuracy/200-character-label schema.
+  Location dialog fields are staged until explicit Save location; removal is explicit.
+  Browser permission is requested only by Use current location, with a ten-second
+  deadline, no cached position and no high-accuracy tracking/watch. Denial, timeout,
+  missing HTTPS/support and invalid coordinates leave posting available. Manual
+  coordinate changes clear reported accuracy; changing only a label preserves it.
+  Request generations and draft identity suppress late/canceled results. Local
+  metadata uses the same revision-aware draft repository, quota feedback and frozen
+  posting protocol; no location or other new-draft content uploads before Post.
+- Cards/full detail render no location element when absent. A native, nonmodal auto
+  popover exposes escaped label, coordinates, reported accuracy when known, clipboard
+  success/failure and an explicit new-tab OpenStreetMap link (`noopener noreferrer`).
+  There is no embed, reverse geocoder, asset load, permission request or map fetch
+  merely from opening the notebook/editor/popover. Geolocation Permissions-Policy
+  permits only the application origin. Copy waits for hydration; normal map/native
+  popover controls remain usable without custom tracking code.
+- `shared/storage.ts`, settings repository and private `/api/settings/storage` expose
+  only nine validated upload/image/note limits, not paths, origin, reserve or security
+  fields. Coordinated IMMEDIATE merges recheck the session and preserve appearance,
+  calendar and security settings. JSON is capped at 4 KiB/15 seconds; unknown keys,
+  nonfinite/fractional byte values and out-of-bound values fail. Existing defaults
+  and hard bounds remain: 100 MiB image input, 500 MiB ordinary files, 50 MP decode,
+  4096/1024 display/thumbnail edges, quality 1–100, 1 MiB Markdown, 100 attachments.
+  Limits affect newly admitted processing/saves, not retrospective deletion or
+  reprocessing. Local selection uses saved byte/count limits; local descriptor v1
+  now accepts up to the same 500 MiB hard bound without invalidating old drafts.
+  Lowered settings never make existing local recovery records undecodable.
+- Settings retains appearance/calendar/security functionality, explicit browser-zone
+  proposal, full supported-IANA datalist/manual input, fresh-auth password/MFA/
+  recovery/lifetime actions and all-device signout. Appearance's HTTP mutation now
+  also rechecks session identity inside its merge, with bounded receive deadline.
+  Storage form choices survive errors, confirmed saves invalidate shared limits,
+  and limits persist across devices. Backup/restore controls are still S16/S17.
+- `server/settings/storage.ts` measures filesystem capacity/free/reserve, private
+  DB/WAL/SHM, staging and archives, plus distinct stored attachment bytes. A file
+  referenced outside Trash counts once in published/server-draft bytes; Trash-only
+  references and unreferenced ready/queued bytes form separate buckets. Browser
+  drafts are excluded. Traversal never follows symlinks and caps inspected entries
+  at 100,000; transient disappearing staging files count zero. Values are a measured
+  snapshot, not allocated-disk-block or whole-OS accounting. No private path, digest,
+  note body, session or precise coordinate appears in the storage DTO.
+- Cleanup uses entire account-owned **pending batches**, not isolated ready IDs that
+  would destroy a frozen manifest. Inventory shows up to 20 oldest unused batches,
+  counts/bytes and five escaped filenames each. As a conservative implementation
+  default, only batches quiet for **24 hours** are eligible. This is not automatic
+  expiry: nothing is deleted on a timer. Explicit initialization/resume and all
+  admitted upload attempts renew activity, including duplicate/failed transfers.
+  Commands require confirmation, batch ID and the observed activity instant.
+- `AttachmentService.cleanupUnused` rechecks authorization, quiet interval,
+  activity equality, pending/previously abandoned status, active per-ID upload locks
+  and all note references including draft/Trash/clones. The whole selection either
+  atomically abandons batches/enqueues generated-ID cleanup or rolls back. Replayed
+  cleanup of the same abandoned identity is safe. Existing exclusive-drain worker
+  performs durable reference-rechecked byte deletion; failed/admission-interrupted
+  jobs survive restart, and UI does not claim unfinished deletion succeeded.
+  A separate confirmed `retryQueued: true` command reruns only already-queued deletion
+  with session/reference checks; Settings exposes Retry queued cleanup without
+  abandoning additional attempts.
+  Successful note receipts/committed batches cannot be cleaned. Local records/blobs
+  remain; UI explicitly warns an abandoned frozen retry needs a separate editable
+  copy (new local IDs) and original files, not a promise that server bytes can be
+  reconstructed. Abandoned batch identity is retained for safe replay.
+- A built HTTP limit regression found unconditional request-reader cancellation
+  destroyed adapter-node's socket before a safe validation response. The upload
+  receiver now releases its reader on ordinary rejection; installed Kit 3's
+  `setResponse` drains unread bytes after sending the response, without further disk
+  writes. Stalled receives still cancel on their 60-second deadline; byte/pixel caps,
+  hash checks, transport cap, queue/concurrency and temporary-file cleanup remain.
+  No dependency, migration, security-policy weakening or additional service was added.

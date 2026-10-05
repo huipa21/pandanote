@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Composer, recovery, timeline, search, calendar, detail/edit/viewer and Drafts/Trash are implemented; later features remain unfinished.**
+**Notes, drafts, search/calendar, tags, location and non-backup Settings are implemented; backup/restore and release validation remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -23,8 +23,9 @@ recovery edits, confirmed conflict copy/load/revision-checked replacement and a 
 image viewer. S13 adds separate local/server Drafts, recovery overlays, Trash
 restore and confirmed permanent deletion with durable lifecycle retries.
 S14 adds tag management, exact cross-status source rewrites, safe previews/retries,
-local autocomplete and explicit stale-draft tag resolution. Location/storage and
-backup/restore remain future steps. Do not deploy this
+local autocomplete and explicit stale-draft tag resolution. S15 adds explicit optional
+location, card/detail popovers and validated settings/storage usage/manual cleanup.
+Backup/restore and deployment/release validation remain future steps. Do not deploy this
 unfinished app as a complete product.
 
 ## Start here
@@ -277,7 +278,36 @@ storage eviction or losing this device can remove drafts. Other devices and serv
 backups do not contain them. Signing out leaves drafts on the browser/device;
 anyone controlling it can read them. Local preview URLs are temporary and revoked.
 S08 adds posting and an app-timezone timeline-date dialog. Server draft/detail
-entry points are implemented in S12/S13; location controls remain S15.
+entry points are implemented in S12/S13; S15 adds explicit local location controls.
+
+## Optional location and Settings/storage (S15)
+
+Add location opens a manual-coordinate/optional-label dialog; only **Use current
+location** requests browser permission. Location is off by default, remains local
+until Post/Save changes and never blocks posting on denial or timeout. HTTPS is
+required outside localhost. Manual coordinates have no invented accuracy; changing
+coordinates clears a previously reported estimate. Location can be edited/removed.
+Cards/detail show no row when absent; the popover offers coordinates, accuracy when
+known and Copy. **Open map** explicitly opens OpenStreetMap in a new tab, sharing
+those coordinates with that provider. No embedded map, lookup or tracking runs here.
+
+Settings saves appearance, app timezone/week start, existing fresh-auth security/
+MFA/session actions, upload/image/note bounds and private server storage measurements.
+Limits apply server-side as well as to new local file selection; existing stored
+images are not reprocessed/deleted. Counts distinguish shared live/server-draft,
+Trash-only and unused files, archives, database/staging, filesystem free space and
+protected reserve. Browser drafts are excluded, and filesystem space is shared
+with the OS. The reserve/path/origin cannot be injected through browser settings.
+
+Unused-attempt cleanup is explicit and confirmed. Only an entire unused pending
+posting attempt quiet for at least **24 hours** is eligible; resume/upload renews
+protection. The server checks current activity, active uploads and all references,
+including Trash. Nothing expires automatically. Queued byte deletion survives
+restart, with an explicit Retry queued cleanup action; partial/failing cleanup is
+reported, not falsely confirmed. Local drafts/
+blobs remain, but an abandoned frozen retry no longer works: keep its originals and
+use **Edit a separate copy** to post with fresh IDs. Backup/restore controls are
+not implemented yet (S16/S17), and server-local storage is not a disaster backup.
 
 ## Private attachments and bounded images (S06)
 
@@ -301,7 +331,7 @@ Private GET/HEAD variants require login and an authorized reference/pending batc
 files use safe Unicode download names, octet-stream, nosniff and sandbox headers.
 Only processed image WebP can be downloaded, never an original. Queued byte cleanup
 rechecks clone/draft/Trash references and survives restart; it cannot remove a
-still-referenced attachment. Storage controls/UI remain S15.
+still-referenced attachment. S15 adds validated storage controls and usage/manual cleanup.
 
 Set adapter `BODY_SIZE_LIMIT=512M` as in `.env.example` and configure the eventual
 reverse proxy for streaming uploads. The adapter otherwise defaults to 512 KiB;

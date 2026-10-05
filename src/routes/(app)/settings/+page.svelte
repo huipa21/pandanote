@@ -7,6 +7,7 @@
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
   import CalendarSettings from '#lib/components/CalendarSettings.svelte';
   import SecuritySettings from '#lib/components/SecuritySettings.svelte';
+  import StorageSettings from '#lib/components/StorageSettings.svelte';
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
   let { data } = $props();
@@ -132,13 +133,7 @@
     browser can read them; discard drafts explicitly if needed.
   </p>
 </section>
-<section class="surface">
-  <h2>Storage & backups</h2>
-  <p class="muted">
-    Storage settings come in S15. Manual backup and uploaded restore come in
-    S16–S17.
-  </p>
-</section>
+<StorageSettings initial={data.storageLimits} timezone={data.timezone} />
 
 <style>
   h1 {

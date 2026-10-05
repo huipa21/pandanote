@@ -330,6 +330,11 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 - Authenticated routes only. Uploads, files, thumbnails, and backups are never public static assets.
 - Removing one file reference must not delete bytes still used elsewhere/in Trash.
 - Storage usage visible; protect disk reserve rather than treating all 60 GB as available app data.
+- Implementation safety default: unused-upload cleanup explicitly abandons whole
+  posting attempts only after 24 hours without server activity. Resume/upload
+  renews protection; cleanup rechecks active uploads and all note references.
+  Nothing expires automatically. Local drafts/files remain, but an abandoned
+  frozen attempt needs a separate editable copy before posting again.
 
 ## 11. Optional location
 

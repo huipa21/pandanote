@@ -17,23 +17,18 @@ import {
   MAX_MARKDOWN_LENGTH,
 } from '#lib/shared/markdown/parse.ts';
 
-export const attachmentSchema = z
-  .strictObject({
-    id: idSchema,
-    source: z.enum(['local', 'server']),
-    kind: z.enum(['image', 'file']),
-    filename: z.string().max(255),
-    mime: z.string().max(200),
-    size: z
-      .number()
-      .int()
-      .nonnegative()
-      .max(500 * 1024 * 1024),
-  })
-  .refine(
-    (item) => item.source === 'server' || item.size <= 50 * 1024 * 1024,
-    'Local attachment exceeds the staging limit.',
-  );
+export const attachmentSchema = z.strictObject({
+  id: idSchema,
+  source: z.enum(['local', 'server']),
+  kind: z.enum(['image', 'file']),
+  filename: z.string().max(255),
+  mime: z.string().max(200),
+  size: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(500 * 1024 * 1024),
+});
 export type DraftAttachment = z.infer<typeof attachmentSchema>;
 const base = {
   schemaVersion: z.literal(1),

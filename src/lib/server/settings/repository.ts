@@ -1,5 +1,10 @@
 import { eq } from 'drizzle-orm';
 import {
+  storageLimitsSchema,
+  storageLimitsFrom,
+  type StorageLimits,
+} from '../../shared/storage.ts';
+import {
   calendarPreferencesSchema,
   type CalendarPreferences,
 } from '../../shared/calendar.ts';
@@ -47,11 +52,13 @@ export function initializeSettings(persistence: Persistence): void {
 export function updateAppearance(
   persistence: Persistence,
   value: unknown,
+  identity?: SessionIdentity,
 ): Appearance {
   const parsed = appearanceSchema.safeParse(value);
   if (!parsed.success)
     throw new DomainError('validation', 'Choose valid appearance settings.');
   return persistence.write((tx) => {
+    if (identity) assertSessionIdentity(tx, identity);
     const row = tx
       .select()
       .from(appSettings)
@@ -97,6 +104,36 @@ export function updateCalendar(
       .where(eq(appSettings.singleton, 1))
       .run();
     return { timezone: settings.timezone, weekStart: settings.weekStart };
+  });
+}
+export function updateStorageLimits(
+  p: Persistence,
+  identity: SessionIdentity,
+  value: unknown,
+): StorageLimits {
+  const parsed = storageLimitsSchema.safeParse(value);
+  if (!parsed.success)
+    throw new DomainError(
+      'validation',
+      'Choose valid upload, image and note limits within the safe bounds.',
+    );
+  return p.write((tx) => {
+    assertSessionIdentity(tx, identity);
+    const row = tx
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.singleton, 1))
+      .get();
+    if (!row) throw new Error('Settings are not initialized');
+    const settings = settingsSchema.parse({
+      ...settingsSchema.parse(JSON.parse(row.valueJson)),
+      ...parsed.data,
+    });
+    tx.update(appSettings)
+      .set({ valueJson: JSON.stringify(settings), updatedAt: Date.now() })
+      .where(eq(appSettings.singleton, 1))
+      .run();
+    return storageLimitsFrom(settings);
   });
 }
 export function replaceSettings(

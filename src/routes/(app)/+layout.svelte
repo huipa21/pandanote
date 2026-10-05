@@ -112,6 +112,7 @@
   });
   $effect(() => {
     workspace.timezone = data.timezone;
+    workspace.limits = data.storageLimits;
     workspace.knownTags = data.tagSuggestions;
   });
   $effect(() => {

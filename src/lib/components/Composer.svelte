@@ -7,6 +7,7 @@
   import DraftFeedback from './DraftFeedback.svelte';
   import TagAutocomplete from './TagAutocomplete.svelte';
   import TimelineOptions from './TimelineOptions.svelte';
+  import LocationOptions from './LocationOptions.svelte';
   const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
@@ -158,7 +159,7 @@
             workspace.conflict ||
             workspace.frozen}
           onclick={() => fileInput.click()}>Add files</button
-        ><TimelineOptions {workspace} />{/if}
+        ><TimelineOptions {workspace} /><LocationOptions {workspace} />{/if}
     </div>
     {#if tab === 'preview'}
       <div class="compact-preview preview-pane">
@@ -247,7 +248,7 @@
           workspace.conflict ||
           workspace.frozen}
         onclick={() => fileInput.click()}>Add files</button
-      ><TimelineOptions {workspace} />{/if}
+      ><TimelineOptions {workspace} /><LocationOptions {workspace} />{/if}
   </div>
   {#if tab === 'preview'}
     <div class="expanded-preview preview-pane">
@@ -304,6 +305,7 @@
 <style>
   .editor-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-2);
     margin-bottom: var(--space-2);
   }
@@ -371,6 +373,8 @@
   }
   @media (max-width: 899px) and (max-height: 400px) {
     .editor-tabs {
+      flex-wrap: nowrap;
+      gap: 2px;
       margin-bottom: var(--space-1);
     }
     .editor-footer {
@@ -378,7 +382,8 @@
     }
     .editor-tabs button {
       min-height: 2rem;
-      padding-block: 0;
+      padding: 0 4px;
+      font-size: 0.75rem;
     }
     .full-help {
       display: none;

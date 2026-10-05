@@ -73,7 +73,7 @@ it('full snapshots seed published/draft recovery, preserve metadata and refuse T
       ...recovery,
       attachments: [{ ...recovery.attachments[0], source: 'local' }],
     }).success,
-  ).toBe(false);
+  ).toBe(true); // S15 permits configured local files up to the 500 MiB hard bound.
 });
 
 it('conflict forks preserve original text/blobs and remap new uploads without changing shared server IDs', async () => {

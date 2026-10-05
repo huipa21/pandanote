@@ -7,6 +7,7 @@
   } from '#lib/client/timeline/reading.svelte.ts';
   const reading = getContext<ReadingState | undefined>(READING);
   import Markdown from './Markdown.svelte';
+  import LocationPopover from './LocationPopover.svelte';
   import Modal from './Modal.svelte';
   import {
     LIFECYCLE,
@@ -300,10 +301,7 @@
           >
         </li>{/each}
     </ul>{/if}
-  {#if note.location}<p class="location">
-      Location: {note.location.label ||
-        `${note.location.latitude}, ${note.location.longitude}`}
-    </p>{/if}
+  {#if note.location}<LocationPopover location={note.location} />{/if}
   {#if (note.attachments ?? []).some((a) => a.kind === 'file')}
     <ul class="files" aria-label="Attachments">
       {#each (note.attachments ?? []).filter((a) => a.kind === 'file') as file (file.id)}<li
@@ -378,10 +376,6 @@
   }
   .card-tags a[aria-current='true'] {
     font-weight: 650;
-  }
-  .location {
-    font-size: 0.875rem;
-    color: var(--muted);
   }
   .files {
     list-style: none;

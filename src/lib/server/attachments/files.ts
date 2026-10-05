@@ -97,7 +97,10 @@ export async function receive(
     return { bytes, digest: hash.digest('hex'), head, raster: isRaster(head) };
   } finally {
     clearTimeout(timer);
-    await reader.cancel().catch(() => {});
+    // Kit 3 adapter-node drains unread request bytes after sending the response.
+    // Canceling here destroys IncomingMessage's socket and loses an otherwise
+    // actionable validation response. Deadlines still explicitly cancel above;
+    // ordinary rejection stops all disk work and releases the reader for draining.
     reader.releaseLock();
     await handle.close();
   }

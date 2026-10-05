@@ -13,6 +13,13 @@ import { Readable } from 'node:stream';
 import { and, count, eq } from 'drizzle-orm';
 import { DomainError, idSchema } from '../../shared/domain.ts';
 import {
+  cleanupUploadsSchema,
+  retryCleanupSchema,
+  UNUSED_UPLOAD_QUIET_MS,
+} from '../../shared/storage.ts';
+import { enqueueAttachmentCleanup } from '../maintenance/cleanup.ts';
+import { runAttachmentCleanup } from './cleanup.ts';
+import {
   initializeBatchSchema,
   type InitializeBatchResult,
   type ReadyAttachment,
@@ -310,6 +317,15 @@ export class AttachmentService {
     this.active.add(id);
     try {
       return await this.p.coordinator.writeAsync(async (lease) => {
+        // Renew activity before receiving, including failed/duplicate transfers.
+        // Explicit cleanup refuses active IDs and recently resumed attempts.
+        this.p.write((tx) => {
+          this.item(tx, identity, batchId, id);
+          tx.update(uploadBatches)
+            .set({ activityAt: Date.now() })
+            .where(eq(uploadBatches.id, batchId))
+            .run();
+        }, lease);
         const finalDirectory = dirname(
           this.p.storage.attachmentPath(id, 'attachment.bin'),
         );
@@ -505,7 +521,65 @@ export class AttachmentService {
       syncDirectory(files);
     });
   }
-  /** S15 consumes this read-only inventory; no automatic expiry of ready retries. */
+  /** Explicitly abandon entire quiet attempts, never individual files from an
+   * otherwise retryable frozen manifest. Selection is activity-bound and all-or-none.
+   * Queueing + abandonment is atomic; durable deletion may be retried after crash.
+   * Replays of the same abandoned batch are safe without touching newer attempts. */
+  async cleanupUnused(
+    identity: SessionIdentity,
+    input: unknown,
+  ): Promise<{ remainingJobs: number }> {
+    const retry = retryCleanupSchema.safeParse(input);
+    const parsed = cleanupUploadsSchema.safeParse(input);
+    if (!retry.success && !parsed.success)
+      throw new DomainError(
+        'validation',
+        'Confirm the selected unused posting attempts.',
+      );
+    this.p.write((tx) => {
+      assertUploadIdentity(tx, identity);
+      const now = Date.now();
+      for (const selected of parsed.success ? parsed.data.batches : []) {
+        const batch = this.batch(tx, identity, selected.id);
+        const rows = tx
+          .select()
+          .from(attachments)
+          .where(eq(attachments.batchId, batch.id))
+          .all();
+        if (
+          batch.activityAt !== selected.activityAt ||
+          (batch.status !== 'pending' && batch.status !== 'abandoned') ||
+          batch.activityAt > now - UNUSED_UPLOAD_QUIET_MS ||
+          rows.some(
+            (row) =>
+              this.active.has(row.id) ||
+              tx
+                .select()
+                .from(noteAttachments)
+                .where(eq(noteAttachments.attachmentId, row.id))
+                .get(),
+          )
+        )
+          throw new DomainError(
+            'conflict',
+            'A selected attempt is active, recently resumed, or referenced. Refresh storage before choosing again. Nothing from this selection was queued.',
+          );
+        tx.update(uploadBatches)
+          .set({ status: 'abandoned' })
+          .where(eq(uploadBatches.id, batch.id))
+          .run();
+        for (const row of rows) enqueueAttachmentCleanup(tx, row.id);
+      }
+    });
+    await runAttachmentCleanup(this.p);
+    return {
+      remainingJobs: this.p.db
+        .select({ value: count() })
+        .from(fileCleanupJobs)
+        .get()!.value,
+    };
+  }
+  /** Read-only inventory; no automatic expiry of ready retries. */
   unusedReady(identity: SessionIdentity): ReadyAttachment[] {
     assertUploadIdentity(this.p.db, identity);
     return this.p.db
