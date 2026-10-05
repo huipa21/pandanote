@@ -5,12 +5,19 @@ import {
   desc,
   eq,
   getTableColumns,
+  gte,
   inArray,
   lt,
   or,
   sql,
 } from 'drizzle-orm';
 import type { Persistence } from '../db/connection.ts';
+import { searchPredicates, snippetColumns } from '../search/query.ts';
+import {
+  parseSearch,
+  searchSnippet,
+  type SearchSnippet,
+} from '../../shared/search.ts';
 import {
   notes,
   tags,
@@ -74,11 +81,12 @@ export async function timelinePage(
   now = Date.now(),
 ): Promise<TimelinePage> {
   const { filters, cursor, limit } = parseTimelineQuery(params);
+  const units = parseSearch(filters.query ?? '');
   const timezone = readSettings(p).timezone;
   const decoded = cursor ? decodeCursor(cursor) : null;
   const anchor = decoded
     ? decoded.anchor
-    : filters.tags.length
+    : filters.tags.length || units.length || filters.day
       ? null
       : currentMonthEnd(timezone, now);
   const key = fingerprint(filterKey(filters), timezone, anchor);
@@ -86,7 +94,8 @@ export async function timelinePage(
     decoded &&
     (decoded.key !== key ||
       decoded.timezone !== timezone ||
-      (filters.tags.length > 0 && anchor !== null))
+      ((filters.tags.length > 0 || units.length > 0 || filters.day) &&
+        anchor !== null))
   )
     throw new DomainError(
       'validation',
@@ -94,7 +103,15 @@ export async function timelinePage(
     );
   const result = p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
-    const predicates = [eq(notes.status, 'published')];
+    const predicates = [
+      eq(notes.status, 'published'),
+      ...searchPredicates(units),
+    ];
+    if (filters.day)
+      predicates.push(
+        gte(notes.timelineAt, filters.day.start),
+        lt(notes.timelineAt, filters.day.end),
+      );
     if (anchor !== null) predicates.push(lt(notes.timelineAt, anchor));
     if (decoded)
       predicates.push(
@@ -111,6 +128,7 @@ export async function timelinePage(
       .select({
         ...getTableColumns(notes),
         bodyMarkdown: sql<string>`substr(${notes.bodyMarkdown}, 1, ${CARD_SOURCE_BYTES + 1})`,
+        ...snippetColumns(units),
       })
       .from(notes)
       .where(and(...predicates))
@@ -156,7 +174,23 @@ export async function timelinePage(
       const files = linkedFiles
         .filter((a) => a.noteId === row.id)
         .map((a) => attachmentDto(a.attachment));
-      const note: NoteSnapshot & { bodyTruncated: boolean } = {
+      const snippets = units.length
+        ? [
+            row.searchBody
+              ? searchSnippet('body', row.searchBody, units)
+              : undefined,
+            row.searchTag
+              ? searchSnippet('tag', row.searchTag, units)
+              : undefined,
+            row.searchFilename
+              ? searchSnippet('filename', row.searchFilename, units)
+              : undefined,
+          ].filter((s): s is SearchSnippet => !!s)
+        : undefined;
+      const note: NoteSnapshot & {
+        bodyTruncated: boolean;
+        snippets?: SearchSnippet[];
+      } = {
         id: row.id,
         status: row.status,
         priorStatus: row.priorStatus,
@@ -166,6 +200,7 @@ export async function timelinePage(
         contentEditedAt: row.contentEditedAt,
         revision: row.revision,
         ...content,
+        ...(snippets ? { snippets } : {}),
         location:
           row.latitude === null || row.longitude === null
             ? null

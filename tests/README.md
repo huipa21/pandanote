@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments and timeline (S00–S09)
+# Foundation, authentication, shell, renderer, drafts, attachments, timeline and search (S00–S10)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -206,10 +206,10 @@ wall-clock deadline, not a fake Promise timeout over still-running native work.
   content in logs. Existing password/cookie/Kit form-CSRF/graceful shutdown checks
   remain. No mock API or test-only note route is shipped.
 
-S07 is backend-only. The full existing browser regression suite runs at Milestone A;
-Post was disabled at that backend-only gate. Frozen browser posting/loss recovery is S08, timeline/search
-is S09/S10, conflict/detail UI S12 and draft/Trash screens S13. Derived fields are
-transactional, but a production FTS/search API is not yet claimed. S14 supplies
+S07 was backend-only. The full existing browser regression suite ran at Milestone A;
+Post was disabled at that backend-only gate. Frozen browser posting/loss recovery is S08,
+timeline/search is S09/S10, conflict/detail UI S12 and draft/Trash screens S13.
+S10 adds transactional FTS and the production search list API. S14 supplies
 retired-tag history resolution, not silent local rewriting. Full restore remains S17.
 
 ## S08 coverage (POST-01–03, DRAFT-02/04/05, NOTE-01/03, UI-02/03)
@@ -249,6 +249,39 @@ assertions now include previously saved cards rather than assuming a blank sessi
 Full server edit/detail/draft entry points and conflict resolution remain S12–S14.
 Linux browser validation includes the actual posting test file in addition to
 security/draft/upload regressions. Physical-device/IME and release audits remain S18.
+
+## S10 coverage (SEARCH-01–04, TAG-02, AUTH-05, UI-02/03)
+
+- `unit/search.test.ts`: literal AND/whole phrases, quote/backslash/unknown escapes,
+  malformed syntax and bounds, codepoint lengths, NFKC/case/combining forms without
+  readings/Han/accent conversions, conservative trigram eligibility, canonical
+  query/tag/day identities and bounded normalized highlight segment unions.
+- `integration/search.test.ts`: actual product SQLite trigram and literal field
+  predicates, required English/Cantonese/Simplified/Japanese examples, code/operator/
+  punctuation/emoji/XSS text, cross-body/filename terms but no joined-field phrase,
+  far-source snippets, 240 deterministic Unicode fixtures and 100 derived randomized
+  substrings with both acceleration and fallback compared to the literal oracle.
+  Search AND tags/day with tied-date cursors, wrong-context rejection, immediate
+  edits/status/publication/Trash/restore/deletion, receipt-failure rollback of FTS,
+  corrupt-index repair and real operator reindex CLI leaving source revisions intact.
+- `integration/{migrations,search-migration}.test.ts`: existing notes are atomically backfilled using
+  the normalizer into separate fields and usable trigram rows, in addition to the
+  fresh/repeat/rollback/history/integrity gates.
+- `e2e/zsearch.test.ts`: built private SSR/API/cursor search, short CJK, phrase/all
+  terms/variants, safe escaped normalized marks, invalid query feedback, chips/clear,
+  stale older-page cancellation, Back, all-tag AND and mobile drawer search/overflow.
+  Synthetic search fixtures run after the shell screenshot tests, not production seeds.
+- `e2e/search-navigation.test.ts`: held real SSR search response superseded by newer
+  malformed input, retained input/error, IME composition gating and canceled scheduled
+  search on navigation away. No simulated search-success endpoint.
+- `npm run search:benchmark`: isolated native 10k mixed-language ~2 KiB notes / 300
+  tags, common/rare/no-match indexed and one/two-character fallback queries, all results
+  compared to a direct literal oracle; first-query and warm p50/p95, reindex time,
+  disk/RSS and real bounded SSR payload. Host/Linux measurements are in PROGRESS.
+
+Only derived search data is rebuilt; no query/note text is logged outside the explicitly
+synthetic benchmark. Linux browser scope now includes all three search cases; shell
+baselines remain Windows-only. Real hardware/OS IME and target-VPS release audits remain S18.
 
 ## S09 coverage (NOTE-01, TAG-02, SEARCH-03/CAL-02 foundations, UI-01–03)
 

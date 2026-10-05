@@ -611,6 +611,60 @@ Use FTS5 `tokenize='trigram'` over normalized derived text. S00 must prove this 
 
 Safe snippets are escaped text plus structured highlight ranges/segments, not database-produced trusted HTML. If normalization changes positions, use a tested original-to-normalized mapping or return a clearly safe normalized excerpt; do not corrupt original saved text.
 
+### 8.3 S10 implemented search contracts
+
+- `shared/search.ts` is the deterministic NFKC/lowercase parser/oracle. Whitespace
+  separates AND units; double quotes delimit a whole phrase; quote/backslash are
+  the only escapes (unknown escapes preserve the backslash). Empty/unclosed/
+  adjacent quotes and NUL input fail visibly. Canonical units are deduplicated and binary-sorted.
+  Limits are **20 units / 256 normalized content codepoints**, with **1024 input
+  codepoints including grammar escapes**. This adjusts the 256 raw-character default
+  so canonical quoted/escaped output round-trips even when NFKC expands characters.
+- Migration `0003_search_trigram.sql` adds FTS5 `trigram case_sensitive 1` over
+  already-normalized text; schema is **v4**, retaining 18 domain tables plus the
+  virtual index/shadows. The migration runner uses the application normalizer to
+  backfill every status atomically with SQL/ledger/integrity checks. No SQLite
+  ASCII-only lower() approximation or runtime automatic migration.
+- `server/search/index.ts` refreshes source-derived separate body/tag/filename
+  fields and FTS inside the coordinated source mutation transaction. FTS rowid
+  matches the ordinary `note_search` rowid, enabling indexed deletion rather than
+  scanning virtual note IDs. Permanent deletion removes FTS before the derived FK
+  cascade. Status changes track source revision; all reads still filter published.
+  No virtual-table triggers or relaxation of `trusted_schema=OFF`. Future S14
+  rewrites / attachment-reference changes must use the same refresh hook.
+- Acceleration conservatively accepts >=3-codepoint BMP letter/number/ASCII-space
+  units, safely FTS-quoted and parameterized. Marks, punctuation, controls,
+  supplementary characters and short CJK scan with `instr`. Every candidate is
+  post-filtered by literal AND predicates against each separate field (JSON arrays
+  use `json_each`). Joined candidate phrases can only add false positives, never
+  change phrase semantics. Oracle fixtures include randomized Unicode/NUL/emoji/
+  combining/width/operator cases on the actual tokenizer with acceleration on/off.
+- `q` and optional typed UTC `dayStart`/`dayEnd` half-open ranges extend the same
+  timeline query, filter fingerprint and cursor. Search/tag/day mode has no month
+  anchor. Day-boundary calculation/UI remains S11, not a hidden month constraint.
+- At most three snippets (one per body/tag/filename field), each <=320 normalized
+  codepoints plus optional ellipses, cross the list boundary. SQL bounds source
+  windows before fetching: body windows use at most 1280 UTF-8 bytes around
+  a byte-indexed match (then clamp to 320 codepoints), avoiding SQLite text substr's
+  NUL truncation. Partial boundary bytes decode safely as replacement characters;
+  NULs in excerpts display as ␀. Literal source predicates remain unchanged.
+  Structured text/mark segments use Svelte escaping,
+  never trusted HTML or original-source offsets. Visible labels identify normalized
+  excerpts; original source and its existing 8 KiB/192 KiB preview budgets stay intact.
+- `SearchControl.svelte` debounces 300 ms, waits for composition end, validates
+  before navigating and keeps invalid text/errors. Kit 3 `goto(...,{reset:false})`
+  ignores superseded SSR navigations; changing/invalid input immediately supersedes
+  a held older search. Existing paging AbortController/generation guards remain.
+  Navigation away cancels scheduled search; search/tag/day chips and Clear all
+  share canonical URL/history state on desktop/mobile. Mutation reconciliation
+  applies the same literal oracle to full snapshots, not bounded preview text.
+- Operator-only `npm run search:reindex` runs with the app stopped and atomically
+  rebuilds derived fields/index from source joins, without changing notes/revisions/
+  receipts/files. `npm run search:benchmark` measures isolated 10k mixed-language
+  notes (~2 KiB, 300 tags) with indexed/fallback oracle comparisons, first-query
+  and 30 warm samples, 30-card SSR payload/RSS/disk/reindex metrics. PROGRESS records
+  Windows/Linux results; real VPS/OS-cold/browser/network release budgets remain S18.
+
 ## 9. Tag parsing and management
 
 Implement one shared parser over Markdown AST text-node source spans, not a global regex over the whole note. Original source offsets are needed for precise rename/remove edits.

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
+  import SearchControl from './SearchControl.svelte';
   import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
   export interface ShellTag {
     id: string;
@@ -11,11 +12,15 @@
     active = '/',
     tags = [],
     filters = { tags: [] },
+    searchQuery = '',
+    onSearch = async () => {},
     onNavigate = () => {},
   }: {
     active?: string;
     tags?: ShellTag[];
     filters?: TimelineFilters;
+    searchQuery?: string;
+    onSearch?: (href: string) => Promise<unknown>;
     onNavigate?: () => void;
   } = $props();
   const id = $props.id();
@@ -37,17 +42,13 @@
     <a class="identity" href="/" onclick={onNavigate}
       >PandaNote <span class="muted">a little room to think</span></a
     >
-    <label class="search-label" for={`${id}-search`}>Search notes</label>
-    <input
-      id={`${id}-search`}
-      type="search"
-      placeholder="Search comes in S10"
-      disabled
-      aria-describedby={`${id}-search-status`}
+    <SearchControl
+      {filters}
+      {active}
+      query={searchQuery}
+      {onSearch}
+      {onNavigate}
     />
-    <span class="sr-only" id={`${id}-search-status`}
-      >Note search is not implemented yet.</span
-    >
     <nav aria-label="Notebook">
       {#each nav as item (item.href)}
         <a
@@ -164,9 +165,6 @@
     display: block;
     font-size: 0.75rem;
     font-weight: 400;
-  }
-  .search-label {
-    font-size: 0.875rem;
   }
   input {
     width: 100%;

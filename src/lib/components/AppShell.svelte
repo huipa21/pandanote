@@ -3,16 +3,24 @@
   import Sidebar, { type ShellTag } from './Sidebar.svelte';
   import Modal from './Modal.svelte';
   import Composer from './Composer.svelte';
-  import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
+  import {
+    toggleTag,
+    filterHref,
+    type TimelineFilters,
+  } from '#lib/shared/timeline.ts';
   let {
     active = '/',
     tags = [],
     filters = { tags: [] },
+    searchQuery = '',
+    onSearch = async () => {},
     children,
   }: {
     active?: string;
     tags?: ShellTag[];
     filters?: TimelineFilters;
+    searchQuery?: string;
+    onSearch?: (href: string) => Promise<unknown>;
     children: Snippet;
   } = $props();
   let drawerOpen = $state(false);
@@ -29,7 +37,7 @@
 <a class="skip-link" href="#notes-pane">Skip to notes</a>
 <div class="app-shell">
   <aside class="desktop-sidebar" aria-label="Sidebar">
-    <Sidebar {active} {tags} {filters} />
+    <Sidebar {active} {tags} {filters} {searchQuery} {onSearch} />
   </aside>
   <div class="main-column">
     <header class="mobile-header">
@@ -45,8 +53,18 @@
     <div class="fixed-region">
       <div class="column-inner"><Composer /></div>
       <section class="filter-region column-inner" aria-label="Active filters">
-        {#if active === '/' && filters.tags.length}
+        {#if active === '/' && (filters.tags.length || filters.query || filters.day)}
           <div class="filter-chips">
+            {#if filters.query}<a
+                class="filter-chip"
+                href={filterHref({ ...filters, query: '' })}
+                aria-label="Remove search filter">Search: {filters.query} ×</a
+              >{/if}
+            {#if filters.day}<a
+                class="filter-chip"
+                href={filterHref({ ...filters, day: undefined })}
+                aria-label="Remove day filter">Selected day ×</a
+              >{/if}
             {#each filters.tags as tag (tag)}
               <a
                 class="filter-chip"
@@ -79,6 +97,8 @@
     {active}
     {tags}
     {filters}
+    {searchQuery}
+    {onSearch}
     onNavigate={() => {
       drawerOpen = false;
     }}

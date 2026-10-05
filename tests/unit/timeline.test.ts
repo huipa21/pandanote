@@ -50,7 +50,7 @@ describe('canonical timeline state', () => {
       'limit=2&limit=3',
       'cursor=',
       'cursor=a&cursor=b',
-      'q=search',
+      'q=%22unclosed',
       'day=2020-01-01',
       'tag=%23work',
       'tag=%00',

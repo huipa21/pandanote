@@ -5,7 +5,9 @@ Kit 0.31.11. `0001_invariant_guards.sql` is a reviewed custom migration for
 revision/identity, ready-reference and reference-safe cleanup triggers. Drizzle
 snapshots describe tables/indexes/checks, not these custom triggers.
 `0002_setup_tokens.sql` adds the singleton hashed, expiring operator setup token
-(S02 first slice). Schema version is now 3. Pending setup tokens are runtime
+(S02 first slice). `0003_search_trigram.sql` adds the rebuildable FTS5 trigram
+candidate index; the trusted runner atomically backfills existing notes using
+application NFKC/lowercase normalization. Schema version is now 4. Pending setup tokens are runtime
 credentials and must be excluded from S16 full backup snapshots.
 
 - Generate table changes: `npm run db:generate -- --name=<name>`.
@@ -31,6 +33,11 @@ not create schema. This check is not archive schema validation: S17 must compare
 all schema objects, including these triggers, before opening untrusted restore
 content through normal persistence/migrations.
 
-The schema reserves `note_search` with separately normalized body and JSON
-arrays for tag/filename fields. S10 adds FTS5 trigram and synchronization/reindex;
-there is no product search implementation in S01.
+`note_search` keeps separately normalized body and JSON arrays for tag/filename
+fields. S10 synchronizes it and the rowid-linked FTS5 index inside note mutations;
+FTS only narrows candidates, with literal field predicates defining matches.
+`trusted_schema=OFF` stays enabled; there are no virtual-table write triggers.
+Stop the app and run `npm run search:reindex` to repair derived data atomically
+without changing note bodies, revisions, files or receipts. The FTS virtual table
+and its shadow tables are custom SQL, not Drizzle schema-push objects. Restore
+schema validation in S17 must include these exact known objects.

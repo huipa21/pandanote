@@ -4,7 +4,9 @@ import { join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 
-export const SCHEMA_VERSION = 3;
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { rebuildSearch } from '../search/index.ts';
+export const SCHEMA_VERSION = 4;
 const journalSchema = z.object({
   dialect: z.literal('sqlite'),
   entries: z.array(
@@ -139,6 +141,9 @@ export function applyMigrations(
     }
     for (const migration of migrations.slice(applied.length)) {
       for (const statement of migration.statements) db.exec(statement);
+      // Existing notes are normalized by the exact application oracle, not
+      // SQLite lower() (ASCII-only). Backfill and ledger commit atomically.
+      if (migration.name === '0003_search_trigram') rebuildSearch(drizzle(db));
       db.prepare('INSERT INTO __pandanote_migrations VALUES (?, ?, ?, ?)').run(
         migration.version,
         migration.name,

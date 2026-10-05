@@ -231,6 +231,27 @@
       }}>•••</button
     >
   </header>
+  {#if note.snippets?.length}
+    <section
+      class="search-snippets"
+      aria-label="Search excerpts (normalized text)"
+    >
+      <span class="help">Search excerpts · normalized text</span>
+      {#each note.snippets as snippet, index (index)}
+        <p>
+          <span class="muted"
+            >{snippet.field === 'body'
+              ? 'Source'
+              : snippet.field === 'tag'
+                ? 'Tag'
+                : 'Filename'}:
+          </span>{#each snippet.segments as segment, part (part)}{#if segment.highlighted}<mark
+                >{segment.text}</mark
+              >{:else}{segment.text}{/if}{/each}
+        </p>
+      {/each}
+    </section>
+  {/if}
   <div id={contentId} class="card-content" class:expanded bind:this={content}>
     <Markdown
       source={source.bodyMarkdown}
@@ -340,6 +361,21 @@
   }
   .actions {
     margin-left: auto;
+  }
+  .search-snippets {
+    overflow-wrap: anywhere;
+    font-size: 0.875rem;
+    border-left: 2px solid var(--accent);
+    padding-left: var(--space-2);
+  }
+  .search-snippets p {
+    margin: var(--space-2) 0;
+    white-space: pre-wrap;
+  }
+  mark {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 650;
   }
   .card-content {
     max-height: var(--collapsed-height);

@@ -156,6 +156,20 @@ it('upgrades an existing earlier schema without losing notes and rolls back a fa
         .prepare('SELECT body_markdown, revision FROM notes WHERE id = ?')
         .get(noteId),
     ).toEqual({ body_markdown: 'synthetic', revision: 1 });
+    expect(
+      db
+        .prepare(
+          'SELECT body_normalized, source_revision FROM note_search WHERE note_id = ?',
+        )
+        .get(noteId),
+    ).toEqual({ body_normalized: 'synthetic', source_revision: 1 });
+    expect(
+      db
+        .prepare(
+          'SELECT note_id FROM note_search_fts WHERE note_search_fts MATCH ?',
+        )
+        .all('"synthetic"'),
+    ).toEqual([{ note_id: noteId }]);
     expect(db.pragma('integrity_check', { simple: true })).toBe('ok');
     expect(db.pragma('foreign_key_check')).toEqual([]);
     const badHistory = [

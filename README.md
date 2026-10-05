@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Composer posting, recovery and the paginated timeline are implemented; later features remain unfinished.**
+**Composer posting, recovery, the paginated timeline and exact search are implemented; later features remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -15,8 +15,9 @@ safe authenticated downloads. S07 adds atomic, idempotent note mutation APIs wit
 revision conflicts and draft/Trash lifecycle. S08 connects explicit composer posting
 with frozen, receipt-first retries, upload progress and confirmed-success cleanup.
 S09 adds server-rendered chronological cards, private cursor paging, all-tag filtering,
-collapse/density preferences and scroll/history restoration. Search, calendar controls,
-detail/lifecycle screens and backup/restore remain future steps. Do not deploy this
+collapse/density preferences and scroll/history restoration. S10 adds SQLite literal
+multilingual search, quoted phrases, short-query fallback and safe snippets.
+Calendar controls, detail/lifecycle screens and backup/restore remain future steps. Do not deploy this
 unfinished app as a complete product.
 
 ## Start here
@@ -180,7 +181,7 @@ light-theme flash. Public login/setup use the default system theme. Changes appl
 on other devices on their next page load, not via live preference synchronization.
 
 The composer saves **browser-local drafts** (S05) with Write/Preview, and uploads
-only on explicit Post/Save changes (S08). Search/calendar,
+only on explicit Post/Save changes (S08). Calendar controls,
 server drafts/Trash, tag administration and calendar/storage/backup settings are
 explicitly labeled as later-step work; these are not completed features.
 
@@ -200,8 +201,33 @@ Attachments can be selected, pasted or dropped locally (S05). S08 calls the S06
 upload primitives only after explicit Post/Save changes, never during selection or preview.
 
 The shared Unicode tag parser deduplicates by NFKC/lowercase identity and preserves
-source spans for precise rewrites, ignoring code/HTML/escapes/URLs. Tag autocomplete,
-filtering and management are still later steps, not completed UI features.
+source spans for precise rewrites, ignoring code/HTML/escapes/URLs. All-tag filtering
+is implemented; autocomplete and management are still later steps.
+
+## Exact multilingual search (S10)
+
+Search the published Markdown source (including code), normalized tags and original
+attachment filenames. Space-separated terms combine with AND; `"coffee shop"` is
+one exact phrase. A phrase cannot join different fields. English case and Unicode
+width/compatibility forms normalize through NFKC/lowercase, but Han variants,
+readings, accents and misspellings do not become equivalent. No file contents are
+searched. `%`, `_`, FTS keywords and punctuation are literal data.
+
+Use double quotes for phrases; `\"` and `\\` escape quote/backslash, and other
+backslashes stay literal. Empty/unclosed/adjacent quotes show validation feedback.
+Limits: 20 units, 256 normalized content codepoints, 1024 input codepoints including
+syntax/escaping. Search updates after a 300 ms pause (after IME composition ends),
+ignores superseded requests and shares the newest-first cursor timeline. Search,
+all selected tags and an optional day range combine with AND, across all months.
+Snippet marks render escaped normalized text; saved Markdown remains unchanged.
+
+**Upgrade with the app stopped:** `npm run db:migrate` adds/backfills schema v4's
+FTS5 trigram index. One/two-character and unsupported punctuation/Unicode units
+scan literally; the index never defines matching semantics. For explicit repair,
+stop the app and run `npm run search:reindex`. It atomically rebuilds only derived
+search data. `npm run search:benchmark` uses isolated synthetic 10k-note data, never
+reads your deployment data, and reports oracle comparisons, latency/RSS/disk/payload.
+See PROGRESS for actual host/Linux measurements and remaining release checks.
 
 ## Browser-local drafts and recovery (S05)
 
@@ -313,7 +339,7 @@ or already-loaded date range, the UI explains how to find it.
 
 All notes renders the first published page on the server (normally 30 cards), then
 loads older cursor pages inside the notes pane. Timestamp ties use descending ID;
-cursors are bound to canonical tag filters and app timezone. Multiple selected tags
+cursors are bound to canonical search/tag/day filters and app timezone. Multiple selected tags
 mean **match all**. Sidebar/card tags toggle visible removable chips; Clear all resets
 filters, and browser Back restores loaded pages and a useful reading position.
 
@@ -327,7 +353,8 @@ Move to Drafts/Trash and revision-conflict refresh are available from Note actio
 The actual Drafts/Trash server screens remain S13; detail/image viewer remains S12.
 
 Month separators and top-visible-month tracking are ready for S11, but there is no
-calendar navigation/day filter yet. Literal search stays S10, not a second list API.
+calendar navigation/day-picker UI yet. S10 supplies literal search and a typed UTC
+day-range predicate on this same list API.
 10k-note paging and 300-card DOM measurements are recorded in `docs/PROGRESS.md`;
 virtualization is deferred pending evidence from longer reading sessions.
 

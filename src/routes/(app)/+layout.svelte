@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { goto } from '$app/navigation';
   import { onMount, setContext, untrack } from 'svelte';
   import {
     DRAFT_WORKSPACE,
@@ -30,5 +31,7 @@
   active={page.url.pathname}
   tags={data.availableTags}
   filters={page.data.timeline?.filters ?? { tags: [] }}
+  searchQuery={page.url.searchParams.get('q') ?? ''}
+  onSearch={(href) => goto(href, { reset: false })}
   >{@render children()}</AppShell
 >

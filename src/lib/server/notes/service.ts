@@ -24,7 +24,6 @@ import {
   noteAttachments,
   tags,
   noteTags,
-  noteSearch,
   uploadBatches,
   fileCleanupJobs,
   tagChanges,
@@ -34,6 +33,7 @@ import { readSettings } from '../settings/repository.ts';
 import { enqueueAttachmentCleanup } from '../maintenance/cleanup.ts';
 import { inspectContent } from './content.ts';
 import { attachmentDto } from '../attachments/service.ts';
+import { refreshNoteSearch, removeNoteSearch } from '../search/index.ts';
 
 export function noteMutationDigest(value: NoteMutation): string {
   return createHash('sha256')
@@ -53,7 +53,6 @@ export class NoteConflictError extends DomainError {
 type NoteRow = typeof notes.$inferSelect;
 type AttachmentRow = typeof attachments.$inferSelect;
 type Reader = Persistence['db'] | DomainTransaction;
-const normalize = (value: string) => value.normalize('NFKC').toLowerCase();
 function rowFor(db: Reader, id: string): NoteRow {
   const row = db.select().from(notes).where(eq(notes.id, id)).get();
   if (!row)
@@ -304,30 +303,7 @@ export class NoteService {
             .get()!;
           tx.insert(noteTags).values({ noteId, tagId: registry.id }).run();
         }
-        // S10's FTS hook attaches here; no async index lag. Fields stay separate
-        // to prevent exact phrases from spanning body/tag/filename boundaries.
-        tx.insert(noteSearch)
-          .values({
-            noteId,
-            bodyNormalized: normalize(content.bodyMarkdown),
-            tagFieldsJson: JSON.stringify(extracted.map((tag) => tag.key)),
-            filenameFieldsJson: JSON.stringify(
-              rows.map((row) => normalize(row.originalFilename)),
-            ),
-            sourceRevision: revision,
-          })
-          .onConflictDoUpdate({
-            target: noteSearch.noteId,
-            set: {
-              bodyNormalized: normalize(content.bodyMarkdown),
-              tagFieldsJson: JSON.stringify(extracted.map((tag) => tag.key)),
-              filenameFieldsJson: JSON.stringify(
-                rows.map((row) => normalize(row.originalFilename)),
-              ),
-              sourceRevision: revision,
-            },
-          })
-          .run();
+
         if (batch)
           tx.update(uploadBatches)
             .set({ status: 'committed', activityAt: now })
@@ -346,6 +322,8 @@ export class NoteService {
               'validation',
               'Move the note to Trash before permanently deleting it.',
             );
+          // Remove the rowid-linked FTS row before the derived FK cascade.
+          removeNoteSearch(tx, old.id);
           tx.delete(notes)
             .where(
               and(
@@ -362,13 +340,11 @@ export class NoteService {
             value.action,
           );
           this.update(tx, old, { ...next, revision, updatedAt: now });
-          tx.update(noteSearch)
-            .set({ sourceRevision: revision })
-            .where(eq(noteSearch.noteId, old.id))
-            .run();
+
           status = next.status;
         }
       }
+      refreshNoteSearch(tx, noteId);
       const result: MutationResult = {
         noteId,
         revision,

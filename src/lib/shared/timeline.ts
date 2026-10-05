@@ -6,6 +6,13 @@ import {
   type ImageReference,
 } from './markdown/render.ts';
 import { Temporal } from '@js-temporal/polyfill';
+import {
+  canonicalSearch,
+  parseSearch,
+  searchSnippet,
+  normalizeSearch,
+  type SearchSnippet,
+} from './search.ts';
 
 export const DEFAULT_PAGE_SIZE = 30;
 export const MAX_PAGE_SIZE = 100;
@@ -27,20 +34,46 @@ export function boundedPreview(text: string): {
     }
   }
 }
-export async function snapshotCard(note: NoteSnapshot): Promise<TimelineCard> {
+export async function snapshotCard(
+  note: NoteSnapshot,
+  query = '',
+): Promise<TimelineCard> {
   const content = boundedPreview(note.bodyMarkdown);
+  const units = parseSearch(query);
+  const firstSnippet = (
+    field: SearchSnippet['field'],
+    fields: readonly string[],
+  ) => {
+    for (const value of fields) {
+      const snippet = searchSnippet(field, normalizeSearch(value), units);
+      if (snippet) return snippet;
+    }
+  };
   return {
     ...note,
     ...content,
     rendered: await renderMarkdown(content.bodyMarkdown, cardImages(note)),
+    snippets: units.length
+      ? [
+          firstSnippet('body', [note.bodyMarkdown]),
+          firstSnippet('tag', note.tags),
+          firstSnippet(
+            'filename',
+            (note.attachments ?? []).map((file) => file.filename),
+          ),
+        ].filter((s): s is SearchSnippet => !!s)
+      : undefined,
   };
 }
 export interface TimelineFilters {
   tags: string[];
+  query?: string;
+  day?: { start: number; end: number };
 }
 export interface TimelineCard extends NoteSnapshot {
   bodyTruncated: boolean;
   rendered: RenderedMarkdown;
+  snippets?: SearchSnippet[];
 }
 export interface TimelinePage {
   filters: TimelineFilters;
@@ -55,7 +88,11 @@ export interface TimelineTag {
   count: number;
 }
 
-export function canonicalFilters(tags: readonly string[]): TimelineFilters {
+export function canonicalFilters(
+  tags: readonly string[],
+  query = '',
+  day?: TimelineFilters['day'],
+): TimelineFilters {
   if (tags.length > 20)
     throw new DomainError('validation', 'Select at most 20 tags.');
   const normalized = tags.map((tag) => tag.normalize('NFKC').toLowerCase());
@@ -68,15 +105,37 @@ export function canonicalFilters(tags: readonly string[]): TimelineFilters {
     )
   )
     throw new DomainError('validation', 'Invalid tag filter.');
-  return { tags: [...new Set(normalized)].sort() };
+  const search = canonicalSearch(query);
+  if (
+    day &&
+    (!instantSchema.safeParse(day.start).success ||
+      !instantSchema.safeParse(day.end).success ||
+      day.end <= day.start)
+  )
+    throw new DomainError('validation', 'Invalid selected-day range.');
+  return {
+    tags: [...new Set(normalized)].sort(),
+    ...(search ? { query: search } : {}),
+    ...(day ? { day } : {}),
+  };
 }
 export function filterKey(filters: TimelineFilters): string {
-  return JSON.stringify(canonicalFilters(filters.tags).tags);
+  const canonical = canonicalFilters(filters.tags, filters.query, filters.day);
+  return JSON.stringify([
+    canonical.tags,
+    canonical.query ?? '',
+    canonical.day ?? null,
+  ]);
 }
 export function filterHref(filters: TimelineFilters): string {
   const params = new URLSearchParams();
-  for (const tag of canonicalFilters(filters.tags).tags)
-    params.append('tag', tag);
+  const canonical = canonicalFilters(filters.tags, filters.query, filters.day);
+  for (const tag of canonical.tags) params.append('tag', tag);
+  if (canonical.query) params.set('q', canonical.query);
+  if (canonical.day) {
+    params.set('dayStart', String(canonical.day.start));
+    params.set('dayEnd', String(canonical.day.end));
+  }
   return `/${params.size ? `?${params}` : ''}`;
 }
 export function toggleTag(filters: TimelineFilters, tag: string): string {
@@ -86,6 +145,8 @@ export function toggleTag(filters: TimelineFilters, tag: string): string {
       filters.tags.includes(key)
         ? filters.tags.filter((t) => t !== key)
         : [...filters.tags, key],
+      filters.query,
+      filters.day,
     ),
   );
 }
@@ -93,10 +154,13 @@ export function parseTimelineQuery(params: URLSearchParams) {
   if (
     params.toString().length > 8192 ||
     [...params.keys()].some(
-      (key) => !['tag', 'cursor', 'limit'].includes(key),
+      (key) =>
+        !['tag', 'cursor', 'limit', 'q', 'dayStart', 'dayEnd'].includes(key),
     ) ||
     params.getAll('cursor').length > 1 ||
-    params.getAll('limit').length > 1
+    ['limit', 'q', 'dayStart', 'dayEnd'].some(
+      (key) => params.getAll(key).length > 1,
+    )
   )
     throw new DomainError('validation', 'Invalid timeline query.');
   const limit = params.get('limit') ?? String(DEFAULT_PAGE_SIZE);
@@ -108,8 +172,19 @@ export function parseTimelineQuery(params: URLSearchParams) {
       'validation',
       'Invalid timeline cursor. Start from the first page.',
     );
+  const start = params.get('dayStart'),
+    end = params.get('dayEnd');
+  if (
+    (start === null) !== (end === null) ||
+    [start, end].some((v) => v !== null && !/^\d{1,16}$/.test(v))
+  )
+    throw new DomainError('validation', 'Invalid selected-day range.');
   return {
-    filters: canonicalFilters(params.getAll('tag')),
+    filters: canonicalFilters(
+      params.getAll('tag'),
+      params.get('q') ?? '',
+      start !== null ? { start: Number(start), end: Number(end) } : undefined,
+    ),
     cursor,
     limit: Number(limit),
   };

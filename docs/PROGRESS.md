@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** persisted timeline/cards and filter state; product implementation remains unfinished.
-- **Completed steps:** S00–S09 — **done**.
-- **Current requested step:** S09 — Timeline cards, lazy pagination, and filter state — **done**. Next unfinished step: S10 — SQLite exact multilingual search and snippets.
-- **Repository:** clean starting HEAD `4391fb8` (committed S08). Existing work preserved; S09 changes are uncommitted. No commit created by this agent.
-- **Implemented:** published-only SSR/cursor timeline, bounded Unicode previews, safe Markdown cards/private thumbnails/files, collapse/density, optional location/edited rows, tag AND filters/chips/counts, confirmed card actions/conflict refresh, sorted mutation invalidation, lazy loading/retry/stale cancellation, month tracking and ID/offset Back restoration. Search/calendar/detail/full lifecycle/storage/backup screens remain later steps. Dependencies, lockfile and DB schema are unchanged (v3/18 tables).
-- **Validation:** Windows check/lint/build and all 74 unit + 103 integration + 43 Chromium tests pass (normal screenshot comparisons). Fresh Linux image passes check/lint/build, 74 unit + 103 integration tests, and all 27 auth/draft/posting/timeline/upload Chromium tests. Intermediate failures are recorded below, not counted as passes. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
+- **Phase:** SQLite exact multilingual search and snippets; product implementation remains unfinished.
+- **Completed steps:** S00–S10 — **done**.
+- **Current requested step:** S10 — SQLite exact multilingual search and snippets — **done**. Next unfinished step: S11 — Month activity calendar and scroll synchronization.
+- **Repository:** clean starting HEAD `a5a6b54` (committed S09). Existing work preserved; S10 changes are uncommitted. No commit created by this agent.
+- **Implemented:** normalized literal AND/phrase search on the existing SSR/cursor timeline; short/edge-case fallback; transactional FTS5 index/backfill/reindex; safe normalized snippets; debounced, composition-aware search with stale-response suppression; query/tag/day AND/chips/cursor context. DB schema v4; no dependency or lockfile changes. Calendar/detail/full lifecycle/storage/backup screens remain later steps.
+- **Validation:** final Windows check/lint/build, 79 unit + 107 integration, and all 46 Chromium tests pass (normal comparisons). Fresh Linux image passes check/lint/build, the same 79 unit + 107 integration tests and all 30 scoped Chromium tests. Oracle/10k benchmarks pass on both hosts; Linux indexed p95 <=13.53 ms and worst short-scan p95 <=50.91 ms. Intermediate failures are recorded below. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, required planning documents and the latest S09 handoff. Relevant contracts: ARCHITECTURE 4.4/8/10.3/11, IMPLEMENTATION_PLAN S10, ACCEPTANCE_TESTS SEARCH-01–04 and TAG-02/CAL-02/UI-03.
-2. Inspect git and preserve S09 work. Read `shared/{timeline,notes,domain}.ts`, `server/notes/{timeline,service,content}.ts`, DB schema/migrations, `(app)/+page.{server.ts,svelte}`, Sidebar/AppShell/NoteCard/Markdown, workspace saved-event hook, and unit/integration/e2e timeline tests. The root/API now share one bounded published list; a TimelineCard can have truncated source and must never serve as an editor/recovery base snapshot.
-3. Next task: **S10**, implement the bounded quoted-phrase/all-term literal parser + deterministic NFKC/lowercase oracle, then add FTS5 trigram migration/reindex and synchronous mutation hooks. Preserve separate body/tag/filename fields so phrases cannot span unrelated fields. Short CJK/punctuation fallback defines correctness, not FTS syntax.
-4. Extend the existing canonical list filters/cursor fingerprint with search (and typed day-range foundation as needed); do not create a parallel results list or an implicit calendar-month restriction. Add safe snippets/highlight segments and debounced cancellation using current generations/anchors. Keep all-tag AND, retry identity, private files, no-premature-upload and safe rendering intact. Calendar/detail/full lifecycle/location/backup UI remain later steps.
-5. First validation: `npm run check && npm run test:integration`, then add parser/oracle/migration tests before browser search UI. Run `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts` and the full suite. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and requires OpenSSL. Preserve genuine server-issued synthetic sessions and Linux native/browser checks.
+1. Read `AGENTS.md`, required planning documents and the latest S10 handoff. Relevant contracts: ARCHITECTURE 8.3/10/10.3, IMPLEMENTATION_PLAN S11, ACCEPTANCE_TESTS CAL-01–04/SEARCH-03/UI-02–03.
+2. Inspect git and preserve S10 work. Read `shared/{timeline,search,settings}.ts`, `server/notes/{timeline,service}.ts`, `server/search/{index,query}.ts`, DB migrations/settings/coordinator, `(app)/+page.{server.ts,svelte}`, AppShell/Sidebar/SearchControl/NoteCard, workspace mutation hook and timeline/search tests. A bounded TimelineCard is not a full editor/recovery snapshot.
+3. Next task: **S11**, implement Temporal half-open local day/month boundaries and published-only global month activity counts with DST/Hong Kong/Tokyo/year-boundary integration tests first. Counts ignore search/tags; the saved app timezone never silently follows browser/VPS time.
+4. Add calendar grid/month/year/Today controls and stable top-visible month synchronization on the existing scroller. Day mode uses the existing typed `dayStart`/`dayEnd` UTC range and locks pagination. Month anchors/navigation-source/cursor context need an explicit extension: never impose the active calendar month on search/tags. Preserve empty manual months, Back anchors, stale-response suppression, search chips and mutation invalidation.
+5. First validation: `npm run check && npm run test:integration`. Then `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts tests/e2e/search-navigation.test.ts tests/e2e/zsearch.test.ts` and full suite at Milestone B. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and requires OpenSSL. Keep genuine server-issued sessions, schema-v4 explicit migration and Linux native/browser checks.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -34,7 +34,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S07  | Atomic/idempotent note lifecycle   | Done        |
 | S08  | Composer posting orchestration     | Done        |
 | S09  | Cards, cursor timeline and filters | Done        |
-| S10  | Exact multilingual SQLite search   | Not started |
+| S10  | Exact multilingual SQLite search   | Done        |
 | S11  | Month calendar and scroll sync     | Not started |
 | S12  | Detail/edit/conflict/image viewer  | Not started |
 | S13  | Drafts and Trash screens           | Not started |
@@ -1577,3 +1577,148 @@ Decisions / remaining scope / exact next task:
   parsing plus oracle tests first, then FTS migration/reindex and transactional
   updates on the same paginated list. First validation:
   `npm run check && npm run test:integration`, on pinned Node/PATH with verified TLS.
+
+### Session 2026-10-04 — S10 SQLite exact multilingual search and snippets
+
+**State: done.** Started clean at `a5a6b54` (S09). Prior code and all history
+preserved; no commit created. S10 gates pass; S11–S18 and product release remain
+unfinished. Schema is **v4**, 18 domain tables plus FTS/shadows. Dependencies and
+lockfile unchanged.
+
+Implemented / touched files:
+
+- `shared/search.ts`: NFKC/lowercase literal oracle, whitespace AND/whole quoted
+  phrases, quote/backslash escaping (unknown escapes stay literal), canonical
+  deduplication/order and helpful malformed/bounded-query errors. No fuzzy matching,
+  file-content extraction or Han/readings/accent conversion.
+- `server/search/{index,query}.ts`, `server/notes/{service,timeline}.ts`: separate
+  body/tag/filename fields, parameterized safely quoted FTS5 trigram candidates,
+  mandatory field-local literal `instr` post-filter, short CJK/unsupported Unicode/
+  punctuation fallback. Source joins/derived fields/rowid-linked FTS/receipts commit
+  together; permanent deletion removes FTS before the derived FK cascade. Published
+  status remains authoritative. No virtual-table triggers or trusted-schema relaxation.
+- `migrations/0003_search_trigram.sql`, snapshot/journal/runner: atomic existing-note
+  application-normalized backfill at all statuses, rollback to usable v3 on failure.
+  `scripts/reindex.ts` repairs only derived data atomically with the app stopped.
+- `shared/timeline.ts`, root page/layout, AppShell/Sidebar/SearchControl/NoteCard:
+  same newest-first SSR/cursor list, canonical `q`/all-tags/optional half-open UTC
+  `dayStart`/`dayEnd`, context-bound cursors and no implicit month bound. Up to three
+  escaped structured snippets (one per field, <=320 normalized codepoints each).
+  SQL fetches bounded body byte windows even far into source; boundary decoding and
+  NUL display markers never modify saved text. Visible labels identify normalized
+  excerpts. 300 ms/composition-aware search, malformed-input retention, superseded
+  SSR/paging suppression, chips/clear/Back/mobile and full-snapshot mutation matching.
+- `unit/search.test.ts`, `integration/{search,search-migration}.test.ts`, expanded
+  migration/timeline tests, `e2e/{search-navigation,zsearch}.test.ts`: SEARCH-01–04
+  examples/code/filenames/separate phrases, 240 randomized Unicode fixtures plus
+  100 derived substrings with accelerated/fallback oracle comparisons, atomic edits/
+  status/deletion/rollback/reindex, tied-date/tag/day/cursor context, far-source safe
+  snippets/no-JS SSR/XSS, held requests/invalid input/IME/Back/mobile. No mock API.
+- `scripts/search-benchmark.ts`, package scripts, Linux browser image, README,
+  ARCHITECTURE 8.3, migration/test READMEs and this handoff. Two Windows shell
+  baselines intentionally regenerated/opened/reviewed for enabled search/help text;
+  mobile baseline unchanged. Synthetic fixtures never ship as product seeds.
+
+Commands actually run:
+
+Host used explicit Node **24.21.0** executable/PATH and npm **11.12.1** CLI N/C
+from S00, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. All final host/Linux gates were
+repeated after the last NUL snippet fix; failed intermediate runs are not passes.
+
+| Command                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Final actual result                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Git/docs/source/installed API reads                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Clean S09 preserved; Kit 3 goto options verified                                                |
+| `npm run db:generate -- --custom --name=search_trigram`                                                                                                                                                                                                                                                                                                                                                                                                                                   | PASS, reviewed custom SQL/snapshot                                                              |
+| `npm run db:generate -- --name=verify_no_drift`                                                                                                                                                                                                                                                                                                                                                                                                                                           | PASS, 18 domain tables, no drift                                                                |
+| `npm exec -- prettier --write <touched text files>`                                                                                                                                                                                                                                                                                                                                                                                                                                       | PASS                                                                                            |
+| `npm run check` / `npm run lint`                                                                                                                                                                                                                                                                                                                                                                                                                                                          | PASS, 0 diagnostics; ESLint/format clean                                                        |
+| `npm run test:unit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | PASS, 15 files / 79 tests                                                                       |
+| `npm run test:integration`                                                                                                                                                                                                                                                                                                                                                                                                                                                                | PASS, 19 files / 107 actual native/SQLite/filesystem/server tests                               |
+| Targeted Vitest search/migrations and `npm run test:e2e -- tests/e2e/search-navigation.test.ts tests/e2e/zsearch.test.ts`                                                                                                                                                                                                                                                                                                                                                                 | PASS after corrections below                                                                    |
+| `npm run test:e2e -- --update-snapshots`                                                                                                                                                                                                                                                                                                                                                                                                                                                  | PASS, 46 tests; only two intended sidebar baselines changed/reviewed                            |
+| `npm run test:e2e` (final normal comparisons)                                                                                                                                                                                                                                                                                                                                                                                                                                             | PASS, build + all 46 Chromium tests                                                             |
+| `npm run build` (final standalone)                                                                                                                                                                                                                                                                                                                                                                                                                                                        | PASS, adapter-node/CSP/server boundaries preserved                                              |
+| `npm run search:benchmark`                                                                                                                                                                                                                                                                                                                                                                                                                                                                | PASS, synthetic 10k oracle/latency/resource measurements                                        |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s10-browser .`                                                                                                                                                                                                                                                                                                                                                                                                            | PASS, fresh Linux native/OpenSSL/Chromium install; zero reported vulnerabilities                |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s10-browser sh -c 'node --version && npm --version && npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build && npm run search:benchmark && npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/drafts.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts tests/e2e/uploads.test.ts tests/e2e/search-navigation.test.ts tests/e2e/zsearch.test.ts'` | PASS, Linux common gates, 79 unit + 107 integration, benchmark and all 30 scoped Chromium tests |
+| `git diff --check`; `test ! -e .e2e-data`                                                                                                                                                                                                                                                                                                                                                                                                                                                 | PASS, no private host fixtures remain                                                           |
+
+Final Linux image (precedes only completion documentation):
+`81b6a8c918cc054003eb103e3834b15d97f5cc2d7665fca5b6ee42ad6558f640`.
+Same S00 Node 24.21.0 bookworm/glibc digest, npm 11.19.0, WSL2 VM with 2 GiB RAM,
+container capped at two CPUs/4 GiB. SQLite **3.53.2**, Sharp and archive capability
+regressions pass; full archive restore is still S17. Linux browser scope excludes
+unreviewed OS-specific shell screenshot baselines.
+
+Measurements:
+
+10,000 synthetic notes, average **2041 UTF-8 bytes**, 300 tags, mixed English/
+Cantonese/Simplified/Japanese/width/combining/emoji/punctuation, daily dates across
+many years. Common/rare-near-oldest/no-match units, indexed and forced scan, all
+compared to a direct literal oracle. First-query plus 30 warm samples per mode;
+10 full SSR samples. First-query is **not OS-cold disk/startup**. ID limit 31,
+actual SSR 30 cards; no deployment data read/logged.
+
+| Measurement                                   | Windows x64         | Linux 2-CPU container |
+| --------------------------------------------- | ------------------- | --------------------- |
+| Indexed TypeScript warm p50 / p95             | 7.33 / 7.90 ms      | 6.13 / 7.78 ms        |
+| Indexed 数据库 / 図書館 p95                   | 2.57 / 2.68 ms      | 2.61 / 2.41 ms        |
+| Indexed rare p95 (forced scan)                | 1.57 ms (82.39 ms)  | 1.19 ms (45.90 ms)    |
+| Indexed absent p95 (forced scan)              | 0.90 ms (105.30 ms) | 0.69 ms (50.58 ms)    |
+| Quoted coffee shop indexed p95                | 8.51 ms             | 13.53 ms              |
+| Short matching 香港 / 猫 scan p95             | 0.64 / 0.62 ms      | 0.52 / 0.56 ms        |
+| Short no-match 龘 / 咗心 scan p95             | 83.73 / 85.48 ms    | 43.96 / 50.37 ms      |
+| Full 図書館 query + SSR p50 / p95             | 87.9 / 96.6 ms      | 35.2 / 48.4 ms        |
+| Atomic reindex                                | 2735.4 ms           | 1903.4 ms             |
+| Process peak RSS (includes seeding/rendering) | 325.9 MiB           | 348.2 MiB             |
+| Main DB after checkpoint                      | 120,299,520 bytes   | 120,336,384 bytes     |
+| Thirty-card JSON (uncompressed)               | 200,577 bytes       | 200,577 bytes         |
+
+Short-query scan p95 maxima across both modes are 85.48 ms Windows / 50.91 ms Linux.
+Dense newest matches may scan faster than building broad candidates; FTS materially
+helps rare/no-match units. Initial search budgets are met on this host/image, **not
+claimed on the actual VPS, OS-cold disk, network/browser rendering or mixed-media
+backup load**. No budget relaxation or external service was needed.
+
+Intermediate failures / corrections:
+
+- Initial check used obsolete Kit 2 goto flags and absent snippet-column unions
+  poisoning Drizzle types. Verified Kit 3 `reset` and always selected typed nullable
+  columns. Unit/integration failures found a supplementary exclusion regex skipping
+  paired surrogates and a missing file-fixture directory; codepoint eligibility and
+  generated directory creation fixed both. Old S09 unsupported-q assertion now tests
+  malformed q while retaining all other bounds.
+- First 10k reindex took ~35 seconds because virtual note-ID deletion scanned the
+  growing FTS table per note. Ordinary derived-rowid linkage/indexed deletion reduced
+  rebuild to ~2 seconds and preserves pre-cascade permanent-delete correctness.
+- First browser correctness case passed; Back raced Settings navigation completion.
+  Exact URL completion assertions fixed the test; small/large tag-list paths are both
+  supported. Final Windows/Linux Back/filter tests pass.
+- Final review found SQLite text substr truncates at body NULs. SQL replace with a
+  NUL pattern did not fix it (106 pass / 1 fail in the new regression). Bounded BLOB
+  byte windows and safe decoded/control-marker excerpts fixed the real case; NUL
+  query input is explicitly invalid. Repeated all final host/Linux gates afterward.
+  Original source and literal predicate/oracle semantics remain intact.
+- Existing native install-script/deprecation and lazy bundle warnings remain visible.
+  No missing native/browser dependency, skipped test or security-policy weakening
+  was counted as a pass. Failed exact-text documentation edits applied nothing;
+  retried against the actual file, preserving history.
+
+Decisions / remaining scope / exact next task:
+
+- ARCHITECTURE 8.3 records grammar, conservative acceleration, rowid synchronization,
+  schema/backfill/repair, typed day foundation and bounded normalized snippets. The
+  **default** 256 raw characters became 256 normalized content codepoints / 1024
+  escaped input codepoints so canonical quotes/NFKC expansion round-trip. No settled
+  product/stack/security change. NUL query input is invalid; body controls stay searchable.
+- No known unfinished S10 gate or reproducible S10 defect. S11 owns day/month boundary
+  calculation/UI, S14 management must call the transactional search hook. Detail/
+  full lifecycle/location/storage/backups/restore remain later steps. Physical OS
+  IME/read-aloud, Linux visual baselines, real-domain HTTPS, VPS/mixed-load performance
+  and independent restore drills remain release requirements.
+- **Next: S11.** Read ARCHITECTURE 8.3/10/10.3, shared timeline/search/settings, server
+  timeline/mutation/search, AppShell/Sidebar/root observer/history and search/timeline
+  tests. Implement Temporal half-open day/month boundaries and published global
+  activity counts with DST/Hong Kong/Tokyo/leap/year tests first; then calendar grid/
+  month/year/Today, stable scroll synchronization and locked day mode. First validation:
+  `npm run check && npm run test:integration`; affected/full E2E at Milestone B.

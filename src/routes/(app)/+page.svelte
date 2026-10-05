@@ -11,6 +11,28 @@
     type DraftWorkspace,
   } from '#lib/client/drafts/workspace.svelte.ts';
   import NoteCard from '#lib/components/NoteCard.svelte';
+  import { matchesSearch, parseSearch } from '#lib/shared/search.ts';
+  import type { TimelineFilters } from '#lib/shared/timeline.ts';
+  function matchesFilters(
+    note: NoteSnapshot,
+    filters: TimelineFilters,
+  ): boolean {
+    return (
+      note.status === 'published' &&
+      filters.tags.every((tag) => note.tags.includes(tag)) &&
+      (!filters.day ||
+        (note.timelineAt >= filters.day.start &&
+          note.timelineAt < filters.day.end)) &&
+      matchesSearch(
+        [
+          note.bodyMarkdown,
+          ...note.tags,
+          ...(note.attachments ?? []).map((file) => file.filename),
+        ],
+        parseSearch(filters.query ?? ''),
+      )
+    );
+  }
   import {
     filterKey,
     filterHref,
@@ -142,15 +164,13 @@
             (changed.timelineAt > oldest.timelineAt ||
               (changed.timelineAt === oldest.timelineAt &&
                 changed.id >= oldest.id)));
-        const matches =
-          changed?.status === 'published' &&
-          filters.tags.every((tag) => changed.tags.includes(tag));
+        const matches = matchesFilters(changed, filters);
         savedOutsideRange = !matches || (!alreadyLoaded && !withinLoadedDates);
         if (changed) items = items.filter((n) => n.id !== changed.id);
         void (async () => {
           if (changed && matches && (alreadyLoaded || withinLoadedDates)) {
             try {
-              const card = await snapshotCard(changed);
+              const card = await snapshotCard(changed, filters.query);
               if (disposed || key !== filterKey(filters)) return;
               items = mergeCards(items, [card]);
               await tick();
@@ -298,7 +318,7 @@
           });
           const payload = (await response.json()) as ApiResult<NoteSnapshot>;
           if (payload.ok && !disposed && key === filterKey(filters)) {
-            const card = await snapshotCard(payload.data);
+            const card = await snapshotCard(payload.data, filters.query);
             if (disposed || key !== filterKey(filters)) return;
             const oldest = items.at(-1);
             const visibleRange =
@@ -308,9 +328,7 @@
               card.timelineAt > oldest.timelineAt ||
               (card.timelineAt === oldest.timelineAt && card.id >= oldest.id);
             items = items.filter((n) => n.id !== result.noteId);
-            const matches =
-              card.status === 'published' &&
-              filters.tags.every((tag) => card.tags.includes(tag));
+            const matches = matchesFilters(payload.data, filters);
             if (matches && visibleRange) items = mergeCards(items, [card]);
             if (workspace.saved?.result.noteId === card.id)
               savedOutsideRange = !matches || !visibleRange;
@@ -355,11 +373,13 @@
 {#if !items.length && !data.timelineError}
   <section class="surface">
     <h2>
-      {filters.tags.length ? 'No matching notes' : 'A quiet place to begin'}
+      {filters.tags.length || filters.query || filters.day
+        ? 'No matching notes'
+        : 'A quiet place to begin'}
     </h2>
     <p>
-      {filters.tags.length
-        ? 'No published notes match every selected tag. Remove a filter or clear all.'
+      {filters.tags.length || filters.query || filters.day
+        ? 'No published notes match every search term and selected filter. Remove a filter or clear all.'
         : 'Write your first note above. Published notes will appear here.'}
     </p>
   </section>
