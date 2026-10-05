@@ -76,7 +76,7 @@ export class DraftWorkspace {
   private channel?: BroadcastChannel;
   private urlGeneration = 0;
   readonly accountId: string;
-  readonly timezone: string;
+  timezone = $state('UTC');
   constructor(accountId: string, timezone = 'UTC') {
     this.accountId = accountId;
     this.timezone = timezone;

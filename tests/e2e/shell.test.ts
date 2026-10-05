@@ -88,7 +88,9 @@ test('appearance persists in SQLite and SSR before JavaScript, follows system, a
   } finally {
     await noJs.close();
   }
-  await expect(page).toHaveScreenshot('settings-dark-compact.png');
+  await expect(page).toHaveScreenshot('settings-dark-compact.png', {
+    mask: [page.locator('[data-calendar-month]')],
+  });
   await page.reload();
   await expect(page.getByLabel('Density', { exact: true })).toHaveValue(
     'compact',
@@ -172,7 +174,12 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
     if (width === 390 || (width === 1440 && height === 900))
       await expect(page).toHaveScreenshot(
         `shell-light-${width}x${height}.png`,
-        { mask: [page.locator('#notes-pane')] },
+        {
+          mask: [
+            page.locator('#notes-pane'),
+            page.locator('[data-calendar-month]'),
+          ],
+        },
       );
     await testInfo.attach(`shell-${width}x${height}`, {
       body: await page.screenshot(),

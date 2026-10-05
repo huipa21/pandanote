@@ -230,10 +230,10 @@ test('explicit Post saves text/two images/file, freezes repeated clicks, retains
     .getByTestId('composer')
     .getByRole('button', { name: 'Date', exact: true })
     .click();
-  await page
-    .getByLabel('Timeline date/time (UTC)')
-    .first()
-    .fill('2020-02-01T10:30');
+  // Remain inside the loaded range even when earlier suites seed >30 notes.
+  // A save older than the oldest loaded card must not invent a pagination gap.
+  const backdate = new Date(Date.now() - 3_600_000).toISOString().slice(0, 16);
+  await page.getByLabel('Timeline date/time (UTC)').first().fill(backdate);
   await page
     .getByLabel('Timeline date/time (UTC)')
     .first()
@@ -252,7 +252,7 @@ test('explicit Post saves text/two images/file, freezes repeated clicks, retains
       .nth(1)
       .locator('time')
       .getAttribute('datetime'),
-  ).toBe('2020-02-01T10:30:00.000Z');
+  ).toBe(`${backdate}:00.000Z`);
 });
 
 test('second upload disconnect retains all local bytes; reload retries only missing uploads with the same mutation and one receipt', async ({
@@ -614,6 +614,11 @@ test('reload during an active upload retains frozen recovery, never auto-posts, 
   page.on('dialog', (dialog) => dialog.accept());
   await page.reload();
   release();
+  // Removing routing while reload's entry module is still being requested can
+  // strand that script in Chromium. Let real hydration finish before teardown.
+  await expect(
+    page.getByRole('button', { name: 'Write a note…' }),
+  ).toBeEnabled();
   await page.unrouteAll({ behavior: 'wait' });
   await page.getByRole('button', { name: 'Write a note…' }).click();
   expect((await records(page))[0].postingAttempt!.command.mutationId).toBe(

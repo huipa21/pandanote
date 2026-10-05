@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** SQLite exact multilingual search and snippets; product implementation remains unfinished.
-- **Completed steps:** S00–S10 — **done**.
-- **Current requested step:** S10 — SQLite exact multilingual search and snippets — **done**. Next unfinished step: S11 — Month activity calendar and scroll synchronization.
-- **Repository:** clean starting HEAD `a5a6b54` (committed S09). Existing work preserved; S10 changes are uncommitted. No commit created by this agent.
-- **Implemented:** normalized literal AND/phrase search on the existing SSR/cursor timeline; short/edge-case fallback; transactional FTS5 index/backfill/reindex; safe normalized snippets; debounced, composition-aware search with stale-response suppression; query/tag/day AND/chips/cursor context. DB schema v4; no dependency or lockfile changes. Calendar/detail/full lifecycle/storage/backup screens remain later steps.
-- **Validation:** final Windows check/lint/build, 79 unit + 107 integration, and all 46 Chromium tests pass (normal comparisons). Fresh Linux image passes check/lint/build, the same 79 unit + 107 integration tests and all 30 scoped Chromium tests. Oracle/10k benchmarks pass on both hosts; Linux indexed p95 <=13.53 ms and worst short-scan p95 <=50.91 ms. Intermediate failures are recorded below. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS performance and full archive restore audits remain later gates.
+- **Phase:** Month activity calendar and scroll synchronization; product implementation remains unfinished.
+- **Completed steps:** S00–S11 — **done**. Milestone B's full Windows browser gate passed.
+- **Current requested step:** S11 — **done**. Next unfinished step: S12 — Addressable detail dialog, edits, conflicts and image viewer.
+- **Repository:** clean starting HEAD `333066c` (committed S10). Prior work preserved; S11 changes are uncommitted. No commit created by this agent.
+- **Implemented:** global published month counts; Temporal local day/month boundaries; calendar shades/today/selection, arrows/picker/Today; saved IANA timezone/week start with explicit browser proposal; day-locked paging; manual empty months; scroll-follow without timeline/history loops; Back anchors; stale counts/retry/mutation invalidation. Schema v4 and dependencies/lockfile unchanged. Detail/lifecycle/storage/backup screens remain later steps.
+- **Validation:** Windows check/lint/build, 83 unit + 112 integration, all 51 Chromium tests pass with normal comparisons. Linux clean `npm ci` using the verified S10 Linux prebuild/browser cache passes the same common gates and all 35 scoped Chromium tests. Cold-image build failed twice when SQLite prebuild download aborted and the compiler fallback lacked Python; this is not recorded as a pass. Dense 10k-month counts p95 13.99 ms Windows / 20.13 ms Linux. Full evidence/failures below. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS and full restore audits remain later gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, required planning documents and the latest S10 handoff. Relevant contracts: ARCHITECTURE 8.3/10/10.3, IMPLEMENTATION_PLAN S11, ACCEPTANCE_TESTS CAL-01–04/SEARCH-03/UI-02–03.
-2. Inspect git and preserve S10 work. Read `shared/{timeline,search,settings}.ts`, `server/notes/{timeline,service}.ts`, `server/search/{index,query}.ts`, DB migrations/settings/coordinator, `(app)/+page.{server.ts,svelte}`, AppShell/Sidebar/SearchControl/NoteCard, workspace mutation hook and timeline/search tests. A bounded TimelineCard is not a full editor/recovery snapshot.
-3. Next task: **S11**, implement Temporal half-open local day/month boundaries and published-only global month activity counts with DST/Hong Kong/Tokyo/year-boundary integration tests first. Counts ignore search/tags; the saved app timezone never silently follows browser/VPS time.
-4. Add calendar grid/month/year/Today controls and stable top-visible month synchronization on the existing scroller. Day mode uses the existing typed `dayStart`/`dayEnd` UTC range and locks pagination. Month anchors/navigation-source/cursor context need an explicit extension: never impose the active calendar month on search/tags. Preserve empty manual months, Back anchors, stale-response suppression, search chips and mutation invalidation.
-5. First validation: `npm run check && npm run test:integration`. Then `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts tests/e2e/search-navigation.test.ts tests/e2e/zsearch.test.ts` and full suite at Milestone B. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and requires OpenSSL. Keep genuine server-issued sessions, schema-v4 explicit migration and Linux native/browser checks.
+1. Read `AGENTS.md`, required planning documents and latest S11 handoff. Relevant contracts: ARCHITECTURE 4.4/6.3/7.5/10.4/11, IMPLEMENTATION_PLAN S12, ACCEPTANCE_TESTS NOTE-03/04/IMAGE-02/UI-02/03.
+2. Inspect git and preserve S11 work. Read shared note/snapshot/domain/timeline/calendar contracts; NoteService/private attachment routes; browser draft workspace/repository/frozen attempts; NoteCard/Markdown/Modal; root timeline/calendar state/history and posting/calendar/timeline tests. A bounded TimelineCard is not a full recovery snapshot.
+3. Next task: **S12**, implement the private addressable full-note route and desktop dialog/mobile full-screen entry, including direct SSR/refresh, safe not-found and focus/history/scroll return. Reuse the existing full snapshot GET, not card previews. Then add published edit entry, conflict choices and image viewer.
+4. Preserve local body/blobs on conflicts; explicit replacement checks the newly observed revision and another race still conflicts. No background server draft save, original-image download, force overwrite or premature upload. Keep counts/day locks/manual empty months and timezone-aware cursor/snapshot invalidation.
+5. First validation: `npm run check && npm run test:integration`; then affected posting/timeline/calendar browser tests and full suite at the user-facing gate. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and needs OpenSSL. Linux cold prebuild downloads currently abort: retry the standard image or use the verified Linux cache with clean `npm ci`, recording which actually ran.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -35,7 +35,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S08  | Composer posting orchestration     | Done        |
 | S09  | Cards, cursor timeline and filters | Done        |
 | S10  | Exact multilingual SQLite search   | Done        |
-| S11  | Month calendar and scroll sync     | Not started |
+| S11  | Month calendar and scroll sync     | Done        |
 | S12  | Detail/edit/conflict/image viewer  | Not started |
 | S13  | Drafts and Trash screens           | Not started |
 | S14  | Tag administration                 | Not started |
@@ -1722,3 +1722,166 @@ Decisions / remaining scope / exact next task:
   activity counts with DST/Hong Kong/Tokyo/leap/year tests first; then calendar grid/
   month/year/Today, stable scroll synchronization and locked day mode. First validation:
   `npm run check && npm run test:integration`; affected/full E2E at Milestone B.
+
+### Session 2026-10-05 — S11 month activity calendar and scroll synchronization
+
+**State: done. Milestone B's full Windows browser gate passed.** Started clean at
+`333066c` (S10). Existing implementation/history preserved; no commit created.
+S12–S18 and the product release remain unfinished. No schema, dependency or lockfile
+change; native Linux validation used a clean reinstall with the verified S10 cache,
+not a claimed successful cold download.
+
+Implemented / touched files:
+
+- `shared/calendar.ts`, `server/calendar/activity.ts`, `routes/api/calendar/+server.ts`:
+  Monday/Sunday Gregorian grids, leap years, named IANA validation, Temporal local
+  start-of-day/day/month boundaries including DST/midnight transitions, global
+  published-only counts via one indexed counts-only scan. No search/tag predicate,
+  note content, coordinate or whole-collection payload in the count endpoint.
+- `shared/timeline.ts`, `server/notes/timeline.ts`: canonical local `date` and explicit
+  `month` URLs, server-derived half-open day ranges, fingerprint-bound month/timezone
+  cursors, rejection of duplicates/conflicting controls and old-zone cursors.
+  Existing typed UTC day ranges remain supported. Manual empty months return an
+  optional older seek cursor and stay empty until explicit resume; ordinary paging
+  skips sparse empty matching months without fetching each month separately.
+- `client/timeline/calendar.svelte.ts`, `components/Calendar.svelte`, Sidebar/AppShell,
+  private layout/root page: SSR grid/counts, five neutral/green levels, separate
+  today dot/selected outline, readable date/count/weekday labels, arrows/native
+  picker/Today, desktop/drawer shared request owner, abort/deadline/generation guards,
+  visible retry errors. Scroll only changes displayed calendar month, never URL or
+  timeline; day mode locks month/results. Back snapshots retain loaded cards,
+  expansion, calendar/empty state, timezone and ID/pixel anchor. Empty-month sentinel
+  is suppressed. Mutation insertion respects explicit month and loaded bounds.
+- `server/settings/repository.ts`, `routes/api/settings/calendar/+server.ts`,
+  `components/CalendarSettings.svelte`, private Settings and reactive draft workspace
+  timezone: strict coordinated/session-rechecked two-field merge; explicit browser
+  proposal/manual IANA input/week start; errors retain choices. Saved zone never
+  follows browser/VPS automatically. Counts/date filters/cursors/grouping update on
+  timezone change. Persistent layout invalidates counts after composer completion,
+  even when posting from Drafts; lifecycle actions use existing invalidation.
+- `styles/tokens.css`, `unit/appearance.test.ts`: heat levels and actual-token AA
+  numeral contrast in light/dark. `unit/calendar.test.ts`, `integration/calendar.test.ts`
+  cover CAL-01–04, status/date/republish/restore, midnight/leap/year/DST, locked paging,
+  settings/auth/old cursors, sparse months/search, epoch-zero/western-1969 dates
+  and dense 10k aggregation.
+  `e2e/calendar.test.ts` adds five actual built flows including no-JS SSR, day locks,
+  picker/Today/empty/Back, tall/Mermaid/year transitions, held stale/error counts,
+  different browser zone, lifecycle and Drafts-post invalidation, delayed-image anchors
+  and mobile drawer. No simulated successful API/fixture bypass.
+- `e2e/posting.test.ts`: its in-range backdate now uses one hour earlier than now;
+  the old 2020 assumption fell outside the first 30 cards once calendar fixtures
+  existed, correctly producing no invented pagination gap. Ordering/date assertions
+  remain. Active-upload reload routing now waits for real hydration before
+  unregistering routes, avoiding a pending-entry-module teardown race found in
+  final regression. Shell screenshot masks now include variable calendar dates/counts; only
+  two intended Windows baselines changed, opened/reviewed. Separate unmasked fixed
+  month desktop/mobile calendar screenshots were opened/reviewed.
+- README, ARCHITECTURE 10.4, tests README, Linux browser-image scope and this handoff.
+  Default control years 1969–9998 keep four-digit URLs and cover UTC epoch-zero
+  notes in western timezones; query bounds may be negative, note instants may not;
+  no future scheduling/stack/security change. Desktop calendar cell height 32px fits
+  seven columns; mobile height uses 44px targets, with short/sidebar scrolling intact.
+
+Commands actually run:
+
+Host used explicit Node **24.21.0** executable/PATH and npm **11.12.1** CLI N/C
+from S00, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. The final common gates and normal
+browser comparison run passed; intermediate failures below are not passes.
+
+| Command                                                                                                    | Actual outcome                                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Git/status/log, full required docs/source reads                                                            | Clean S10 preserved                                                                                      |
+| `npm exec -- prettier --write <touched text files>`                                                        | PASS, including second pass where required                                                               |
+| `npm run check` / `npm run lint`                                                                           | PASS final, zero diagnostics, ESLint/format clean                                                        |
+| `npm run test:unit`                                                                                        | PASS, 16 files / 83 tests                                                                                |
+| `npm run test:integration`                                                                                 | PASS, 20 files / 112 actual native/SQLite/filesystem/server tests                                        |
+| `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/calendar.test.ts`                                    | Initial 3 pass/3 fail; corrected selectors/reseed, final 6/6 before fifth calendar case                  |
+| `npm run test:e2e -- --update-snapshots`                                                                   | 49 pass/1 fail from obsolete out-of-range backdate expectation; two intended baselines updated/reviewed  |
+| `npm run test:e2e` (final normal comparisons)                                                              | PASS, production build + all 51 Chromium tests                                                           |
+| `npm run build` (final standalone)                                                                         | PASS, adapter/runtime origin/CSP/server-only boundaries retained                                         |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s11-browser .`                             | FAILED: socket unavailable, then two actual cold builds failed prebuild download/compiler fallback       |
+| `podman machine start`                                                                                     | PASS, restarted unavailable VM                                                                           |
+| `podman run --rm pandanote-s10-browser sh -c 'ls -l /root/.npm/_prebuilds; node --version; npm --version'` | Verified cached Linux x64 SQLite v12.11.1/node ABI137 archive and unchanged Node/npm                     |
+| `podman build -f .browser-spike/Dockerfile.s11-cached -t pandanote-s11-browser-cached .`                   | PASS, clean `npm ci` removes/reinstalls node_modules using verified Linux cache; 0 audit vulnerabilities |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s11-browser-cached`      | PASS Linux check/lint/build, 83 unit + 112 integration, all 35 scoped Chromium tests                     |
+| `git diff --check`; `test ! -e .e2e-data`                                                                  | PASS, no private host fixture left                                                                       |
+
+The temporary ignored validation Dockerfile is precisely `FROM
+localhost/pandanote-s10-browser:latest`, `WORKDIR /app`, `COPY . .`, `RUN npm ci`.
+Its CMD runs `node --version && npm --version && npm run check && npm run lint &&
+npm run test:unit && npm run test:integration && npm run build && npm run test:e2e --
+tests/e2e/auth.test.ts tests/e2e/calendar.test.ts tests/e2e/drafts.test.ts
+ tests/e2e/posting.test.ts tests/e2e/timeline.test.ts tests/e2e/uploads.test.ts
+ tests/e2e/search-navigation.test.ts tests/e2e/zsearch.test.ts`. This does not copy
+Windows node_modules or skip reinstall/native tests. Cold downloads remain unverified
+this session; the two failed cold builds are not passes and should be retried during
+S18 deployment validation. No TLS verification exception or package change was used.
+
+Passing Linux code-gate image (precedes only this handoff close update):
+`baabdbb0e55c055659a59ef2a918717a264259a3d08d7f1e9371f184a6263279`, based on
+verified S10 image `81b6a8c918cc054003eb103e3834b15d97f5cc2d7665fca5b6ee42ad6558f640`.
+Same pinned Node 24.21.0 bookworm/glibc base, npm 11.19.0, WSL2 VM (2 GiB RAM),
+container capped at two CPUs/4 GiB. SQLite/Sharp/private files/archive capability
+regressions pass; this is not a complete archive restore or real-VPS release audit.
+Linux browser scope excludes unreviewed OS-specific shell screenshot baselines.
+
+Measured 10,000 synthetic published notes concentrated in March (31 independent
+UTC day ranges), 30 warm count queries, counts-only JSON <500 bytes:
+
+| Host                               | Warm p50 | Warm p95 |
+| ---------------------------------- | -------- | -------- |
+| Windows x64 / Node 24.21.0         | 11.19 ms | 13.99 ms |
+| Linux two-CPU validation container | 10.52 ms | 20.13 ms |
+
+These meet the initial calendar target on these hosts, not a promised VPS/OS-cold
+budget. No counts cache/index table, extra service or budget relaxation was needed.
+
+Intermediate failures / corrections:
+
+- Initial check warned about a self-closing datalist option; corrected, final zero
+  warnings. New contrast test initially excluded numbered heat tokens with its old
+  regex; broadened token-name parsing, all levels actually pass AA. A formatting
+  pass required a second pass; failed lint was not counted as success.
+- First targeted browser run used a nonexistent Mermaid class and treated a datalist
+  input as textbox rather than combobox; actual diagram rendered, corrected to the
+  product data selector/label. Worker restart after failure reseeded duplicate notes;
+  seeding now queries actual existing fixtures before creation, never bypasses auth.
+- Full browser run exposed the old posting test's fixed 2020/in-loaded-range assumption
+  with >30 previously seeded notes. Kept correct no-gap behavior; the in-range test
+  uses a recent explicit backdate and exact date/order checks. Final 51/51 passes.
+- Final review found the initial 1971 control bound could break the calendar when
+  scrolling a valid UTC epoch-zero note (western app zones show December 1969).
+  Lowered the control bound to 1969; negative UTC query boundaries are valid while
+  stored note instants remain nonnegative. Added actual SQLite/browser regressions
+  for this edge and repeated host/Linux common/browser gates.
+- The first post-review Windows browser rerun had 50 pass/1 fail: active-upload reload
+  left all hydration controls disabled. Trace had an uncompleted entry-module GET
+  around `unrouteAll`, with no application exception. The test now waits for actual
+  hydration before unregistering network routes. Final Windows 51/51 and Linux
+  35/35 pass. This is test-harness ordering hardening, not relaxed assertions or a
+  claim that Chromium's internal cause was proven; investigate if it recurs.
+- Linux socket initially unavailable. Restarted VM; cold builds twice logged
+  `prebuild-install warn install aborted`, then node-gyp failed because Python was
+  absent. Exact download-abort cause was not established. Cached Linux archive from
+  the unchanged verified S10 image allowed **clean** npm ci and all native/browser
+  gates, without adding compilers/dependencies or disabling TLS. Cold-image networking
+  remains an environment/deployment verification issue, not silently passed.
+- Existing upstream install-script/deprecation and lazy bundle-size warnings remain
+  visible; no missing browser/native dependency was skipped in the passing gate.
+
+Remaining scope / exact next task:
+
+- No known unfinished S11 feature or reproducible S11 defect. S12 owns full private
+  detail/edit/conflict/image viewer; S13/14 lifecycle/tag management and S15 storage/
+  location remain. Counts already react to every currently exposed note mutation;
+  later lifecycle/tag/settings UI must retain the shared invalidation hooks.
+- Physical device/OS IME, assistive technology, Linux shell baselines, real-domain
+  HTTPS/VPS load, cold install network/toolchain robustness and independent full
+  backup/restore remain S18/later gates. No final product completion is claimed.
+- **Next: S12.** Read ARCHITECTURE 4.4/6.3/7.5/10.4/11, shared snapshots/domain/notes,
+  NoteService/private file routes, draft/frozen workspace, NoteCard/Markdown/Modal,
+  root timeline/calendar history and browser tests. Start the private addressable
+  full-note route and dialog/mobile entry with direct SSR/refresh/not-found plus
+  focus/history/scroll return. Then published edit/conflict choices/viewer. First
+  validation: `npm run check && npm run test:integration`, then affected browser/full
+  suites with pinned Node/PATH/TLS and genuine sessions. Preserve S11 work.

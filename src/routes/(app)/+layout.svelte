@@ -1,7 +1,11 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { goto } from '$app/navigation';
+  import { goto, invalidate } from '$app/navigation';
   import { onMount, setContext, untrack } from 'svelte';
+  import {
+    CALENDAR,
+    CalendarState,
+  } from '#lib/client/timeline/calendar.svelte.ts';
   import {
     DRAFT_WORKSPACE,
     DraftWorkspace,
@@ -13,6 +17,26 @@
     untrack(() => data.timezone),
   );
   setContext(DRAFT_WORKSPACE, workspace);
+  const calendar = new CalendarState(untrack(() => data.calendar));
+  setContext(CALENDAR, calendar);
+  let handledCalendarSave = untrack(() => workspace.saved?.serial ?? 0);
+  $effect(() => {
+    const saved = workspace.saved;
+    if (saved && saved.serial > handledCalendarSave) {
+      handledCalendarSave = saved.serial;
+      void invalidate('pandanote:calendar');
+    }
+  });
+  $effect(() => {
+    workspace.timezone = data.timezone;
+  });
+  $effect(() => {
+    const month = calendar.month;
+    const initial = data.calendar;
+    untrack(() => {
+      if (month) void calendar.refresh(initial);
+    });
+  });
   onMount(() => {
     let ended = false;
     let stop: (() => void) | undefined;
@@ -22,12 +46,14 @@
     });
     return () => {
       ended = true;
+      calendar.dispose();
       stop?.();
     };
   });
 </script>
 
 <AppShell
+  {calendar}
   active={page.url.pathname}
   tags={data.availableTags}
   filters={page.data.timeline?.filters ?? { tags: [] }}

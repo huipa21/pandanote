@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Composer posting, recovery, the paginated timeline and exact search are implemented; later features remain unfinished.**
+**Composer posting, recovery, timeline, exact search and month calendar are implemented; later features remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -17,7 +17,8 @@ with frozen, receipt-first retries, upload progress and confirmed-success cleanu
 S09 adds server-rendered chronological cards, private cursor paging, all-tag filtering,
 collapse/density preferences and scroll/history restoration. S10 adds SQLite literal
 multilingual search, quoted phrases, short-query fallback and safe snippets.
-Calendar controls, detail/lifecycle screens and backup/restore remain future steps. Do not deploy this
+S11 adds global month activity, timezone/week-start settings, month/year/day navigation
+and scroll synchronization. Detail/lifecycle screens and backup/restore remain future steps. Do not deploy this
 unfinished app as a complete product.
 
 ## Start here
@@ -181,9 +182,29 @@ light-theme flash. Public login/setup use the default system theme. Changes appl
 on other devices on their next page load, not via live preference synchronization.
 
 The composer saves **browser-local drafts** (S05) with Write/Preview, and uploads
-only on explicit Post/Save changes (S08). Calendar controls,
-server drafts/Trash, tag administration and calendar/storage/backup settings are
+only on explicit Post/Save changes (S08). Server drafts/Trash screens,
+tag administration and storage/backup settings are
 explicitly labeled as later-step work; these are not completed features.
+
+## Month calendar and date navigation (S11)
+
+The sidebar/drawer calendar shades every day's **published** note count, independent
+of search/tags; drafts and Trash never count. Today has a dot; the selected day has
+an outline. Click a day to lock search/tag results to that local day; click it again
+or remove its chip to resume continuous scrolling. Month arrows and the heading's
+quick year/month picker jump the timeline, clearing a selected day. Today returns
+to the current month while retaining search/tags. Clear all clears everything.
+
+The calendar follows the top visible note in the notes pane without fetching a new
+timeline or adding history entries. Normal paging skips empty matching months;
+a manually chosen empty month waits for Load older notes or Return to Today. Back
+restores loaded cards, calendar month and an ID/pixel reading anchor.
+
+Settings → Calendar saves a named IANA app timezone and Monday/Sunday week start.
+Browser detection is only an explicit proposal; it never overwrites the saved zone.
+All date grouping uses UTC half-open intervals computed with Temporal, including
+23/25-hour DST days. Month/day controls accept Gregorian years 1969–9998; they do
+not introduce future scheduling. Search/tag changes otherwise cover every month.
 
 ## Markdown preview and parsing (S04)
 

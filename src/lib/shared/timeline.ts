@@ -5,7 +5,12 @@ import {
   type RenderedMarkdown,
   type ImageReference,
 } from './markdown/render.ts';
-import { Temporal } from '@js-temporal/polyfill';
+import {
+  calendarDate,
+  calendarMonth,
+  localDate,
+  monthRange,
+} from './calendar.ts';
 import {
   canonicalSearch,
   parseSearch,
@@ -18,6 +23,13 @@ export const DEFAULT_PAGE_SIZE = 30;
 export const MAX_PAGE_SIZE = 100;
 export const CARD_SOURCE_BYTES = 8192;
 export const PAGE_SOURCE_BYTES = 192 * 1024;
+// Query boundaries may precede epoch zero (a valid earliest note's local day).
+// Stored note instants remain nonnegative under the existing domain contract.
+const rangeInstantSchema = z
+  .number()
+  .int()
+  .min(-8_640_000_000_000_000)
+  .max(8_640_000_000_000_000);
 export function boundedPreview(text: string): {
   bodyMarkdown: string;
   bodyTruncated: boolean;
@@ -69,6 +81,8 @@ export interface TimelineFilters {
   tags: string[];
   query?: string;
   day?: { start: number; end: number };
+  date?: string;
+  month?: string;
 }
 export interface TimelineCard extends NoteSnapshot {
   bodyTruncated: boolean;
@@ -78,6 +92,7 @@ export interface TimelineCard extends NoteSnapshot {
 export interface TimelinePage {
   filters: TimelineFilters;
   anchor: number | null;
+  emptyMonth?: boolean;
   items: TimelineCard[];
   nextCursor: string | null;
 }
@@ -92,6 +107,8 @@ export function canonicalFilters(
   tags: readonly string[],
   query = '',
   day?: TimelineFilters['day'],
+  date?: string,
+  month?: string,
 ): TimelineFilters {
   if (tags.length > 20)
     throw new DomainError('validation', 'Select at most 20 tags.');
@@ -108,31 +125,52 @@ export function canonicalFilters(
   const search = canonicalSearch(query);
   if (
     day &&
-    (!instantSchema.safeParse(day.start).success ||
-      !instantSchema.safeParse(day.end).success ||
+    (!rangeInstantSchema.safeParse(day.start).success ||
+      !rangeInstantSchema.safeParse(day.end).success ||
       day.end <= day.start)
   )
     throw new DomainError('validation', 'Invalid selected-day range.');
+  if (date) calendarDate(date);
+  if (month) calendarMonth(month);
+  if (month && (date || day))
+    throw new DomainError('validation', 'Choose a month or a day, not both.');
   return {
+    ...(date ? { date } : {}),
+    ...(month ? { month } : {}),
     tags: [...new Set(normalized)].sort(),
     ...(search ? { query: search } : {}),
     ...(day ? { day } : {}),
   };
 }
 export function filterKey(filters: TimelineFilters): string {
-  const canonical = canonicalFilters(filters.tags, filters.query, filters.day);
+  const canonical = canonicalFilters(
+    filters.tags,
+    filters.query,
+    filters.day,
+    filters.date,
+    filters.month,
+  );
   return JSON.stringify([
     canonical.tags,
     canonical.query ?? '',
-    canonical.day ?? null,
+    canonical.date ?? canonical.day ?? null,
+    canonical.month ?? null,
   ]);
 }
 export function filterHref(filters: TimelineFilters): string {
   const params = new URLSearchParams();
-  const canonical = canonicalFilters(filters.tags, filters.query, filters.day);
+  const canonical = canonicalFilters(
+    filters.tags,
+    filters.query,
+    filters.day,
+    filters.date,
+    filters.month,
+  );
   for (const tag of canonical.tags) params.append('tag', tag);
   if (canonical.query) params.set('q', canonical.query);
-  if (canonical.day) {
+  if (canonical.month) params.set('month', canonical.month);
+  if (canonical.date) params.set('date', canonical.date);
+  else if (canonical.day) {
     params.set('dayStart', String(canonical.day.start));
     params.set('dayEnd', String(canonical.day.end));
   }
@@ -147,6 +185,7 @@ export function toggleTag(filters: TimelineFilters, tag: string): string {
         : [...filters.tags, key],
       filters.query,
       filters.day,
+      filters.date,
     ),
   );
 }
@@ -155,10 +194,19 @@ export function parseTimelineQuery(params: URLSearchParams) {
     params.toString().length > 8192 ||
     [...params.keys()].some(
       (key) =>
-        !['tag', 'cursor', 'limit', 'q', 'dayStart', 'dayEnd'].includes(key),
+        ![
+          'tag',
+          'cursor',
+          'limit',
+          'q',
+          'dayStart',
+          'dayEnd',
+          'date',
+          'month',
+        ].includes(key),
     ) ||
     params.getAll('cursor').length > 1 ||
-    ['limit', 'q', 'dayStart', 'dayEnd'].some(
+    ['limit', 'q', 'dayStart', 'dayEnd', 'date', 'month'].some(
       (key) => params.getAll(key).length > 1,
     )
   )
@@ -175,8 +223,11 @@ export function parseTimelineQuery(params: URLSearchParams) {
   const start = params.get('dayStart'),
     end = params.get('dayEnd');
   if (
+    (params.has('date') && start !== null) ||
+    (params.has('date') && !params.get('date')) ||
+    (params.has('month') && !params.get('month')) ||
     (start === null) !== (end === null) ||
-    [start, end].some((v) => v !== null && !/^\d{1,16}$/.test(v))
+    [start, end].some((v) => v !== null && !/^-?\d{1,16}$/.test(v))
   )
     throw new DomainError('validation', 'Invalid selected-day range.');
   return {
@@ -184,6 +235,8 @@ export function parseTimelineQuery(params: URLSearchParams) {
       params.getAll('tag'),
       params.get('q') ?? '',
       start !== null ? { start: Number(start), end: Number(end) } : undefined,
+      params.get('date') ?? undefined,
+      params.get('month') ?? undefined,
     ),
     cursor,
     limit: Number(limit),
@@ -199,18 +252,10 @@ export const cursorPayloadSchema = z.strictObject({
 });
 export type CursorPayload = z.infer<typeof cursorPayloadSchema>;
 export function currentMonthEnd(timezone: string, now = Date.now()): number {
-  const date =
-    Temporal.Instant.fromEpochMilliseconds(now).toZonedDateTimeISO(timezone);
-  return date
-    .with({ day: 1, hour: 0, minute: 0, second: 0, millisecond: 0 })
-    .add({ months: 1 }).epochMilliseconds;
+  return monthRange(monthKey(now, timezone), timezone).end;
 }
 export function monthKey(at: number, timezone: string): string {
-  return Temporal.Instant.fromEpochMilliseconds(at)
-    .toZonedDateTimeISO(timezone)
-    .toPlainDate()
-    .toString()
-    .slice(0, 7);
+  return localDate(at, timezone).slice(0, 7);
 }
 export function cardImages(note: NoteSnapshot): ImageReference[] {
   return (note.attachments ?? [])

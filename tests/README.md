@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments, timeline and search (S00–S10)
+# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search and calendar (S00–S11)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -17,6 +17,28 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S11 coverage (CAL-01–04, SEARCH-03, UI-02/03)
+
+- `unit/calendar.test.ts`: leap/week/six-row grids, year shifts, literal date/month
+  URL validation, IANA versus fixed offsets, DST 23/25-hour and midnight-skipped
+  boundaries, Hong Kong/Tokyo/year grouping, navigation/filter semantics.
+- `integration/calendar.test.ts`: real global counts/status/date/republish/restore
+  updates, epoch-zero notes grouped into December 1969 in western zones, selected-day
+  cursor locks, changed-zone/cross-month rejection, sparse
+  manual empty month/older resume/all-date search, strict session-rechecked settings
+  merge and a counts-only dense 10k-month warm latency measurement.
+- `e2e/calendar.test.ts`: SSR without JavaScript, global counts despite filters,
+  day toggle/chip/locked bottom paging, arrows/picker/Today/empty-month explicit
+  resume, Back ID/offset/calendar restoration, tall/Mermaid/year crossings without
+  scroll reset or history spam, held stale/error/retried counts, explicit timezone
+  detection/save/error retention and a browser in a different zone, private/CSRF
+  gates, lifecycle invalidation, posting from Drafts and delayed-image anchoring,
+  mobile drawer controls. Fixtures use actual note/upload APIs, not mock successes.
+- `unit/appearance.test.ts` checks actual calendar numeral/background AA contrast
+  in both themes. Shell screenshots mask variable calendar dates/counts as well as
+  the existing notes-pane mask; fixed-month unmasked desktop/mobile calendar images
+  are attached/reviewed separately. Existing layout/focus/overflow assertions remain.
 
 ## S01 coverage
 

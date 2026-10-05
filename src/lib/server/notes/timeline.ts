@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { dayRange, monthRange } from '../../shared/calendar.ts';
 import {
   and,
   asc,
@@ -83,18 +84,24 @@ export async function timelinePage(
   const { filters, cursor, limit } = parseTimelineQuery(params);
   const units = parseSearch(filters.query ?? '');
   const timezone = readSettings(p).timezone;
+  if (filters.date) filters.day = dayRange(filters.date, timezone);
+  const month = filters.month ? monthRange(filters.month, timezone) : null;
   const decoded = cursor ? decodeCursor(cursor) : null;
   const anchor = decoded
     ? decoded.anchor
-    : filters.tags.length || units.length || filters.day
-      ? null
-      : currentMonthEnd(timezone, now);
+    : month
+      ? month.end
+      : filters.tags.length || units.length || filters.day
+        ? null
+        : currentMonthEnd(timezone, now);
   const key = fingerprint(filterKey(filters), timezone, anchor);
   if (
     decoded &&
     (decoded.key !== key ||
       decoded.timezone !== timezone ||
-      ((filters.tags.length > 0 || units.length > 0 || filters.day) &&
+      (month && anchor !== month.end) ||
+      (!month &&
+        (filters.tags.length > 0 || units.length > 0 || filters.day) &&
         anchor !== null))
   )
     throw new DomainError(
@@ -135,10 +142,13 @@ export async function timelinePage(
       .orderBy(desc(notes.timelineAt), desc(notes.id))
       .limit(limit + 1)
       .all();
+    const emptyMonth = Boolean(
+      month && !decoded && (!rows.length || rows[0].timelineAt < month.start),
+    );
     let used = 0;
     const bounded = [];
     // Stop at a contiguous ordering boundary, never filter out intervening rows.
-    for (const row of rows.slice(0, limit)) {
+    for (const row of emptyMonth ? [] : rows.slice(0, limit)) {
       const bytes = Buffer.byteLength(
         boundedPreview(row.bodyMarkdown).bodyMarkdown,
         'utf8',
@@ -219,17 +229,27 @@ export async function timelinePage(
     const last = items.at(-1);
     return {
       items,
+      emptyMonth,
       nextCursor:
-        last && rows.length > items.length
+        emptyMonth && rows.length
           ? encodeCursor({
               v: 1,
               key,
               timezone,
               anchor,
-              at: last.timelineAt,
-              id: last.id,
+              at: month!.start,
+              id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
             })
-          : null,
+          : last && rows.length > items.length
+            ? encodeCursor({
+                v: 1,
+                key,
+                timezone,
+                anchor,
+                at: last.timelineAt,
+                id: last.id,
+              })
+            : null,
     };
   });
   const items = [];
@@ -239,7 +259,13 @@ export async function timelinePage(
       ...note,
       rendered: await renderMarkdown(note.bodyMarkdown, cardImages(note)),
     });
-  return { filters, anchor, items, nextCursor: result.nextCursor };
+  return {
+    filters,
+    anchor,
+    items,
+    nextCursor: result.nextCursor,
+    emptyMonth: result.emptyMonth,
+  };
 }
 export function publishedTags(
   p: Persistence,

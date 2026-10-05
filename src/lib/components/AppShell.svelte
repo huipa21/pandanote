@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, type Snippet } from 'svelte';
+  import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import Sidebar, { type ShellTag } from './Sidebar.svelte';
   import Modal from './Modal.svelte';
   import Composer from './Composer.svelte';
@@ -9,6 +10,7 @@
     type TimelineFilters,
   } from '#lib/shared/timeline.ts';
   let {
+    calendar,
     active = '/',
     tags = [],
     filters = { tags: [] },
@@ -16,6 +18,7 @@
     onSearch = async () => {},
     children,
   }: {
+    calendar?: CalendarState;
     active?: string;
     tags?: ShellTag[];
     filters?: TimelineFilters;
@@ -37,7 +40,7 @@
 <a class="skip-link" href="#notes-pane">Skip to notes</a>
 <div class="app-shell">
   <aside class="desktop-sidebar" aria-label="Sidebar">
-    <Sidebar {active} {tags} {filters} {searchQuery} {onSearch} />
+    <Sidebar {calendar} {active} {tags} {filters} {searchQuery} {onSearch} />
   </aside>
   <div class="main-column">
     <header class="mobile-header">
@@ -62,8 +65,13 @@
               >{/if}
             {#if filters.day}<a
                 class="filter-chip"
-                href={filterHref({ ...filters, day: undefined })}
-                aria-label="Remove day filter">Selected day ×</a
+                href={filterHref({
+                  ...filters,
+                  day: undefined,
+                  date: undefined,
+                })}
+                aria-label="Remove day filter"
+                >{filters.date ?? 'Selected day'} ×</a
               >{/if}
             {#each filters.tags as tag (tag)}
               <a
@@ -94,6 +102,7 @@
 </div>
 <Modal bind:open={drawerOpen} title="Notebook navigation" kind="drawer">
   <Sidebar
+    {calendar}
     {active}
     {tags}
     {filters}

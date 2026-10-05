@@ -1,5 +1,7 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
+  import Calendar from './Calendar.svelte';
+  import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
   import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
   export interface ShellTag {
@@ -9,6 +11,7 @@
     count?: number;
   }
   let {
+    calendar,
     active = '/',
     tags = [],
     filters = { tags: [] },
@@ -16,6 +19,7 @@
     onSearch = async () => {},
     onNavigate = () => {},
   }: {
+    calendar?: CalendarState;
     active?: string;
     tags?: ShellTag[];
     filters?: TimelineFilters;
@@ -68,9 +72,11 @@
   >
     <section aria-labelledby={`${id}-calendar`}>
       <h2 id={`${id}-calendar`}>Month activity</h2>
-      <p class="help">
-        Your month calendar and activity counts will appear here in S11.
-      </p>
+      {#if calendar}<Calendar {calendar} {filters} {onNavigate} />{:else}<p
+          class="help"
+        >
+          Calendar unavailable in this shell fixture.
+        </p>{/if}
     </section>
     <section aria-labelledby={`${id}-tags`}>
       <div class="section-heading">

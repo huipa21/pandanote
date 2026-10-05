@@ -49,7 +49,7 @@ test('actual CSS palette passes AA text and interactive/focus contrast in both t
     css.split(":root[data-theme='dark'] {")[1].split('}')[0],
   ]) {
     const tokens = Object.fromEntries(
-      [...block.matchAll(/--([a-z-]+): (#[a-f0-9]{6});/g)].map((m) => [
+      [...block.matchAll(/--([a-z0-9-]+): (#[a-f0-9]{6});/g)].map((m) => [
         m[1],
         m[2],
       ]),
@@ -64,6 +64,15 @@ test('actual CSS palette passes AA text and interactive/focus contrast in both t
         contrast(tokens['control-border'], tokens[bg]),
       ).toBeGreaterThanOrEqual(3);
     }
+    for (const heat of ['heat-1', 'heat-2'])
+      expect(
+        contrast(tokens.text, tokens[heat]),
+        `calendar numeral on ${heat}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrast(tokens['on-accent'], tokens['heat-3']),
+      'calendar numeral on heat-3',
+    ).toBeGreaterThanOrEqual(4.5);
     expect(
       contrast(tokens.accent, tokens['accent-soft']),
     ).toBeGreaterThanOrEqual(4.5);

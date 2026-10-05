@@ -5,6 +5,7 @@
     type DraftWorkspace,
   } from '#lib/client/drafts/workspace.svelte.ts';
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+  import CalendarSettings from '#lib/components/CalendarSettings.svelte';
   import SecuritySettings from '#lib/components/SecuritySettings.svelte';
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
@@ -120,6 +121,7 @@
   </form>
   <p role="alert">{error}</p>
 </section>
+<CalendarSettings initial={data.calendar} />
 <section class="surface">
   <SecuritySettings />
   <button onclick={signOut} disabled={signingOut}
@@ -131,10 +133,10 @@
   </p>
 </section>
 <section class="surface">
-  <h2>Calendar, storage & backups</h2>
+  <h2>Storage & backups</h2>
   <p class="muted">
-    Calendar and storage settings come in S11/S15. Manual backup and uploaded
-    restore come in S16–S17.
+    Storage settings come in S15. Manual backup and uploaded restore come in
+    S16–S17.
   </p>
 </section>
 

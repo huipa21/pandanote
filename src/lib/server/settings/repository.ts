@@ -1,5 +1,11 @@
 import { eq } from 'drizzle-orm';
 import {
+  calendarPreferencesSchema,
+  type CalendarPreferences,
+} from '../../shared/calendar.ts';
+import { assertSessionIdentity } from '../auth/identity.ts';
+import type { SessionIdentity } from '../auth/service.ts';
+import {
   DEFAULT_SETTINGS,
   settingsSchema,
   type AppSettings,
@@ -61,6 +67,36 @@ export function updateAppearance(
       .where(eq(appSettings.singleton, 1))
       .run();
     return appearanceFrom(settings);
+  });
+}
+export function updateCalendar(
+  p: Persistence,
+  identity: SessionIdentity,
+  value: unknown,
+): CalendarPreferences {
+  const parsed = calendarPreferencesSchema.safeParse(value);
+  if (!parsed.success)
+    throw new DomainError(
+      'validation',
+      'Choose a valid IANA timezone and week start.',
+    );
+  return p.write((tx) => {
+    assertSessionIdentity(tx, identity);
+    const row = tx
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.singleton, 1))
+      .get();
+    if (!row) throw new Error('Settings are not initialized');
+    const settings = settingsSchema.parse({
+      ...settingsSchema.parse(JSON.parse(row.valueJson)),
+      ...parsed.data,
+    });
+    tx.update(appSettings)
+      .set({ valueJson: JSON.stringify(settings), updatedAt: Date.now() })
+      .where(eq(appSettings.singleton, 1))
+      .run();
+    return { timezone: settings.timezone, weekStart: settings.weekStart };
   });
 }
 export function replaceSettings(

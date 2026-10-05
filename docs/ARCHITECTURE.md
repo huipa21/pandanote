@@ -769,6 +769,53 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   paging remains deliberate; no speculative virtualization/page trimming, new
   dependency, schema change, external service or security-policy weakening.
 
+### 10.4 S11 implemented calendar contracts
+
+- `shared/calendar.ts` computes Gregorian grids, local dates and half-open UTC
+  boundaries with Temporal start-of-day, including midnight transitions and DST
+  23/25-hour days. UI/query controls bound years to **1969–9998** to keep four-digit
+  URLs/pickers and cover the earliest valid note (UTC epoch zero can be December
+  1969 in western zones). Query boundaries may be negative; stored note instants
+  remain nonnegative. This is an
+  input-bound default, not future scheduling. Named IANA zones only; UTC remains
+  the initial setting until an explicit browser proposal/manual choice is saved.
+- `server/calendar/activity.ts` uses a single status/date-indexed month aggregation
+  with at most 31 independently computed day intervals. It selects counts only,
+  never note bodies/files/location. `GET /api/calendar?month=YYYY-MM` is private,
+  strict and session-rechecked. Counts always cover all published notes, regardless
+  of tags/search; there is no cached count table/schema/dependency change.
+- Strict same-origin `PATCH /api/settings/calendar` merges only timezone/weekStart
+  with current settings inside the coordinated, session-rechecked transaction.
+  Settings offers explicit detection, manual IANA input, Monday/Sunday and retained
+  choices on error. Invalidation updates the reactive composer timezone, counts,
+  timeline grouping and active local-date ranges; old-zone cursors/snapshots fail.
+- Timeline URLs add `date=YYYY-MM-DD` and explicit `month=YYYY-MM`. Selected dates
+  derive UTC ranges server-side in the saved zone; existing typed `dayStart/dayEnd`
+  remain supported. Date/range/month conflicts/duplicates fail. Canonical URLs use
+  the local date rather than persisting stale derived UTC ranges. Cursor fingerprints
+  include month/date and timezone. Search/tag edits drop month anchors, retain a
+  selected day, and otherwise cover all dates. Manual month jumps deliberately bound
+  results by that month end, while normal older pages can cross any empty months.
+- A manual empty month returns `emptyMonth` plus an older seek cursor only when
+  older matches exist. The UI suppresses sentinel loading/scroll-follow in that
+  state until explicit Load older notes. Nonempty manual pages start at the month's
+  newest match and can cross older boundaries within the same bounded page.
+- One `CalendarState` serves desktop/drawer, with SSR counts, abort/deadline/generation
+  guards, visible errors/retry and no persistent cache. Scroll changes only its
+  displayed month, never URL/history/timeline; manual navigation changes canonical
+  URL/cursor context. Root snapshots add displayed month/empty state/timezone to
+  fetched cards and ID/offset anchors. Day mode never follows another month.
+- Composer completion invalidates calendar data from the persistent layout, including
+  posting on Drafts/Settings. Existing lifecycle invalidation also refreshes counts.
+  Mutation merging respects explicit month-end/empty-month bounds and the loaded
+  range, never prepending newer/backdated notes outside that view.
+- Calendar numerals pass AA at all five neutral/green levels in both themes.
+  Today dot and selected outline are independent, with readable count/date labels,
+  weekday headers, native picker focus/Escape, keyboard links and mobile touch-height
+  cells. Desktop cells are 32px high to fit seven columns in the settled sidebar;
+  mobile cells use the normal 44px target. Short sidebars retain independent scrolling.
+  CAL-01–04/SEARCH-03 browser/native evidence and dense-month timings are in PROGRESS.
+
 ## 11. Rendering and frontend performance
 
 - SSR first note page/basic content; keep initial payload bounded and never fetch all notes.

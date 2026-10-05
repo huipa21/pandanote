@@ -80,7 +80,7 @@
     }
     timer = setTimeout(() => {
       const href = filterHref(
-        canonicalFilters(filters.tags, value, filters.day),
+        canonicalFilters(filters.tags, value, filters.day, filters.date),
       );
       // Kit discards superseded navigation responses; timeline paging separately
       // aborts on beforeNavigate. Never adopt an old response's input while typing.

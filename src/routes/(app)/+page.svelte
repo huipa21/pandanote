@@ -10,6 +10,11 @@
     DRAFT_WORKSPACE,
     type DraftWorkspace,
   } from '#lib/client/drafts/workspace.svelte.ts';
+  import {
+    CALENDAR,
+    type CalendarState,
+  } from '#lib/client/timeline/calendar.svelte.ts';
+  import { localDate } from '#lib/shared/calendar.ts';
   import NoteCard from '#lib/components/NoteCard.svelte';
   import { matchesSearch, parseSearch } from '#lib/shared/search.ts';
   import type { TimelineFilters } from '#lib/shared/timeline.ts';
@@ -54,6 +59,10 @@
   } from '#lib/shared/domain.ts';
   let { data } = $props();
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+  const calendar = getContext<CalendarState>(CALENDAR);
+  function queryKey(value: TimelineFilters) {
+    return filterKey(value) + '|' + data.timezone;
+  }
   let items = $state<TimelineCard[]>(untrack(() => data.timeline?.items ?? []));
   let nextCursor = $state<string | null>(
     untrack(() => data.timeline?.nextCursor ?? null),
@@ -63,13 +72,15 @@
   let loading = $state(false);
   let error = $state('');
   let topMonth = $state('');
+  let emptyMonth = $state(untrack(() => data.timeline?.emptyMonth ?? false));
+  let followScroll = false;
   let savedOutsideRange = $state(false);
   let scroller: HTMLElement;
   let sentinel: HTMLDivElement;
   let mounted = $state(false);
   let request: AbortController | undefined;
   let generation = 0;
-  let loadedKey = untrack(() => filterKey(filters));
+  let loadedKey = untrack(() => queryKey(filters));
   let restored = false;
   let disposed = false;
   let handledSave = untrack(() => workspace.saved?.serial ?? 0);
@@ -80,7 +91,10 @@
     request = undefined;
     loading = false;
   }
-  beforeNavigate(cancel);
+  beforeNavigate(() => {
+    followScroll = false;
+    cancel();
+  });
   afterNavigate(({ type }) => {
     if (scroller && type !== 'popstate') scroller.scrollTop = 0;
     restored = false;
@@ -92,12 +106,19 @@
       nextCursor,
       filters: $state.snapshot(filters),
       expanded: [...expanded],
+      calendarMonth: calendar.month,
+      emptyMonth,
+      timezone: data.timezone,
       anchor: scroller ? captureAnchor(scroller) : null,
     }),
     restore: (value) => {
       cancel();
       restored = true;
-      loadedKey = filterKey(value.filters);
+      if (value.timezone !== data.timezone) return;
+      loadedKey = queryKey(value.filters);
+      calendar.month = value.calendarMonth;
+      emptyMonth = value.emptyMonth;
+      followScroll = true;
       items = value.items;
       nextCursor = value.nextCursor;
       filters = value.filters;
@@ -121,10 +142,11 @@
         nextCursor = null;
         return;
       }
-      const key = filterKey(initial.filters);
+      const key = queryKey(initial.filters);
       const same = key === loadedKey;
       const anchor = mounted && same ? captureAnchor(scroller) : null;
       filters = initial.filters;
+      if (same && emptyMonth && !initial.emptyMonth) emptyMonth = false;
       // Same-filter invalidation retains fetched older pages and their scroll context.
       // Known mutations remove/reconcile their own ID before this refresh.
       items = same ? mergeCards(items, initial.items) : initial.items;
@@ -132,6 +154,12 @@
         nextCursor = initial.nextCursor;
       loadedKey = key;
       if (!same) {
+        emptyMonth = initial.emptyMonth ?? false;
+        followScroll = false;
+        calendar.month =
+          initial.filters.date?.slice(0, 7) ??
+          initial.filters.month ??
+          localDate(Date.now(), data.timezone).slice(0, 7);
         expanded = [];
         restored = false;
       }
@@ -152,7 +180,7 @@
           mutation(saved.result);
           return;
         }
-        const key = filterKey(filters);
+        const key = queryKey(filters);
         const anchor = mounted ? captureAnchor(scroller) : null;
         const alreadyLoaded = changed && items.some((n) => n.id === changed.id);
         const oldest = items.at(-1);
@@ -164,14 +192,19 @@
             (changed.timelineAt > oldest.timelineAt ||
               (changed.timelineAt === oldest.timelineAt &&
                 changed.id >= oldest.id)));
-        const matches = matchesFilters(changed, filters);
+        const matches =
+          matchesFilters(changed, filters) &&
+          (data.timeline?.anchor == null ||
+            changed.timelineAt < data.timeline.anchor) &&
+          (!emptyMonth ||
+            monthKey(changed.timelineAt, data.timezone) === filters.month);
         savedOutsideRange = !matches || (!alreadyLoaded && !withinLoadedDates);
         if (changed) items = items.filter((n) => n.id !== changed.id);
         void (async () => {
           if (changed && matches && (alreadyLoaded || withinLoadedDates)) {
             try {
               const card = await snapshotCard(changed, filters.query);
-              if (disposed || key !== filterKey(filters)) return;
+              if (disposed || key !== queryKey(filters)) return;
               items = mergeCards(items, [card]);
               await tick();
               if (anchor && mounted) restoreAnchor(scroller, anchor);
@@ -199,7 +232,11 @@
       scheduled = requestAnimationFrame(() => {
         const anchor = captureAnchor(scroller);
         const note = items.find((n) => n.id === anchor.id);
-        if (note) topMonth = monthKey(note.timelineAt, workspace.timezone);
+        if (note && anchor.offset < scroller.clientHeight) {
+          topMonth = monthKey(note.timelineAt, data.timezone);
+          if (followScroll && !emptyMonth && !filters.day)
+            calendar.month = topMonth;
+        }
       });
     };
     const observer = new IntersectionObserver(track, {
@@ -215,19 +252,30 @@
     };
     const mutations = new MutationObserver(watch);
     mutations.observe(scroller, { childList: true, subtree: true });
-    scroller.addEventListener('scroll', track, { passive: true });
+    const scrolling = () => {
+      followScroll = true;
+      track();
+    };
+    scroller.addEventListener('scroll', scrolling, { passive: true });
     watch();
     return () => {
       disposed = true;
       cancel();
       observer.disconnect();
       mutations.disconnect();
-      scroller.removeEventListener('scroll', track);
+      scroller.removeEventListener('scroll', scrolling);
       cancelAnimationFrame(scheduled);
     };
   });
   $effect(() => {
-    if (!mounted || !nextCursor || loading || error || data.timelineError)
+    if (
+      !mounted ||
+      !nextCursor ||
+      emptyMonth ||
+      loading ||
+      error ||
+      data.timelineError
+    )
       return;
     let active = true;
     const observer = new IntersectionObserver(
@@ -253,7 +301,7 @@
   async function loadOlder() {
     if (!nextCursor || loading || disposed) return;
     const cursor = nextCursor;
-    const key = filterKey(filters);
+    const key = queryKey(filters);
     const current = ++generation;
     request?.abort();
     request = new AbortController();
@@ -268,16 +316,18 @@
         signal: request.signal,
       });
       const payload = (await response.json()) as ApiResult<TimelinePage>;
-      if (current !== generation || key !== filterKey(filters) || disposed)
+      if (current !== generation || key !== queryKey(filters) || disposed)
         return;
       if (!payload.ok) throw new Error(payload.error.message);
-      if (filterKey(payload.data.filters) !== key)
+      if (queryKey(payload.data.filters) !== key)
         throw new Error('Filters changed. Start from the first page.');
       const anchor = captureAnchor(scroller);
+      emptyMonth = false;
+      followScroll = true;
       items = mergeCards(items, payload.data.items);
       nextCursor = payload.data.nextCursor;
       await tick();
-      if (current === generation && key === filterKey(filters) && !disposed)
+      if (current === generation && key === queryKey(filters) && !disposed)
         restoreAnchor(scroller, anchor);
     } catch (failure) {
       if (current === generation && !disposed)
@@ -309,7 +359,7 @@
     const anchor = captureAnchor(scroller);
     if (result.status !== 'published' || result.deleted)
       items = items.filter((n) => n.id !== result.noteId);
-    const key = filterKey(filters);
+    const key = queryKey(filters);
     void (async () => {
       if (result.status === 'published' && !result.deleted) {
         try {
@@ -317,9 +367,9 @@
             signal: AbortSignal.timeout(15_000),
           });
           const payload = (await response.json()) as ApiResult<NoteSnapshot>;
-          if (payload.ok && !disposed && key === filterKey(filters)) {
+          if (payload.ok && !disposed && key === queryKey(filters)) {
             const card = await snapshotCard(payload.data, filters.query);
-            if (disposed || key !== filterKey(filters)) return;
+            if (disposed || key !== queryKey(filters)) return;
             const oldest = items.at(-1);
             const visibleRange =
               items.some((n) => n.id === card.id) ||
@@ -328,7 +378,12 @@
               card.timelineAt > oldest.timelineAt ||
               (card.timelineAt === oldest.timelineAt && card.id >= oldest.id);
             items = items.filter((n) => n.id !== result.noteId);
-            const matches = matchesFilters(payload.data, filters);
+            const matches =
+              matchesFilters(payload.data, filters) &&
+              (data.timeline?.anchor == null ||
+                card.timelineAt < data.timeline.anchor) &&
+              (!emptyMonth ||
+                monthKey(card.timelineAt, data.timezone) === filters.month);
             if (matches && visibleRange) items = mergeCards(items, [card]);
             if (workspace.saved?.result.noteId === card.id)
               savedOutsideRange = !matches || !visibleRange;
@@ -340,7 +395,7 @@
       }
       if (!disposed) {
         await invalidate('pandanote:timeline');
-        if (key === filterKey(filters) && !disposed)
+        if (key === queryKey(filters) && !disposed)
           restoreAnchor(scroller, anchor);
       }
     })();
@@ -370,7 +425,20 @@
       ><a href="/">Clear filters and start again</a>
     </section>{/if}
 </div>
-{#if !items.length && !data.timelineError}
+{#if emptyMonth && !items.length && !data.timelineError}
+  <section class="surface" aria-label="Empty month">
+    <h2>No matching notes in {filters.month}</h2>
+    <p>This selected month is empty. Your search and tags are retained.</p>
+    {#if nextCursor}<button onclick={loadOlder}>Load older notes</button>{/if}
+    <a
+      href={filterHref({
+        tags: filters.tags,
+        query: filters.query,
+        month: localDate(Date.now(), data.timezone).slice(0, 7),
+      })}>Return to Today</a
+    >
+  </section>
+{:else if !items.length && !data.timelineError}
   <section class="surface">
     <h2>
       {filters.tags.length || filters.query || filters.day
@@ -412,7 +480,9 @@
     <button onclick={loadOlder}>Retry older notes</button><button
       onclick={() => invalidate('pandanote:timeline')}>Refresh timeline</button
     >
-  {:else if nextCursor}<button onclick={loadOlder}>Load older notes</button>
+  {:else if nextCursor && !emptyMonth}<button onclick={loadOlder}
+      >Load older notes</button
+    >
   {:else if items.length}<p class="help">You’ve reached the beginning.</p>{/if}
 </div>
 

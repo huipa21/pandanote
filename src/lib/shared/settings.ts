@@ -44,7 +44,7 @@ export const settingsSchema = z.strictObject({
   maxAttachmentsPerNote: z.number().int().min(1).max(100),
 });
 export type AppSettings = z.infer<typeof settingsSchema>;
-// UTC until S02/S15 initialization can explicitly accept the browser's proposal.
+// UTC until S11 Settings explicitly accepts the browser's proposal/manual choice.
 // Do not derive this from the VPS timezone or overwrite it at runtime.
 export const DEFAULT_SETTINGS: Readonly<AppSettings> = Object.freeze(
   settingsSchema.parse({
