@@ -16,8 +16,119 @@ import {
 } from '../../src/lib/client/drafts/model.ts';
 import { commandDigest, sha256 } from '../../src/lib/client/uploads/attempt.ts';
 import type { BinaryRepository } from '../../src/lib/client/drafts/blobs.ts';
+import { recoveryDraft } from '../../src/lib/client/drafts/recovery.ts';
+import type { NoteSnapshot } from '../../src/lib/shared/domain.ts';
 
 const account = '11111111-1111-4111-8111-111111111111';
+
+it('full snapshots seed published/draft recovery, preserve metadata and refuse Trash/incomplete files', async () => {
+  const fileId = crypto.randomUUID();
+  const note: NoteSnapshot = {
+    id: crypto.randomUUID(),
+    status: 'published',
+    priorStatus: null,
+    bodyMarkdown: 'full source 香港',
+    timelineAt: 10,
+    createdAt: 20,
+    updatedAt: 30,
+    contentEditedAt: null,
+    revision: 7,
+    location: { latitude: 0, longitude: 0, accuracy: null, label: 'Synthetic' },
+    attachmentIds: [fileId],
+    tags: [],
+    attachments: [
+      {
+        id: fileId,
+        kind: 'file',
+        filename: 'large.bin',
+        mime: 'application/octet-stream',
+        incomingBytes: 60 * 1024 * 1024,
+        storedBytes: 60 * 1024 * 1024,
+        readiness: 'ready',
+        width: null,
+        height: null,
+        thumbnailWidth: null,
+        thumbnailHeight: null,
+      },
+    ],
+  };
+  const recovery = await recoveryDraft(account, note);
+  expect(recovery.kind).toBe('edit-published');
+  expect(recovery.bodyMarkdown).toBe(note.bodyMarkdown);
+  expect(recovery.timelineAt).toBe(10);
+  expect(recovery.location).toEqual(note.location);
+  expect(recovery.attachments[0].source).toBe('server');
+  expect(recovery.serverBase?.revision).toBe(7);
+  expect(
+    (await recoveryDraft(account, { ...note, status: 'draft' })).kind,
+  ).toBe('edit-server-draft');
+  await expect(
+    recoveryDraft(account, { ...note, status: 'trash', priorStatus: 'draft' }),
+  ).rejects.toThrow('Restore');
+  await expect(
+    recoveryDraft(account, { ...note, attachments: [] }),
+  ).rejects.toThrow('incomplete');
+  expect(
+    draftSchema.safeParse({
+      ...recovery,
+      attachments: [{ ...recovery.attachments[0], source: 'local' }],
+    }).success,
+  ).toBe(false);
+});
+
+it('conflict forks preserve original text/blobs and remap new uploads without changing shared server IDs', async () => {
+  const { repo, blobs } = fixture();
+  const localId = crypto.randomUUID(),
+    serverId = crypto.randomUUID();
+  const base = {
+    noteId: crypto.randomUUID(),
+    revision: 2,
+    snapshotDigest: 'a'.repeat(64),
+  };
+  let draft = await repo.create({
+    ...newDraft(account),
+    kind: 'edit-published',
+    serverBase: base,
+    bodyMarkdown: `![local](attachment:${localId}) ![server](attachment:${serverId})`,
+    attachments: [
+      {
+        id: serverId,
+        source: 'server',
+        kind: 'image',
+        filename: 'server.webp',
+        mime: 'image/webp',
+        size: 3,
+      },
+    ],
+  });
+  draft = await repo.add(
+    draft,
+    {
+      id: localId,
+      source: 'local',
+      kind: 'image',
+      filename: 'local.png',
+      mime: 'image/png',
+      size: 3,
+    },
+    new Blob(['abc']),
+  );
+  const copy = await repo.copy(draft, { kind: 'new', serverBase: null });
+  const newId = copy.attachments.find((a) => a.source === 'local')!.id;
+  expect(newId).not.toBe(localId);
+  expect(copy.bodyMarkdown).toContain(`attachment:${newId}`);
+  expect(copy.bodyMarkdown).toContain(`attachment:${serverId}`);
+  expect(await blobs.get(account, copy.localDraftId, newId)).toBeDefined();
+  expect(repo.read(draft.localDraftId)).toEqual(draft);
+  expect(await blobs.get(account, draft.localDraftId, localId)).toBeDefined();
+  const replace = await repo.copy(draft, {
+    kind: 'edit-published',
+    serverBase: { ...base, revision: 3 },
+  });
+  const command = commandForDraft(replace, crypto.randomUUID());
+  expect(command.action).toBe('update');
+  expect('expectedRevision' in command && command.expectedRevision).toBe(3);
+});
 const other = '22222222-2222-4222-8222-222222222222';
 class MemoryStorage implements Storage {
   data = new Map<string, string>();

@@ -27,6 +27,8 @@ import type { ApiResult, NoteSnapshot } from '#lib/shared/domain.ts';
 import { canonicalNoteSnapshot } from '#lib/shared/notes.ts';
 import { browserPostingTransport } from '../uploads/protocol.ts';
 import { localImage } from '../uploads/file-kind.ts';
+import { recoveryDraft } from './recovery.ts';
+import { recoveryMatches } from './model.ts';
 
 export const DRAFT_WORKSPACE = Symbol('draft workspace');
 export class DraftWorkspace {
@@ -302,7 +304,7 @@ export class DraftWorkspace {
       return true;
     });
   }
-  async resume(id: string): Promise<boolean> {
+  async resume(id: string, reveal = true): Promise<boolean> {
     if (this.busy || !(await this.flush())) return false;
     return this.enqueue(async () => {
       const record = this.repository?.read(id);
@@ -323,7 +325,7 @@ export class DraftWorkspace {
           ? 'Recovered on this device.'
           : 'Local recovery edits — server version must be checked before saving.';
       await this.loadFiles();
-      this.openEditor++;
+      if (reveal) this.openEditor++;
       return true;
     });
   }
@@ -755,22 +757,127 @@ export class DraftWorkspace {
         'Persistent storage could not be requested. Drafts can still be lost; keep another copy.';
     }
   }
+  /** Resume device-local work even when stale; never silently adopt server text. */
+  async editNote(note: NoteSnapshot, reveal = true): Promise<boolean> {
+    if (!this.ready || this.busy || this.posting || !this.repository)
+      return false;
+    try {
+      const seed = await recoveryDraft(this.accountId, note);
+      this.refresh();
+      const existing = this.drafts.find(
+        (draft) => draft.serverBase?.noteId === note.id,
+      );
+      if (existing) {
+        if (!(await this.resume(existing.localDraftId, reveal))) return false;
+        if (!recoveryMatches(existing, seed.serverBase!)) {
+          this.postConflict = note;
+          this.postError =
+            'Recovered local edits are based on a different server version. Your text and files are retained.';
+        }
+        return true;
+      }
+      return await this.createRecovery(seed, reveal);
+    } catch (error) {
+      this.fail(error);
+      return false;
+    }
+  }
+  /** Fork, never rewrite a frozen identity. Original losing recovery remains in Drafts. */
+  async resolveServerConflict(
+    choice: 'load' | 'copy' | 'replace',
+    observed: NoteSnapshot,
+  ): Promise<boolean> {
+    if (
+      !this.active ||
+      !this.repository ||
+      this.busy ||
+      this.posting ||
+      this.conflict
+    )
+      return false;
+    if (!(await this.flush())) return false;
+    this.busy = true;
+    try {
+      const local = $state.snapshot(this.active);
+      let seed: LocalDraft | undefined;
+      if (choice !== 'copy') {
+        let note = observed;
+        if (choice === 'load') {
+          const response = await fetch(`/api/notes/${observed.id}`, {
+            signal: AbortSignal.timeout(15_000),
+          });
+          const payload = (await response.json()) as ApiResult<NoteSnapshot>;
+          if (!payload.ok) throw new Error(payload.error.message);
+          note = payload.data;
+        }
+        seed = await recoveryDraft(this.accountId, note);
+      }
+      const ok = await this.enqueue(async () => {
+        this.active =
+          choice === 'load'
+            ? await this.repository!.create(seed!)
+            : await this.repository!.copy(
+                local,
+                choice === 'copy'
+                  ? { kind: 'new', serverBase: null }
+                  : { kind: seed!.kind, serverBase: seed!.serverBase },
+              );
+        this.activePersisted = true;
+        this.dirty = false;
+        this.error = '';
+        this.postError = '';
+        this.postConflict = null;
+        this.status =
+          choice === 'load'
+            ? 'Loaded server version. Losing edits remain in local Drafts.'
+            : 'Local copy prepared. Original recovery remains in Drafts.';
+        this.refresh();
+        await this.loadFiles();
+        return true;
+      });
+      this.busy = false;
+      // The confirmed choice is explicit publication, using a fresh mutation ID
+      // and (for replacement) precisely the observed revision. A new race conflicts.
+      return ok && (choice === 'load' || (await this.post()));
+    } catch (error) {
+      this.error =
+        error instanceof Error
+          ? error.message
+          : 'Conflict resolution failed. Your recovery is kept.';
+      return false;
+    } finally {
+      this.busy = false;
+    }
+  }
   /** Typed entry point for S12/S13; callers must fetch/recheck the server base.
    * No server draft reads or writes are introduced in S05. */
-  async createRecovery(seed: LocalDraft): Promise<boolean> {
+  async createRecovery(seed: LocalDraft, reveal = true): Promise<boolean> {
     draftSchema.parse(seed);
     if (seed.kind === 'new')
       throw new DraftError(
         'invalid',
         'A recovery copy requires a server snapshot.',
       );
-    if (!(await this.flush())) return false;
+    if (
+      !this.ready ||
+      !this.repository ||
+      this.busy ||
+      this.posting ||
+      !(await this.flush())
+    )
+      return false;
     return this.enqueue(async () => {
       this.active = await this.repository!.create(seed);
       this.activePersisted = true;
+      this.dirty = false;
+      this.error = '';
+      this.postError = '';
+      this.postConflict = null;
+      this.status =
+        'Local recovery edits — not saved on server until explicit Save changes or Post.';
       this.refresh();
       await this.loadFiles();
-      this.openEditor++;
+      if (reveal) this.openEditor++;
       return true;
     });
   }

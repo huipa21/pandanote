@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { getContext, untrack } from 'svelte';
+  import {
+    READING,
+    type ReadingState,
+  } from '#lib/client/timeline/reading.svelte.ts';
+  const reading = getContext<ReadingState | undefined>(READING);
   import {
     renderMarkdown,
     type ImageReference,
@@ -12,12 +17,16 @@
     debounce = 0,
     initial,
     allowCodeCopy = true,
+    foreground = false,
+    onImage,
   }: {
     source: string;
     images?: readonly ImageReference[];
     debounce?: number;
     initial?: RenderedMarkdown;
     allowCodeCopy?: boolean;
+    foreground?: boolean;
+    onImage?: (id: string) => void;
   } = $props();
   let output = $state<RenderedMarkdown>(
     untrack(() => initial ?? { html: '', codes: [], diagrams: [] }),
@@ -59,6 +68,21 @@
     };
   });
   $effect(() => {
+    const refs = images;
+    if (onImage)
+      root.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+        if (
+          refs.some((ref) => ref.url === image.getAttribute('src')) &&
+          !image.closest('a')
+        ) {
+          image.tabIndex = 0;
+          image.setAttribute('role', 'button');
+          image.setAttribute(
+            'aria-label',
+            `Open image: ${image.alt || 'note image'}`,
+          );
+        }
+      });
     // SSR copy controls wait for the delegated handler/hydrated DOM. Preview
     // replacements use the same boundary, never a swallowed pre-hydration click.
     const codes = output.codes;
@@ -74,7 +98,8 @@
   });
   $effect(() => {
     const diagrams = output.diagrams;
-    if (!diagrams.length) return;
+    if (!diagrams.length || reading?.viewer || (!foreground && reading?.detail))
+      return;
     let disposed = false;
     const cancel = new AbortController();
     // Observer bookkeeping is intentionally nonreactive; it never drives UI state.
@@ -149,8 +174,31 @@
       media.removeEventListener('change', refresh);
     };
   });
+  function openImage(target: EventTarget | null): boolean {
+    if (
+      !(target instanceof HTMLImageElement) ||
+      !onImage ||
+      target.closest('a')
+    )
+      return false;
+    const ref = images.find(
+      (image) => image.url === target.getAttribute('src'),
+    );
+    if (!ref) return false;
+    onImage(ref.id);
+    return true;
+  }
+  function imageKey(event: KeyboardEvent) {
+    if (
+      (event.key === 'Enter' || event.key === ' ') &&
+      openImage(event.target)
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
   async function copy(event: MouseEvent) {
-    if (!allowCodeCopy) return;
+    if (openImage(event.target) || !allowCodeCopy) return;
     const target =
       event.target instanceof Element
         ? event.target.closest<HTMLButtonElement>('button[data-code]')
@@ -174,8 +222,14 @@
 
 {#if error}<p role="alert">{error}</p>{/if}
 <!-- Delegated clicks originate from real generated buttons, including keyboard activation. -->
-<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-<div class="markdown" bind:this={root} onclick={copy} aria-busy={loading}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class="markdown"
+  bind:this={root}
+  onclick={copy}
+  onkeydown={imageKey}
+  aria-busy={loading}
+>
   <!-- Only the shared sanitized pipeline may produce output.html. -->
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   {@html output.html}

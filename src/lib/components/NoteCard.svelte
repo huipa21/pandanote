@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { getContext, onMount, untrack } from 'svelte';
+  import { pushState } from '$app/navigation';
+  import {
+    READING,
+    type ReadingState,
+  } from '#lib/client/timeline/reading.svelte.ts';
+  const reading = getContext<ReadingState | undefined>(READING);
   import Markdown from './Markdown.svelte';
   import Modal from './Modal.svelte';
   import {
@@ -62,7 +68,7 @@
       const bottom = content.getBoundingClientRect().bottom;
       // Clipped controls must not be tabbable or accessible until Show more.
       content
-        .querySelectorAll<HTMLElement>('a, button, pre[tabindex]')
+        .querySelectorAll<HTMLElement>('a, button, [tabindex]')
         .forEach((node) => {
           node.inert = overflow && node.getBoundingClientRect().top >= bottom;
         });
@@ -74,7 +80,12 @@
     };
     const observer = new ResizeObserver(measure);
     const changes = new MutationObserver(measure);
-    changes.observe(content, { childList: true, subtree: true });
+    changes.observe(content, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['tabindex'],
+    });
     const appearance = new MutationObserver(preference);
     appearance.observe(document.documentElement, {
       attributes: true,
@@ -141,9 +152,29 @@
   // Full preference/history expansion resolves large source only when visible,
   // never by fetching every offscreen full note during initial hydration.
   $effect(() => {
-    if (visible && (expanded || !collapsePreference) && note.bodyTruncated)
+    if (
+      !reading?.paused &&
+      visible &&
+      (expanded || !collapsePreference) &&
+      note.bodyTruncated
+    )
       void untrack(loadFull);
   });
+  function openNote(event: MouseEvent, image?: string) {
+    if (
+      event.button !== 0 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    void pushState(`/notes/${note.id}`, {
+      detailId: note.id,
+      detailImage: image,
+    });
+  }
   async function copy() {
     menuOpen = false;
     try {
@@ -221,6 +252,9 @@
         title={`Content edited ${new Date(note.contentEditedAt).toLocaleString('en', { timeZone: timezone })}`}
         >Edited</span
       >{/if}
+    <a href={`/notes/${note.id}`} aria-label="Open note" onclick={openNote}
+      >Open note</a
+    >
     <button
       class="actions"
       aria-label="Note actions"
@@ -258,6 +292,12 @@
       images={cardImages(source)}
       initial={source === note ? note.rendered : undefined}
       allowCodeCopy={source !== note || !note.bodyTruncated}
+      onImage={(id) => {
+        void pushState(`/notes/${note.id}`, {
+          detailId: note.id,
+          detailImage: id,
+        });
+      }}
     />
   </div>
   {#if note.bodyTruncated && source === note}<p class="help">

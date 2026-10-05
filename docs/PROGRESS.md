@@ -2,21 +2,21 @@
 
 ## Current state
 
-- **Phase:** Month activity calendar and scroll synchronization; product implementation remains unfinished.
-- **Completed steps:** S00–S11 — **done**. Milestone B's full Windows browser gate passed.
-- **Current requested step:** S11 — **done**. Next unfinished step: S12 — Addressable detail dialog, edits, conflicts and image viewer.
-- **Repository:** clean starting HEAD `333066c` (committed S10). Prior work preserved; S11 changes are uncommitted. No commit created by this agent.
-- **Implemented:** global published month counts; Temporal local day/month boundaries; calendar shades/today/selection, arrows/picker/Today; saved IANA timezone/week start with explicit browser proposal; day-locked paging; manual empty months; scroll-follow without timeline/history loops; Back anchors; stale counts/retry/mutation invalidation. Schema v4 and dependencies/lockfile unchanged. Detail/lifecycle/storage/backup screens remain later steps.
-- **Validation:** Windows check/lint/build, 83 unit + 112 integration, all 51 Chromium tests pass with normal comparisons. Linux clean `npm ci` using the verified S10 Linux prebuild/browser cache passes the same common gates and all 35 scoped Chromium tests. Cold-image build failed twice when SQLite prebuild download aborted and the compiler fallback lacked Python; this is not recorded as a pass. Dense 10k-month counts p95 13.99 ms Windows / 20.13 ms Linux. Full evidence/failures below. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS and full restore audits remain later gates.
+- **Phase:** Addressable detail, edits, conflicts and image viewer; product implementation remains unfinished.
+- **Completed steps:** S00–S12 — **done**. Milestone B and S12's full Windows browser gates passed.
+- **Current requested step:** S12 — **done**. Next unfinished step: S13 — Drafts and Trash screens.
+- **Repository:** clean starting HEAD `fb56fbe` (committed S11). Prior work preserved; S12 changes are uncommitted. No commit created by this agent.
+- **Implemented:** private SSR `/notes/<uuid>` detail and shallow timeline dialog; full metadata/content, Back/Escape/focus/scroll return, GET retry/stale suppression; published/server-draft recovery edits; keep/load/copy/confirmed revision-safe replacement with original losing text/blobs retained; full-screen selected-image WebP viewer with keyboard zoom/pan/navigation, touch swipe and download. Background expensive rendering/paging is paused. Schema v4 and dependencies/lockfile unchanged. Full Drafts/Trash, tag management, location/storage and backups remain later steps.
+- **Validation:** final Windows check/lint/build, 85 unit + 112 integration, all 59 Chromium tests pass with normal comparisons. Linux clean `npm ci` using the verified S11 Linux prebuild/browser cache passes the same common gates and all 43 scoped Chromium tests. Cold S12 image build still failed when SQLite's prebuild download aborted and compiler fallback lacked Python; not recorded as a pass. Detail/conflict/viewer/short-mobile-editor screenshots reviewed. Full evidence/failures below. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS and full restore audits remain later gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, required planning documents and latest S11 handoff. Relevant contracts: ARCHITECTURE 4.4/6.3/7.5/10.4/11, IMPLEMENTATION_PLAN S12, ACCEPTANCE_TESTS NOTE-03/04/IMAGE-02/UI-02/03.
-2. Inspect git and preserve S11 work. Read shared note/snapshot/domain/timeline/calendar contracts; NoteService/private attachment routes; browser draft workspace/repository/frozen attempts; NoteCard/Markdown/Modal; root timeline/calendar state/history and posting/calendar/timeline tests. A bounded TimelineCard is not a full recovery snapshot.
-3. Next task: **S12**, implement the private addressable full-note route and desktop dialog/mobile full-screen entry, including direct SSR/refresh, safe not-found and focus/history/scroll return. Reuse the existing full snapshot GET, not card previews. Then add published edit entry, conflict choices and image viewer.
-4. Preserve local body/blobs on conflicts; explicit replacement checks the newly observed revision and another race still conflicts. No background server draft save, original-image download, force overwrite or premature upload. Keep counts/day locks/manual empty months and timezone-aware cursor/snapshot invalidation.
-5. First validation: `npm run check && npm run test:integration`; then affected posting/timeline/calendar browser tests and full suite at the user-facing gate. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and needs OpenSSL. Linux cold prebuild downloads currently abort: retry the standard image or use the verified Linux cache with clean `npm ci`, recording which actually ran.
+1. Read `AGENTS.md`, required planning documents and latest S12 handoff. Relevant contracts: ARCHITECTURE 4.4/6.3/7.5/10.4/11.3, IMPLEMENTATION_PLAN S13, ACCEPTANCE_TESTS DRAFT-05/NOTE-02/03/04.
+2. Inspect git and preserve S12 work. Read shared note/snapshot/domain/timeline/calendar contracts; NoteService/private attachment routes; browser recovery/workspace/repository/frozen attempts; NoteDetail/ConflictDialog/Modal; Drafts/Trash pages and detail/posting/calendar/timeline tests. Cards are not recovery snapshots.
+3. Next task: **S13**, define bounded private server-draft/Trash listing contracts and real SQLite status-specific queries, then expose local-versus-server recovery labels, move-to-draft/republish and Trash restore/confirmed permanent delete. Reuse the private detail route and existing revision/idempotency APIs. Do not broaden normal published search/calendar predicates.
+4. Reconcile multiple local losing/replacement recoveries clearly, never silently overwrite/delete them. Existing server references remain private; new blobs stay local until Post. No Save draft/background server saving, automatic Trash emptying or force writes. Invalidate both timeline/tag counts and calendar after lifecycle changes; preserve dates/prior status/files and retry safety.
+5. First validation: `npm run check && npm run test:integration`; then detail/posting/draft/timeline/calendar browser regressions and full suite. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and needs OpenSSL. Cold Linux SQLite downloads remain unreliable: retry the standard image or use the verified Linux cache with clean `npm ci`, recording which actually ran.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -36,7 +36,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S09  | Cards, cursor timeline and filters | Done        |
 | S10  | Exact multilingual SQLite search   | Done        |
 | S11  | Month calendar and scroll sync     | Done        |
-| S12  | Detail/edit/conflict/image viewer  | Not started |
+| S12  | Detail/edit/conflict/image viewer  | Done        |
 | S13  | Drafts and Trash screens           | Not started |
 | S14  | Tag administration                 | Not started |
 | S15  | Location/settings/storage          | Not started |
@@ -1885,3 +1885,133 @@ Remaining scope / exact next task:
   focus/history/scroll return. Then published edit/conflict choices/viewer. First
   validation: `npm run check && npm run test:integration`, then affected browser/full
   suites with pinned Node/PATH/TLS and genuine sessions. Preserve S11 work.
+
+### Session 2026-10-05 — S12 addressable detail, edits, conflicts and image viewer
+
+**State: done.** Started clean at `fb56fbe` (committed S11). Prior implementation
+and all history preserved; no commit created. S13–S18 and product release remain
+unfinished. Schema v4, dependencies and lockfile unchanged.
+
+Implemented / touched files:
+
+- `routes/(app)/notes/[noteId]/+page.{server.ts,svelte}`, `components/NoteDetail.svelte`,
+  private layout, `app.d.ts`: private full-snapshot SSR/refresh/no-JavaScript route,
+  safe 404/transient failure, desktop dialog/mobile full-screen, complete content/
+  metadata/files, Edit entry and private permalink. Timeline shallow entries carry
+  only IDs; Close/Escape/Back restores the mounted filters/scroll/focus, Forward
+  reopens. Direct/refresh entry closes to All notes when no mounted prior timeline
+  exists. Detail reads use deadline/abort/stale guards with visible retry.
+- `client/drafts/recovery.ts`, model/repository/workspace, Composer/DraftFeedback,
+  local Drafts page: full-snapshot published/server-draft recovery with ordered
+  server references and canonical base digest. Reuse existing local work, detect
+  stale bases, retain dates/location/files, no upload on entry/edit/reload. Save
+  changes/Post reuse the real frozen protocol. Device-only server references may
+  describe existing files up to the server hard bound; local staging limits remain
+  unchanged. Recovery labels include base links, modification time and frozen state.
+- `components/ConflictDialog.svelte`: safe full server/local source comparison,
+  keep edits, confirmed load current server, publish separately and explicit replace
+  observed revision. Load of an observed Trash version opens read-only private
+  detail. Copy/replace fork records, remap new local IDs/source spans and reuse
+  authorized existing files. Original losing recovery/text/blobs/frozen identity
+  remain intact, even after the resolved fork succeeds. Replacement races conflict
+  again; no force overwrite/merge/autosave/cancellation claim was introduced.
+- `components/ImageViewer.svelte`, Markdown/NoteCard/Modal, reading state and root
+  timeline: card/detail keyboard image entry, selected-only larger WebP, ordered
+  navigation, zoom controls/keys, bounded drag pan/resize, fit-mode touch swipe,
+  retry and processed-WebP download. Native modal focus wrapping, safe Escape,
+  opener return and hydration-gated close; background Mermaid/full-source/paging
+  work paused. Composer avoids duplicate preview and reveals edits only after
+  detail closes, preventing delayed reopening after quick mobile Escape.
+- `tests/unit/drafts.test.ts`, `e2e/detail.test.ts` (eight scenarios), posting
+  assertions, Linux browser scope, README/ARCHITECTURE 11.3/tests README/this handoff.
+  Exact IndexedDB/downloaded losing bytes, server image sharing, two-context copy/
+  load/replace and third-edit/status races use real server/SQLite/files/Sharp, never
+  fake successful endpoints. Actual CDP touch swipe, short mobile editor geometry,
+  private SSR/no-JS/refresh, stale GET and Back/focus tests pass. Five unmasked
+  synthetic screenshots were opened/reviewed; existing shell baselines unchanged.
+
+Commands actually run:
+
+Host commands used the S00 explicit Node **24.21.0** N executable/PATH and npm
+**11.12.1** C CLI with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Final host gates were
+repeated sequentially after the modal/focus/mobile fixes; no partial run is counted
+as a pass. Linux installs its own native modules from the unchanged lockfile.
+
+| Command                                                                                               | Actual final outcome                                                                                |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Git/status/log and complete required docs/source/API reads                                            | Clean S11 baseline preserved                                                                        |
+| `npm run check && npm run test:integration` (baseline)                                                | PASS, 0 diagnostics and original 112 integration tests                                              |
+| `npm exec -- prettier --write <touched text files>`                                                   | PASS; second pass where needed                                                                      |
+| `npm run check` / `npm run lint`                                                                      | PASS final, 0 errors/warnings, ESLint/format clean                                                  |
+| `npm run test:unit`                                                                                   | PASS, 16 files / 85 tests                                                                           |
+| `npm run test:integration`                                                                            | PASS, 20 files / 112 actual tests                                                                   |
+| `npm run test:e2e -- tests/e2e/detail.test.ts tests/e2e/posting.test.ts`                              | PASS final affected gate, 16 Chromium tests                                                         |
+| `npm run build`                                                                                       | PASS final standalone adapter-node production artifact                                              |
+| `npm run test:e2e`                                                                                    | PASS final, production build + all 59 Chromium tests, normal screenshot comparisons                 |
+| `podman build -f ops/Dockerfile.browser-validation -t pandanote-s12-browser .`                        | FAILED: prebuild download aborted, compiler fallback lacked Python; not a pass                      |
+| `podman build -f .browser-spike/Dockerfile.s12-cached -t pandanote-s12-browser-cached .`              | PASS final clean `npm ci` with verified Linux prebuild/browser cache; zero reported vulnerabilities |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s12-browser-cached` | PASS final Linux check/lint/build, 85 unit + 112 integration and all 43 scoped Chromium tests       |
+| `git diff --check`; `test ! -e .e2e-data`                                                             | PASS, no private host fixture left; autocrlf informational warnings only                            |
+
+Passing final Linux image (precedes only this handoff close update):
+`8275fd6123c3d2132db42d5b68812c12da686c994361ba9c6578ba2661ff9657`.
+Temporary ignored Dockerfile: `FROM localhost/pandanote-s11-browser-cached:latest`,
+`WORKDIR /app`, `COPY . .`, `RUN npm ci`; CMD executes node/npm version, check, lint,
+unit/integration, build and E2E auth/calendar/drafts/detail/posting/timeline/uploads/
+search-navigation/zsearch. Base is verified S11 image
+`baabdbb0e55c055659a59ef2a918717a264259a3d08d7f1e9371f184a6263279`, retaining
+only Linux caches, not Windows modules. Same pinned S00 bookworm/glibc Node image,
+npm 11.19.0, existing WSL2 VM and two-CPU/4-GB container. Actual SQLite/Sharp/files/
+archive capability probes pass; not full archive restore, cold-install networking,
+Linux shell baselines, real-VPS or release performance evidence.
+
+Intermediate failures / corrections (not passes):
+
+- First detail run expected 30 large cards, but 24 correctly filled the existing
+  192 KiB page budget. Kept the budget and asserted 24. Direct SSR upgrade initially
+  lost native modal state; later hydration-gating reproduced this for shallow/
+  viewer dialogs. Compiler inspection proved Svelte grouped the `open` property
+  with unrelated reactive button attributes. Post-mount markup now preserves the
+  actual native DOM state; `showModal`/`close` alone control the desired state.
+  Diagnostic logs were removed. Focus initialization waits for rendered controls,
+  and Tab handles focus on the dialog itself as well as first/last controls.
+- Initial posting checks selected both progress and saved-status regions; scoped
+  exact saved feedback. Viewer keyboard handling originally missed the header Close
+  focus; the native modal now delegates non-Tab/Escape keys to the viewer.
+- Mobile edit originally revealed the composer before detail navigation completed,
+  allowing a delayed second reveal after quick Escape. Recovery is persisted first,
+  detail closes, then the editor reveals/focuses once. Actual mobile close/resume/
+  retained-byte/save assertions pass afterward.
+- Full regression initially had 54 pass/2 fail: obsolete conflict-summary text and
+  fixture-driven loaded-range/backdate assumptions. History fixtures now use 2020;
+  posting checks exact backdate and descending chronological order, not an assumed
+  second position among other fixtures. Conflict checks target the working dialog.
+- An intermediate concurrent Windows/Linux run had one HTTP `ECONNRESET` in the
+  test credential probe; no root cause established. Final complete host/Linux
+  gates ran sequentially and pass. Three Linux intermediate browser failures
+  reproduced the modal bug; after fixes all 43 pass. Cold Linux prebuild failure
+  is the same S11 environment issue; no TLS exception/compiler/library substitution
+  or failed native test was silently treated as passed.
+- Early lint/format failures and the final reactive-dialog-ref warning were fixed;
+  all final common/browser gates reran with zero diagnostics. Existing lazy-bundle/
+  native install-script/deprecation warnings remain visible.
+
+Decisions / limitations / exact next task:
+
+- ARCHITECTURE 11.3 records history/SSR/recovery/fork/viewer contracts. Original
+  losing records intentionally survive conflict resolution, rather than changing
+  immutable frozen retries or deleting uncertain work. S13 must label/reconcile
+  multiple recoveries clearly, not silently remove them. No stack/security/product
+  requirement change or automatic server save was added.
+- No known reproducible S12 defect or unfinished S12 acceptance item. Device-local
+  drafts remain plaintext/evictable, not backup. Physical device/OS IME/read-aloud,
+  Linux visual baselines, real-domain/VPS, cold-install robustness and independent
+  full restore remain later release requirements.
+- **Next: S13.** Read ARCHITECTURE 4.4/6.3/7.5/10.4/11.3, shared snapshots/lifecycle,
+  NoteService/attachment cleanup, workspace/recovery/frozen records, NoteDetail/
+  ConflictDialog and Drafts/Trash pages/tests. Start bounded private status-specific
+  server-draft/Trash listing with actual SQLite tests, then clear local/server
+  recovery overlays, republish and restore/confirmed permanent delete. Keep normal
+  timeline/search/calendar published-only and preserve prior status/dates/files.
+  First validation: `npm run check && npm run test:integration`, then affected
+  detail/posting/draft/timeline/calendar and full browser gates on pinned Node/TLS.

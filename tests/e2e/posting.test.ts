@@ -243,16 +243,23 @@ test('explicit Post saves text/two images/file, freezes repeated clicks, retains
     .click();
   await (await postButton(page)).click();
   await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 2);
-  await expect(page.getByTestId('posted-note').nth(1)).toContainText(
+  const backdatedCard = page
+    .getByTestId('posted-note')
+    .filter({ hasText: 'Backdated note' });
+  await expect(backdatedCard).toHaveCount(1);
+  expect(await backdatedCard.locator('time').getAttribute('datetime')).toBe(
+    `${backdate}:00.000Z`,
+  );
+  const dates = await page
+    .getByTestId('posted-note')
+    .locator('time')
+    .evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute('datetime')!),
+    );
+  expect(dates).toEqual([...dates].sort().reverse());
+  await expect(page.getByTestId('posted-note').first()).not.toContainText(
     'Backdated note',
   );
-  expect(
-    await page
-      .getByTestId('posted-note')
-      .nth(1)
-      .locator('time')
-      .getAttribute('datetime'),
-  ).toBe(`${backdate}:00.000Z`);
 });
 
 test('second upload disconnect retains all local bytes; reload retries only missing uploads with the same mutation and one receipt', async ({
@@ -497,8 +504,11 @@ test('server-draft recovery posts only on explicit Post, preserves date and publ
   );
   expect((await records(page))[0].bodyMarkdown).toBe('Local recovery edits');
   await expect(
-    page.getByTestId('composer').getByText(/Server version \(revision 4\)/),
+    page.getByRole('dialog', { name: 'Note conflict', exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Note conflict', exact: true }),
+  ).toContainText('Server version · revision 4');
 });
 
 test('mobile file-only posting shows transfer/processing feedback and validation retains recoverable files for a separate editable copy', async ({

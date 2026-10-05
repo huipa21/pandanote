@@ -48,7 +48,13 @@
   $effect(() => {
     if (!workspace?.openEditor) return;
     expanded = true;
-    if (matchMedia('(max-width: 899px)').matches) editorOpen = true;
+    tab = 'write';
+    if (matchMedia('(max-width: 899px)').matches) {
+      editorOpen = true;
+      void tick().then(() =>
+        document.getElementById('expanded-note-text')?.focus(),
+      );
+    } else void tick().then(() => textarea?.focus());
   });
   let expanded = $state(false);
   let editorOpen = $state(false);
@@ -154,11 +160,13 @@
     </div>
     {#if tab === 'preview'}
       <div class="compact-preview preview-pane">
-        <Markdown
-          source={text}
-          images={workspace?.images ?? []}
-          debounce={300}
-        />
+        {#if !editorOpen}
+          <Markdown
+            source={text}
+            images={workspace?.images ?? []}
+            debounce={300}
+          />
+        {/if}
       </div>
     {:else}
       <label class="sr-only" for="compact-note-text">Note text</label>

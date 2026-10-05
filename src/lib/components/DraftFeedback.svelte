@@ -45,13 +45,19 @@
     </div>
   {/if}
   {#if workspace.postConflict}
-    <details class="draft-error">
-      <summary
-        >Server version (revision {workspace.postConflict.revision}) — your
-        local version is retained</summary
+    <div class="draft-error">
+      <button
+        onclick={() => {
+          workspace.postConflict = { ...workspace.postConflict! };
+        }}
+        >Compare server version (revision {workspace.postConflict
+          .revision})</button
       >
-      <pre>{workspace.postConflict.bodyMarkdown}</pre>
-    </details>
+      <p>
+        Your local version is retained. Resolve the conflict or keep the
+        recovery for later.
+      </p>
+    </div>
   {/if}
   {#if workspace.error}
     <div class="draft-error" role="alert">
@@ -160,10 +166,6 @@
   progress {
     display: block;
     max-width: 100%;
-  }
-  pre {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
   }
   .draft-error,
   .attachments {

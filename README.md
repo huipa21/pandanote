@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Composer posting, recovery, timeline, exact search and month calendar are implemented; later features remain unfinished.**
+**Composer posting, recovery, timeline, search, calendar and private detail/edit/viewer are implemented; later features remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -18,7 +18,10 @@ S09 adds server-rendered chronological cards, private cursor paging, all-tag fil
 collapse/density preferences and scroll/history restoration. S10 adds SQLite literal
 multilingual search, quoted phrases, short-query fallback and safe snippets.
 S11 adds global month activity, timezone/week-start settings, month/year/day navigation
-and scroll synchronization. Detail/lifecycle screens and backup/restore remain future steps. Do not deploy this
+and scroll synchronization. S12 adds addressable full-note detail, published/server-draft
+recovery edits, confirmed conflict copy/load/revision-checked replacement and a WebP
+image viewer. Complete Drafts/Trash screens, tag management, location/storage and
+backup/restore remain future steps. Do not deploy this
 unfinished app as a complete product.
 
 ## Start here

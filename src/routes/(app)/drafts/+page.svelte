@@ -61,7 +61,16 @@
             Device-only{draft.kind !== 'new'
               ? ' · local recovery edits (may be newer than the server)'
               : ''} · {draft.attachments.length} attachment(s)
+            {draft.postingAttempt
+              ? ' · frozen save retained for safe retry'
+              : ''}
+            · {new Date(draft.modifiedLocallyAt).toLocaleString('en', {
+              timeZone: workspace.timezone,
+            })}
           </p>
+          {#if draft.serverBase}<a href={`/notes/${draft.serverBase.noteId}`}
+              >View server note (base revision {draft.serverBase.revision})</a
+            >{/if}
           <button
             disabled={workspace.busy}
             onclick={() => workspace.resume(draft.localDraftId)}

@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search and calendar (S00–S11)
+# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar and detail (S00–S12)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -17,6 +17,31 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S12 coverage (NOTE-03/04, IMAGE-02, DRAFT-04/05, UI-02/03)
+
+- `unit/drafts.test.ts`: full-snapshot recovery metadata/base identity, published
+  versus server-draft kinds, rejection of Trash/incomplete descriptors, separate
+  conflict forks with preserved original bytes, parsed local-image ID remapping,
+  reusable server references and newly observed replacement revision.
+- `e2e/detail.test.ts`: actual private SSR/direct/no-JavaScript/refresh, safe 404 and
+  auth redirect, full content beyond card bounds, shallow Back/Forward/Escape with
+  exact filters/scroll/opener return, failed/late GET retry and cancellation. Actual
+  local published/server-draft edit entry, no premature upload/autosave, reload
+  recovery, unchanged dates/creation, explicit Save changes and Post.
+- Two independent browser contexts exercise losing-file retention (exact IndexedDB
+  and downloaded bytes), publish separate with shared server images, load current
+  server while keeping original recovery, explicit replace and a third-edit race
+  that must conflict again. All uploads/mutations use real SQLite/files/Sharp APIs.
+- Viewer tests verify selected-only larger WebP requests, keyboard image entry,
+  navigation, zoom/pan, processed-WebP download, nested Escape/focus, full-screen
+  mobile geometry, real CDP touch swipe and no horizontal overflow. Mobile editing
+  checks focused full-screen entry, short-keyboard controls, safe Escape/file
+  retention and explicit Save changes. Physical device/IME, pinch and read-aloud
+  release review are not claimed by controlled Chromium gestures.
+- Existing posting conflict assertions now target the actual comparison dialog.
+  History fixtures are backdated to avoid changing other suites' loaded-range
+  assumptions; large preview pages still obey the 192 KiB budget.
 
 ## S11 coverage (CAL-01–04, SEARCH-03, UI-02/03)
 

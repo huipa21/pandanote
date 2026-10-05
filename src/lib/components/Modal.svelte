@@ -1,24 +1,40 @@
 <script lang="ts">
-  import { onMount, type Snippet } from 'svelte';
+  import { onMount, untrack, tick, type Snippet } from 'svelte';
   let {
     open = $bindable(false),
     title,
     kind = 'panel',
+    dismissible = true,
+    onDismiss = () => {},
+    ssrOpen = false,
+    onKey = () => {},
     children,
   }: {
     open?: boolean;
     title: string;
-    kind?: 'panel' | 'drawer' | 'editor';
+    kind?: 'panel' | 'drawer' | 'editor' | 'detail' | 'viewer';
+    dismissible?: boolean;
+    onDismiss?: () => void;
+    ssrOpen?: boolean;
+    onKey?: (event: KeyboardEvent) => void;
     children: Snippet;
   } = $props();
   const titleId = $props.id();
-  let dialog: HTMLDialogElement;
+  // Initial SSR readability only. After mount preserve the native DOM state,
+  // not a desired-open attribute: Svelte groups attributes into one render effect
+  // and unrelated button rerenders must not cancel showModal's top-layer state.
+  const initialOpen = untrack(() => ssrOpen);
+  let dialog = $state<HTMLDialogElement>(null!);
   let opener: HTMLElement | null = null;
   let mounted = $state(false);
   onMount(() => {
+    // Direct detail content is readable without JS; upgrade its nonmodal SSR
+    // dialog to native modal inertness after hydration.
+    if (dialog.open) dialog.close();
     mounted = true;
     return () => {
       dialog?.close();
+      if (opener?.isConnected) opener.focus();
     };
   });
   $effect(() => {
@@ -29,7 +45,23 @@
           ? document.activeElement
           : null;
       dialog.showModal();
-      dialog.querySelector<HTMLElement>('[data-initial-focus]')?.focus();
+      void tick().then(() => {
+        const focusedDialog = document.activeElement?.closest('dialog');
+        if (
+          !dialog?.isConnected ||
+          !dialog.open ||
+          (focusedDialog && focusedDialog !== dialog)
+        )
+          return;
+        const initial =
+          dialog.querySelector<HTMLElement>(
+            '[data-initial-focus]:not(:disabled)',
+          ) ??
+          dialog.querySelector<HTMLElement>(
+            'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled)',
+          );
+        initial?.focus();
+      });
     } else if (!open && dialog.open) dialog.close();
   });
   function keydown(event: KeyboardEvent) {
@@ -37,7 +69,7 @@
       // A nonempty search input otherwise consumes Escape before native cancel.
       event.preventDefault();
       event.stopPropagation();
-      open = false;
+      dismiss();
     } else if (event.key === 'Tab') {
       event.stopPropagation(); // A nested modal owns its focus, not its parent.
       const targets = [
@@ -49,16 +81,26 @@
       );
       const first = targets[0];
       const last = targets.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
+      if (!targets.includes(document.activeElement as HTMLElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last?.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault();
         first?.focus();
       }
-    }
+    } else onKey(event);
+  }
+  function dismiss() {
+    if (!dismissible) return;
+    open = false;
+    onDismiss();
   }
   function closed() {
+    // The SSR-to-modal upgrade queues close; ignore it once reopened.
+    if (dialog.open) return;
     open = false;
     if (opener?.isConnected) opener.focus();
   }
@@ -66,9 +108,14 @@
 
 <dialog
   bind:this={dialog}
+  open={mounted ? dialog?.open : initialOpen || undefined}
   class={kind}
   aria-labelledby={titleId}
   onclose={closed}
+  oncancel={(event) => {
+    event.preventDefault();
+    dismiss();
+  }}
   onkeydown={keydown}
 >
   <header>
@@ -76,9 +123,8 @@
     <button
       type="button"
       aria-label={`Close ${title}`}
-      onclick={() => {
-        open = false;
-      }}>Close</button
+      disabled={!mounted || !dismissible}
+      onclick={dismiss}>Close</button
     >
   </header>
   <div class="dialog-body">{@render children()}</div>
@@ -137,6 +183,32 @@
     display: flex;
     overflow: hidden;
   }
+  .detail {
+    position: fixed;
+    inset: 0;
+    width: min(52rem, calc(100% - 2 * var(--outer-gap)));
+    height: min(52rem, calc(100dvh - 2 * var(--outer-gap)));
+  }
+  .detail .dialog-body {
+    flex: 1;
+  }
+  .viewer {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .viewer .dialog-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
   .editor {
     width: min(52rem, calc(100% - 2 * var(--outer-gap)));
   }
@@ -153,7 +225,8 @@
     }
   }
   @media (max-width: 899px) {
-    .editor {
+    .editor,
+    .detail {
       margin: 0;
       width: 100%;
       height: 100dvh;

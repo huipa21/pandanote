@@ -283,14 +283,17 @@ export class DraftRepository {
       );
     return this.discard(draft);
   }
-  async copy(draft: LocalDraft): Promise<LocalDraft> {
+  async copy(
+    draft: LocalDraft,
+    target?: Pick<LocalDraft, 'kind' | 'serverBase'>,
+  ): Promise<LocalDraft> {
     draftSchema.parse(draft);
     if (draft.accountId !== this.accountId)
       throw new DraftError('invalid', 'Draft account does not match.');
     return this.exclusive(async () => {
       // A pending upload owns its IDs. A new attempt must not borrow those IDs.
       const ids = new Map(
-        draft.postingAttempt
+        draft.postingAttempt || target
           ? draft.attachments
               .filter((a) => a.source === 'local')
               .map((a) => [a.id, crypto.randomUUID()])
@@ -298,6 +301,7 @@ export class DraftRepository {
       );
       const copy = draftSchema.parse({
         ...draft,
+        ...target,
         postingAttempt: undefined,
         bodyMarkdown: remapImageReferences(draft.bodyMarkdown, ids),
         attachments: draft.attachments.map((a) => ({

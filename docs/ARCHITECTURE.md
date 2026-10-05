@@ -924,6 +924,43 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   Markdown reserialization. Server transactions/history/stale-local-tag resolution
   remain S07/S14; parser completion does not claim tag-management completion.
 
+### 11.3 S12 detail, edit, conflict and viewer contracts
+
+- `/notes/<uuid>` is a private SSR full-note route for every server status, with
+  sanitized Markdown, ordered ready attachments and complete metadata. Missing or
+  invalid IDs return a safe 404; transient reads fail safely. Refresh/direct entry
+  works without prior timeline state, including readable no-JavaScript detail.
+- Timeline Open note uses Kit 3 shallow `pushState` to that same URL, carrying only
+  note/image IDs. The mounted timeline, filters, fetched pages and scroll remain
+  intact under a native modal. Close/Escape/Back pops this owned entry; Forward
+  reopens it. Direct/refresh entry closes to All notes, never an invented previous
+  page. Detail GETs have abort/deadline/stale guards and a visible retry. Native
+  modal inertness, Tab wrapping and explicit opener return apply to nested viewers.
+- Full snapshots alone seed recovery (`client/drafts/recovery.ts`), including
+  ordered server descriptors, timeline/location and canonical base digest. Existing
+  local edits for the note are resumed, never silently overwritten; a stale base
+  opens comparison. Creation/opening/editing never uploads or unpublishes. Save
+  changes and server-draft Post reuse the frozen receipt-first protocol. Local
+  descriptor sizes allow the existing server's 500 MiB hard bound for server
+  references only; local selection retains its 50 MiB staging bound.
+- Conflict comparison offers keep, load current server, publish local separately,
+  and confirmed replacement of the observed revision. Resolution forks local
+  records rather than rewriting frozen identities: original losing recovery and
+  bytes remain in Drafts. Newly uploaded IDs are remapped with parsed image spans;
+  existing server references are reused safely. Replace uses an ordinary update/
+  publish with a fresh mutation ID and observed base digest/revision; another race
+  conflicts again. There is no force flag, automatic merge, autosave or cancellation
+  claim about an uncertain original attempt. Copies still require authoritative
+  confirmation before their local bytes are cleared.
+- Markdown image controls use validated descriptor IDs and support keyboard entry.
+  Cards/detail use thumbnails; the full-screen viewer loads just the selected
+  display WebP. Ordered previous/next, arrow keys, zoom controls/keyboard, bounded
+  drag pan, fit-mode touch swipe, retry and processed-WebP download are provided.
+  Gestures are confined to the viewer; no original-image route exists. A shared
+  reading state pauses background Mermaid/full-source work and timeline paging
+  while overlays are active; expanded composer preview avoids duplicate rendering.
+  Physical-device/pinch/assistive-technology release audits remain S18.
+
 ## 12. Authentication and threat boundaries
 
 ### 12.1 Initialization

@@ -16,6 +16,10 @@
   } from '#lib/client/timeline/calendar.svelte.ts';
   import { localDate } from '#lib/shared/calendar.ts';
   import NoteCard from '#lib/components/NoteCard.svelte';
+  import {
+    READING,
+    type ReadingState,
+  } from '#lib/client/timeline/reading.svelte.ts';
   import { matchesSearch, parseSearch } from '#lib/shared/search.ts';
   import type { TimelineFilters } from '#lib/shared/timeline.ts';
   function matchesFilters(
@@ -60,6 +64,7 @@
   let { data } = $props();
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
   const calendar = getContext<CalendarState>(CALENDAR);
+  const reading = getContext<ReadingState>(READING);
   function queryKey(value: TimelineFilters) {
     return filterKey(value) + '|' + data.timezone;
   }
@@ -270,6 +275,7 @@
   $effect(() => {
     if (
       !mounted ||
+      reading.paused ||
       !nextCursor ||
       emptyMonth ||
       loading ||
