@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync } from 'node:fs';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import {
   DomainError,
   idSchema,
@@ -26,7 +26,6 @@ import {
   noteTags,
   uploadBatches,
   fileCleanupJobs,
-  tagChanges,
 } from '../db/schema.ts';
 import { findReceipt, insertReceipt } from '../db/receipts.ts';
 import { readSettings } from '../settings/repository.ts';
@@ -34,6 +33,7 @@ import { enqueueAttachmentCleanup } from '../maintenance/cleanup.ts';
 import { inspectContent } from './content.ts';
 import { attachmentDto } from '../attachments/service.ts';
 import { refreshNoteSearch, removeNoteSearch } from '../search/index.ts';
+import { assertCurrentTags } from '../tags/service.ts';
 
 export function noteMutationDigest(value: NoteMutation): string {
   return createHash('sha256')
@@ -222,26 +222,11 @@ export class NoteService {
           content.bodyMarkdown,
           new Set(rows.filter((r) => r.kind === 'image').map((r) => r.id)),
         );
-        // S14 will supply the explicit history-resolution UI/protocol. Until then
-        // a retired hashtag fails closed rather than silently being resurrected.
-        if (
-          extracted.length &&
-          tx
-            .select()
-            .from(tagChanges)
-            .where(
-              inArray(
-                tagChanges.oldKey,
-                extracted.map((t) => t.key),
-              ),
-            )
-            .limit(1)
-            .get()
-        )
-          throw new DomainError(
-            'validation',
-            'This note contains a retired tag. Resolve its rename/removal before posting. Your local draft is unchanged.',
-          );
+        assertCurrentTags(
+          tx,
+          extracted.map((t) => t.key),
+          content.tagAcknowledgements,
+        );
         if (batch) {
           const batchIds = tx
             .select({ id: attachments.id })

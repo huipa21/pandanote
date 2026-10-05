@@ -91,11 +91,11 @@
     </ul>
   {/if}
 </section>
-<StatusNoteList
-  status="draft"
-  initial={data.statusList}
-  initialError={data.statusError}
-/>
+{#key data.tagGeneration}<StatusNoteList
+    status="draft"
+    initial={data.statusList}
+    initialError={data.statusError}
+  />{/key}
 <Modal bind:open={confirmDiscard} title="Discard local draft?">
   <p>
     This removes only this draft's saved text and local files from this browser.

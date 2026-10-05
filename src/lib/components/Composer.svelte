@@ -5,6 +5,7 @@
     type DraftWorkspace,
   } from '#lib/client/drafts/workspace.svelte.ts';
   import DraftFeedback from './DraftFeedback.svelte';
+  import TagAutocomplete from './TagAutocomplete.svelte';
   import TimelineOptions from './TimelineOptions.svelte';
   const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
   import Modal from './Modal.svelte';
@@ -59,6 +60,7 @@
   let expanded = $state(false);
   let editorOpen = $state(false);
   let textarea = $state<HTMLTextAreaElement>();
+  let expandedTextarea = $state<HTMLTextAreaElement>();
   let desktop = $state(false);
   let mounted = $state(false);
   onMount(() => {
@@ -191,6 +193,7 @@
         rows="3"
         placeholder="A thought, a small discovery…"
         aria-describedby="composer-help"></textarea>
+      {#if workspace}<TagAutocomplete {textarea} {workspace} />{/if}
     {/if}
     {#if workspace}<DraftFeedback {workspace} />{/if}
     <div class="composer-actions">
@@ -254,6 +257,7 @@
     <label class="sr-only" for="expanded-note-text">Note text</label>
     <textarea
       id="expanded-note-text"
+      bind:this={expandedTextarea}
       class="expanded-text"
       value={text}
       disabled={Boolean(
@@ -272,6 +276,10 @@
       data-initial-focus
       aria-describedby="expanded-help"
       placeholder="A thought, a small discovery…"></textarea>
+    {#if workspace}<TagAutocomplete
+        textarea={expandedTextarea}
+        {workspace}
+      />{/if}
   {/if}
   {#if workspace}<DraftFeedback {workspace} />{/if}
   <div class="editor-footer">

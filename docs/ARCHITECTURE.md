@@ -139,26 +139,27 @@ All times stored consistently as UTC integer milliseconds or equivalent explicit
 
 ### 4.1 Tables
 
-| Table               | Important fields / purpose                                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `account`           | Singleton account ID, password hash, optional encrypted TOTP secret, TOTP enabled, last accepted TOTP time-step, security revision, created time                                                                   |
-| `sessions`          | Hash of random session token, account ID, expiry, revoked state/security revision; never plaintext session tokens                                                                                                  |
-| `auth_challenges`   | Short-lived pending MFA and fresh-auth grants; scoped, hashed, expiring; no full session before MFA success                                                                                                        |
-| `recovery_codes`    | Account, code hash, consumed timestamp; consume atomically                                                                                                                                                         |
-| `auth_rate_limits`  | Bounded persistent login/MFA attempt limits; expiry/cleanup policy                                                                                                                                                 |
-| `notes`             | ID, Markdown body, status (`published`, `draft`, `trash`), prior status for Trash, `timeline_at`, immutable `created_at`, `updated_at`, nullable content-edited time, revision, nullable location fields           |
-| `tags`              | ID, normalized unique key, display spelling                                                                                                                                                                        |
-| `note_tags`         | Note/tag join, unique pair                                                                                                                                                                                         |
-| `tag_changes`       | Rename/merge/removal history to detect stale local drafts; old normalized key, action/target, generation/time                                                                                                      |
-| `attachments`       | ID, kind (`image` or `file`), original filename, detected MIME, incoming byte digest for retry identity, byte sizes/checksums for stored variants, dimensions, readiness, pending batch association, creation time |
-| `note_attachments`  | Note/attachment join, kind/order; permits safe reference reuse when cloning a conflicted note                                                                                                                      |
-| `upload_batches`    | Account, client mutation ID, creation/activity times, status; pending ready files used by posting retries                                                                                                          |
-| `mutation_receipts` | Unique client mutation ID, request digest, compact successful result, timestamp; inserted atomically with the note change                                                                                          |
-| `app_settings`      | Timezone, appearance preferences, session lifetime, upload/image limits, schema for validation                                                                                                                     |
-| `backup_jobs`       | ID, state, archive path, progress/result metadata; never embed existing archives in backups                                                                                                                        |
-| `file_cleanup_jobs` | Paths/IDs eligible for safe deletion after committed reference removal; crash-recoverable cleanup                                                                                                                  |
-| `note_search`       | Rebuildable normalized searchable fields/text keyed by note ID                                                                                                                                                     |
-| `note_search_fts`   | FTS5 trigram index over derived normalized search text                                                                                                                                                             |
+| Table                   | Important fields / purpose                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `account`               | Singleton account ID, password hash, optional encrypted TOTP secret, TOTP enabled, last accepted TOTP time-step, security revision, created time                                                                   |
+| `sessions`              | Hash of random session token, account ID, expiry, revoked state/security revision; never plaintext session tokens                                                                                                  |
+| `auth_challenges`       | Short-lived pending MFA and fresh-auth grants; scoped, hashed, expiring; no full session before MFA success                                                                                                        |
+| `recovery_codes`        | Account, code hash, consumed timestamp; consume atomically                                                                                                                                                         |
+| `auth_rate_limits`      | Bounded persistent login/MFA attempt limits; expiry/cleanup policy                                                                                                                                                 |
+| `notes`                 | ID, Markdown body, status (`published`, `draft`, `trash`), prior status for Trash, `timeline_at`, immutable `created_at`, `updated_at`, nullable content-edited time, revision, nullable location fields           |
+| `tags`                  | ID, normalized unique key, display spelling                                                                                                                                                                        |
+| `note_tags`             | Note/tag join, unique pair                                                                                                                                                                                         |
+| `tag_changes`           | Rename/merge/removal history to detect stale local drafts; old normalized key, action/target, generation/time                                                                                                      |
+| `tag_mutation_receipts` | S14 confirmed operation digest/result for receipt-first management retry after response loss; retained alongside tag history                                                                                       |
+| `attachments`           | ID, kind (`image` or `file`), original filename, detected MIME, incoming byte digest for retry identity, byte sizes/checksums for stored variants, dimensions, readiness, pending batch association, creation time |
+| `note_attachments`      | Note/attachment join, kind/order; permits safe reference reuse when cloning a conflicted note                                                                                                                      |
+| `upload_batches`        | Account, client mutation ID, creation/activity times, status; pending ready files used by posting retries                                                                                                          |
+| `mutation_receipts`     | Unique client mutation ID, request digest, compact successful result, timestamp; inserted atomically with the note change                                                                                          |
+| `app_settings`          | Timezone, appearance preferences, session lifetime, upload/image limits, schema for validation                                                                                                                     |
+| `backup_jobs`           | ID, state, archive path, progress/result metadata; never embed existing archives in backups                                                                                                                        |
+| `file_cleanup_jobs`     | Paths/IDs eligible for safe deletion after committed reference removal; crash-recoverable cleanup                                                                                                                  |
+| `note_search`           | Rebuildable normalized searchable fields/text keyed by note ID                                                                                                                                                     |
+| `note_search_fts`       | FTS5 trigram index over derived normalized search text                                                                                                                                                             |
 
 Indexes at minimum:
 
@@ -689,6 +690,61 @@ Tag management:
 
 Case-only display changes and rename to an existing normalized tag need explicit semantics; use merge confirmation for the latter. Removal removes only the hashtag token; do not strip surrounding prose or unrelated spaces beyond necessary display cleanup.
 
+### 9.1 S14 implemented management and stale-tag contracts
+
+- `shared/tags.ts`, `server/tags/service.ts` and private `/api/tags`, `/preview`,
+  `/check` implement searchable management inventory, source-span previews and
+  confirmed execution. List returns at most 100 tags, with separate published,
+  server-draft and Trash usage counts. Source keys are normalized registry keys;
+  target input is source spelling with both source/normalized 64-codepoint bounds.
+  Rename to another existing identity is rejected with a Merge instruction;
+  case-only rename rewrites token spelling without retiring the identity. Merge
+  uses the existing target display and deduplicates joins. Removal deletes only
+  hashtag spans, including adjacent spaces remaining unchanged; it never deletes
+  notes, even if the resulting server body is empty.
+- Preview includes counts and up to 10 escaped 240-codepoint before/after excerpts
+  plus full-note inspection links. Its SHA-256 token binds the operation, source/
+  target registry identities, history generation and every affected note ID,
+  revision and body digest (including same-revision restored data). Execution
+  rechecks the token inside the coordinated IMMEDIATE transaction, not a force
+  write. Body, joins, registry, edited timing, exact +1 revisions, FTS/derived
+  search, history and retry receipt commit together across every server status.
+  Creation/timeline/location/files/status/prior status remain unchanged. The
+  default synchronous bound is 10,000 affected notes / 32 MiB source; exceeding
+  it refuses safely with operator-assistance feedback, not a partial rewrite.
+- Migration `0004_tag_receipts.sql` makes schema **v5 / 19 domain tables**.
+  `tag_mutation_receipts` is separate from note-result receipts, so existing frozen
+  post/replay contracts stay valid. Independent content-free browser tag commands
+  are persisted before transmission and reappear on Manage tags after reload.
+  Exact retry resolves the original receipt before current preview/source checks;
+  mismatched identity fails. No fresh-auth scope is needed for ordinary tag edits.
+- Identity-changing history remains sticky after explicit tag recreation. For each
+  local key, start at its latest rename/merge/remove (ignore self-key case-only
+  events), then follow only later events along the target chain. This chronological
+  rule terminates cycles; a removed terminal resolves to removal. Current target
+  source spelling is returned, never an NFKC-expanded key invented as source.
+  A recreated old name does not erase history or suppress future warnings.
+- Explicit Post checks only extracted keys/acknowledgements before freezing or
+  uploading. Retry remains receipt-first, then repeats history and server-base
+  checks before uploading. Local source/blobs stay unchanged until the user chooses
+  Apply history, Remove locally, or Intentionally keep/recreate (confirmation).
+  Choices save locally and never auto-post. Frozen resolutions fork/remap local
+  IDs and bytes, preserving the original immutable attempt. Intentional recreation
+  stores an exact `{key,generation}` acknowledgement; the authoritative note
+  transaction rejects missing/stale acknowledgements, including a subsequent
+  retirement of that key. Acknowledgements are digest-bound, additive local-v1
+  fields. Absent/empty acknowledgements retain old canonical command bytes.
+- Bulk invalidation refreshes sidebar/status/detail/timeline. Timeline history/
+  cursor-loaded client pages carry the server history generation, so Back cannot
+  revive old source/filter/card data after management. Browser recovery bases are
+  not rebased: concurrent editors still encounter revision/snapshot conflicts.
+- Editor autocomplete uses the same eligible AST spans, keyboard arrows/Enter/
+  Escape and touch options. It ignores code/HTML/escapes/URLs/destinations and IME
+  confirmation. Up to 5,000 non-retired registry spellings arrive as metadata in
+  private SSR; eight prefix suggestions are filtered locally. No typed prefix,
+  body or file is sent while writing. Manage search can find inventory beyond
+  this bounded suggestion set. No dependency, service or security-policy change.
+
 ## 10. Timeline/calendar mechanics
 
 ### 10.1 Ordering and loading
@@ -1171,7 +1227,7 @@ files/<generated-id>/<known-variant>
 
 Manifest includes format/schema/app compatibility versions, created time, entry paths/sizes/SHA-256 checksums, note/attachment counts, and clearly described included/excluded sections. The manifest lists payload checksums, not its own recursive checksum. Do not include source archive/backups/staging/WAL/live session credentials.
 
-The snapshot includes account/MFA/recovery-code state and settings. Remove sessions/challenges/rate-limit/setup-token runtime state, upload batches, unreferenced/pending attachment rows, pending cleanup jobs, and source backup-job paths from the staged database. Preserve useful successful mutation receipts for included notes so a recovered client can recognize a previously committed post. Clear pending batch associations on referenced ready attachments. Rebuild search after restore.
+The snapshot includes account/MFA/recovery-code state and settings. Remove sessions/challenges/rate-limit/setup-token runtime state, upload batches, unreferenced/pending attachment rows, pending cleanup jobs, and source backup-job paths from the staged database. Preserve useful successful mutation receipts for included notes so a recovered client can recognize a previously committed post. Preserve tag-management receipts alongside included tag history, so an uncertain browser management retry can recognize its original success rather than rewrite restored notes again. Clear pending batch associations on referenced ready attachments. Rebuild search after restore.
 
 Backup-job records from the source are not valid paths on a destination; reset the catalog and rediscover existing completed destination archives using bounded, validated manifest reads. Never include those archives in the restored source payload or automatically delete them.
 

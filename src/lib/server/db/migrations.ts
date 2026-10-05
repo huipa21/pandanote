@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { rebuildSearch } from '../search/index.ts';
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 const journalSchema = z.object({
   dialect: z.literal('sqlite'),
   entries: z.array(

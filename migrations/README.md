@@ -7,7 +7,10 @@ snapshots describe tables/indexes/checks, not these custom triggers.
 `0002_setup_tokens.sql` adds the singleton hashed, expiring operator setup token
 (S02 first slice). `0003_search_trigram.sql` adds the rebuildable FTS5 trigram
 candidate index; the trusted runner atomically backfills existing notes using
-application NFKC/lowercase normalization. Schema version is now 4. Pending setup tokens are runtime
+application NFKC/lowercase normalization. `0004_tag_receipts.sql` adds separate
+idempotent tag-management receipts. Schema version is now **5 / 19 domain tables**.
+Tag history remains in the existing `tag_changes` table; no source data is rewritten
+by this migration. Pending setup tokens are runtime
 credentials and must be excluded from S16 full backup snapshots.
 
 - Generate table changes: `npm run db:generate -- --name=<name>`.

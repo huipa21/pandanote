@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { postingAttemptSchema } from '../uploads/attempt.ts';
 import { canonicalNoteMutation } from '#lib/shared/notes.ts';
+import {
+  tagAcknowledgementsSchema,
+  type TagAcknowledgement,
+} from '#lib/shared/tags.ts';
 import type { Nodes } from 'mdast';
 import {
   idSchema,
@@ -56,6 +60,7 @@ export const draftSchema = z
     // Optional additive v1 field: old records decode unchanged; unknown versions
     // still fail closed. The frozen payload is retained across reloads.
     postingAttempt: postingAttemptSchema.optional(),
+    tagAcknowledgements: tagAcknowledgementsSchema.optional(),
     bodyMarkdown: z
       .string()
       .max(MAX_MARKDOWN_LENGTH)
@@ -107,6 +112,7 @@ export function commandForDraft(
     timelineAt: number;
     location: import('#lib/shared/domain.ts').NoteLocation | null;
     attachments: { id: string }[];
+    tagAcknowledgements?: TagAcknowledgement[];
   },
   mutationId: string,
 ): Extract<
@@ -118,6 +124,9 @@ export function commandForDraft(
     timelineAt: draft.timelineAt,
     location: draft.location,
     attachmentIds: draft.attachments.map((a) => a.id),
+    ...(draft.tagAcknowledgements?.length
+      ? { tagAcknowledgements: draft.tagAcknowledgements }
+      : {}),
   };
   return draft.kind === 'new'
     ? { mutationId, action: 'create', content }

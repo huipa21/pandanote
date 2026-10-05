@@ -17,8 +17,8 @@
     copies.
   </p>
 </section>
-<StatusNoteList
-  status="trash"
-  initial={data.statusList}
-  initialError={data.statusError}
-/>
+{#key data.tagGeneration}<StatusNoteList
+    status="trash"
+    initial={data.statusList}
+    initialError={data.statusError}
+  />{/key}

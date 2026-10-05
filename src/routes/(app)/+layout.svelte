@@ -18,6 +18,7 @@
     LifecycleState,
   } from '#lib/client/drafts/lifecycle.svelte.ts';
   import ConflictDialog from '#lib/components/ConflictDialog.svelte';
+  import StaleTagDialog from '#lib/components/StaleTagDialog.svelte';
   import {
     READING,
     ReadingState,
@@ -98,8 +99,20 @@
       }
     }
   });
+  let handledTags = 0;
+  $effect(() => {
+    const serial = workspace.tagsChanged;
+    if (serial > handledTags) {
+      handledTags = serial;
+      detailRetry++;
+      void invalidate('pandanote:timeline');
+      void invalidate('pandanote:status-notes');
+      void invalidate('pandanote:detail');
+    }
+  });
   $effect(() => {
     workspace.timezone = data.timezone;
+    workspace.knownTags = data.tagSuggestions;
   });
   $effect(() => {
     const month = calendar.month;
@@ -170,4 +183,5 @@
   {/key}
 {/if}
 <ConflictDialog {workspace} />
+<StaleTagDialog {workspace} />
 <LifecycleDialog />

@@ -4,7 +4,10 @@ import { NoteConflictError } from './service.ts';
 // JSON escaping can expand a valid 1 MiB Markdown string six-fold. Keep an
 // independent transport cap; semantic UTF-8 and configured limits still apply.
 export const MAX_NOTE_JSON_BYTES = 6 * 1_048_576 + 64 * 1024;
-export async function readNoteJson(request: Request): Promise<unknown> {
+export async function readNoteJson(
+  request: Request,
+  maxBytes = MAX_NOTE_JSON_BYTES,
+): Promise<unknown> {
   if (
     request.headers.get('content-type')?.split(';')[0].trim() !==
       'application/json' ||
@@ -15,7 +18,7 @@ export async function readNoteJson(request: Request): Promise<unknown> {
       'Use an application/json note request.',
     );
   const length = request.headers.get('content-length');
-  if (length && (!/^\d+$/.test(length) || Number(length) > MAX_NOTE_JSON_BYTES))
+  if (length && (!/^\d+$/.test(length) || Number(length) > maxBytes))
     throw new DomainError('validation', 'Note request is too large.');
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -35,7 +38,7 @@ export async function readNoteJson(request: Request): Promise<unknown> {
         );
       if (part.done) break;
       bytes += part.value.byteLength;
-      if (bytes > MAX_NOTE_JSON_BYTES)
+      if (bytes > maxBytes)
         throw new DomainError('validation', 'Note request is too large.');
       chunks.push(part.value);
     }

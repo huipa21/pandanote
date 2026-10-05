@@ -692,7 +692,7 @@ test('local confirmation-storage failure after server commit keeps the record an
   await expect.poll(async () => (await records(page)).length).toBe(0);
 });
 
-test('retired-tag validation and expired-session errors are actionable and retain frozen work', async ({
+test('retired-tag preflight and expired-session errors retain work before freezing or uploading', async ({
   page,
 }) => {
   await start(page, '#RetiredS08 kept work');
@@ -708,15 +708,16 @@ test('retired-tag validation and expired-session errors are actionable and retai
     db.close();
   }
   await (await postButton(page)).click();
-  await expect(page.getByTestId('composer').getByRole('alert')).toContainText(
-    /retired tag/,
-  );
+  await expect(
+    page.getByRole('dialog', { name: 'Review retired tags' }),
+  ).toBeVisible();
   const frozen = (await records(page))[0];
   expect(frozen.bodyMarkdown).toBe('#RetiredS08 kept work');
-  expect(receiptCount(frozen.postingAttempt!.command.mutationId)).toBe(0);
+  expect(frozen.postingAttempt).toBeUndefined();
+  await page.getByRole('button', { name: 'Close Review retired tags' }).click();
+  await page.goto('/drafts');
   await page
-    .getByTestId('composer')
-    .getByRole('button', { name: 'Edit a separate copy' })
+    .getByRole('button', { name: 'Create another draft', exact: true })
     .click();
   await expect(page.getByRole('textbox', { name: 'Note text' })).toBeEnabled();
   await page
@@ -731,9 +732,11 @@ test('retired-tag validation and expired-session errors are actionable and retai
   await page.context().addCookies(cookies);
   await page
     .getByTestId('composer')
-    .getByRole('button', { name: 'Retry save', exact: true })
+    .getByRole('button', { name: 'Post', exact: true })
     .click();
-  await expect(page.getByTestId('posted-note')).toHaveCount(initialCards + 1);
+  await expect(
+    page.getByTestId('composer').getByText('Saved on server.', { exact: true }),
+  ).toBeVisible();
   await expect.poll(async () => (await records(page)).length).toBe(1);
   expect((await records(page))[0].localDraftId).toBe(frozen.localDraftId);
 });

@@ -22,7 +22,9 @@ and scroll synchronization. S12 adds addressable full-note detail, published/ser
 recovery edits, confirmed conflict copy/load/revision-checked replacement and a WebP
 image viewer. S13 adds separate local/server Drafts, recovery overlays, Trash
 restore and confirmed permanent deletion with durable lifecycle retries.
-Tag management, location/storage and backup/restore remain future steps. Do not deploy this
+S14 adds tag management, exact cross-status source rewrites, safe previews/retries,
+local autocomplete and explicit stale-draft tag resolution. Location/storage and
+backup/restore remain future steps. Do not deploy this
 unfinished app as a complete product.
 
 ## Start here
@@ -381,6 +383,35 @@ Month separators/top-visible-month tracking connect to S11's calendar and date
 navigation. S10 supplies literal search on this same list API.
 10k-note paging and 300-card DOM measurements are recorded in `docs/PROGRESS.md`;
 virtualization is deferred pending evidence from longer reading sessions.
+
+## Tag management and stale drafts (S14)
+
+Manage tags shows published counts separately from server drafts and Trash. Search
+finds up to 100 matching tags. Preview Rename, Merge into an existing tag, or Remove,
+inspect affected source samples, then confirm. All affected server notes gain a
+revision; code, escaped markers, URLs, unrelated text, dates and files stay intact.
+Case-only rename changes token spelling; renaming into another existing tag requires
+an explicit Merge. Remove deletes only the hashtag token, not its note or adjacent
+spaces. Extremely large operations (over 10,000 notes / 32 MiB) fail safely instead
+of partly rewriting the collection.
+
+Browser drafts are not silently rewritten. Post checks tag history before uploads.
+Choose Apply history, Remove locally, or intentionally keep/recreate a retired tag.
+The choice saves locally; review and explicitly Post again. Frozen attempts are
+resolved through an editable copy with preserved files, retaining the original retry.
+History follows chronological rename/merge chains, including removals, and survives
+recreation. Intentional recreation is acknowledged for the exact retirement generation;
+a newer retirement requires another review. Lost management responses can be checked
+from the unconfirmed operations on Manage tags after reload.
+
+Autocomplete uses locally filtered existing-tag metadata; arrows/Enter select,
+Escape dismisses, and touch options work. Code/URLs/escapes do not trigger it; no
+prefix or note content is sent while typing. Suggestions are bounded to the first
+5,000 non-retired tags; management search remains available beyond that set.
+
+**Upgrade with the app stopped:** run `npm run db:migrate` before starting this
+version. Schema v5 adds tag-management retry receipts without changing existing
+note receipt identities or browser draft schema versions.
 
 ## Drafts and Trash (S13)
 

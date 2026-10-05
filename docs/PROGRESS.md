@@ -2,20 +2,20 @@
 
 ## Current state
 
-- **Phase:** Drafts and Trash screens; product implementation remains unfinished.
-- **Completed steps:** S00–S13 — **done**.
-- **Current requested step:** S13 — **done**. Next unfinished step: S14 — Tag management and stale local tags.
-- **Repository:** clean starting HEAD `ccccc11` (committed S12). Prior work preserved; S13 changes are uncommitted. No commit created by this agent.
-- **Implemented:** bounded private SSR/status-cursor Drafts/Trash listings; explicit local/server/multiple-recovery labels and full-base reopening; shared revision-safe card/detail/list lifecycle actions; both prior-status restores and confirmed permanent deletion; content-free durable browser action retries surviving reload/response loss; timeline/tag/calendar/detail/status invalidation. Schema v4, dependencies and lockfile unchanged. Tag management, location/storage and backups remain later steps.
-- **Validation:** final Windows check/lint/build, 87 unit + 114 integration and all 67 Chromium tests pass with unchanged normal screenshot comparisons. Linux clean `npm ci` with verified S12 Linux native/browser caches passes the same common gates and all 51 scoped Chromium tests. Drafts desktop/Trash mobile screenshots reviewed. Intermediate failures and cache provenance are recorded below; cold SQLite downloads were not retried this session and remain a later deployment check. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS and full restore audits remain later gates.
+- **Phase:** Tag management and stale local tags; product implementation remains unfinished.
+- **Completed steps:** S00–S14 — **done**.
+- **Current requested step:** S14 — **done**. Next unfinished step: S15 — Geolocation and complete settings/storage UI.
+- **Repository:** clean starting HEAD `3d2bdae` (committed S13). Prior work preserved; S14 changes are uncommitted. No commit created by this agent.
+- **Implemented:** searchable usage-count management with revision/body/history-bound previews; exact rename/case/merge/removal across published, server draft and Trash; atomic joins/revisions/FTS/history/idempotent receipts; durable management retry; explicit pre-upload local tag choices and generation-bound recreation; frozen-copy file retention; local keyboard/touch autocomplete; generation-aware timeline/status/history invalidation. Schema v5 / 19 domain tables; dependencies and lockfile unchanged. Location/storage and full backups remain later steps.
+- **Validation:** Windows check/lint/build, 90 unit + 120 integration and all 74 Chromium tests pass with unchanged normal shell screenshot comparisons. Linux clean `npm ci` with verified S13 Linux native/browser caches passes the same common gates and all 58 scoped Chromium tests. Desktop tag-preview/mobile removal screenshots reviewed. Intermediate failures/cache provenance are recorded below; cold SQLite downloads were not retried. Physical-device/IME, assistive technology, Linux shell baselines, real-domain/VPS and full restore audits remain later gates.
 - **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, required planning docs and the latest S13 handoff. Relevant contracts: ARCHITECTURE 4.4/6.3/7.5/8.3/9/11.4, IMPLEMENTATION_PLAN S14, ACCEPTANCE_TESTS TAG-01/03 and NOTE-03.
-2. Inspect git; preserve uncommitted S13 work. Read shared Markdown tag parser/source spans, `tagChanges` schema, NoteService/search transaction hooks, published tag counts, draft frozen preflight/recovery/conflict and current Tags placeholder/tests.
-3. Next task: **S14**. Start typed rename/merge/removal preview/execute and real SQLite/source-span rewrite/history tests across published, draft and Trash; increment all affected revisions and refresh derived search in the same coordinated transaction. Then management UI and explicit stale-local-tag resolution. Never silently rewrite browser drafts or force revisions.
-4. First validation: `npm run check && npm run test:integration`; retain status/detail/posting/search/calendar regressions and run full browser gates for S14. Runtime needs pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and OpenSSL. Linux cached clean ci is verified; cold native downloads remain a deployment check. Keep all synthetic runtime data/diagnostics ignored.
+1. Read `AGENTS.md`, required planning docs and the latest S14 handoff. Relevant contracts: ARCHITECTURE 4/6/7.4/9.1/10.4/12.5, IMPLEMENTATION_PLAN S15, ACCEPTANCE_TESTS GEO-01/FILE-01/UI-02/03/AUTH-04.
+2. Inspect git; preserve uncommitted S14 work. Read shared location/settings/attachment limits, Settings/calendar/security forms, composer Date options/workspace, detail/card location rows, AttachmentService unused-ready inventory/disk budget/cleanup and settings repository.
+3. Next task: **S15**. Implement explicit manual/browser location editor plus card/detail popover with coordinates/accuracy/copy and explicit external-map opening. Keep geolocation off until user activation; preserve null manual accuracy and retain local edits. Then validated persisted upload/image/storage controls and reference-safe explicit cleanup. Backup controls remain S16/S17, not placeholders marked complete.
+4. First validation: `npm run check && npm run test:integration`; retain tag/status/detail/posting/search/calendar regressions and full browser gates at Milestone C. Runtime needs pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns ports 4173–4176 and OpenSSL. Run `npm run db:migrate` with app stopped for schema v5. Linux cached clean ci is verified; cold native downloads remain a deployment check. Keep synthetic runtime data/diagnostics ignored.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -37,7 +37,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S11  | Month calendar and scroll sync     | Done        |
 | S12  | Detail/edit/conflict/image viewer  | Done        |
 | S13  | Drafts and Trash screens           | Done        |
-| S14  | Tag administration                 | Not started |
+| S14  | Tag administration                 | Done        |
 | S15  | Location/settings/storage          | Not started |
 | S16  | Manual backup/create/download      | Not started |
 | S17  | Uploaded restore and rollback      | Not started |
@@ -2147,3 +2147,131 @@ Decisions / remaining scope / exact next task:
   resolution. Preserve browser drafts/lifecycle retries and never force versions.
   First validation: `npm run check && npm run test:integration`, then affected/full
   browser gates with the pinned runtime and verified TLS.
+
+### Session 2026-10-05 — S14 tag management and stale local tags
+
+**State: done.** Started clean at `3d2bdae` (committed S13); prior implementation
+and all handoff history preserved. No commit created. S15–S18/product release remain
+unfinished. Schema is v5 / 19 domain tables; dependencies and lockfile unchanged.
+
+Implemented / touched files:
+
+- `shared/tags.ts`, `server/tags/service.ts`, `routes/api/tags/{+server,preview,check}`,
+  Tags loader/page: searchable 100-result usage inventory; confirmed rename,
+  case-only spelling, explicit existing-target merge and removal. Preview binds
+  source/target registry, history and every affected note revision/body; includes
+  counts, ten safe source samples and full-note inspection. All statuses rewrite
+  only parser hashtag spans; unrelated source/code/HTML/URLs/escapes stay exact.
+  Notes/dates/files/location/status are preserved, even when removal empties text.
+- One coordinated IMMEDIATE transaction updates source, joins/deduplication,
+  registry, +1 revisions/content-edited time, derived fields/FTS, history and receipt.
+  `migrations/0004_tag_receipts.sql`, snapshot/journal, schema/version introduce a
+  separate tag receipt table, preserving note receipt shape. Durable independent
+  content-free browser management commands survive response loss/reload; retry
+  resolves original success before changed source/preview checks.
+- Draft model/workspace/shared note canonical contract, `StaleTagDialog.svelte`,
+  private layout and note service: explicit Post history check before freezing/
+  uploads; frozen retry checks receipts first, then tags/base before upload. Local
+  source/files stay unchanged until Apply history, Remove locally or confirmed
+  intentional recreation. Choices save locally and require another explicit Post.
+  Frozen choices fork/remap IDs/bytes while retaining original immutable retries.
+  Optional local-v1 `{key,generation}` acknowledgements are canonical-digest bound;
+  absent/empty fields retain all pre-S14 frozen command bytes.
+- History follows latest identity-changing source event and only later target
+  events, terminates cycles/removals, ignores self-key case-only changes and remains
+  sticky after recreation. Exact intentional acknowledgement permits reuse; a newer
+  retirement requires review again. `TagAutocomplete.svelte` and Composer provide
+  AST-eligible local prefix suggestions, keyboard/touch and IME-safe activation;
+  no typed prefix/body/file goes to a server while writing.
+- Layout/root/status pages invalidate tag/detail/status/timeline data by history
+  generation, preventing Back/retained older pages from reviving rewritten cards.
+  Server recovery bases are not silently rebased. Shared JSON reader accepts smaller
+  tag caps with existing actual-byte/deadline protection. Runtime registers TagService.
+- `tests/{unit,integration,e2e}/tag-management.test.ts`: 3 unit, 6 real SQLite and
+  7 real built-browser cases, plus updated posting preflight regression. Cross-status
+  exact CRLF spans/counts/joins/search, collision/case/removal, chronological chains,
+  recreation/new retirement, revision conflicts/two connections, restart/idempotency,
+  final-receipt fault rollback, inventory/text bounds, anonymous/CSRF/transport,
+  Back/filter invalidation, response loss, unchanged local draft/files before choice,
+  frozen-copy retained bytes/IDs, keyboard/touch autocomplete and losing editor work.
+- README, ARCHITECTURE 9.1/schema/backup receipt notes, migration/test READMEs,
+  Linux browser Docker scope and this handoff. Desktop preview/mobile confirmation
+  screenshots opened/reviewed; existing shell baselines unchanged. All runtime
+  files, credentials, blobs and diagnostics are synthetic/ignored.
+
+Commands actually run:
+
+Host used S00's explicit Node **24.21.0** executable/PATH and npm **11.12.1**
+N/C CLI, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Final complete gates were sequential.
+
+| Command                                                                                               | Actual result                                                                           |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Git/status/log, required docs/source/native API reads                                                 | Clean S13 preserved                                                                     |
+| `npm run db:generate -- --name=tag_receipts`                                                          | PASS, reviewed 19-table generated migration/snapshot                                    |
+| `npm exec -- prettier --write <touched text files>`                                                   | PASS final, repeated where necessary                                                    |
+| `npm run check` / `npm run lint`                                                                      | PASS final, zero errors/warnings, ESLint/format clean                                   |
+| `npm run test:unit`                                                                                   | PASS, 18 files / 90 tests                                                               |
+| `npm run test:integration`                                                                            | PASS final, 22 files / 120 real native/SQLite/filesystem/server tests                   |
+| `npm run test:e2e -- tests/e2e/tag-management.test.ts`                                                | Initial 3 pass/3 fail; final targeted 6/6 before seventh cache/security test            |
+| `npm run test:e2e -- tests/e2e/tag-management.test.ts tests/e2e/posting.test.ts`                      | Intermediate 13 pass/1 test-context failure; fixed touch context                        |
+| `npm run build`                                                                                       | PASS final standalone production artifact                                               |
+| `npm run test:e2e`                                                                                    | PASS final build + all 74 Chromium tests, unchanged normal shell baselines              |
+| `podman build -f .browser-spike/Dockerfile.s14-cached -t pandanote-s14-browser-cached .`              | PASS clean Linux ci using verified native/browser cache; zero vulnerabilities           |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-s14-browser-cached` | PASS Linux check/lint/build, 90 unit + 120 integration and all 58 scoped Chromium tests |
+| `git diff --check`; `test ! -e .e2e-data`                                                             | PASS at code gate, no private host fixtures left; autocrlf informational warnings only  |
+
+Passing Linux code-gate image (precedes only final documentation close changes):
+`6e6718b49755becf86868fcbd8650fdc79c700ed340e0c10d3bbfd42ab3de795`.
+Ignored temporary Dockerfile uses `FROM localhost/pandanote-s13-browser-cached:latest`,
+`WORKDIR /app`, TLS verification 1, `COPY . .`, `RUN npm ci`; CMD runs Node/npm
+versions, all common gates and auth/calendar/drafts/detail/posting/timeline/uploads/
+search-navigation/zsearch/status-notes/tag-management E2E. Verified S13 base is
+`2acc59c62a93898a04aacb5f41172330d4370da3d274904d8c55d86b5795176c`;
+clean ci reinstalls modules from Linux caches, never Windows modules. Same pinned
+bookworm/glibc Node base, npm 11.19.0, WSL2 VM and 2-CPU/4-GB container context.
+Actual SQLite/Sharp/private files/archive capability tests pass, not a full restore
+or real-VPS benchmark. No cold prebuild download was attempted; S11/S12's cold
+network/compiler fallback remains an explicit later deployment verification.
+
+Intermediate failures / corrections:
+
+- Initial lint found an ephemeral Map in the rune workspace, writable modal state
+  and control-regex rule. Used SvelteMap/writable derived/explicit codepoint checks;
+  generated JSON and a few source files needed a second formatting pass. Check had
+  zero diagnostics throughout; final lint/common gates pass on both hosts.
+- Initial tag browser run timed out on an exact label including nested option text
+  and used an obsolete conflict dialog name. Added explicit Tag action label and
+  selected the actual Note conflict dialog. Next run lacked a touch-enabled test
+  context for tap; enabled real hasTouch and retained tap assertions. Final 74 host/
+  58 Linux tests pass, without changing production limits/auth or weakening assertions.
+- First mobile screenshot preceded modal rendering; added the visible-dialog wait
+  and reviewed the actual confirmation screenshot. No baselines were regenerated.
+  Small exact-edit misses applied no changes and were retried against unique regions.
+- Review made Post report false on preflight blocking rather than pretend it saved.
+  Existing native install-script/deprecation and lazy chunk warnings remain visible;
+  no failed or missing native/browser dependency was counted as a pass.
+
+Decisions / remaining scope / exact next task:
+
+- ARCHITECTURE 9.1 records chronological sticky history and explicit recreation,
+  case-only non-retirement, receipt/digest compatibility, source-size/10k management
+  bounds and 5,000-metadata/eight-option local autocomplete bounds. These are safety
+  defaults, not a stack/security/scope substitution. Oversized management refuses
+  without partial changes; an operator workflow for beyond-release-scale batches
+  is not claimed. Management search finds tags beyond the autocomplete subset.
+- No known reproducible S14 defect or unfinished S14 acceptance item. Browser drafts
+  remain plaintext/evictable, not backup. Full location/storage, backups/restore,
+  physical device/IME/read-aloud, Linux visual baselines, real-domain/VPS load,
+  cold install robustness and independent restore remain later release requirements.
+- **Next: S15.** Read ARCHITECTURE 4/6/7.4/9.1/10.4/12.5, shared settings/location,
+  composer Date/workspace, Settings/security/calendar forms, card/detail location,
+  AttachmentService inventory/resources/cleanup and integration tests. Start explicit
+  manual/browser location with local retention and card/detail popover, then complete
+  settings/storage/limits and reference-safe manual cleanup. First validation:
+  `npm run check && npm run test:integration`; full browser gate at Milestone C.
+  Stop app and run `npm run db:migrate` before serving v5. Preserve S14 work.
+
+Final documentation-close checks: `npm run db:generate -- --name=verify_no_drift`
+passed (19 tables, no schema drift/nothing generated); `npm exec -- prettier --write
+docs/ARCHITECTURE.md docs/PROGRESS.md`, `npm run lint`, `git diff --check` and
+`test ! -e .e2e-data` passed. Only documentation changed after the full code gates.

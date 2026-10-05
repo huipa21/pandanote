@@ -1,4 +1,5 @@
 import { DraftRepository } from './repository.ts';
+import { SvelteMap } from 'svelte/reactivity';
 import { IndexedDraftBlobs } from './blobs.ts';
 import {
   DraftError,
@@ -29,6 +30,8 @@ import { browserPostingTransport } from '../uploads/protocol.ts';
 import { localImage } from '../uploads/file-kind.ts';
 import { recoveryDraft } from './recovery.ts';
 import { recoveryMatches } from './model.ts';
+import { extractTags } from '#lib/shared/markdown/tags.ts';
+import { rewriteTagKeys, type StaleTag } from '#lib/shared/tags.ts';
 
 export const DRAFT_WORKSPACE = Symbol('draft workspace');
 export class DraftWorkspace {
@@ -49,6 +52,10 @@ export class DraftWorkspace {
   postError = $state('');
   postRequiresLogin = $state(false);
   postConflict = $state<NoteSnapshot | null>(null);
+  staleTagChoices = $state<StaleTag[]>([]);
+  staleTagDraftId = $state('');
+  tagsChanged = $state(0);
+  knownTags = $state<{ key: string; display: string }[]>([]);
   postProgress = $state<PostingProgress | null>(null);
   saved = $state<{
     serial: number;
@@ -531,6 +538,7 @@ export class DraftWorkspace {
     this.postError = '';
     this.postRequiresLogin = false;
     this.postConflict = null;
+    let savedSuccessfully = false;
     this.postProgress = {
       stage: 'Preparing frozen save…',
       completed: 0,
@@ -553,6 +561,7 @@ export class DraftWorkspace {
             );
           let draft = $state.snapshot(this.active!);
           if (!draft.postingAttempt) {
+            if (!(await this.checkTags(draft))) return;
             const command = commandForDraft(draft, crypto.randomUUID());
             const items = [];
             for (const item of draft.attachments.filter(
@@ -610,6 +619,12 @@ export class DraftWorkspace {
             },
             browserPostingTransport,
             async () => {
+              if (!(await this.checkTags(draft)))
+                throw new PostingError({
+                  code: 'validation',
+                  message:
+                    'Review tag changes before retrying this frozen save.',
+                });
               if (!draft.serverBase) return;
               const response = await fetch(
                 `/api/notes/${draft.serverBase.noteId}`,
@@ -643,6 +658,7 @@ export class DraftWorkspace {
             /* Receipt is authoritative even if the follow-up GET is lost. */
           }
           const warning = await repository.complete(draft);
+          savedSuccessfully = true;
           if (!this.disposed) {
             this.rememberMutation(result);
             this.saved = {
@@ -661,7 +677,7 @@ export class DraftWorkspace {
           }
         },
       );
-      return true;
+      return savedSuccessfully;
     } catch (error) {
       if (!this.disposed) {
         if (error instanceof DraftError) this.fail(error);
@@ -686,6 +702,88 @@ export class DraftWorkspace {
         this.posting = false;
         this.postProgress = null;
       }
+    }
+  }
+  private async checkTags(draft: LocalDraft): Promise<boolean> {
+    const keys = extractTags(draft.bodyMarkdown).map((t) => t.key);
+    const response = await fetch('/api/tags/check', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ keys, acknowledged: draft.tagAcknowledgements }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const result = (await response.json()) as ApiResult<StaleTag[]>;
+    if (!result.ok) throw new PostingError(result.error);
+    this.staleTagDraftId = draft.localDraftId;
+    this.staleTagChoices = result.data;
+    if (result.data.length)
+      this.postError =
+        'Retired tags need an explicit choice. Your draft and files have not been changed.';
+    return result.data.length === 0;
+  }
+  async resolveStaleTags(
+    choice: 'history' | 'remove' | 'recreate',
+  ): Promise<boolean> {
+    if (
+      !this.active ||
+      this.active.localDraftId !== this.staleTagDraftId ||
+      !this.repository ||
+      this.busy ||
+      this.posting ||
+      this.conflict ||
+      !this.staleTagChoices.length
+    )
+      return false;
+    if (!(await this.flush())) return false;
+    const choices = $state.snapshot(this.staleTagChoices);
+    this.busy = true;
+    try {
+      // Never modify frozen retries. Fork preserves the original and remaps local
+      // upload IDs; the new copy still requires explicit Post/Save changes.
+      let draft = $state.snapshot(this.active);
+      if (draft.postingAttempt) draft = await this.repository.copy(draft);
+      const bodyMarkdown =
+        choice === 'recreate'
+          ? draft.bodyMarkdown
+          : rewriteTagKeys(
+              draft.bodyMarkdown,
+              new SvelteMap(
+                choices.map((t) => [
+                  t.key,
+                  choice === 'remove' ? null : t.target,
+                ]),
+              ),
+            );
+      const acknowledgements =
+        choice === 'recreate'
+          ? [
+              ...(draft.tagAcknowledgements ?? []).filter(
+                (a) => !choices.some((t) => t.key === a.key),
+              ),
+              ...choices.map((t) => ({ key: t.key, generation: t.generation })),
+            ]
+          : (draft.tagAcknowledgements ?? []).filter(
+              (a) => !choices.some((t) => t.key === a.key),
+            );
+      this.active = await this.repository.save({
+        ...draft,
+        bodyMarkdown,
+        tagAcknowledgements: acknowledgements,
+      });
+      this.activePersisted = true;
+      this.dirty = false;
+      this.staleTagChoices = [];
+      this.postError = '';
+      this.status =
+        'Tag choice saved locally. Review the source, then explicitly Post or Save changes.';
+      this.refresh();
+      await this.loadFiles();
+      return true;
+    } catch (error) {
+      this.fail(error);
+      return false;
+    } finally {
+      this.busy = false;
     }
   }
   private revokeUrls() {

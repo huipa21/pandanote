@@ -4,6 +4,7 @@ import { readSettings } from './settings/repository.ts';
 import { AuthService } from './auth/service.ts';
 import { AttachmentService } from './attachments/service.ts';
 import { NoteService } from './notes/service.ts';
+import { TagService } from './tags/service.ts';
 import { runAttachmentCleanup } from './attachments/cleanup.ts';
 import { authPolicy, type AuthPolicy } from './auth/policy.ts';
 
@@ -12,6 +13,7 @@ export interface Runtime {
   auth: AuthService;
   attachments: AttachmentService;
   notes: NoteService;
+  tags: TagService;
   ready: Promise<void>;
   policy: AuthPolicy;
   close: () => Promise<void>;
@@ -28,11 +30,21 @@ export function getRuntime(): Runtime {
     const auth = new AuthService(persistence);
     const attachments = new AttachmentService(persistence);
     const notes = new NoteService(persistence);
+    const tags = new TagService(persistence);
     const ready = runAttachmentCleanup(persistence);
     let closing: Promise<void> | undefined;
     const close = (): Promise<void> =>
       (closing ??= ready.then(() => persistence.close()));
-    current = { persistence, auth, attachments, notes, ready, policy, close };
+    current = {
+      persistence,
+      auth,
+      attachments,
+      notes,
+      tags,
+      ready,
+      policy,
+      close,
+    };
     const onShutdown = (): void => {
       void close().catch(() => {
         console.error(

@@ -224,6 +224,15 @@ export const tagChanges = sqliteTable(
     ),
   ],
 );
+export const tagMutationReceipts = sqliteTable('tag_mutation_receipts', {
+  mutationId: text('mutation_id').primaryKey(),
+  accountId: text('account_id')
+    .notNull()
+    .references(() => account.id, { onDelete: 'restrict' }),
+  requestDigest: text('request_digest').notNull(),
+  resultJson: text('result_json').notNull(),
+  createdAt: created(),
+});
 export const uploadBatches = sqliteTable(
   'upload_batches',
   {

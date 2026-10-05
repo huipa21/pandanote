@@ -66,7 +66,7 @@
   const calendar = getContext<CalendarState>(CALENDAR);
   const reading = getContext<ReadingState>(READING);
   function queryKey(value: TimelineFilters) {
-    return filterKey(value) + '|' + data.timezone;
+    return filterKey(value) + '|' + data.timezone + '|' + data.tagGeneration;
   }
   function knownPublished(note: TimelineCard) {
     return !workspace.recentMutations.some(
@@ -122,12 +122,17 @@
       calendarMonth: calendar.month,
       emptyMonth,
       timezone: data.timezone,
+      tagGeneration: data.tagGeneration,
       anchor: scroller ? captureAnchor(scroller) : null,
     }),
     restore: (value) => {
       cancel();
       restored = true;
-      if (value.timezone !== data.timezone) return;
+      if (
+        value.timezone !== data.timezone ||
+        value.tagGeneration !== data.tagGeneration
+      )
+        return;
       loadedKey = queryKey(value.filters);
       calendar.month = value.calendarMonth;
       emptyMonth = value.emptyMonth;

@@ -7,6 +7,7 @@ import {
   localDate,
 } from '#lib/shared/calendar.ts';
 import { publishedTags } from '#lib/server/notes/timeline.ts';
+import { sql } from 'drizzle-orm';
 
 export const load: LayoutServerLoad = ({ locals, depends, url }) => {
   depends('pandanote:timeline', 'pandanote:calendar');
@@ -32,6 +33,15 @@ export const load: LayoutServerLoad = ({ locals, depends, url }) => {
     ),
     account: locals.identity!.account,
     timezone: settings.timezone,
+    tagSuggestions: locals.runtime!.persistence.db.all<{
+      key: string;
+      display: string;
+    }>(
+      sql`select normalized_key as key, display from tags t where not exists (select 1 from tag_changes c where c.old_key=t.normalized_key and (c.target_key is null or c.target_key<>c.old_key)) order by normalized_key limit 5000`,
+    ),
+    tagGeneration: locals.runtime!.persistence.db.get<{ generation: number }>(
+      sql`select coalesce(max(generation),0) as generation from tag_changes`,
+    )!.generation,
     availableTags: publishedTags(locals.runtime!.persistence, locals.identity!),
   };
 };

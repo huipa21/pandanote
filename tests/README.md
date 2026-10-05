@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar and detail (S00–S13)
+# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar, detail and tags (S00–S14)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -17,6 +17,26 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S14 coverage (TAG-01/02/03, NOTE-03, SEARCH-03, DRAFT-02, UI-02/03)
+
+- `unit/tag-management.test.ts`: chronological rename/merge/removal chains, cycles,
+  case-only identity, generation-bound recreation, simultaneous exact CRLF source
+  spans and backward-compatible/digest-bound note acknowledgements.
+- `integration/tag-management.test.ts`: actual coordinated SQLite source rewrites
+  across every status; version/edited-time/search/FTS/join/count consistency; case,
+  merge collision/deduplication, removal/recreation, two-connection preview conflicts,
+  receipt-first retry across reopen/later deletion, final-receipt injected rollback,
+  session revocation, inventory/normalized/source-size bounds and integrity/FKs.
+- `e2e/tag-management.test.ts`: actual management previews/confirmations on desktop
+  and touch mobile, private/CSRF/transport boundaries, Back/filter invalidation,
+  lost-response durable exact retry, local preflight before uploads, chain choices,
+  recreation after reload, frozen-copy file retention/ID remapping, keyboard/touch
+  autocomplete/excluded code and concurrent server editor conflict.
+- Posting regression now expects stale-tag and expired-session rejection before a
+  new frozen attempt/upload rather than the obsolete S08 fail-closed placeholder.
+  Full existing posting/draft/detail/lifecycle/calendar/search tests remain real
+  production-server regressions. Linux browser scope includes the tag tests.
 
 ## S13 coverage (DRAFT-02/05, NOTE-02/03/04, SEARCH-03, CAL-01, UI-02/03)
 

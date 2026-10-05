@@ -6,8 +6,10 @@ import {
   revisionSchema,
 } from './domain.ts';
 import { MAX_MARKDOWN_LENGTH } from './markdown/parse.ts';
+import { tagAcknowledgementsSchema } from './tags.ts';
 
 export const noteContentSchema = z.strictObject({
+  tagAcknowledgements: tagAcknowledgementsSchema.optional(),
   bodyMarkdown: z
     .string()
     .max(MAX_MARKDOWN_LENGTH)
@@ -115,6 +117,20 @@ export function canonicalNoteMutation(value: NoteMutation): string {
               ]
             : null,
           content.attachmentIds,
+          // Preserve every pre-S14 frozen digest byte-for-byte when absent.
+          ...(content.tagAcknowledgements?.length
+            ? [
+                content.tagAcknowledgements
+                  .map((a) => [a.key, a.generation])
+                  .sort((a, b) =>
+                    String(a[0]) < String(b[0])
+                      ? -1
+                      : String(a[0]) > String(b[0])
+                        ? 1
+                        : 0,
+                  ),
+              ]
+            : []),
         ]
       : null,
     value.action === 'permanent-delete' ? value.confirmed : null,
