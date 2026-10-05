@@ -1,4 +1,4 @@
-# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar and detail (S00–S12)
+# Foundation, authentication, shell, renderer, drafts, attachments, timeline, search, calendar and detail (S00–S13)
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -17,6 +17,30 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## S13 coverage (DRAFT-02/05, NOTE-02/03/04, SEARCH-03, CAL-01, UI-02/03)
+
+- `unit/status-notes.test.ts`: explicit status/query bounds, uniqueness, Unicode
+  excerpts and image/file fallbacks without persisted titles or trusted HTML.
+- `integration/status-notes.test.ts`: real SQLite timestamp-tie pagination/status
+  binding/source/payload bounds, native image/file-only labels, prior published/
+  draft restore with complete dates/attachments, published search/tag/calendar
+  exclusion, malformed cursor/query and revoked-session denial, integrity/FKs.
+- `e2e/status-notes.test.ts`: real private SSR/no-JS/anonymous access; local/server
+  overlays; cross-device saved-version isolation; reload/new-file no-upload boundary;
+  explicit Post with retained dates/location/server references; both Trash restores,
+  mobile full detail and irreversible confirmation; downloaded unchanged files.
+  Lost-response permanent deletion reloads and retries the identical receipt command
+  after the note disappears. Stale lifecycle conflicts preserve local recovery;
+  quota failure sends no mutation. Multiple losing copies remain distinguishable
+  and the matching active recovery is preferred. Paging failure/retry deduplicates
+  and retains older rows after mutation; timeline Back cannot revive a known draft,
+  and global day counts/search update immediately.
+- Card/detail/list actions share durable browser lifecycle state; existing calendar/
+  timeline/detail/posting regression suites remain real-server tests. Posting's old
+  Resume selector is scoped to local rows now that server rows also offer Resume.
+  Screenshots cover Drafts desktop and Trash mobile confirmation. Linux scope includes
+  all S13 tests; physical-device/assistive-technology/full-backup gates remain later.
 
 ## S12 coverage (NOTE-03/04, IMAGE-02, DRAFT-04/05, UI-02/03)
 

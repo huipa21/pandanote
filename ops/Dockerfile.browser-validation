@@ -1,4 +1,4 @@
-# S02–S12 Linux/Chromium security, drafts, posting, timeline, search, calendar and detail gate.
+# S02–S13 Linux/Chromium security, drafts, posting, timeline, search, calendar, detail and lifecycle gate.
 FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:5cbc7caba8c2c0f0bca675d1b61b9f2857e1cf1853c6164ee9dd409501a936e7
 WORKDIR /app
 # Chromium needs a UTF-8 filesystem locale to preserve Unicode download names.
@@ -9,4 +9,4 @@ RUN npm ci \
     && apt-get install -y --no-install-recommends openssl \
     && npx playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
-CMD ["sh", "-c", "npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/calendar.test.ts tests/e2e/drafts.test.ts tests/e2e/detail.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts tests/e2e/uploads.test.ts tests/e2e/search-navigation.test.ts tests/e2e/zsearch.test.ts"]
+CMD ["sh", "-c", "npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/calendar.test.ts tests/e2e/drafts.test.ts tests/e2e/detail.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts tests/e2e/uploads.test.ts tests/e2e/search-navigation.test.ts tests/e2e/zsearch.test.ts tests/e2e/status-notes.test.ts"]

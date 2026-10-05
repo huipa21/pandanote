@@ -12,6 +12,11 @@
   } from '#lib/client/drafts/workspace.svelte.ts';
   import AppShell from '#lib/components/AppShell.svelte';
   import NoteDetail from '#lib/components/NoteDetail.svelte';
+  import LifecycleDialog from '#lib/components/LifecycleDialog.svelte';
+  import {
+    LIFECYCLE,
+    LifecycleState,
+  } from '#lib/client/drafts/lifecycle.svelte.ts';
   import ConflictDialog from '#lib/components/ConflictDialog.svelte';
   import {
     READING,
@@ -24,6 +29,10 @@
     untrack(() => data.timezone),
   );
   setContext(DRAFT_WORKSPACE, workspace);
+  const lifecycle = new LifecycleState(workspace.accountId, (result) =>
+    workspace.recordMutation(result),
+  );
+  setContext(LIFECYCLE, lifecycle);
   const reading = new ReadingState();
   setContext(READING, reading);
   let detail = $state<NoteSnapshot | null>(null);
@@ -80,6 +89,13 @@
     if (saved && saved.serial > handledCalendarSave) {
       handledCalendarSave = saved.serial;
       void invalidate('pandanote:calendar');
+      void invalidate('pandanote:timeline');
+      void invalidate('pandanote:status-notes');
+      if (page.state.detailId === saved.result.noteId) detailRetry++;
+      if (page.data.detail?.id === saved.result.noteId) {
+        if (saved.result.deleted) void goto('/trash', { reset: false });
+        else void invalidate('pandanote:detail');
+      }
     }
   });
   $effect(() => {
@@ -93,6 +109,12 @@
     });
   });
   onMount(() => {
+    lifecycle.start();
+    const syncRetries = (event: StorageEvent) => {
+      if (event.key === null || event.key.startsWith(lifecycle.key))
+        lifecycle.start();
+    };
+    window.addEventListener('storage', syncRetries);
     let ended = false;
     let stop: (() => void) | undefined;
     void workspace.start().then((cleanup) => {
@@ -102,6 +124,7 @@
     return () => {
       ended = true;
       calendar.dispose();
+      window.removeEventListener('storage', syncRetries);
       stop?.();
     };
   });
@@ -114,7 +137,24 @@
   filters={page.data.timeline?.filters ?? { tags: [] }}
   searchQuery={page.url.searchParams.get('q') ?? ''}
   onSearch={(href) => goto(href, { reset: false })}
-  >{@render children()}</AppShell
+>
+  {#if lifecycle.warning}<p role="alert">{lifecycle.warning}</p>{/if}
+  {#if lifecycle.pending.length}<section
+      class="surface"
+      aria-label="Unconfirmed note actions"
+    >
+      <h2>Unconfirmed note actions · this browser</h2>
+      <p class="help">
+        These actions may already have succeeded. Retry the exact saved command
+        to check safely, even after reload.
+      </p>
+      {#each lifecycle.pending as attempt (attempt.mutationId)}<button
+          disabled={lifecycle.busy}
+          onclick={() => lifecycle.resume(attempt)}
+          >Review {attempt.action} · {attempt.noteId.slice(0, 8)}</button
+        >{/each}
+    </section>{/if}
+  {@render children()}</AppShell
 >
 {#if page.state.detailId && !page.data.detail}
   {#key page.state.detailId}
@@ -130,3 +170,4 @@
   {/key}
 {/if}
 <ConflictDialog {workspace} />
+<LifecycleDialog />

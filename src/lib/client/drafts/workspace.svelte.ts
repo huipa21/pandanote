@@ -55,6 +55,9 @@ export class DraftWorkspace {
     result: import('#lib/shared/domain.ts').MutationResult;
     snapshot?: NoteSnapshot;
   } | null>(null);
+  recentMutations = $state<import('#lib/shared/domain.ts').MutationResult[]>(
+    [],
+  );
   get frozen() {
     return Boolean(this.active?.postingAttempt);
   }
@@ -641,6 +644,7 @@ export class DraftWorkspace {
           }
           const warning = await repository.complete(draft);
           if (!this.disposed) {
+            this.rememberMutation(result);
             this.saved = {
               serial: (this.saved?.serial ?? 0) + 1,
               result,
@@ -757,6 +761,19 @@ export class DraftWorkspace {
         'Persistent storage could not be requested. Drafts can still be lost; keep another copy.';
     }
   }
+  /** Shared invalidation event for confirmed lifecycle receipts. */
+  private rememberMutation(
+    result: import('#lib/shared/domain.ts').MutationResult,
+  ) {
+    this.recentMutations = [
+      ...this.recentMutations.filter((item) => item.noteId !== result.noteId),
+      result,
+    ].slice(-100);
+  }
+  recordMutation(result: import('#lib/shared/domain.ts').MutationResult) {
+    this.rememberMutation(result);
+    this.saved = { serial: (this.saved?.serial ?? 0) + 1, result };
+  }
   /** Resume device-local work even when stale; never silently adopt server text. */
   async editNote(note: NoteSnapshot, reveal = true): Promise<boolean> {
     if (!this.ready || this.busy || this.posting || !this.repository)
@@ -764,9 +781,17 @@ export class DraftWorkspace {
     try {
       const seed = await recoveryDraft(this.accountId, note);
       this.refresh();
-      const existing = this.drafts.find(
+      const candidates = this.drafts.filter(
         (draft) => draft.serverBase?.noteId === note.id,
       );
+      // Prefer the active choice, then a matching base, then the most recent
+      // recovery. Every other losing/frozen copy remains explicitly listed.
+      const existing =
+        candidates.find(
+          (draft) => draft.localDraftId === this.active?.localDraftId,
+        ) ??
+        candidates.find((draft) => recoveryMatches(draft, seed.serverBase!)) ??
+        candidates[0];
       if (existing) {
         if (!(await this.resume(existing.localDraftId, reveal))) return false;
         if (!recoveryMatches(existing, seed.serverBase!)) {

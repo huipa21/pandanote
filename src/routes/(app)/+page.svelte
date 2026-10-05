@@ -68,6 +68,14 @@
   function queryKey(value: TimelineFilters) {
     return filterKey(value) + '|' + data.timezone;
   }
+  function knownPublished(note: TimelineCard) {
+    return !workspace.recentMutations.some(
+      (result) =>
+        result.noteId === note.id &&
+        result.revision >= note.revision &&
+        (result.deleted || result.status !== 'published'),
+    );
+  }
   let items = $state<TimelineCard[]>(untrack(() => data.timeline?.items ?? []));
   let nextCursor = $state<string | null>(
     untrack(() => data.timeline?.nextCursor ?? null),
@@ -124,7 +132,7 @@
       calendar.month = value.calendarMonth;
       emptyMonth = value.emptyMonth;
       followScroll = true;
-      items = value.items;
+      items = value.items.filter(knownPublished);
       nextCursor = value.nextCursor;
       filters = value.filters;
       expanded = value.expanded;
@@ -154,7 +162,8 @@
       if (same && emptyMonth && !initial.emptyMonth) emptyMonth = false;
       // Same-filter invalidation retains fetched older pages and their scroll context.
       // Known mutations remove/reconcile their own ID before this refresh.
-      items = same ? mergeCards(items, initial.items) : initial.items;
+      const first = initial.items.filter(knownPublished);
+      items = same ? mergeCards(items.filter(knownPublished), first) : first;
       if (!same || items.length <= initial.items.length)
         nextCursor = initial.nextCursor;
       loadedKey = key;
@@ -330,7 +339,10 @@
       const anchor = captureAnchor(scroller);
       emptyMonth = false;
       followScroll = true;
-      items = mergeCards(items, payload.data.items);
+      items = mergeCards(
+        items.filter(knownPublished),
+        payload.data.items.filter(knownPublished),
+      );
       nextCursor = payload.data.nextCursor;
       await tick();
       if (current === generation && key === queryKey(filters) && !disposed)
@@ -361,6 +373,18 @@
     }
     expanded = value ? [...expanded, id] : expanded.filter((n) => n !== id);
   }
+  // Back can restore a pre-mutation history snapshot. Reconcile known newer
+  // published revisions as well as filtering known draft/Trash/deleted IDs.
+  $effect(() => {
+    if (!mounted) return;
+    const recent = workspace.recentMutations;
+    untrack(() => {
+      for (const result of recent) {
+        const note = items.find((note) => note.id === result.noteId);
+        if (note && note.revision < result.revision) mutation(result);
+      }
+    });
+  });
   function mutation(result: MutationResult) {
     const anchor = captureAnchor(scroller);
     if (result.status !== 'published' || result.deleted)

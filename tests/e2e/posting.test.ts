@@ -439,7 +439,10 @@ test('server-draft recovery posts only on explicit Post, preserves date and publ
       );
     }, recovery);
     await page.goto('/drafts');
-    await page.getByRole('button', { name: /^Resume/ }).click();
+    await page
+      .getByTestId('local-draft')
+      .getByRole('button', { name: /^Resume/ })
+      .click();
   }
   await seed('edit-server-draft');
   const writes: string[] = [];

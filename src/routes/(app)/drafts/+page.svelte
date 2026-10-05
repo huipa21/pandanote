@@ -10,6 +10,8 @@
     type LocalDraft,
   } from '#lib/client/drafts/model.ts';
   import Modal from '#lib/components/Modal.svelte';
+  import StatusNoteList from '#lib/components/StatusNoteList.svelte';
+  let { data } = $props();
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
   let discardTarget = $state<LocalDraft | null>(null);
   let confirmDiscard = $state(false);
@@ -58,9 +60,14 @@
         <li data-testid="local-draft" data-draft-id={draft.localDraftId}>
           <p class="excerpt">{excerpt(draft)}</p>
           <p class="help">
-            Device-only{draft.kind !== 'new'
-              ? ' · local recovery edits (may be newer than the server)'
-              : ''} · {draft.attachments.length} attachment(s)
+            Device-only · {draft.kind === 'new'
+              ? 'new unpublished draft'
+              : draft.kind === 'edit-published'
+                ? 'published-note edit recovery'
+                : 'server-draft edit recovery'}{draft.kind !== 'new'
+              ? ' (may be newer than the server)'
+              : ''} · local copy {draft.localDraftId.slice(0, 8)} · {draft
+              .attachments.length} attachment(s)
             {draft.postingAttempt
               ? ' · frozen save retained for safe retry'
               : ''}
@@ -84,14 +91,11 @@
     </ul>
   {/if}
 </section>
-<section class="surface">
-  <h2>Server drafts</h2>
-  <p class="muted">
-    Server draft listing and reconciliation with local recovery edits come in
-    S13. Local drafts are not visible on other devices or included in server
-    backups.
-  </p>
-</section>
+<StatusNoteList
+  status="draft"
+  initial={data.statusList}
+  initialError={data.statusError}
+/>
 <Modal bind:open={confirmDiscard} title="Discard local draft?">
   <p>
     This removes only this draft's saved text and local files from this browser.

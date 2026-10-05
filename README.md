@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Composer posting, recovery, timeline, search, calendar and private detail/edit/viewer are implemented; later features remain unfinished.**
+**Composer, recovery, timeline, search, calendar, detail/edit/viewer and Drafts/Trash are implemented; later features remain unfinished.**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -20,8 +20,9 @@ multilingual search, quoted phrases, short-query fallback and safe snippets.
 S11 adds global month activity, timezone/week-start settings, month/year/day navigation
 and scroll synchronization. S12 adds addressable full-note detail, published/server-draft
 recovery edits, confirmed conflict copy/load/revision-checked replacement and a WebP
-image viewer. Complete Drafts/Trash screens, tag management, location/storage and
-backup/restore remain future steps. Do not deploy this
+image viewer. S13 adds separate local/server Drafts, recovery overlays, Trash
+restore and confirmed permanent deletion with durable lifecycle retries.
+Tag management, location/storage and backup/restore remain future steps. Do not deploy this
 unfinished app as a complete product.
 
 ## Start here
@@ -274,7 +275,7 @@ storage eviction or losing this device can remove drafts. Other devices and serv
 backups do not contain them. Signing out leaves drafts on the browser/device;
 anyone controlling it can read them. Local preview URLs are temporary and revoked.
 S08 adds posting and an app-timezone timeline-date dialog. Server draft/detail
-entry points and location controls remain S12/S13/S15.
+entry points are implemented in S12/S13; location controls remain S15.
 
 ## Private attachments and bounded images (S06)
 
@@ -313,7 +314,7 @@ see ARCHITECTURE 7.4 and PROGRESS for exact contracts and measured limitations.
 The backend supports text/image/file-only creation, optimistic published edits,
 move-to-draft, edited draft publication, Trash/restore and confirmed permanent
 deletion. Server draft edits are never background-saved. S08 supplies the composer
-protocol; full detail/edit and lifecycle entry screens remain S12/S13.
+protocol; full detail/edit and lifecycle entry screens are implemented in S12/S13.
 
 - `POST /api/notes`: strict `create` command.
 - `GET /api/notes/<id>`: private body/metadata/revision/tag/ordered attachment-descriptor snapshot.
@@ -353,7 +354,7 @@ Retry first: copying cannot cancel a save that may already have committed.
 The Date dialog uses the configured app timezone and rejects future/nonexistent/
 ambiguous local times. Recovery bases recheck ID, revision and canonical snapshot
 identity before new uploads, including after restore. Full edit/conflict/draft
-screens still arrive in S12/S13; there is no background server draft saving.
+screens are implemented in S12/S13; there is no background server draft saving.
 
 Confirmed saves update the persisted, date-sorted timeline without a full page reload.
 A backdated save is never artificially prepended. If it is outside the current filters
@@ -374,13 +375,32 @@ the saved spacing tokens. Large bodies use explicitly labeled bounded previews;
 full source loads on expansion (or visibility with full-card preference). Partial
 code is never offered as the complete original by Copy. Copy Markdown, confirmed
 Move to Drafts/Trash and revision-conflict refresh are available from Note actions.
-The actual Drafts/Trash server screens remain S13; detail/image viewer remains S12.
+Drafts/Trash server screens and detail/image viewer are implemented in S12/S13.
 
-Month separators and top-visible-month tracking are ready for S11, but there is no
-calendar navigation/day-picker UI yet. S10 supplies literal search and a typed UTC
-day-range predicate on this same list API.
+Month separators/top-visible-month tracking connect to S11's calendar and date
+navigation. S10 supplies literal search on this same list API.
 10k-note paging and 300-card DOM measurements are recorded in `docs/PROGRESS.md`;
 virtualization is deferred pending evidence from longer reading sessions.
+
+## Drafts and Trash (S13)
+
+Drafts separates device-only new/edit recovery copies from last saved server drafts.
+Server rows identify available local recoveries; reopening checks the full server
+base and uses local work without erasing other losing copies. Other devices see only
+saved server content. Post republishes the server draft with its original timeline
+date unless deliberately changed. New files remain local until that explicit action.
+
+Trash shows prior published/draft status, private detail, Restore and confirmed
+permanent deletion. Dates/files survive restore; there is no automatic emptying.
+Attachment bytes remain referenced while in Trash. Permanent deletion never erases
+browser recovery copies or files still used by another note.
+
+Lists use bounded private SSR/cursor pages and explicit older loading/error retry.
+Card/detail/list lifecycle actions save a content-free retry identity on this browser
+before networking. Unconfirmed actions can be reviewed/retried after reload, even
+when a lost-response permanent delete already removed the note. Stopping retries
+is not cancellation. Storage failures block the action; revision conflicts never
+force overwrites. These browser records, like local drafts, are not a backup.
 
 ## Validation
 

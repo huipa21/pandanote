@@ -28,6 +28,11 @@
     direct?: boolean;
   } = $props();
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+  import {
+    LIFECYCLE,
+    type LifecycleState,
+  } from '#lib/client/drafts/lifecycle.svelte.ts';
+  const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   let open = $state(true);
   let ready = $state(false);
   let editing = $state(false);
@@ -110,6 +115,29 @@
           >{note.status === 'draft' ? 'Edit server draft' : 'Edit note'}</button
         >
         <a href={`/notes/${note.id}`}>Private permalink</a>
+        {#if note.status === 'trash'}
+          <button
+            disabled={!ready || !lifecycle.ready || lifecycle.busy}
+            onclick={() => lifecycle.choose(note!, 'restore')}>Restore</button
+          >
+          <button
+            class="danger"
+            disabled={!ready || !lifecycle.ready || lifecycle.busy}
+            onclick={() => lifecycle.choose(note!, 'permanent-delete')}
+            >Permanently delete</button
+          >
+        {:else}
+          {#if note.status === 'published'}<button
+              disabled={!ready || !lifecycle.ready || lifecycle.busy}
+              onclick={() => lifecycle.choose(note!, 'move-to-draft')}
+              >Move to Drafts</button
+            >{/if}
+          <button
+            disabled={!ready || !lifecycle.ready || lifecycle.busy}
+            onclick={() => lifecycle.choose(note!, 'trash')}
+            >Move to Trash</button
+          >
+        {/if}
       </div>
       {#if editError}<p role="alert">{editError}</p>{/if}
       <Markdown

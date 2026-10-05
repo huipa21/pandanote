@@ -9,6 +9,11 @@
   import Markdown from './Markdown.svelte';
   import Modal from './Modal.svelte';
   import {
+    LIFECYCLE,
+    type LifecycleState,
+  } from '#lib/client/drafts/lifecycle.svelte.ts';
+  const lifecycle = getContext<LifecycleState>(LIFECYCLE);
+  import {
     cardImages,
     toggleTag,
     type TimelineCard,
@@ -43,16 +48,8 @@
   let loading = $state(false);
   let error = $state('');
   let menuOpen = $state(false);
-  let action = $state<'trash' | 'move-to-draft' | null>(null);
-  let confirming = $state(false);
-  let busy = $state(false);
   let feedback = $state('');
   let disposed = false;
-  let attempt = $state<{
-    mutationId: string;
-    action: 'trash' | 'move-to-draft';
-    expectedRevision: number;
-  } | null>(null);
   const contentId = $props.id();
   const source = $derived(full?.revision === note.revision ? full : note);
   $effect(() => {
@@ -195,41 +192,7 @@
   }
   function choose(value: 'trash' | 'move-to-draft') {
     menuOpen = false;
-    action = value;
-    confirming = true;
-    error = '';
-    attempt = null;
-  }
-  async function mutate() {
-    if (busy || !action) return;
-    busy = true;
-    attempt ??= {
-      mutationId: crypto.randomUUID(),
-      action,
-      expectedRevision: note.revision,
-    };
-    try {
-      const response = await fetch(`/api/notes/${note.id}/actions`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...attempt, noteId: note.id }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      const payload = (await response.json()) as ApiResult<MutationResult>;
-      if (!payload.ok) throw new Error(payload.error.message);
-      if (!disposed) {
-        confirming = false;
-        onMutation(payload.data);
-      }
-    } catch (failure) {
-      if (!disposed)
-        error =
-          failure instanceof Error
-            ? failure.message
-            : 'Action interrupted. Retry the same action safely or refresh to inspect the note.';
-    } finally {
-      if (!disposed) busy = false;
-    }
+    lifecycle.choose(note, value);
   }
 </script>
 
@@ -316,7 +279,7 @@
           : 'Show more'}</button
     >
   {/if}
-  {#if error && !confirming}<p role="alert">
+  {#if error}<p role="alert">
       {error}
       <button
         onclick={() =>
@@ -357,34 +320,6 @@
   <button onclick={copy}>Copy Markdown</button>
   <button onclick={() => choose('move-to-draft')}>Move to Drafts</button>
   <button class="danger" onclick={() => choose('trash')}>Move to Trash</button>
-</Modal>
-<Modal
-  bind:open={confirming}
-  title={action === 'trash' ? 'Move to Trash?' : 'Move to Drafts?'}
->
-  <p>
-    {action === 'trash'
-      ? 'The note and files are kept in Trash, not permanently deleted.'
-      : 'The saved note and files stay on the server as a draft.'} Drafts and Trash
-    screens are completed in S13; this action removes the note from the published
-    timeline.
-  </p>
-  {#if error}<p role="alert">{error}</p>
-    <button
-      disabled={busy}
-      onclick={() => {
-        confirming = false;
-        onMutation({
-          noteId: note.id,
-          revision: note.revision,
-          status: 'published',
-          deleted: false,
-        });
-      }}>Refresh server version</button
-    >{/if}
-  <button disabled={busy} onclick={mutate}
-    >{busy ? 'Saving…' : attempt ? 'Retry action' : 'Confirm move'}</button
-  >
 </Modal>
 
 <style>

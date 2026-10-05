@@ -1,0 +1,176 @@
+import { z } from 'zod';
+import {
+  idSchema,
+  revisionSchema,
+  type ApiResult,
+  type MutationResult,
+  type NoteSnapshot,
+} from '#lib/shared/domain.ts';
+import type { ListStatus } from '#lib/shared/status-notes.ts';
+const actionSchema = z.enum([
+  'move-to-draft',
+  'trash',
+  'restore',
+  'permanent-delete',
+]);
+const attemptSchema = z.strictObject({
+  mutationId: idSchema,
+  noteId: idSchema,
+  expectedRevision: revisionSchema,
+  action: actionSchema,
+  confirmed: z.literal(true).optional(),
+});
+type Attempt = z.infer<typeof attemptSchema>;
+export type LifecycleTarget = {
+  id: string;
+  revision: number;
+  status: ListStatus | 'published';
+  priorStatus: 'published' | 'draft' | null;
+};
+export const LIFECYCLE = Symbol('note lifecycle');
+/** Content-free durable retries. A timeout/navigation never changes command identity. */
+export class LifecycleState {
+  pending = $state<Attempt[]>([]);
+  selected = $state<{
+    target: LifecycleTarget;
+    action: Attempt['action'];
+    attempt?: Attempt;
+  } | null>(null);
+  busy = $state(false);
+  ready = $state(false);
+  error = $state('');
+  warning = $state('');
+  observed = $state<NoteSnapshot | null>(null);
+  readonly key: string;
+  private onSaved: (result: MutationResult) => void;
+  constructor(accountId: string, onSaved: (result: MutationResult) => void) {
+    this.key = `pandanote:lifecycle:v1:${accountId}`;
+    this.onSaved = onSaved;
+  }
+  start() {
+    try {
+      const items: Attempt[] = [];
+      this.warning = '';
+      for (const key of Object.keys(localStorage).filter((key) =>
+        key.startsWith(this.key + ':'),
+      )) {
+        try {
+          const item = attemptSchema.parse(
+            JSON.parse(localStorage.getItem(key)!),
+          );
+          if (key !== `${this.key}:${item.mutationId}`) throw new Error();
+          items.push(item);
+        } catch {
+          this.warning =
+            'A saved action retry could not be read. Its bytes are preserved. Inspect server notes before trying again.';
+        }
+      }
+      this.pending = items;
+      this.ready = true;
+    } catch {
+      this.warning =
+        'Browser action storage is unavailable. Keep your work and retry.';
+    }
+  }
+  choose(target: LifecycleTarget, action: Attempt['action']) {
+    this.selected = { target, action };
+    this.error = '';
+    this.observed = null;
+  }
+  resume(attempt: Attempt) {
+    this.selected = {
+      target: {
+        id: attempt.noteId,
+        revision: attempt.expectedRevision,
+        status:
+          attempt.action === 'restore' || attempt.action === 'permanent-delete'
+            ? 'trash'
+            : 'published',
+        priorStatus: null,
+      },
+      action: attempt.action,
+      attempt,
+    };
+    this.error = '';
+    this.observed = null;
+  }
+  private persist(items: Attempt[]) {
+    if (items.length > 100)
+      throw new Error(
+        'Too many unconfirmed actions. Resolve saved retries first.',
+      );
+    // Independent immutable records avoid two tabs overwriting a shared index.
+    for (const item of items)
+      if (!this.pending.some((a) => a.mutationId === item.mutationId))
+        localStorage.setItem(
+          `${this.key}:${item.mutationId}`,
+          JSON.stringify(item),
+        );
+    for (const item of this.pending)
+      if (!items.some((a) => a.mutationId === item.mutationId))
+        localStorage.removeItem(`${this.key}:${item.mutationId}`);
+    this.start();
+  }
+  forget(attempt: Attempt) {
+    try {
+      this.persist(
+        this.pending.filter((a) => a.mutationId !== attempt.mutationId),
+      );
+      this.selected = null;
+    } catch {
+      this.error = 'Browser storage failed. The saved retry is retained.';
+    }
+  }
+  async confirm() {
+    if (!this.selected || this.busy || !this.ready) return;
+    this.busy = true;
+    this.error = '';
+    const selected = this.selected;
+    try {
+      if (!selected.attempt) {
+        const attempt = attemptSchema.parse({
+          mutationId: crypto.randomUUID(),
+          noteId: selected.target.id,
+          expectedRevision: selected.target.revision,
+          action: selected.action,
+          ...(selected.action === 'permanent-delete'
+            ? { confirmed: true }
+            : {}),
+        });
+        try {
+          this.persist([...this.pending, attempt]); // Confirm durability before any request.
+        } catch {
+          this.error =
+            'The action was not sent: browser retry storage failed. Free browser storage and retry, or inspect the server version.';
+          return;
+        }
+        this.selected = { ...selected, attempt };
+      }
+      const attempt = this.selected!.attempt!;
+      const response = await fetch(`/api/notes/${attempt.noteId}/actions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(attempt),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const payload = (await response.json()) as ApiResult<MutationResult>;
+      if (!payload.ok) {
+        this.observed = payload.error.conflict ?? null;
+        throw new Error(payload.error.message);
+      }
+      this.onSaved(payload.data); // Receipt is authoritative, even if retry cleanup fails.
+      this.persist(
+        this.pending.filter((a) => a.mutationId !== attempt.mutationId),
+      );
+      this.selected = null;
+    } catch (error) {
+      this.error =
+        (error instanceof Error && error.name !== 'AbortError'
+          ? error.message
+          : 'Action interrupted.') +
+        ' No newer revision was overwritten. The exact retry is kept on this browser; inspect the server version or retry safely.';
+    } finally {
+      this.busy = false;
+    }
+  }
+}

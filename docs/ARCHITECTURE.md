@@ -961,6 +961,56 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   while overlays are active; expanded composer preview avoids duplicate rendering.
   Physical-device/pinch/assistive-technology release audits remain S18.
 
+### 11.4 S13 Drafts, Trash and lifecycle retries
+
+- Private SSR `/drafts` and `/trash` use `shared/status-notes.ts` and
+  `server/notes/status-list.ts`. `GET /api/notes/status` requires explicit
+  `status=draft|trash`; other filters, duplicates and oversized queries fail.
+  Default page size 30, maximum 100, descending `(timeline_at,id)` ordering with
+  status-bound versioned base64url cursors. Status/session predicates still apply
+  on every read; cursors confer no authority. No timezone binding is needed for
+  this UTC ordering with no local-date filters.
+- List DTOs contain IDs/revisions/prior status/dates, a <=240-codepoint escaped
+  content excerpt (optional ellipsis), and image/file counts. SQLite selects at
+  most 1024 source bytes per row, then batch-aggregates attachment counts only for
+  the selected IDs in the same session-rechecked transaction. Empty BLOB results
+  may be null; image/file-only labels still work. Source NULs display as ␀;
+  inline internal-image destinations are omitted from labels. No full body,
+  location, filesystem paths or attachment collection crosses this list boundary.
+  Labels are computed, not persisted titles or editor snapshots.
+- Local drafts retain explicit new/published-edit/server-draft-edit kinds, device
+  scope, base revision, modification time, short local-copy ID and frozen-retry
+  labels. Server entries explicitly show the last saved version and associated
+  recovery-copy count. Reopening prefers an active recovery, then a matching full
+  base digest/revision, then the newest recovery; all other copies remain listed.
+  Full private snapshots seed edits, never list labels. Stale/restore bases open
+  comparison. New files/edits remain local until Post/Save changes; there is no
+  Save draft button, automatic post or server autosave.
+- Shared `LifecycleState`/`LifecycleDialog` handles card/detail/list draft/Trash/
+  restore/permanent-delete actions. Confirmation durably writes an independent,
+  content-free command at `pandanote:lifecycle:v1:<account>:<mutation>` before
+  networking. Independent records plus storage-event refresh avoid a shared-index
+  overwrite across tabs. Unknown/corrupt bytes are preserved and warned about.
+  Storage failure blocks transmission, not falsely successful retry saving.
+- Timeout/response loss leaves an unconfirmed-action review on every private
+  screen, including after reload or successful permanent deletion. Retry sends
+  the identical mutation ID/action/expected revision/confirmation and resolves the
+  original receipt. Conflict shows observed status/revision and permits inspection
+  or refresh, never a force write. Explicit Stop retrying only removes that local
+  retry record; it does not cancel or undo an uncertain server action.
+- Confirmed lifecycle receipts reuse composer mutation invalidation for published
+  timeline/tag counts, calendar, status lists and open detail. Known session
+  mutations filter old timeline history snapshots. Loaded status pages retain
+  deduped rows/cursors while known changed-status IDs are removed; explicit Refresh
+  starts from page one. Abort/generation guards suppress stale paging and errors
+  retain retry controls. List detail opens shallow private URLs, preserving the
+  mounted list and focus/scroll. Direct permanent deletion returns to Trash.
+- Restore preserves prior status/dates/files; permanent deletion keeps browser
+  recoveries and uses existing reference-safe queued filesystem cleanup. No bulk
+  Empty Trash action, cleanup timer, migration, dependency or backup implementation
+  was added. Browser drafts/retry records remain absent from SQLite/server backup
+  sources; actual full archives/restore are still S16/S17.
+
 ## 12. Authentication and threat boundaries
 
 ### 12.1 Initialization
