@@ -117,34 +117,40 @@ export interface StorageOptions {
   production?: boolean;
   projectRoot?: string;
 }
+/** Validate the operator-configured root without creating it or changing ownership. */
+export function resolvePrivateRoot(options: StorageOptions = {}): string {
+  const project = realpathSync(options.projectRoot ?? process.cwd());
+  const configured = options.dataDir ?? process.env.DATA_DIR;
+  const production =
+    options.production ?? process.env.NODE_ENV === 'production';
+  if (production && (!configured || !isAbsolute(configured)))
+    throw new Error('Production DATA_DIR must be an absolute private path');
+  const root = resolve(project, configured ?? 'data');
+  rejectSymlinks(root);
+  // Reject source/build/static trees, and ancestors that would contain them.
+  if (
+    within(project, root) ||
+    [
+      'src',
+      'static',
+      'public',
+      'build',
+      'dist',
+      '.svelte-kit',
+      'node_modules',
+    ].some((part) => within(root, join(project, part)))
+  ) {
+    throw new Error('DATA_DIR must be outside source and public assets');
+  }
+  return root;
+}
+
 export class PrivateStorage {
   readonly root: string;
   readonly databasePath: string;
   readonly keyPath: string;
   constructor(options: StorageOptions = {}) {
-    const project = realpathSync(options.projectRoot ?? process.cwd());
-    const configured = options.dataDir ?? process.env.DATA_DIR;
-    const production =
-      options.production ?? process.env.NODE_ENV === 'production';
-    if (production && (!configured || !isAbsolute(configured)))
-      throw new Error('Production DATA_DIR must be an absolute private path');
-    this.root = resolve(project, configured ?? 'data');
-    rejectSymlinks(this.root);
-    // Reject source/build/static trees, and ancestors that would contain them.
-    if (
-      within(project, this.root) ||
-      [
-        'src',
-        'static',
-        'public',
-        'build',
-        'dist',
-        '.svelte-kit',
-        'node_modules',
-      ].some((part) => within(this.root, join(project, part)))
-    ) {
-      throw new Error('DATA_DIR must be outside source and public assets');
-    }
+    this.root = resolvePrivateRoot(options);
     secureDirectory(this.root);
     for (const part of [
       'db',

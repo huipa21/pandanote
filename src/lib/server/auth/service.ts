@@ -90,6 +90,39 @@ export class AuthService {
     });
     return token;
   }
+  /** Container-only bootstrap. Same token never renews expiry; changing the
+   * operator environment explicitly rotates an unclaimed token. An existing
+   * account always wins, including after restore; environment cannot reset it. */
+  bootstrapSetupToken(token: string | undefined): void {
+    this.persistence.write((tx) => {
+      if (tx.select({ id: account.id }).from(account).get()) return;
+      const pending = tx.select().from(setupTokens).get();
+      if (!token) {
+        if (pending) return; // Legacy operator CLI bootstrap remains supported.
+        throw new Error('SETUP_TOKEN is required for first container startup');
+      }
+      authTokenSchema.parse(token);
+      const hash = tokenHash('setup', token);
+      if (pending?.tokenHash === hash) return;
+      const now = this.clock();
+      tx.insert(setupTokens)
+        .values({
+          singleton: 1,
+          tokenHash: hash,
+          createdAt: now,
+          expiresAt: now + 60 * 60_000,
+        })
+        .onConflictDoUpdate({
+          target: setupTokens.singleton,
+          set: {
+            tokenHash: hash,
+            createdAt: now,
+            expiresAt: now + 60 * 60_000,
+          },
+        })
+        .run();
+    });
+  }
   private validSetup(
     tx: DomainTransaction,
     token: string,

@@ -95,9 +95,21 @@ describe('deployment artifacts', () => {
   const caddy = read('ops/Caddyfile');
   const ignore = lines(read('.dockerignore'));
 
-  it('image is pinned, non-root and omits tests/docs/dev dependencies/secrets', () => {
+  it('image is pinned, drops bootstrap root privileges and omits tests/docs/dev dependencies/secrets', () => {
     expect(docker).toMatch(/node:24\.21\.0-bookworm-slim@sha256:[0-9a-f]{64}/);
-    expect(docker).toMatch(/^USER node$/m);
+    expect(docker).toMatch(/^USER root$/m);
+    expect(docker).toContain(
+      'ENTRYPOINT ["node", "scripts/container-entry.ts"]',
+    );
+    const entry = read('scripts/container-entry.ts');
+    expect(entry.indexOf('becomeContainerUser(')).toBeLessThan(
+      entry.indexOf('await bootstrapContainer('),
+    );
+    expect(entry).toContain('delete process.env.SETUP_TOKEN');
+    expect(entry).toContain('process.execve(');
+    const user = read('scripts/container-user.ts');
+    expect(user).toContain('process.setuid(identity.uid)');
+    expect(user).toContain('process.setgroups!([])');
     expect(docker).toMatch(/npm ci --omit=dev/);
     expect(docker).not.toMatch(/NODE_TLS_REJECT_UNAUTHORIZED|strict-ssl/i);
     const runtime = docker.slice(docker.indexOf('AS runtime'));
@@ -136,6 +148,14 @@ describe('deployment artifacts', () => {
     expect(app).toMatch(/stop_grace_period/);
     expect(compose).toMatch(/read_only: true/);
     expect(compose).toMatch(/cap_drop: \[ALL\]/);
+    expect(compose).toMatch(
+      /cap_add: \[CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL\]/,
+    );
+    expect(compose).not.toMatch(/mem_limit|APP_MEM_LIMIT|APP_CPUS/);
+    const external = read('ops/compose.external.yaml');
+    expect(external).toContain('${DATA_PATH:-./app-data}:/data');
+    expect(external).toContain('external: true');
+    expect(external).not.toMatch(/mem_limit|cpus:|ports:|profiles:/);
     expect(compose).toMatch(/no-new-privileges/);
     expect(compose).not.toMatch(/replicas|scale:/);
     // Operator tasks never start with the public stack and have no network.

@@ -31,7 +31,7 @@ Maintain deterministic fixtures with expected matches/statuses/dates:
 
 ### AUTH-01 — First-account setup
 
-Empty deployment cannot be claimed without the operator-held one-time token. Token can create only one account, then is consumed. No public registration endpoint. Reusing setup token fails; no predictable production password.
+Empty deployment cannot be claimed without the operator-held one-time token. Token can create only one account, then is consumed. No public registration endpoint. Reusing setup token fails; no predictable production password. Container startup registers an environment token only for an unclaimed account; it stores only the hash, never logs it or passes it to the HTTP process. Same-token restarts preserve original expiry; explicit rotation invalidates the old token. Existing/restored accounts ignore the token, including after restart.
 
 ### AUTH-02 — Optional TOTP
 
@@ -264,6 +264,24 @@ overrides and actionable missing-engine failures; native source-build prerequisi
 in both install stages but not runtime;
 no runtime override or restore coupling; responsive sidebar/drawer/About; explicit
 Development builds and rejection of missing/invalid production metadata.
+
+## Container startup simplification (approved follow-up)
+
+- A fresh root-owned host bind starts with only docker compose up: private keys,
+  migrations/settings and environment bootstrap complete before HTTP listening.
+- Startup recovers restore journals before reading keys or migrating; corrupt keys,
+  unsupported migrations, missing/invalid initial token and unsafe filesystem entries
+  fail closed without starting HTTP. Repeated initialization preserves keys/settings.
+- PUID/PGID validation refuses root/non-numeric identities. Linux ownership, private
+  modes, supplementary-group clearing and effective-capability drop are verified in
+  the deployment image, including a non-default identity.
+- execve removes the setup secret from the server environment, preserves shutdown
+  signals and graceful SQLite close. Restart retains data; no account/token reset.
+- Symbolic links, external hardlinks, special files and entries on other filesystems are refused
+  before ownership changes; internal snapshot hardlinks remain supported.
+- Single-service external-Caddy Compose uses a local bind, no published app port and
+  no default CPU/memory limits. No second app may share the data folder. Upgrades
+  still require a user-created/downloaded pre-upgrade backup; none is automatic.
 
 ## 13. Final verification record
 

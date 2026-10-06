@@ -541,3 +541,17 @@ gate is closed. This does not mark that gate done. Follow
 V02 immutable clean-source image build, V03 embedded sidebar/drawer/About display,
 V04 documentation and host/browser/Linux verification. Apply the common gate and
 VER-01–08 acceptance cases; do not create a user-repository commit without approval.
+
+## Approved follow-up — Out-of-box container startup
+
+User explicitly superseded stopped-app first-install CLI requirements: container
+startup must prepare a project-local private bind with configurable PUID/PGID,
+recover interrupted restores before key/DB reads, initialize/migrate/settings,
+register a supplied environment setup token safely, and exec the non-root server.
+Provide simple one-service external-Caddy Compose and environment template; remove
+default CPU/memory limits. Preserve operator tools, manual pre-upgrade backups,
+clean release provenance and single-instance constraints. Test expiry/rotation,
+account/restore precedence, secret scrubbing, initialization failure, filesystem
+ownership/link safety and Linux privilege/signal handoff. Apply common gates,
+affected browser authentication tests and actual production-image Linux/native
+startup/restart/graceful-shutdown tests before declaring this enhancement done.

@@ -1487,16 +1487,26 @@ Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guar
 ## 16. S18 deployment, readiness and release-verification contracts
 
 **Topology (implemented, `compose.yaml`, `ops/Dockerfile`, `ops/Caddyfile`).** One app
-container behind one Caddy container on a private bridge network with fixed
-addresses; only the proxy publishes ports. The app runs as the image's non-root
-`node` user with a read-only root filesystem, `/tmp` tmpfs, all capabilities dropped,
-`no-new-privileges`, `init`, a 60 s stop grace, memory/CPU limits (default 3 GiB /
-2 CPUs, V8 heap capped at 1536 MiB) and a single named volume mounted at the fixed
-`DATA_DIR=/data` (image pre-creates it `0700` for the runtime user). The image has
+container behind HTTPS Caddy; the bundled example uses a private bridge with fixed
+addresses and only proxy ports. `ops/compose.external.yaml` is the simple approved
+existing-Caddy alternative: one service on external proxynet, configurable host
+bind folder (default ./app-data), no published app port, no CPU/memory or V8 heap
+limits. Both use read-only rootfs, /tmp tmpfs, no-new-privileges, init and a default
+60 s stop grace. The image initially uses root to prepare only the private data
+folder with CHOWN/DAC_OVERRIDE/FOWNER/SETUID/SETGID/KILL, then clears supplementary groups
+and permanently drops to non-root PUID/PGID (default 1000:1000) before keys, SQLite
+or commands. Root preparation validates a bounded inventory, refuses symlinks,
+special files, nested filesystems and external hardlinks; internal snapshot links
+are supported. Only /data is chowned/chmodded, never source or OS paths. Non-root
+pre-owned deployments must match the configured identity. Docker exec starts as
+image root unless --user is provided; the HTTP process is always non-root with
+zero effective capabilities. KILL lets Docker's root init forward shutdown signals
+across the UID boundary. The image has
 three stages: build (full `npm ci` + `vite build`), production dependencies
 (`npm ci --omit=dev` with the dev-only `prepare` hook removed, so native modules are
 built for Linux/glibc inside the image) and runtime (build output, production
-`node_modules`, `migrations/`, `src/lib` and only the four operator scripts — no tests,
+`node_modules`, `migrations/`, `src/lib`, four operator scripts and three container
+entry/bootstrap/user scripts — no tests,
 docs, fixtures, dev dependencies or `.env`). The base image is the same digest-pinned
 Node 24.21.0 bookworm image as the validation images. Both dependency-install
 stages add CA certificates, Python 3, make and g++ for native-addon source-build
@@ -1504,8 +1514,18 @@ fallback; none of these added packages are installed in the final runtime stage.
 
 **Operator tasks are explicit, networkless one-shot services** in the `ops` profile
 (`migrate`, `setup-token`, `recover-auth`, `reindex`) sharing the data volume. They are
-run only while `app` is stopped; migration is never part of app startup. A schema newer
-than the image fails closed (`/health` 503) and rollback means deploying the older tag
+run only while `app` is stopped and remain available for recovery/maintenance.
+Per the approved follow-up, default container startup now runs restore recovery
+before key/DB reads, initializes keys, applies trusted migrations and initializes
+settings, then registers a supplied SETUP_TOKEN through a coordinated transaction.
+Existing/restored accounts ignore it; unchanged pending token hashes preserve the
+original one-hour expiry, changed tokens explicitly rotate unclaimed access, and
+missing initial credentials fail before listening. CLI-generated pending tokens
+remain compatible. Environment tokens are captured/scrubbed before initialization,
+never logged, and execve hands off to the server without a child/signal relay. All
+initialization failures abort startup safely; no automatic backup is added. Never
+run two instances on the same tree, and take a manual backup before upgrade. A schema newer
+than the image fails closed before HTTP startup, and rollback means deploying the older tag
 and restoring the pre-upgrade backup (migrations are forward only).
 
 **Proxy trust.** `TRUSTED_PROXY_IPS` is the proxy's fixed address; Caddy overwrites

@@ -3,8 +3,7 @@
 #
 #   cp ops/production.env.example .env     # edit DOMAIN/ORIGIN, keep it private
 #   npm run image:build                 # clean Git; auto Docker/Podman, latest + version tags
-#   docker compose --profile ops run --rm --no-build migrate
-#   docker compose --profile ops run --rm --no-build --no-deps -T setup-token # one-time token
+#   # Set SETUP_TOKEN for first install; startup initializes storage automatically.
 #   docker compose up -d --no-build
 #
 # Never run two app containers against one data volume and never run migrate while
@@ -29,12 +28,18 @@ x-app: &app-base
     TRUSTED_PROXY_IPS: ${EDGE_PROXY_IP:-172.28.0.2}
     BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-64G}
     DISK_RESERVE_BYTES: ${DISK_RESERVE_BYTES:-}
+    PUID: ${PUID:-1000}
+    PGID: ${PGID:-1000}
+    SETUP_TOKEN: ${SETUP_TOKEN:-}
   volumes:
     - pandanote-data:/data
   read_only: true
   tmpfs:
     - /tmp:size=512m,mode=1777
   cap_drop: [ALL]
+  # Bootstrap prepares ownership; KILL lets root init forward signals after UID drop.
+  # The non-root server retains none of these capabilities.
+  cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL]
   security_opt:
     - no-new-privileges:true
 
@@ -55,9 +60,6 @@ services:
       retries: 3
     # Adapter-node drains HTTP, then the app closes SQLite/WAL; allow active backups to finish.
     stop_grace_period: 60s
-    # Bounded for the documented 2-core/4-GB VPS; raise only after measuring.
-    mem_limit: ${APP_MEM_LIMIT:-3g}
-    cpus: ${APP_CPUS:-2}
     networks:
       edge:
         ipv4_address: ${APP_IP:-172.28.0.10}

@@ -69,21 +69,39 @@ deployment use the container/HTTPS setup below, not `npm run dev`.
 
 ## Production deployment (S18)
 
-One app container behind a Caddy HTTPS proxy, one private persistent volume and
-explicit one-shot operator tasks. Full guide: **[`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)**.
+One app container behind a Caddy HTTPS proxy, private persistent data and automatic
+startup initialization (restore recovery, keys, migrations, settings and first-account
+environment token). Operator CLI commands remain available for maintenance. Full guide: **[`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)**.
 
 ```sh
-cp ops/production.env.example .env && chmod 600 .env     # set DOMAIN and ORIGIN
+cp ops/production.env.example .env && chmod 600 .env     # set DOMAIN, ORIGIN, SETUP_TOKEN
 # Requires pinned Node/npm + Docker or Podman; no host npm ci is needed.
 npm run image:build -- --platform linux/amd64           # clean/full Git checkout
 # .env defaults to PANDANOTE_TAG=latest; use the printed version to pin a release.
-docker compose --profile ops run --rm --no-build migrate        # app stopped; explicit
-docker compose --profile ops run --rm --no-build -T setup-token # one-time token
-docker compose up -d --no-build
+docker compose up -d --no-build                        # initializes before listening
 ```
 
-Then open `https://<DOMAIN>/setup`, create the account, enable TOTP and download a
-manual backup. The guide documents environment variables, upgrade/rollback,
+Then open `https://<DOMAIN>/setup`, enter the token from `.env`, create the account,
+remove `SETUP_TOKEN` from `.env` and recreate the app container. Enable TOTP and
+download a manual backup.
+
+### Existing Caddy: one-command deployment with a local data folder
+
+Copy `ops/compose.external.yaml` as `docker-compose.yml` and
+`ops/external.env.example` as `.env` into the server deployment folder. Configure
+`ORIGIN`, Caddy's fixed `TRUSTED_PROXY_IPS`, `PUID`/`PGID`, `DATA_PATH` (default
+`./app-data`) and a secret `SETUP_TOKEN`. Then run **`docker compose up -d`**.
+No manual migrate/setup-token commands, extra database service, CPU/memory limits,
+or host Node installation are required. Caddy proxies to `pandanote-app:3000` on
+the external `proxynet`. See `ops/DEPLOYMENT.md` for token generation and hardening.
+
+The initializer briefly uses root to secure/chown only the private data directory,
+then permanently switches to PUID/PGID (defaults 1000:1000) before recovery, database
+access and the HTTP server. Do not add `user: "1000:1000"` to this automatic-bind
+workflow: a newly Docker-created root-owned directory needs the initializer.
+Configured identity cannot be root. No token is printed or passed to the server.
+The same token never extends its one-hour expiry; changing it explicitly rotates
+unclaimed setup access, and an existing/restored account always ignores it. The guide documents environment variables, upgrade/rollback,
 operator recovery, log/space inspection, graceful shutdown, manual backup/restore,
 security checklist and the two verification drills (`ops/release-drill.sh`,
 `ops/release-benchmark.sh`). Measurements and evidence: [`docs/RELEASE_RESULTS.md`](docs/RELEASE_RESULTS.md).

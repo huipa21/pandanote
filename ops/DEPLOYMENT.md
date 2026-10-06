@@ -9,7 +9,7 @@ What this directory/repository provides:
 
 | File                         | Purpose                                                                               |
 | ---------------------------- | ------------------------------------------------------------------------------------- |
-| `ops/Dockerfile`             | Pinned Node 24.21.0 bookworm image; Linux-native sqlite/argon2/sharp; non-root `node` |
+| `ops/Dockerfile`             | Pinned Node 24.21.0 bookworm; native modules; root bootstrap then non-root PUID/PGID  |
 | `compose.yaml`               | `app` + `proxy` services and explicit one-shot `ops` tasks (migrate, token, recovery) |
 | `ops/Caddyfile`              | HTTPS edge: automatic certificates, streaming bodies, overwritten client address      |
 | `ops/production.env.example` | Deployment variables (copy to `.env`; keep it private)                                |
@@ -31,25 +31,40 @@ git clone <your repository URL> pandanote && cd pandanote
 git checkout <release tag or commit>
 cp ops/production.env.example .env
 chmod 600 .env
-$EDITOR .env          # set DOMAIN and ORIGIN
+$EDITOR .env          # set DOMAIN, ORIGIN and a random SETUP_TOKEN
 # Requires Node 24.21.0 + npm 11 + Docker or Podman (no host npm ci).
 npm run image:build -- --platform linux/amd64
 # .env defaults to PANDANOTE_TAG=latest; optionally pin the printed YYMMDD-N tag.
 ```
 
-Initialize storage explicitly, while the app is **not** running:
+Generate a secret setup token on a machine with Node (the server does not need
+Node installed), and paste it into `.env`:
 
 ```sh
-docker compose --profile ops run --rm --no-build migrate
-# One-time setup token, valid one hour. It is printed ONLY to this terminal:
-docker compose --profile ops run --rm --no-build -T setup-token
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+Startup automatically prepares storage, recovers interrupted restores, initializes
+keys, applies trusted migrations and settings, and registers only the token hash.
+It fails before listening if initialization fails. Never start two app instances
+against the same data directory. Take/download a manual backup before upgrading;
+automatic migration is not automatic backup.
+
+```sh
 docker compose up -d --no-build
 docker compose ps        # wait until app is "healthy" and proxy is running
 ```
 
-Open `https://<DOMAIN>/setup`, enter the token and choose a password (12–256
+Open `https://<DOMAIN>/setup`, enter SETUP_TOKEN from `.env` within one hour and choose a password (12–256
 characters). The token is single use; requesting another one invalidates the
-previous token. Then, in **Settings**:
+previous token. Restarting with the same environment token does not renew expiry;
+changing SETUP_TOKEN explicitly rotates unclaimed access. Existing/restored accounts
+ignore it, even if left in the environment. After setup, remove SETUP_TOKEN from
+`.env` and run `docker compose up -d --no-build --force-recreate app` to remove it
+from Docker's saved container environment too. The initializer scrubs it before
+starting the server and never logs it. For CLI token reissue before account creation, remove
+SETUP_TOKEN from the environment first so it cannot override the CLI-issued token
+on the next startup. Then, in **Settings**:
 
 1. Enroll an authenticator (TOTP), confirm it, and store the ten single-use
    recovery codes somewhere safe, away from the VPS.
@@ -129,18 +144,13 @@ Caddy address on that network is fixed; set `TRUSTED_PROXY_IPS` to that exact ad
 network, fixed Caddy IP, domain and printed tag):
 
 ```sh
-# First install only; app must not yet be running. These are temporary task containers.
-docker run --rm --network none -v pandanote-data:/data \
-  pandanote:$TAG node scripts/migrate.ts
-docker run --rm --network none -v pandanote-data:/data \
-  pandanote:$TAG node scripts/setup-token.ts
-
 docker run -d --name pandanote --init --restart unless-stopped \
   --network caddy-net \
-  -e ORIGIN=https://notes.example.com -e TRUSTED_PROXY_IPS=172.18.0.2 \
+  --env-file .env \
   -v pandanote-data:/data --read-only --tmpfs /tmp:size=512m,mode=1777 \
-  --cap-drop ALL --security-opt no-new-privileges:true \
-  --stop-timeout 60 --memory 3g --cpus 2 \
+  --cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
+  --cap-add SETUID --cap-add SETGID --cap-add KILL --security-opt no-new-privileges:true \
+  --stop-timeout 60 \
   --log-opt max-size=10m --log-opt max-file=5 \
   pandanote:$TAG
 ```
@@ -151,8 +161,8 @@ and substitute the site hostname/environment placeholders. Preserve overwritten
 `X-Forwarded-For`, streaming and upload/time limits. No second Caddy container is
 required. Open `/setup` with the token, then enroll MFA and download a manual backup.
 Never run two app instances on the same volume. On upgrades, stop/remove only the
-old **container**, preserve the volume, run migrations with the new image, and
-start the new image; make/download the pre-upgrade backup first.
+old **container**, preserve the data, and start the new image (startup migrates
+after recovery); make/download the pre-upgrade backup first.
 
 For the bundled Compose stack, use `PANDANOTE_TAG=latest` (the default) or a pinned
 loaded version in `.env`, and use `--no-build`. Ordinary deployment needs no
@@ -166,19 +176,68 @@ release path is **`npm run image:build`**, which enforces clean Git and snapshot
 image under its inspected version or image ID for rollback. Do not overwrite a
 versioned tag with different source.
 
+### Simple Compose with existing Caddy and a project-local data folder
+
+In a dedicated deployment folder on the server, copy `ops/compose.external.yaml`
+as `docker-compose.yml` and `ops/external.env.example` as `.env`. These two files
+and the loaded image are sufficient; the server needs no source checkout or Node.
+Set the real HTTPS ORIGIN, Caddy's fixed shared-network IP, network name, image tag,
+PUID/PGID and SETUP_TOKEN. The host DATA_PATH defaults to `./app-data`, outside the
+web app; Docker creates it and the initializer sets its private ownership/modes.
+Do not map an OS directory or a folder shared with another service.
+
+```sh
+chmod 600 .env
+docker compose config --quiet
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 app
+```
+
+Caddy's upstream is `pandanote-app:3000`. Keep the overwritten forwarded header
+and streaming/time limits shown above. No CPU/memory limits are set. Image defaults
+use PUID=1000, PGID=1000; other positive numeric IDs are supported, never UID/GID 0.
+Changing IDs on a subsequent startup securely updates ownership of this private
+bind tree. Bootstrap refuses symbolic links, external hardlinks, special entries,
+nested filesystems and inventories over one million entries; internal snapshot
+hardlinks are supported. The folder is trusted against concurrent writes by other
+OS users, like all private app storage. It must be local disk, not network storage.
+
+The image starts briefly as root with CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID
+and KILL from Compose, then permanently clears supplementary groups and switches to
+PUID/PGID **before reading keys/SQLite, registering setup access or starting commands**.
+KILL lets Docker's root init process forward shutdown signals to the non-root server;
+the server itself retains none of these capabilities.
+The HTTP process has no root capabilities. Do not override `user:` in this automatic
+bind workflow. An explicitly pre-owned non-root deployment is supported only when
+its process identity and PUID/PGID agree. `docker exec` starts as the image's root
+user unless `--user` is specified; prefer non-root `docker exec --user <PUID>:<PGID>`
+and never run data-mutating maintenance against a live app.
+
+`init: true` is Docker's tiny signal-forwarding/child-reaping process, not our
+initializer. `cap_drop` removes default Linux privileges; `cap_add` permits only
+bootstrap ownership/user switching and init signal forwarding; the server loses
+these privileges when it becomes non-root.
+`no-new-privileges` prevents elevation through setuid binaries/file capabilities.
+`stop_grace_period` (STOP_GRACE_PERIOD, default 60s) gives HTTP draining and SQLite
+shutdown time before a forced kill. The initializer uses Node 24's Linux execve
+to replace itself with the server, preserving graceful signal delivery.
+
 ### Environment reference
 
-| Variable                                    | Meaning                                                                                                                                |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `DOMAIN`                                    | Public host name Caddy serves and obtains certificates for.                                                                            |
-| `ORIGIN`                                    | **Required.** Canonical `https://host[:port]` the browser uses. Checked on every state-changing request and used for `Secure` cookies. |
-| `EDGE_SUBNET`, `EDGE_PROXY_IP`, `APP_IP`    | Fixed private network. The app trusts `X-Forwarded-For` **only** from `EDGE_PROXY_IP` (`TRUSTED_PROXY_IPS`, exact addresses, max 16).  |
-| `BODY_SIZE_LIMIT` / `BODY_SIZE_LIMIT_CADDY` | Transport ceilings (default 64G / 64GB) so full restore archives stream. Domain handlers enforce the real file/JSON/archive limits.    |
-| `DISK_RESERVE_BYTES`                        | Optional override of the free-space reserve protecting the volume.                                                                     |
-| `APP_MEM_LIMIT`, `APP_CPUS`                 | Container limits (default 3g / 2). Node's heap is capped at 1536 MiB.                                                                  |
-| `HTTP_PORT`, `HTTPS_PORT`                   | Published proxy ports (80/443). Only the proxy publishes ports; the app listens on 3000 inside the private network.                    |
-| `PANDANOTE_TAG`                             | Image tag; defaults to latest, or set a versioned tag to pin/rollback.                                                                 |
-| `CADDY_TLS_DIRECTIVE`                       | Leave empty. `tls internal` is for local drills only (untrusted certificate).                                                          |
+| Variable                                                             | Meaning                                                                                                                                            |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DOMAIN`                                                             | Public host name Caddy serves and obtains certificates for.                                                                                        |
+| `ORIGIN`                                                             | **Required.** Canonical `https://host[:port]` the browser uses. Checked on every state-changing request and used for `Secure` cookies.             |
+| `EDGE_SUBNET`, `EDGE_PROXY_IP`, `APP_IP`                             | Fixed private network. The app trusts `X-Forwarded-For` **only** from `EDGE_PROXY_IP` (`TRUSTED_PROXY_IPS`, exact addresses, max 16).              |
+| `BODY_SIZE_LIMIT` / `BODY_SIZE_LIMIT_CADDY`                          | Transport ceilings (default 64G / 64GB) so full restore archives stream. Domain handlers enforce the real file/JSON/archive limits.                |
+| `DISK_RESERVE_BYTES`                                                 | Optional override of the free-space reserve protecting the volume.                                                                                 |
+| `PUID`, `PGID`                                                       | Positive non-root UID/GID, default 1000:1000; initializer secures/chowns data and permanently drops privileges.                                    |
+| `HTTP_PORT`, `HTTPS_PORT`                                            | Published proxy ports (80/443). Only the proxy publishes ports; the app listens on 3000 inside the private network.                                |
+| `PANDANOTE_TAG`                                                      | Image tag; defaults to latest, or set a versioned tag to pin/rollback.                                                                             |
+| `SETUP_TOKEN`                                                        | First-account bootstrap secret: 32 random bytes encoded as 43 base64url characters; expires one hour after first registration, never auto-renewed. |
+| `DATA_PATH`, `PROXY_NETWORK`, `PANDANOTE_IMAGE`, `STOP_GRACE_PERIOD` | External-Caddy Compose only: host bind path, external network, loaded image and graceful shutdown window.                                          |
+| `CADDY_TLS_DIRECTIVE`                                                | Leave empty. `tls internal` is for local drills only (untrusted certificate).                                                                      |
 
 `DATA_DIR` is always `/data` in the container (named volume `pandanote-data`).
 Persistent data is: `db/` (SQLite + WAL), `files/` (WebP/attachments), `private/`
@@ -227,17 +286,17 @@ recovery exist for crashes, not as a routine stop method.
 1. Create a **manual backup in Settings and download it off-server.**
 2. `git fetch && git checkout <new tag>`; review `docs/PROGRESS.md`/release notes.
 3. Before loading a new image, inspect the current `pandanote:latest` labels and tag it with its old version for rollback (`docker tag pandanote:latest pandanote:<old-version>`). On the clean build checkout, run `npm run image:build`; transfer/load the new image and inspect its labels. Keep `.env` `PANDANOTE_TAG=latest` or pin the new version. Loading the image does not update an already running container.
-4. Stop the app and migrate while nothing else writes:
+4. Stop the old app and start the new image; its initializer recovers/migrates
+   before listening (no other instance may write):
    ```sh
    docker compose stop app
-   docker compose --profile ops run --rm --no-build migrate
    docker compose up -d --no-build --force-recreate app
    docker compose ps       # wait for healthy
    ```
 5. Sign in and spot-check recent notes, a download, Drafts/Trash and Settings.
 
 Migrations are forward only and verified against the trusted migration history.
-An older image cannot open a newer schema (it fails closed, `/health` = 503). To
+An older image cannot open a newer schema (it fails closed before the server starts). To
 roll back after migrating, deploy the previous tag and **restore the backup taken
 in step 1** through Settings (see the restore runbook), not by editing the DB.
 Browser-local drafts stay in each browser and are not affected by upgrades.

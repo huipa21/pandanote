@@ -1,0 +1,59 @@
+# Copy this file as docker-compose.yml alongside .env on the server.
+# Uses an existing Caddy network; no host port, database service or manual init task.
+name: pandanote
+
+services:
+  app:
+    image: ${PANDANOTE_IMAGE:-localhost/pandanote:latest}
+    pull_policy: never
+    container_name: pandanote-app
+    init: true
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Container data path stays fixed; DATA_PATH configures the host bind.
+      DATA_DIR: /data
+    expose:
+      - '3000'
+    volumes:
+      - ${DATA_PATH:-./app-data}:/data
+    networks:
+      - proxynet
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    cap_drop:
+      - ALL
+    # Bootstrap ownership/user switch; KILL lets Docker init forward signals.
+    # The non-root server retains none of these capabilities.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+      - KILL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: ${STOP_GRACE_PERIOD:-60s}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+networks:
+  proxynet:
+    external: true
+    name: ${PROXY_NETWORK:-proxynet}

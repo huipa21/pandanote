@@ -4,11 +4,37 @@
 
 - **Phase:** S18 deployment/accessibility/measurement implemented and locally verified; **release gate NOT fully closed** (no real VPS, physical-device or screen-reader audit). S18 is committed; the approved version enhancement is implemented but its final validation remains **blocked / in progress**.
 - **Completed steps:** S00–S17 — **done**. S18 — **in progress / locally verified** (see tracker and `docs/RELEASE_RESULTS.md`).
-- **Repository:** Session baseline HEAD `25c3341` (prior version work committed externally). Follow-up image-builder patch is **implemented / Linux build validation blocked**; no commit created by this agent.
+- **Repository:** Current session baseline HEAD `9f080c8` (prior image/version work committed externally). Approved out-of-box startup enhancement is **implemented / locally verified**, awaiting user commit/rebuild/deployment. No commit created by this agent.
 - **Implemented in S18:** `ops/Dockerfile` (3-stage, pinned Node 24.21.0 bookworm, non-root, read-only-compatible), `compose.yaml` (app + Caddy proxy + networkless `ops` tasks migrate/setup-token/recover-auth/reindex), `ops/Caddyfile`, `ops/production.env.example`, `ops/DEPLOYMENT.md`, readiness-aware `/health`, `ops/release-drill.sh` + `ops/release-benchmark.sh` with `tests/release/` and `playwright.release.config.ts`, `tests/e2e/zzzaccessibility.test.ts` (axe-core 4.13.0 dev dependency), `tests/integration/release-hygiene.test.ts`, a11y fixes (task checkboxes, `aria-controls`), README rewritten to actual install/test instructions, ARCHITECTURE §16.
 - **Validation:** Windows check/lint/build, 95 unit + 167 integration, 94 Chromium e2e pass; Linux clean `npm ci`, check/lint/unit/integration/build + 88 e2e (all except Windows-only visual `shell.test.ts`) pass; two-domain web-restore drill with TOTP/recovery code, graceful stop (exit 0) and restart persistence pass; 10k-note benchmark meets budgets. Details and measured numbers: `docs/RELEASE_RESULTS.md`.
 - **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
 - **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
+
+## Active follow-up: out-of-box container startup
+
+User explicitly approved replacing first-install manual CLI tasks with automatic
+container initialization and an environment setup token, bind-mounted project data,
+configurable UID/GID and no CPU/memory limits. Implementation is locally verified:
+root data preparation is confined to /data, then non-root recovery/migrations/token
+registration and execve handoff. New `ops/compose.external.yaml` +
+`ops/external.env.example` need only docker compose up after configuration. Same-token
+restarts never extend expiry; an existing/restored account cannot be reset by env.
+Server receives no setup token and has zero effective capabilities. KILL is retained
+only by root Docker init for signal forwarding across the UID boundary.
+
+Host check/lint/build, 119 unit, 176 integration + 2 Linux-only skips, and 5 affected
+auth/version/restore browser tests pass. Linux check/lint/build, 119 unit and 174
+integration pass **with the four Git cases explicitly excluded** (Git absent);
+all five new init tests actually execute on Linux. A normal production Dockerfile
+build in an isolated committed snapshot and fresh bind/setup/native modules/exit-0
+shutdown/restart/secret-free recreation/UID change probes pass. No final release
+commit or cloud deployment is claimed; original latest image tag was preserved.
+
+Next: user-approved commit, rebuild/load actual latest, copy the new two deployment
+files, set random SETUP_TOKEN and real origin/static Caddy IP, and run docker compose
+up. Read the final handoff below. First validation after commit:
+`npm run image:build -- --platform linux/amd64`; inspect labels and verify /setup,
+then remove SETUP_TOKEN and recreate the app. Linux Git and S18 manual gates remain.
 
 ## Active enhancement: commit-derived release versioning
 
@@ -3022,3 +3048,111 @@ pandanote-image.tar pandanote:latest`; server Docker loads and inspects labels.
    Retain the old inspected version tag/image ID before overwriting latest.
 4. S18 real-VPS/public HTTPS/device/accessibility and the earlier Linux Git/cold
    build gates remain open. No dependency/lockfile or UI/auth/storage change.
+
+### Session 2026-10-06 — Approved out-of-box container initialization
+
+**State: implemented / locally verified; exact release commit and deployment pending.**
+Started clean at `9f080c8`. User explicitly requested code changes, automatic init,
+.env setup token, project-folder persistence/configurable UID/GID and removal of
+CPU/memory limits. This supersedes explicit first-install migration/token commands.
+No user-repository commit created; S18 and the earlier Linux Git gate remain open.
+
+Implemented / touched files:
+
+- New `scripts/container-{entry,bootstrap,user}.ts`: Linux Node 24 execve entrypoint;
+  strictly positive PUID/PGID (default 1000:1000); root filesystem preparation is
+  confined to /data; bounded inventory validation rejects symlinks, special files,
+  other filesystems and external hardlinks before ownership changes. Internal
+  snapshot hardlinks are allowed. Only private data gets ownership/0700/0600;
+  supplementary groups/root privileges are dropped before keys/SQLite/commands.
+  Recovery runs before key/DB reads, then idempotent keys/trusted migrations/settings
+  and setup-token registration, then server exec with normal signal handling.
+- `AuthService.bootstrapSetupToken`: environment bootstrap stores only the hash,
+  one-hour expiry; same hash never extends expiry, explicit different token rotates
+  unclaimed access, existing/restored account always ignores it. Missing/invalid
+  first token fails startup (legacy CLI pending tokens remain supported). No account
+  or password is seeded. SETUP_TOKEN is erased before bootstrap/subprocess/server
+  execution, never logged. Remove it from host .env and recreate after setup because
+  Docker's saved environment/root init still contain the original value otherwise.
+- `PrivateStorage.resolvePrivateRoot`: existing path checks extracted without
+  behavioral weakening, allowing root preflight without premature key/DB access.
+- `ops/Dockerfile`: root bootstrap ENTRYPOINT with automatic non-root handoff, three
+  shipped init scripts; no compiler/tooling in runtime. Removed V8 heap limit and
+  moved release ARGs after dependency install to avoid reinstalling npm on metadata
+  changes. `compose.yaml` removes CPU/memory limits and adds PUID/PGID/SETUP_TOKEN.
+- New `ops/compose.external.yaml` (copy as docker-compose.yml): one app, existing
+  Caddy external network, project-local DATA_PATH bind, loaded image/pull never,
+  environment-driven settings, no extra DB/proxy/init tasks, no app port published.
+  New `ops/external.env.example`; production env template also includes bootstrap.
+- Root bootstrap caps are CHOWN/DAC_OVERRIDE/FOWNER/SETUID/SETGID; **KILL is also
+  necessary for Docker's root init process to forward signals to the non-root
+  server**. The server retains zero effective capabilities after setuid. Kept init,
+  read-only rootfs, tmpfs, no-new-privileges and configurable graceful stop window.
+- New unit `container-user` and integration `container-bootstrap`, updated deployment
+  hygiene assertions: IDs, hash/expiry/rotation, consumed/retained account, repeated
+  keys/init, recovery before migration, Linux chown/modes/group/capability drop,
+  unsafe links and valid internal hardlinks. README, DEPLOYMENT, PRODUCT_SPEC,
+  ARCHITECTURE, ACCEPTANCE and IMPLEMENTATION_PLAN reflect the approved change.
+  No dependencies/lockfile, schema, archive format, public route or UI change.
+
+Commands actually run (host pinned Node 24.21.0/npm CLI/PATH, TLS verification 1):
+
+- `npm exec -- prettier --write <changed text files>`: PASS.
+- `npm run check`, `npm run lint`, `npm run test:unit`: PASS; 0 diagnostics and
+  **119 unit tests**. `npm run test:integration`: PASS, **176 tests + 2 Linux-only
+  cases explicitly skipped on Windows**, 29 files. `npm run build`: PASS.
+- `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/version.test.ts tests/e2e/zzrestore.test.ts`:
+  PASS, **5** Chromium auth/MFA/version/restore cases. Full e2e not rerun this session.
+- `podman build -f .browser-spike/Dockerfile.container-init-tests -t pandanote-init-native-tests .`
+  then initial image CMD: PASS Linux check/lint, 119 unit and **44 affected native
+  auth/init/restore/hygiene tests**, all five new init cases including both root cases.
+- Final rebuilt native image:
+  `podman run --rm --cpus=2 --memory=4g pandanote-init-native-tests sh -c 'npm run check && npm run lint && npm run test:unit && npm run test:integration -- --exclude tests/integration/release-version.test.ts && npm run build'`:
+  PASS Linux common/native gates, **119 unit + 174 integration**, including real
+  SQLite/Sharp/full archive restore/process-kill tests. **Four Git tests excluded**
+  because cached validation base lacks Git; not a complete Linux release gate.
+  Source was copied onto the verified existing Linux native cache with unchanged
+  lock/dependencies, never Windows native modules. No fresh cache install claimed.
+- `node .browser-spike/verify-container-init-image.mjs`: normal unmodified production
+  Dockerfile from an isolated clean committed snapshot. First harness failed from
+  trimming the git diff's closing newline (fixed); first real build hit the 300 s
+  harness timeout after successful fresh Linux npm ci/build and during runtime COPY.
+  A retry initially found tooling-generated NUL (removed), then **PASS** using
+  completed layer caches. Native npm install downloaded in ~3 min, reported the
+  existing **2 low** Mermaid/KaTeX advisories, no forced fix/dependency change.
+  Final log `.browser-spike/container-init-production-retry.log`; original user's
+  latest image `a5aeaf485b99...` restored after build. Synthetic image is
+  `localhost/pandanote-init-verification:latest`, version `261008-1`, commit
+  `7c0cbc2b96a3ec2a057f8fa21f3fb599acf8e1a3`; NOT a release and never promote it.
+- `node .browser-spike/probe-container-init.mjs`: final **PASS** actual production
+  image with root-owned Linux host bind and Compose-equivalent hardening. Automatic
+  first setup/API note save; server UID 12345 and CapEff=0; /proc server environment
+  has no SETUP_TOKEN; real SQLite trigram, Sharp WebP and Argon2; graceful stop exit 0,
+  restart/session/note persistence; recreate without secret as UID/GID 12347:12348,
+  retain account/data/session and refuse token reuse. Synthetic container/data cleaned.
+  First probe selected root tini instead of the server (fixed selector). Next probe
+  exposed missing CAP_KILL: stop timed out. Added KILL only for root init, increased
+  harness deadline above grace period, and reran successfully with zero server caps.
+- `podman image inspect` labels: synthetic version/hash/time match wrapper metadata;
+  original localhost/pandanote:latest still points to a5aeaf485b99. `git diff --check`
+  PASS with Windows autocrlf informational warnings. Generated NUL removed; no actual
+  credentials, data, notes or archives were committed. Docker/Podman cloud server
+  and actual existing Caddy were not accessed.
+
+Remaining / next task:
+
+1. Read new entry/bootstrap/user scripts, AuthService bootstrap contract and
+   `ops/DEPLOYMENT.md` simple external-Caddy section. User commits changes, rebuilds
+   `npm run image:build -- --platform linux/amd64`, exports/loads latest. Copy
+   external Compose/env examples as docker-compose.yml/.env in a deployment folder;
+   configure real origin/static Caddy IP, host DATA_PATH and UID/GID, random token;
+   **docker compose up -d**. No manual migrate/setup-token commands needed.
+2. Verify fresh /setup within one hour, account creation, token removal and container
+   recreation, persistence and graceful shutdown on the actual release/cloud host.
+   Do not override user in the automatic root-owned-bind workflow or run two instances
+   against one folder. Take/download a manual backup before any upgrade; none added
+   automatically. Operator scripts remain stopped-app-only alternatives.
+3. Four Linux Git cases remain an earlier blocker; install Git and run the full
+   native integration suite without exclusions. Real public HTTPS/VPS/device/IME/
+   screen-reader/Linux visual S18 gates remain open. New root/capability/init behavior
+   is Linux-verified, not a claim of final project completion.

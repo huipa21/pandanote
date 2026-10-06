@@ -10,13 +10,13 @@ FROM ${NODE_IMAGE} AS build
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
-ARG PANDANOTE_VERSION
-ARG PANDANOTE_COMMIT
-ARG PANDANOTE_COMMITTED_AT
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 COPY . .
+ARG PANDANOTE_VERSION
+ARG PANDANOTE_COMMIT
+ARG PANDANOTE_COMMITTED_AT
 # ORIGIN is read at runtime; the build needs no domain, DATA_DIR or secret.
 # Reject missing/partial provenance; use `npm run image:build` from clean Git.
 RUN node scripts/verify-build-metadata.ts && npm run build
@@ -45,20 +45,24 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/data \
     BODY_SIZE_LIMIT=64G \
-    NODE_OPTIONS=--max-old-space-size=1536
+    PUID=1000 \
+    PGID=1000
 WORKDIR /app
 # Production artifact + operator tooling only: no tests, fixtures, docs or dev dependencies.
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY package.json ./
 COPY migrations ./migrations
-COPY scripts/migrate.ts scripts/setup-token.ts scripts/auth-recover.ts scripts/reindex.ts ./scripts/
+COPY scripts/migrate.ts scripts/setup-token.ts scripts/auth-recover.ts scripts/reindex.ts scripts/container-entry.ts scripts/container-bootstrap.ts scripts/container-user.ts ./scripts/
 COPY src/lib ./src/lib
 # Private persistent root. A named volume inherits this owner/mode on first use.
 RUN mkdir /data && chown node:node /data && chmod 700 /data
-USER node
+# Root is used only to prepare the private bind directory. The entrypoint drops
+# permanently to PUID/PGID BEFORE opening keys/SQLite or starting any command.
+USER root
 VOLUME /data
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+ENTRYPOINT ["node", "scripts/container-entry.ts"]
 CMD ["node", "build/index.js"]
