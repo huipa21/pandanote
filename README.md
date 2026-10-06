@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notes application.
-**Notes, drafts, search/calendar, tags, location, Settings, manual full backups and uploaded restore/rollback are implemented; deployment and release validation remain unfinished.**
+**Notes, drafts, search/calendar, tags, location, Settings, manual full backups, uploaded restore/rollback and a reproducible single-VPS container deployment are implemented. The release gate (S18) is verified on Linux containers and a two-domain restore drill; real-VPS/physical-device/screen-reader audits are still operator checks — see [Release status](#release-status).**
 One-time operator setup, password login/logout and private route protection are
 implemented, including confirmed encrypted TOTP enrollment, single-use recovery
 codes, scoped fresh authentication, password/MFA changes, session settings,
@@ -27,8 +27,8 @@ local autocomplete and explicit stale-draft tag resolution. S15 adds explicit op
 location, card/detail popovers and validated settings/storage usage/manual cleanup.
 S16 adds manual full backups; S17 adds private uploaded validation, destructive
 confirmation, whole-state replacement and journaled rollback/startup recovery.
-Deployment/release validation remains S18. Do not deploy this unfinished app as a
-complete product.
+S18 adds the production container/Compose/Caddy deployment, readiness health check,
+operator guide, accessibility fixes and measured release drills.
 
 ## Start here
 
@@ -63,8 +63,28 @@ Open `http://localhost:5173/setup` and enter the operator-held token to create
 the sole account; subsequent visits use `/login`. `dev`, `start` and operator
 commands load a private `.env` if present; real environment variables take precedence.
 `.env.example` documents the environment contract. `/health` exposes only `{ "status": "ok" }` with no-store caching;
-it does **not** yet check database/storage readiness. This scaffold is not
-ready for an Internet-facing deployment.
+it is **readiness-aware** (HTTP 503 `unavailable` until storage is initialized and
+migrated) and exposes no counts, paths or account state. For an Internet-facing
+deployment use the container/HTTPS setup below, not `npm run dev`.
+
+## Production deployment (S18)
+
+One app container behind a Caddy HTTPS proxy, one private persistent volume and
+explicit one-shot operator tasks. Full guide: **[`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)**.
+
+```sh
+cp ops/production.env.example .env && chmod 600 .env     # set DOMAIN and ORIGIN
+docker compose build
+docker compose --profile ops run --rm migrate           # app stopped; explicit
+docker compose --profile ops run --rm -T setup-token    # one-time token, shown only here
+docker compose up -d
+```
+
+Then open `https://<DOMAIN>/setup`, create the account, enable TOTP and download a
+manual backup. The guide documents environment variables, upgrade/rollback,
+operator recovery, log/space inspection, graceful shutdown, manual backup/restore,
+security checklist and the two verification drills (`ops/release-drill.sh`,
+`ops/release-benchmark.sh`). Measurements and evidence: [`docs/RELEASE_RESULTS.md`](docs/RELEASE_RESULTS.md).
 
 ## Private persistence initialization (S01)
 
@@ -374,8 +394,8 @@ If a confirmation response is lost, sign in and inspect actual state before retr
 
 See **[Restore and operator recovery runbook](ops/RESTORE_RUNBOOK.md)** for the
 replacement-VPS workflow, streaming transport/disk/validation bounds, deterministic
-crash phases and stopped-app recovery instructions. Real-domain deployment and
-release-scale independent browser restore/performance/audit drills remain S18.
+crash phases and stopped-app recovery instructions. The independent-deployment web restore drill is recorded in
+[`docs/RELEASE_RESULTS.md`](docs/RELEASE_RESULTS.md).
 
 ## Private attachments and bounded images (S06)
 
@@ -546,10 +566,16 @@ npm run build
 
 - `check` includes strict application **and test/tooling** TypeScript checks.
 - `lint` runs ESLint and Prettier checks; `npm run format` applies formatting.
-- Integration tests use real isolated SQLite, Sharp and streamed archives.
+- Integration tests use real isolated SQLite, Sharp and streamed archives, and pin the
+  shipped route set and deployment artifacts (`release-hygiene.test.ts`).
 - Playwright starts the **built adapter-node app**, plus a separate test-only
   Mermaid/CSP harness; it owns/cleans its synthetic test data and never reuses
-  a user's running server.
+  a user's running server. `tests/e2e/zzzaccessibility.test.ts` runs axe-core
+  (WCAG 2.x A/AA + 2.2 target size) on every screen/dialog in light/dark at phone
+  and desktop sizes, plus reflow, reduced-motion, focus and dialog checks.
+- Deployed-system drills (need running stacks; see `ops/DEPLOYMENT.md` section 6):
+  `playwright.release.config.ts` with `tests/release/` is driven by
+  `ops/release-drill.sh` and `ops/release-benchmark.sh`.
 - See [`tests/README.md`](tests/README.md) for coverage, probe limits and Linux
   validation commands using `ops/Dockerfile.validation`.
 
@@ -574,5 +600,17 @@ application data, browser profiles or backup archives in git or public assets.
 > A blocked native/browser/Linux check is not a pass.
 
 See PROGRESS for validation results and the exact next task.
-Production deployment, performance and independent backup/restore drills remain
-part of the final S18 gate; this repository does not claim product completion.
+
+## Release status
+
+S18 deployment, accessibility and measurement work is implemented and verified on
+Windows and Linux containers (see [`docs/RELEASE_RESULTS.md`](docs/RELEASE_RESULTS.md)):
+all common commands, 94 Windows / 88 Linux Chromium tests, a two-domain
+downloaded-backup web-restore drill with TOTP, graceful restart persistence, and a
+10k-note benchmark that meets the documented budgets on a 2-CPU/3-GiB container.
+
+**Remaining explicit limitations before calling a release final:** no real VPS/public
+domain/Let's Encrypt run, no physical-device/IME or screen-reader audit, unreviewed
+Linux visual baselines, no maximum-bound or 100k-note stress run, non-virtualized
+timeline DOM growth in very long sessions, and the work is not yet committed/tagged.
+Do not treat this as a completed production release until those are signed off.

@@ -14,6 +14,16 @@ describe('production Markdown pipeline with real remark/rehype/Shiki', () => {
     expect(result.codes).toEqual(['  const x = "<unsafe>";  \n']);
     expect(result.html).not.toContain('<unsafe>');
   });
+  it('gives every GFM task checkbox an accessible name without trusting source attributes', async () => {
+    const result = await renderMarkdown(
+      ['- [x] Done thing', '- [ ] Open <b>thing</b>'].join('\n'),
+    );
+    expect(result.html).toContain('aria-label="Completed task: Done thing"');
+    expect(result.html).toContain('aria-label="Open task: Open thing"');
+    expect(result.html.match(/<input/g)).toHaveLength(2);
+    expect(result.html.match(/<input[^>]*aria-label=/g)).toHaveLength(2);
+    expect(result.html).not.toContain('<b>');
+  });
   it('strips active/raw HTML, unsafe links and arbitrary image fetches', async () => {
     const result = await renderMarkdown(
       '<script>alert(1)</script>\n\n<img src="https://attacker.invalid/x" onerror="alert(1)">\n\n[x](javascript:alert%281%29) [x](jav&#x61;script:bad) [x](//attacker.invalid/x) [x](data:text/html,attack) ![x](https://attacker.invalid/x)\n\n![ref][evil]\n\n[evil]: https://attacker.invalid/evil',

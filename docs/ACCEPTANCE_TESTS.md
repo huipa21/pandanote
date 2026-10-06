@@ -265,4 +265,6 @@ At S18, record in PROGRESS or a linked results file:
 - Linux restart and independent uploaded-restore drill evidence.
 - Explicit remaining limitations, if approved.
 
+S18 results are recorded in `docs/RELEASE_RESULTS.md` (including the explicit not-performed list).
+
 No required feature may remain mocked, manually untested, or described as done solely because code was generated.

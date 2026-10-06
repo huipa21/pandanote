@@ -1,0 +1,5 @@
+# Operator scripts and container build inputs must keep LF endings even on Windows checkouts.
+*.sh text eol=lf
+ops/Dockerfile text eol=lf
+ops/Caddyfile text eol=lf
+compose.yaml text eol=lf

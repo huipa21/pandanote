@@ -26,3 +26,4 @@ test-results/
 /browser-profiles/
 .DS_Store
 Thumbs.db
+/.drill/

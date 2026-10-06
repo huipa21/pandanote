@@ -28,6 +28,24 @@ const element = (
 ): Element => ({ type: 'element', tagName, properties, children });
 const text = (value: string): Text => ({ type: 'text', value });
 const stringify = unified().use(rehypeStringify);
+function textOf(node: Element['children'][number]): string {
+  if (node.type === 'text') return node.value;
+  return node.type === 'element'
+    ? node.children.map((child) => textOf(child)).join('')
+    : '';
+}
+/** GFM task checkboxes are disabled display controls; give each an accessible name. */
+function labelTaskCheckbox(item: Element): void {
+  const input = item.children.find(
+    (child): child is Element =>
+      child.type === 'element' &&
+      child.tagName === 'input' &&
+      child.properties.type === 'checkbox',
+  );
+  if (!input) return;
+  const name = textOf(item).replace(/s+/g, ' ').trim().slice(0, 80);
+  input.properties.ariaLabel = `${input.properties.checked ? 'Completed' : 'Open'} task${name ? `: ${name}` : ''}`;
+}
 const sanitizer = unified().use(rehypeSanitize, {
   ...defaultSchema,
   attributes: {
@@ -192,6 +210,7 @@ export async function renderMarkdown(
       } else {
         if (node.tagName === 'a')
           node.properties.rel = ['noreferrer', 'noopener'];
+        if (node.tagName === 'li') labelTaskCheckbox(node);
         await transform(node);
       }
     }

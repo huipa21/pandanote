@@ -75,7 +75,7 @@
       {#if calendar}<Calendar {calendar} {filters} {onNavigate} />{:else}<p
           class="help"
         >
-          Calendar unavailable in this shell fixture.
+          Calendar is unavailable right now.
         </p>{/if}
     </section>
     <section aria-labelledby={`${id}-tags`}>

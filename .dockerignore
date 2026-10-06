@@ -19,6 +19,8 @@
 !scripts/**
 !ops/
 !ops/**
+!compose.yaml
+!.dockerignore
 !docs/
 !docs/**
 !migrations/

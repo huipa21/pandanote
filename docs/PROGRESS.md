@@ -2,46 +2,47 @@
 
 ## Current state
 
-- **Phase:** Full backup and uploaded restore/rollback implemented; deployment/release validation remains unfinished.
-- **Completed steps:** S00–S17 — **done**.
-- **Current requested step:** S17 — **done**. Next unfinished step: S18 — Deployment, measured performance, accessibility and release gate.
-- **Repository:** clean starting HEAD `8da746a` (committed S16). Prior code/history preserved; S17 changes are uncommitted. No commit created by this agent.
-- **Implemented:** private streamed uploaded archives, strict format/known-schema/key/data/reference/static-image trust checks, supported v4→v5 staged migration/search rebuild, fresh-auth summary/destructive confirmation, whole DB/files/key replacement, journaled rollback/startup recovery, restored password/TOTP/recovery state and invalidated sessions, destination backup rediscovery, retained browser drafts and operator runbook. Schema v5 / 19 tables; dependencies/lockfile unchanged. No automatic backup scheduler.
-- **Validation:** Windows check/lint/build, 95 unit + 160 integration and all 86 Chromium tests pass, with unchanged shell baselines. Linux clean `npm ci` using verified S16 native/browser caches passes all common gates and 7 affected auth/backup/restore Chromium tests. Independent-instance MFA/file/settings/receipt restore, nine injected-error and ten actual killed-process boundaries pass on both hosts. Desktop/mobile restore screenshots reviewed. Intermediate fixture/native-iterator/format failures are recorded below; cold native downloads were not retried. Physical-device/IME, assistive technology, Linux shell baselines, maximum-bound resources, real-domain/VPS and independent deployed-domain web restore drill remain S18 release gates.
-- **Runtime:** unchanged Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands require explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1` because the harness supplies an insecure default.
+- **Phase:** S18 deployment/accessibility/measurement implemented and locally verified; **release gate NOT fully closed** (no real VPS, physical-device or screen-reader audit; work uncommitted).
+- **Completed steps:** S00–S17 — **done**. S18 — **in progress / locally verified** (see tracker and `docs/RELEASE_RESULTS.md`).
+- **Repository:** HEAD `123aec8` (S17). All S18 changes are uncommitted; no commit created by this agent.
+- **Implemented in S18:** `ops/Dockerfile` (3-stage, pinned Node 24.21.0 bookworm, non-root, read-only-compatible), `compose.yaml` (app + Caddy proxy + networkless `ops` tasks migrate/setup-token/recover-auth/reindex), `ops/Caddyfile`, `ops/production.env.example`, `ops/DEPLOYMENT.md`, readiness-aware `/health`, `ops/release-drill.sh` + `ops/release-benchmark.sh` with `tests/release/` and `playwright.release.config.ts`, `tests/e2e/zzzaccessibility.test.ts` (axe-core 4.13.0 dev dependency), `tests/integration/release-hygiene.test.ts`, a11y fixes (task checkboxes, `aria-controls`), README rewritten to actual install/test instructions, ARCHITECTURE §16.
+- **Validation:** Windows check/lint/build, 95 unit + 167 integration, 94 Chromium e2e pass; Linux clean `npm ci`, check/lint/unit/integration/build + 88 e2e (all except Windows-only visual `shell.test.ts`) pass; two-domain web-restore drill with TOTP/recovery code, graceful stop (exit 0) and restart persistence pass; 10k-note benchmark meets budgets. Details and measured numbers: `docs/RELEASE_RESULTS.md`.
+- **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
+- **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
 
 ## Next session: exact instructions
 
-1. Read `AGENTS.md`, required planning docs and latest S17 handoff. Relevant contracts: ARCHITECTURE 13.5–13.6/14/12.5, IMPLEMENTATION_PLAN S18, ACCEPTANCE_TESTS full release matrix and performance budgets, `ops/RESTORE_RUNBOOK.md`.
-2. Inspect git; preserve uncommitted S17 work. Read `ops/Dockerfile*`, `.env.example`, `vite.config.ts` runtime origin adapter, migrations/setup/operator commands, runtime/hooks/private storage and backup/restore modules/tests. Production deployment/Compose/reverse-proxy artifacts do not exist yet; validation Dockerfiles are not production deployment.
-3. Next task: **S18**. Build reproducible single-instance production Linux container/Compose/HTTPS proxy and operator install/upgrade/recovery runbook first, then actual independent-domain downloaded/uploaded restore drill, full acceptance/security/accessibility and measured 10k/mixed-media workloads. Keep private persistent data/configurable origin, explicitly stopped-app migrations and safe restore recovery; do not claim release completion before all gates pass.
-4. First validation: `npm run check && npm run test:integration`; then full E2E/build and cold native production-image install/restart/restore. Use pinned Node/PATH and `NODE_TLS_REJECT_UNAUTHORIZED=1`; E2E owns 4173–4176/OpenSSL. S17's cached clean Linux ci is verified, not a cold download. Archive transport requires `BODY_SIZE_LIMIT=64G` plus matching streaming proxy, with smaller domain limits/disk reserve authoritative. Keep all synthetic archives/data/diagnostics ignored.
+1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
+2. Commit the S18 work (user approval), then on a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
+3. Perform and record physical-device/IME/pinch-zoom and screen-reader review; review Linux `shell.test.ts` visual baselines (`--update-snapshots` only after inspection).
+4. Raise with the user: timeline virtualization (needs approved scroll-sync/history redesign) given the measured DOM growth; optional 100k-note stress run.
+5. Re-run on the release commit: `npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build && npm run test:e2e`, the Linux validation image, `ops/release-drill.sh`, `ops/release-benchmark.sh`. Only then mark S18 done.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
 ## Step tracker
 
-| Step | Description                        | State       |
-| ---- | ---------------------------------- | ----------- |
-| S00  | Bootstrap and technical validation | Done        |
-| S01  | Schema and persistent storage      | Done        |
-| S02  | Authentication and optional TOTP   | Done        |
-| S03  | Design tokens and responsive shell | Done        |
-| S04  | Markdown/code/Mermaid/tag parsing  | Done        |
-| S05  | Browser drafts and recovery        | Done        |
-| S06  | Private uploads and Sharp          | Done        |
-| S07  | Atomic/idempotent note lifecycle   | Done        |
-| S08  | Composer posting orchestration     | Done        |
-| S09  | Cards, cursor timeline and filters | Done        |
-| S10  | Exact multilingual SQLite search   | Done        |
-| S11  | Month calendar and scroll sync     | Done        |
-| S12  | Detail/edit/conflict/image viewer  | Done        |
-| S13  | Drafts and Trash screens           | Done        |
-| S14  | Tag administration                 | Done        |
-| S15  | Location/settings/storage          | Done        |
-| S16  | Manual backup/create/download      | Done        |
-| S17  | Uploaded restore and rollback      | Done        |
-| S18  | VPS deployment/release validation  | Not started |
+| Step | Description                        | State                                                        |
+| ---- | ---------------------------------- | ------------------------------------------------------------ |
+| S00  | Bootstrap and technical validation | Done                                                         |
+| S01  | Schema and persistent storage      | Done                                                         |
+| S02  | Authentication and optional TOTP   | Done                                                         |
+| S03  | Design tokens and responsive shell | Done                                                         |
+| S04  | Markdown/code/Mermaid/tag parsing  | Done                                                         |
+| S05  | Browser drafts and recovery        | Done                                                         |
+| S06  | Private uploads and Sharp          | Done                                                         |
+| S07  | Atomic/idempotent note lifecycle   | Done                                                         |
+| S08  | Composer posting orchestration     | Done                                                         |
+| S09  | Cards, cursor timeline and filters | Done                                                         |
+| S10  | Exact multilingual SQLite search   | Done                                                         |
+| S11  | Month calendar and scroll sync     | Done                                                         |
+| S12  | Detail/edit/conflict/image viewer  | Done                                                         |
+| S13  | Drafts and Trash screens           | Done                                                         |
+| S14  | Tag administration                 | Done                                                         |
+| S15  | Location/settings/storage          | Done                                                         |
+| S16  | Manual backup/create/download      | Done                                                         |
+| S17  | Uploaded restore and rollback      | Done                                                         |
+| S18  | VPS deployment/release validation  | In progress — locally verified; real-VPS/device/AT gate open |
 
 ## Settled decisions most likely to be accidentally regressed
 
@@ -2729,3 +2730,44 @@ Final documentation-only close: updated this handoff to the final passing Linux
 image and shared-content validation decision, formatted PROGRESS, then `npm run
 lint`, `git diff --check` and `test ! -e .e2e-data` passed. No application/test code
 changed after the final full Windows and affected Linux gates.
+
+### Session 2026-10-06 — S18 deployment, measured performance, accessibility, release gate
+
+State: in progress (implementation and local verification done; release gate not closed)
+
+Implemented:
+
+- Production image/Compose/Caddy: one app (non-root, read-only rootfs, caps dropped, init, 60 s grace, 2 CPU/3 GiB defaults, healthcheck), fixed-IP edge network, only the proxy publishes ports, `TRUSTED_PROXY_IPS` = proxy IP, Caddy overwrites X-Forwarded-For, streaming bodies, HSTS, 5 s active health + 30 s retry window. Operator tasks are networkless one-shot services (migrate, setup-token, recover-auth, reindex); migration is never automatic.
+- `/health` now readiness-aware (200 ok / 200 maintenance / 503 unavailable, no details).
+- Accessibility gate (axe-core + scripted checks); fixed unlabeled task checkboxes (render.ts) and dangling `aria-controls` (TagAutocomplete.svelte); "shell fixture" wording removed from production Sidebar.
+- Release hygiene integration test, release drill + benchmark harnesses, DEPLOYMENT.md, RELEASE_RESULTS.md, README/ARCHITECTURE/ACCEPTANCE updates.
+
+Touched files:
+
+- New: `ops/Dockerfile`, `compose.yaml`, `ops/Caddyfile`, `ops/production.env.example`, `ops/DEPLOYMENT.md`, `ops/release-drill.sh`, `ops/release-benchmark.sh`, `playwright.release.config.ts`, `tests/release/{support,drill,restart,benchmark}`, `tests/e2e/zzzaccessibility.test.ts`, `tests/integration/release-hygiene.test.ts`, `docs/RELEASE_RESULTS.md`, `.gitattributes`.
+- Changed: `src/routes/health/+server.ts`, `src/lib/shared/markdown/render.ts`, `src/lib/components/{TagAutocomplete,Sidebar}.svelte`, `tests/integration/{runtime-server,markdown-render}.test.ts`, `.dockerignore`, `.gitignore`, `package.json`/lockfile (devDependency `axe-core@4.13.0` only), README, ARCHITECTURE §14/§16, ACCEPTANCE §13, IMPLEMENTATION_PLAN.
+
+Checks actually run:
+
+- `npm run check && npm run test:integration` baseline: PASS (160). Final Windows: check, lint, unit 95, integration 167, build PASS; `npm run test:e2e` 94 PASS (after a11y fixes; later changes were docs/tests/ops only).
+- Linux `.browser-spike/Dockerfile.s18-cached` (pinned base, clean `npm ci`, 2 CPU/4 GB): check, lint, 95 unit, 167 integration, build, 88 e2e PASS (shell.test.ts excluded). Earlier Linux runs failed on `.dockerignore` allowlist gaps and a Prettier error in DEPLOYMENT.md (all fixed).
+- `bash ops/release-drill.sh` (COMPOSE=docker-compose DOCKER=podman): PASS on the final image after two failed restart-phase runs caused by Caddy's 30 s health interval (fixed in Caddyfile; restart is now masked to ~2.4 s).
+- `bash ops/release-benchmark.sh`: PASS, numbers in RELEASE_RESULTS. A `content-visibility` experiment on note cards worsened append latency and was reverted. One unexplained 150 s DCL/LCP outlier in a throttled series did not recur in 12 reruns.
+- `npm audit` (all/prod): 0 vulnerabilities. Cold `npm ci` in the production image downloaded native modules successfully. `recover-auth` compose task verified manually.
+
+Decisions/deviations:
+
+- axe-core added as a pinned dev-only dependency (MPL-2.0) for the accessibility gate; no runtime dependency, schema or stack change.
+- `/health` changed from pure liveness to readiness (ARCHITECTURE §14 already required readiness); maintenance reports 200 deliberately.
+- Drill uses `*.localtest.me` names (public DNS to 127.0.0.1) and Caddy's local CA because Node on Windows cannot resolve `*.localhost`; `CADDY_TLS_DIRECTIVE` exists only for drills.
+
+Known issues / unfinished work:
+
+- No real VPS/public domain/Let's Encrypt, no physical-device/IME/screen-reader audit, no Linux shell visual baselines, no max-bound/100k stress, nothing committed; timeline DOM growth (see RELEASE_RESULTS); throttled-network emulation appeared ineffective (informational only).
+- npm 11.19 install-script warnings are informational; native modules verified working.
+
+Next session:
+
+- Read: docs/RELEASE_RESULTS.md ("Not performed"), ops/DEPLOYMENT.md.
+- Do: real-VPS install + independent second-deployment restore, device/screen-reader audit, commit/tag and rerun gates.
+- Verify: the command list under "Next session: exact instructions" on the release commit.

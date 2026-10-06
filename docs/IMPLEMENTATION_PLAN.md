@@ -529,4 +529,6 @@ Every completed step must record changed files, tests actually run, blockers/kno
 - Backup/download/upload-restore drill passed outside the original app instance.
 - Documentation/progress agree with actual code; no required feature remains mocked or TODO.
 
+**S18 status (2026-10-06):** artifacts, accessibility/security review, drills and 10k benchmarks are implemented and locally verified; the real-VPS, physical-device and screen-reader parts of this gate remain open. See `docs/RELEASE_RESULTS.md`.
+
 **Next hint:** only after this gate, collect actual usage feedback. Treat new features as separately approved scope, not reasons to destabilize the completed core.

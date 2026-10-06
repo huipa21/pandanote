@@ -2,7 +2,9 @@ import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type { MutationResult } from '../../src/lib/shared/domain.ts';
 import { createServer } from 'node:net';
-import { resolve } from 'node:path';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, it } from 'vitest';
 import { withPersistence } from '../helpers/persistence.ts';
@@ -276,4 +278,55 @@ it('one production build honors two runtime origins, keeps data private, logs ou
       }
     }
   });
+}, 60_000);
+
+it('public health is readiness-aware without exposing state: 503 before explicit migration, 200 after', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'pandanote-health-'));
+  const port = await unusedPort();
+  const base = `http://127.0.0.1:${port}`;
+  const env = {
+    ...process.env,
+    HOST: '127.0.0.1',
+    PORT: String(port),
+    ORIGIN: base,
+    DATA_DIR: root,
+    NODE_ENV: 'production',
+    TRUSTED_PROXY_IPS: '',
+    ADDRESS_HEADER: '',
+    HOST_HEADER: '',
+    PROTOCOL_HEADER: '',
+    PORT_HEADER: '',
+  };
+  const child = spawn(process.execPath, ['build/index.js'], {
+    env,
+    stdio: 'ignore',
+  });
+  try {
+    let before: Response | undefined;
+    for (let i = 0; i < 100 && !before; i++) {
+      try {
+        before = await fetch(`${base}/health`, {
+          signal: AbortSignal.timeout(1000),
+        });
+      } catch {
+        await delay(50);
+      }
+    }
+    expect(before?.status).toBe(503);
+    expect(await before?.json()).toEqual({ status: 'unavailable' });
+    expect(before?.headers.get('cache-control')).toBe('no-store');
+    // Operator initialization is explicit and separate from the app process.
+    const migrate = spawnSync(process.execPath, ['scripts/migrate.ts'], {
+      env,
+      encoding: 'utf8',
+    });
+    expect(migrate.status, migrate.stderr).toBe(0);
+    const after = await fetch(`${base}/health`);
+    expect(after.status).toBe(200);
+    expect(await after.json()).toEqual({ status: 'ok' });
+  } finally {
+    child.kill('SIGTERM');
+    await delay(500);
+    rmSync(root, { recursive: true, force: true, maxRetries: 10 });
+  }
 }, 60_000);

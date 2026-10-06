@@ -87,7 +87,6 @@
         update();
     }
     input.setAttribute('aria-autocomplete', 'list');
-    input.setAttribute('aria-controls', id);
     input.addEventListener('input', update);
     input.addEventListener('click', update);
     input.addEventListener('keyup', cursor);
@@ -105,9 +104,14 @@
     };
   });
   $effect(() => {
-    if (choices.length)
+    // aria-controls must reference an existing element: only while the listbox is rendered.
+    if (choices.length) {
+      textarea?.setAttribute('aria-controls', id);
       textarea?.setAttribute('aria-activedescendant', `${id}-${selected}`);
-    else textarea?.removeAttribute('aria-activedescendant');
+    } else {
+      textarea?.removeAttribute('aria-controls');
+      textarea?.removeAttribute('aria-activedescendant');
+    }
   });
 </script>
 

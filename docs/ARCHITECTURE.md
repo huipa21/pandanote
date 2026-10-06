@@ -1407,7 +1407,7 @@ See ACCEPTANCE_TESTS for detailed cases. Tests must exercise the production SQLi
 
 Log structured safe events/timings/errors. Health endpoint reports readiness without note/account/disk-path details. Storage usage and job errors are visible in Settings. No third-party analytics requirement.
 
-Deploy one Node instance behind HTTPS reverse proxy, with persistent DATA_DIR and pinned container image. Configure request size/timeouts suitable for files/backups without buffering all uploads in memory. Allow graceful shutdown and migration/restore maintenance. Use a Linux image with compatible libc/native builds; verify Sharp and better-sqlite3 rather than assuming Windows artifacts work.
+Deploy one Node instance behind HTTPS reverse proxy, with persistent DATA_DIR and pinned container image (implemented in section 16 / `ops/DEPLOYMENT.md`). Configure request size/timeouts suitable for files/backups without buffering all uploads in memory. Allow graceful shutdown and migration/restore maintenance. Use a Linux image with compatible libc/native builds; verify Sharp and better-sqlite3 rather than assuming Windows artifacts work.
 
 Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guarantees. Search/image/backup workloads are the main risks on a 2-core/4 GB machine.
 
@@ -1483,3 +1483,57 @@ Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guar
   writes. Stalled receives still cancel on their 60-second deadline; byte/pixel caps,
   hash checks, transport cap, queue/concurrency and temporary-file cleanup remain.
   No dependency, migration, security-policy weakening or additional service was added.
+
+## 16. S18 deployment, readiness and release-verification contracts
+
+**Topology (implemented, `compose.yaml`, `ops/Dockerfile`, `ops/Caddyfile`).** One app
+container behind one Caddy container on a private bridge network with fixed
+addresses; only the proxy publishes ports. The app runs as the image's non-root
+`node` user with a read-only root filesystem, `/tmp` tmpfs, all capabilities dropped,
+`no-new-privileges`, `init`, a 60 s stop grace, memory/CPU limits (default 3 GiB /
+2 CPUs, V8 heap capped at 1536 MiB) and a single named volume mounted at the fixed
+`DATA_DIR=/data` (image pre-creates it `0700` for the runtime user). The image has
+three stages: build (full `npm ci` + `vite build`), production dependencies
+(`npm ci --omit=dev` with the dev-only `prepare` hook removed, so native modules are
+built for Linux/glibc inside the image) and runtime (build output, production
+`node_modules`, `migrations/`, `src/lib` and only the four operator scripts — no tests,
+docs, fixtures, dev dependencies or `.env`). The base image is the same digest-pinned
+Node 24.21.0 bookworm image as the validation images.
+
+**Operator tasks are explicit, networkless one-shot services** in the `ops` profile
+(`migrate`, `setup-token`, `recover-auth`, `reindex`) sharing the data volume. They are
+run only while `app` is stopped; migration is never part of app startup. A schema newer
+than the image fails closed (`/health` 503) and rollback means deploying the older tag
+and restoring the pre-upgrade backup (migrations are forward only).
+
+**Proxy trust.** `TRUSTED_PROXY_IPS` is the proxy's fixed address; Caddy overwrites
+`X-Forwarded-For` with `{remote_host}`, streams bodies (`flush_interval -1`, no request
+buffering) with `request_body max_size` equal to `BODY_SIZE_LIMIT`, and sets HSTS.
+`ADDRESS_HEADER`/`HOST_HEADER`/… stay unset (rejected at startup). Domain is only
+`DOMAIN`/`ORIGIN`; certificates are automatic for public names. The optional
+`CADDY_TLS_DIRECTIVE` exists solely so release drills can use Caddy's local CA.
+
+**Readiness.** `GET /health` (public, GET/HEAD only) now awaits runtime initialization:
+`200 {"status":"ok"}`, `200 {"status":"maintenance"}` while restore holds the write
+gate (so edge checks do not extend the outage), or `503 {"status":"unavailable"}` when
+storage is uninitialized/unmigrated/corrupt or filesystem recovery is pending. No
+counts, versions, paths or error text are returned. Compose healthchecks use it.
+
+**Release verification harness.** `tests/integration/release-hygiene.test.ts` pins the
+exact shipped endpoint/page set, rejects debug/test imports, `console.log`, dev
+credentials and unreviewed `process.env` use, and asserts the deployment artifacts
+(non-root, pinned, no ports on app, read-only, networkless ops tasks, overwritten
+forwarded address). `playwright.release.config.ts` + `tests/release/` run against
+already deployed stacks: `ops/release-drill.sh` (two independent deployments with
+different domains, real HTTPS edge, TOTP, uploaded web restore, deployed private-
+surface probes, graceful stop with exit code 0, restart persistence) and
+`ops/release-benchmark.sh` (10k-note HTTP-seeded dataset, API/render/bundle/Mermaid/
+DOM-heap/image/backup/restore measurements with process RSS peaks). Accessibility is a
+normal e2e gate (`tests/e2e/zzzaccessibility.test.ts`, axe-core 4.13.0 as a pinned
+**dev-only** dependency; no runtime dependency or stack change).
+
+**Accessibility defects found and fixed by this gate:** GFM task-list checkboxes had no
+accessible name (now `aria-label` "Completed/Open task: …", added after sanitization),
+and the tag-autocomplete textarea referenced a non-existent listbox through
+`aria-controls` (now set only while the listbox exists). Reflow at 200%/400% zoom,
+reduced motion, visible focus and dialog focus containment/restoration are asserted.
