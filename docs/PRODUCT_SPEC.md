@@ -418,6 +418,15 @@ Suggested Settings sections:
 - Domain and deployment origin stay environment-configurable, not overwritten by the source machine's domain.
 - Manual server-local backups do not protect against losing the VPS until downloaded elsewhere. State this plainly, without adding automatic backup infrastructure.
 
+### 14.3 Application release identity (approved post-S18 enhancement)
+
+- Release versions use `YYMMDD-N`: the commit's UTC **committer date** and a daily sequence starting at 1, counting same-date first-parent ancestors including the target commit. Merges count once; documentation commits count. Builds of the same commit never use build time to renumber it.
+- Releases are versioned after feature branches merge into the main development line. Full commit hash is retained as the authoritative identity; the readable format is not globally unique across branches/rebased histories.
+- Release image builds reject staged/unstaged changes, non-ignored untracked files and incomplete/shallow Git history. Final images contain committed source only, not ignored data or Git history.
+- Docker image tag and OCI metadata agree with the build-time version embedded in the web app. Sidebar/mobile drawer footer shows the version; Settings → About shows version, full hash and UTC commit time. Local development is explicitly labeled Development.
+- Runtime environment, app timezone, domain changes, restarts and data restores do not change the embedded version. This is independent of note revisions, schema and archive compatibility versions.
+- Detailed implementation and verification: [VERSIONING_PLAN.md](VERSIONING_PLAN.md).
+
 ## 15. Definition of complete
 
 The product is complete only after the integrated acceptance suite, Linux deployment checks, performance measurements, and backup/restore drill pass. Each implementation step has a separate done gate in IMPLEMENTATION_PLAN. Planning documents alone do not count as implemented features.

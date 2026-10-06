@@ -31,17 +31,19 @@ git clone <your repository URL> pandanote && cd pandanote
 git checkout <release tag or commit>
 cp ops/production.env.example .env
 chmod 600 .env
-$EDITOR .env          # set DOMAIN and ORIGIN (and PANDANOTE_TAG)
-docker compose build
+$EDITOR .env          # set DOMAIN and ORIGIN
+# Requires Node 24.21.0 + npm 11 + Docker on the build machine (no host npm ci).
+npm run image:build -- --platform linux/amd64
+$EDITOR .env          # set PANDANOTE_TAG to the printed YYMMDD-N version
 ```
 
 Initialize storage explicitly, while the app is **not** running:
 
 ```sh
-docker compose --profile ops run --rm migrate
+docker compose --profile ops run --rm --no-build migrate
 # One-time setup token, valid one hour. It is printed ONLY to this terminal:
-docker compose --profile ops run --rm -T setup-token
-docker compose up -d
+docker compose --profile ops run --rm --no-build -T setup-token
+docker compose up -d --no-build
 docker compose ps        # wait until app is "healthy" and proxy is running
 ```
 
@@ -60,6 +62,92 @@ previous token. Then, in **Settings**:
 If setup does not work, check `docker compose logs app` and that `ORIGIN` equals
 the exact origin (scheme + host [+ port]) users type, without a trailing slash.
 HTTP is accepted only for loopback development origins.
+
+### Build locally, transfer the image, use your existing Caddy
+
+You need **one additional long-running container**, PandaNote. SQLite, private files
+and the Node HTTP server are inside it; your existing Caddy remains independent.
+Build on a clean, complete Git checkout with Node 24.21.0/npm 11 and Docker Engine
+(Docker Desktop must be in Linux-container mode on Windows):
+
+The wrapper uses only Node built-ins; **no host `npm ci` is needed**. Native
+app dependencies are installed inside the Linux image. ARM64 command support is
+provided, but only Linux AMD64 was validated in this session.
+
+```sh
+npm run version:release                           # prints version/hash/UTC commit time
+npm run image:build -- --platform linux/amd64      # auto-tag pandanote:YYMMDD-N
+# ARM64 VPS instead: --platform linux/arm64
+# Validation alternative: append --engine podman
+```
+
+Staged/unstaged changes and non-ignored untracked files fail **before** Docker runs.
+Commit your source first; this command does not create a commit or Git tag. A shallow
+clone needs complete history (`git fetch --unshallow`). Ignored `.env`/runtime data
+are excluded: the wrapper builds from an immutable `git archive`, not the live tree.
+The version date is UTC **committer** time; sequence counts same-day first-parent
+ancestors. Rebuilding an old commit never uses today's date. See
+[`docs/VERSIONING_PLAN.md`](../docs/VERSIONING_PLAN.md) for exact semantics.
+
+Replace the example tag below with the tag the build actually printed:
+
+```sh
+TAG=261006-1
+# Uncompressed export works in PowerShell, cmd and POSIX shells without binary pipes.
+docker image save -o pandanote-image.tar pandanote:$TAG
+scp pandanote-image.tar user@server:/path/to/destination/
+# On the server (no Node/npm/source checkout needed for this workflow):
+docker image load -i /path/to/destination/pandanote-image.tar
+docker image inspect pandanote:$TAG --format '{{json .Config.Labels}}'
+```
+
+OCI labels are `org.opencontainers.image.version`, `.revision` (full Git hash), and
+`.created` (**UTC commit time**, not build time). The same values are baked into the
+SSR/browser build: the sidebar/mobile drawer footer shows the version, and
+Settings → About shows version, hash and UTC commit time. Runtime environment
+cannot override them. `npm run dev` and ordinary `npm run build` without release
+metadata explicitly show Development. Release identity does not change DB/backup
+compatibility; restore never replaces application binaries/version.
+
+Connect the app to the **existing Caddy user-defined Docker network**. Ensure the
+Caddy address on that network is fixed; set `TRUSTED_PROXY_IPS` to that exact address
+(not a subnet and not the VPS public address). Example (substitute your real
+network, fixed Caddy IP, domain and printed tag):
+
+```sh
+# First install only; app must not yet be running. These are temporary task containers.
+docker run --rm --network none -v pandanote-data:/data \
+  pandanote:$TAG node scripts/migrate.ts
+docker run --rm --network none -v pandanote-data:/data \
+  pandanote:$TAG node scripts/setup-token.ts
+
+docker run -d --name pandanote --init --restart unless-stopped \
+  --network caddy-net \
+  -e ORIGIN=https://notes.example.com -e TRUSTED_PROXY_IPS=172.18.0.2 \
+  -v pandanote-data:/data --read-only --tmpfs /tmp:size=512m,mode=1777 \
+  --cap-drop ALL --security-opt no-new-privileges:true \
+  --stop-timeout 60 --memory 3g --cpus 2 \
+  --log-opt max-size=10m --log-opt max-file=5 \
+  pandanote:$TAG
+```
+
+Do not publish port 3000. In your existing Caddy configuration, use the site block
+from `ops/Caddyfile`, change `reverse_proxy app:3000` to `reverse_proxy pandanote:3000`,
+and substitute the site hostname/environment placeholders. Preserve overwritten
+`X-Forwarded-For`, streaming and upload/time limits. No second Caddy container is
+required. Open `/setup` with the token, then enroll MFA and download a manual backup.
+Never run two app instances on the same volume. On upgrades, stop/remove only the
+old **container**, preserve the volume, run migrations with the new image, and
+start the new image; make/download the pre-upgrade backup first.
+
+For the bundled Compose stack, set `PANDANOTE_TAG` to the loaded version in `.env`
+and use `--no-build`. Ordinary deployment needs no provenance environment variables.
+Low-level Docker/Compose builds require all three build arguments
+`PANDANOTE_VERSION` (`PANDANOTE_TAG` in Compose), `PANDANOTE_COMMIT`, and
+`PANDANOTE_COMMITTED_AT`. Missing/invalid values fail; these low-level primitives
+cannot prove that caller-supplied metadata describes the source, so the supported
+release path is **`npm run image:build`**, which enforces clean Git and snapshots it.
+Do not use `latest` or overwrite a version tag with different source.
 
 ### Environment reference
 
@@ -121,12 +209,12 @@ recovery exist for crashes, not as a routine stop method.
 
 1. Create a **manual backup in Settings and download it off-server.**
 2. `git fetch && git checkout <new tag>`; review `docs/PROGRESS.md`/release notes.
-3. `docker compose build`
+3. On the clean build checkout, run `npm run image:build`; transfer/load the image if building locally, then set `.env` `PANDANOTE_TAG` to the new printed version.
 4. Stop the app and migrate while nothing else writes:
    ```sh
    docker compose stop app
-   docker compose --profile ops run --rm migrate
-   docker compose up -d
+   docker compose --profile ops run --rm --no-build migrate
+   docker compose up -d --no-build
    docker compose ps       # wait for healthy
    ```
 5. Sign in and spot-check recent notes, a download, Drafts/Trash and Settings.
@@ -185,7 +273,8 @@ local certificate authority (`*.localtest.me` resolves to 127.0.0.1 through publ
 DNS) and write only to ignored `.drill/`.
 
 ```sh
-# Needs Node 24 + `npm ci`, Playwright Chromium, a compose CLI and a container CLI.
+# Needs a clean/full Git checkout, Node 24 + `npm ci`, Playwright Chromium,
+# a compose CLI and a container CLI (DOCKER=docker or podman).
 COMPOSE="docker compose" DOCKER=docker bash ops/release-drill.sh      # restore drill
 COMPOSE="docker compose" DOCKER=docker bash ops/release-benchmark.sh  # 10k-note workloads
 ```

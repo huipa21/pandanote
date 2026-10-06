@@ -9,6 +9,7 @@
   import SecuritySettings from '#lib/components/SecuritySettings.svelte';
   import StorageSettings from '#lib/components/StorageSettings.svelte';
   import BackupSettings from '#lib/components/BackupSettings.svelte';
+  import { buildInfo } from '#lib/shared/version.ts';
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
   let { data } = $props();
@@ -136,10 +137,36 @@
 </section>
 <StorageSettings initial={data.storageLimits} timezone={data.timezone} />
 <BackupSettings />
+<section class="surface" aria-labelledby="about-heading" id="about">
+  <h2 id="about-heading">About PandaNote</h2>
+  <dl class="build-info">
+    <dt>Version</dt>
+    <dd data-about-version>{buildInfo.version}</dd>
+    {#if buildInfo.kind === 'release'}
+      <dt>Commit</dt>
+      <dd><code data-about-commit>{buildInfo.commit}</code></dd>
+      <dt>Commit time (UTC)</dt>
+      <dd>
+        <time datetime={buildInfo.committedAt}>{buildInfo.committedAt}</time>
+      </dd>
+    {:else}
+      <dt>Build</dt>
+      <dd>Local development / non-release build</dd>
+    {/if}
+  </dl>
+</section>
 
 <style>
   h1 {
     margin-top: 0;
+  }
+  .build-info dt {
+    font-weight: 650;
+    margin-top: var(--space-3);
+  }
+  .build-info dd {
+    margin: 0;
+    overflow-wrap: anywhere;
   }
   fieldset {
     margin: 0;

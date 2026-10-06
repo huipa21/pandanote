@@ -10,9 +10,11 @@ cd "$(dirname "$0")/.."
 COMPOSE=${COMPOSE:-docker compose}
 DOCKER=${DOCKER:-docker}
 PLAYWRIGHT=${PLAYWRIGHT:-npx playwright}
+PANDANOTE_TAG=$(node scripts/release-version.ts | node --input-type=module -e 'let s=""; for await (const c of process.stdin) s+=c; process.stdout.write(JSON.parse(s).version)')
 mkdir -p .drill
 cat > .drill/c.env <<ENV
 COMPOSE_PROJECT_NAME=pnc
+PANDANOTE_TAG=$PANDANOTE_TAG
 DOMAIN=c.localtest.me
 ORIGIN=https://c.localtest.me:7443
 HTTP_PORT=7080
@@ -25,10 +27,10 @@ APP_MEM_LIMIT=${APP_MEM_LIMIT:-3g}
 CADDY_TLS_DIRECTIVE=tls internal
 ENV
 c() { $COMPOSE --env-file .drill/c.env "$@"; }
-$DOCKER build --format docker -f ops/Dockerfile -t pandanote:local .
+node scripts/image-build.ts --engine "$DOCKER"
 c down -v --remove-orphans >/dev/null 2>&1 || true
-c --profile ops run --rm migrate
-c --profile ops run --rm -T setup-token > .drill/c.token
+c --profile ops run --rm --no-build migrate
+c --profile ops run --rm --no-build -T setup-token > .drill/c.token
 c up -d --no-build
 for i in $(seq 1 60); do
   [ "$($DOCKER inspect --format '{{.State.Health.Status}}' pnc-app-1)" = healthy ] && break

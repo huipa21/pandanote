@@ -2,9 +2,10 @@
 # with one persistent private data volume. See ops/DEPLOYMENT.md.
 #
 #   cp ops/production.env.example .env     # edit DOMAIN/ORIGIN, keep it private
-#   docker compose --profile ops run --rm migrate
-#   docker compose --profile ops run --rm --no-deps -T setup-token   # prints one-time token
-#   docker compose up -d --build
+#   npm run image:build                 # clean Git; set PANDANOTE_TAG to printed version
+#   docker compose --profile ops run --rm --no-build migrate
+#   docker compose --profile ops run --rm --no-build --no-deps -T setup-token # one-time token
+#   docker compose up -d --no-build
 #
 # Never run two app containers against one data volume and never run migrate while
 # the app is running (the commands above and in the upgrade runbook enforce order).
@@ -15,6 +16,11 @@ x-app: &app-base
   build:
     context: .
     dockerfile: ops/Dockerfile
+    # Low-level builds require metadata; prefer the clean-source image wrapper.
+    args:
+      PANDANOTE_VERSION: ${PANDANOTE_TAG:-}
+      PANDANOTE_COMMIT: ${PANDANOTE_COMMIT:-}
+      PANDANOTE_COMMITTED_AT: ${PANDANOTE_COMMITTED_AT:-}
   environment: &app-env
     ORIGIN: ${ORIGIN:?Set ORIGIN to the canonical public https origin, e.g. https://notes.example.com}
     DATA_DIR: /data

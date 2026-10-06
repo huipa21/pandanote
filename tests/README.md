@@ -18,6 +18,29 @@ production credential is committed.
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
 
+## Commit-derived versioning coverage (VER-01–08)
+
+- `unit/build-info.test.ts`: strict public metadata, UTC date, positive daily sequence,
+  complete hash/time, development defaults, partial/invalid production failure and
+  restricted image-build arguments.
+- `integration/release-version.test.ts`: actual temporary Git commits/branches/merge,
+  author-versus-committer date, UTC midnight, backward clocks, daily reset/multi-digit
+  counts, detached old hash/later descendants, repeated host-timezone independence,
+  staged/unstaged/untracked/shallow/missing failures and ignored-file exclusion.
+  An injected engine boundary inspects the real committed tar and exact build args;
+  dirty CLI rejection and error propagation are exercised without mocking Git.
+- `integration/build-metadata.test.ts`: actual production metadata-validation CLI
+  and isolated adapter-node build/server: release SSR keeps its embedded identity
+  despite spoofed runtime environment values.
+- `e2e/version.test.ts`: actual app desktop sidebar/mobile drawer, Settings About,
+  full hash/time for release builds, explicit Development otherwise, no-JS SSR and
+  mobile wrapping. Run with all three `PANDANOTE_*` build variables to test a
+  synthetic release build; normal full suite tests Development. Existing axe,
+  short-screen/zoom/theme/focus and visual tests remain regression gates.
+- Linux validation images install Git **as test tooling** for the temporary-history
+  tests. The production image still has no Git/history. Actual clean synthetic
+  snapshot image validation is recorded in PROGRESS, not claimed as a release commit.
+
 ## S17 coverage (RESTORE-01–04, AUTH-04/05, BACKUP-01/02)
 
 - `integration/restores.test.ts`: independent real SQLite/filesystem/account

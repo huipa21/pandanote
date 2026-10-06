@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { developmentBuildInfo } from '../../src/lib/shared/build-info.ts';
 
 export const probeCsp = [
   "default-src 'none'",
@@ -18,6 +19,7 @@ export const probeCsp = [
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   plugins: [svelte()],
+  define: { __PANDANOTE_BUILD__: JSON.stringify(developmentBuildInfo) },
   server: {
     headers: {
       'Content-Security-Policy': probeCsp,

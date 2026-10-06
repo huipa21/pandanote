@@ -532,3 +532,12 @@ Every completed step must record changed files, tests actually run, blockers/kno
 **S18 status (2026-10-06):** artifacts, accessibility/security review, drills and 10k benchmarks are implemented and locally verified; the real-VPS, physical-device and screen-reader parts of this gate remain open. See `docs/RELEASE_RESULTS.md`.
 
 **Next hint:** only after this gate, collect actual usage feedback. Treat new features as separately approved scope, not reasons to destabilize the completed core.
+
+## Approved enhancement — Commit-derived release versioning
+
+User explicitly approved implementation before the outstanding S18 deployment/manual
+gate is closed. This does not mark that gate done. Follow
+[VERSIONING_PLAN.md](VERSIONING_PLAN.md) in order: V01 typed metadata/Git derivation,
+V02 immutable clean-source image build, V03 embedded sidebar/drawer/About display,
+V04 documentation and host/browser/Linux verification. Apply the common gate and
+VER-01–08 acceptance cases; do not create a user-repository commit without approval.

@@ -3,6 +3,7 @@
   import Calendar from './Calendar.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
+  import { buildInfo } from '#lib/shared/version.ts';
   import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
   export interface ShellTag {
     id: string;
@@ -116,6 +117,7 @@
       aria-current={active === '/settings' ? 'page' : undefined}
       onclick={onNavigate}>Settings</a
     >
+    <p class="version muted" data-app-version>Version {buildInfo.version}</p>
   </nav>
 </div>
 
@@ -229,6 +231,11 @@
     padding: var(--space-3) var(--space-4);
     border-top: 1px solid var(--border);
     flex: none;
+  }
+  .version {
+    margin: 0;
+    padding-inline: var(--space-3);
+    font-size: 0.75rem;
   }
   .tag-list {
     list-style: none;

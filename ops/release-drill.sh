@@ -15,12 +15,14 @@ cd "$(dirname "$0")/.."
 COMPOSE=${COMPOSE:-docker compose}
 DOCKER=${DOCKER:-docker}
 PLAYWRIGHT=${PLAYWRIGHT:-npx playwright}
+PANDANOTE_TAG=$(node scripts/release-version.ts | node --input-type=module -e 'let s=""; for await (const c of process.stdin) s+=c; process.stdout.write(JSON.parse(s).version)')
 mkdir -p .drill
 rm -f .drill/used-codes.json .drill/seed.json
 
 write_env() { # name domain https http subnet-index
   cat > ".drill/$1.env" <<ENV
 COMPOSE_PROJECT_NAME=pn$1
+PANDANOTE_TAG=$PANDANOTE_TAG
 DOMAIN=$2
 ORIGIN=https://$2:$3
 HTTP_PORT=$4
@@ -35,11 +37,11 @@ write_env a a.localtest.me 8443 8080 28
 write_env b b.localtest.me 9443 9080 29
 c() { local s=$1; shift; $COMPOSE --env-file ".drill/$s.env" "$@"; }
 
-$DOCKER build --format docker -f ops/Dockerfile -t pandanote:local .
+node scripts/image-build.ts --engine "$DOCKER"
 for s in a b; do
   c $s down -v --remove-orphans >/dev/null 2>&1 || true
-  c $s --profile ops run --rm migrate
-  c $s --profile ops run --rm -T setup-token > ".drill/$s.token"
+  c $s --profile ops run --rm --no-build migrate
+  c $s --profile ops run --rm --no-build -T setup-token > ".drill/$s.token"
   c $s up -d --no-build
 done
 for s in a b; do

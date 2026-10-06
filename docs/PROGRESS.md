@@ -2,18 +2,40 @@
 
 ## Current state
 
-- **Phase:** S18 deployment/accessibility/measurement implemented and locally verified; **release gate NOT fully closed** (no real VPS, physical-device or screen-reader audit; work uncommitted).
+- **Phase:** S18 deployment/accessibility/measurement implemented and locally verified; **release gate NOT fully closed** (no real VPS, physical-device or screen-reader audit). S18 is committed; the approved version enhancement is implemented but its final validation remains **blocked / in progress**.
 - **Completed steps:** S00–S17 — **done**. S18 — **in progress / locally verified** (see tracker and `docs/RELEASE_RESULTS.md`).
-- **Repository:** HEAD `123aec8` (S17). All S18 changes are uncommitted; no commit created by this agent.
+- **Repository:** HEAD `4828cb0` (S18 committed externally). Commit-derived version enhancement is **in progress**, per user-approved `docs/VERSIONING_PLAN.md`; no enhancement commit created by this agent.
 - **Implemented in S18:** `ops/Dockerfile` (3-stage, pinned Node 24.21.0 bookworm, non-root, read-only-compatible), `compose.yaml` (app + Caddy proxy + networkless `ops` tasks migrate/setup-token/recover-auth/reindex), `ops/Caddyfile`, `ops/production.env.example`, `ops/DEPLOYMENT.md`, readiness-aware `/health`, `ops/release-drill.sh` + `ops/release-benchmark.sh` with `tests/release/` and `playwright.release.config.ts`, `tests/e2e/zzzaccessibility.test.ts` (axe-core 4.13.0 dev dependency), `tests/integration/release-hygiene.test.ts`, a11y fixes (task checkboxes, `aria-controls`), README rewritten to actual install/test instructions, ARCHITECTURE §16.
 - **Validation:** Windows check/lint/build, 95 unit + 167 integration, 94 Chromium e2e pass; Linux clean `npm ci`, check/lint/unit/integration/build + 88 e2e (all except Windows-only visual `shell.test.ts`) pass; two-domain web-restore drill with TOTP/recovery code, graceful stop (exit 0) and restart persistence pass; 10k-note benchmark meets budgets. Details and measured numbers: `docs/RELEASE_RESULTS.md`.
 - **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
 - **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
 
+## Active enhancement: commit-derived release versioning
+
+User approved UTC committer date + same-day first-parent sequence (`YYMMDD-N`),
+clean-source image builds, identical image/web metadata, sidebar/drawer footer and
+Settings About. Detailed implementation and VER-01–08 gate:
+`docs/VERSIONING_PLAN.md`; plan recorded before coding. Implementation is present:
+`npm run version:release` / `npm run image:build`, Git archive snapshot, strict Docker
+metadata/OCI labels, Vite constants and UI. Windows check/lint/build, 108 unit,
+173 integration and 95 full e2e pass. Cached Linux production-image metadata/UI/
+native probes pass; Linux check/lint/build, 108 unit, **169 integration (four Git
+tests explicitly excluded)** and 9 affected/a11y e2e pass. Cold image npm downloads
+and installing Git in the Linux validation environment failed/timed out; excluded
+Git cases are a **blocker**, not a pass. New audit: 2 low Mermaid/KaTeX advisories;
+no forced unrelated dependency change. No user-repository commit created.
+
+Next: restore dependency/apt connectivity, install Git in the Linux validation
+image and run the complete integration suite without exclusions; then user-approved
+commit + clean exact-commit image build. Read the version handoff below, the plan
+and deployment guide. First validation: `podman build -f ops/Dockerfile.validation
+-t pandanote-version-native . && podman run --rm --cpus=2 --memory=4g
+pandanote-version-native`. S18's outstanding VPS/device/screen-reader gates remain open.
+
 ## Next session: exact instructions
 
 1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
-2. Commit the S18 work (user approval), then on a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
+2. Complete the version enhancement's blocked Linux Git/cold-build validation, then commit the enhancement (user approval; S18 itself is already committed). On a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
 3. Perform and record physical-device/IME/pinch-zoom and screen-reader review; review Linux `shell.test.ts` visual baselines (`--update-snapshots` only after inspection).
 4. Raise with the user: timeline virtualization (needs approved scroll-sync/history redesign) given the measured DOM growth; optional 100k-note stress run.
 5. Re-run on the release commit: `npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build && npm run test:e2e`, the Linux validation image, `ops/release-drill.sh`, `ops/release-benchmark.sh`. Only then mark S18 done.
@@ -2771,3 +2793,140 @@ Next session:
 - Read: docs/RELEASE_RESULTS.md ("Not performed"), ops/DEPLOYMENT.md.
 - Do: real-VPS install + independent second-deployment restore, device/screen-reader audit, commit/tag and rerun gates.
 - Verify: the command list under "Next session: exact instructions" on the release commit.
+
+### Session 2026-10-06 — Approved commit-derived release version enhancement
+
+**State: in progress / final validation blocked by environment.** V01–V03 behavior
+is implemented; V04 cannot be declared done because four real-Git integration
+cases have not run on Linux and cold production dependency downloads failed.
+Started clean at `4828cb0` (S18 committed externally). No user-repository commit
+or tag created. User explicitly approved this enhancement ahead of the remaining
+S18 manual/VPS gate. Plan was written and linked before application coding.
+
+Implemented / touched files:
+
+- `docs/VERSIONING_PLAN.md`: detailed user-approved UTC committer date,
+  first-parent daily sequence, clean-source/immutable metadata rules, V01–V04
+  implementation order, VER-01–08 test matrix and scope exclusions. Updated
+  PRODUCT_SPEC §14.3, ARCHITECTURE §17, IMPLEMENTATION_PLAN, ACCEPTANCE_TESTS,
+  README, `ops/DEPLOYMENT.md` and this handoff without erasing prior history.
+- `src/lib/shared/{build-info,version}.ts`: typed development/release identity,
+  strict version/full-hash/canonical-UTC validation, explicit Development default,
+  frozen build-time SSR/browser constant. `vite.config.ts` and the separate browser
+  fixture config inject it. No runtime env/filesystem/Git/database access in the
+  application accessor; no public endpoint or `/health` change.
+- `scripts/{release-version,image-build,verify-build-metadata}.ts`, package scripts:
+  `npm run version:release`, `npm run image:build -- --platform linux/amd64`
+  (optional arm64 / Podman); reject dirty/untracked non-ignored or shallow/missing
+  history, ignore Git replacement objects, anchor full first-parent timestamps to
+  captured HEAD, count same UTC-date ancestors including target. Git archive takes
+  only committed source, rechecks HEAD/cleanliness, then feeds an immutable private
+  temporary tar to the engine; restrict args, reject submodules, propagate failure,
+  close/delete snapshots. No automatic commits/tags or dependency additions.
+- `ops/Dockerfile`: required version/hash/UTC commit-time build args, real validation
+  CLI before build, matching OCI version/revision/created labels (created = source
+  commit time). No Git/history in runtime and no runtime version override.
+  `compose.yaml`, production env example and release drill/benchmark scripts now
+  pin the printed image version and deploy/task-run with `--no-build`; low-level
+  provenance args are documented, but the supported release path is the clean-Git
+  snapshot wrapper. Existing-Caddy one-app-container local build/save/scp/load/run
+  instructions added. No topology, storage, schema or archive-format change.
+- `Sidebar.svelte` and Settings page: small footer version on desktop/mobile drawer;
+  semantic About section with version, full wrapping hash and UTC commit time (or
+  explicit non-release Development explanation). Native private auth/SSR remains.
+- `tests/unit/build-info.test.ts`, `integration/{release-version,build-metadata}.test.ts`,
+  `e2e/version.test.ts`, tests README and validation Dockerfiles (Git as **test-only**
+  tooling). Two Windows sidebar screenshots updated and opened/reviewed; no geometry,
+  focus, overflow or tag assertions weakened. Real synthetic release desktop/drawer/
+  mobile About screenshots also opened/reviewed. Lockfile/dependency versions unchanged.
+
+Commands actually run:
+
+Host used S00's explicit Node **24.21.0** executable/PATH and npm **11.12.1** CLI
+N/C, with `NODE_TLS_REJECT_UNAUTHORIZED=1`. Logs and diagnostic scripts are ignored
+under `.browser-spike/`, never runtime data or production credentials.
+
+| Command                                                                                                                                                                               | Actual outcome                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Git status/log and relevant docs/source inspection                                                                                                                                    | Clean baseline; existing work preserved                                                                                                                                                                                                                |
+| `npm exec -- prettier --write <changed text files>`                                                                                                                                   | PASS (repeated after test/docs edits)                                                                                                                                                                                                                  |
+| `npm ci`                                                                                                                                                                              | PASS clean host reinstall; **2 low audit advisories**, not the old zero-vulnerability status                                                                                                                                                           |
+| `npm run check`, `npm run lint`                                                                                                                                                       | PASS, zero errors/warnings, ESLint/Prettier clean                                                                                                                                                                                                      |
+| `npm run test:unit`                                                                                                                                                                   | PASS: 22 files / **108** tests                                                                                                                                                                                                                         |
+| `npm run test:integration`                                                                                                                                                            | PASS: 28 files / **173** real tests, including all four Git cases and actual adapter metadata build/server                                                                                                                                             |
+| `npm run build`                                                                                                                                                                       | PASS, production adapter build (Development metadata when no release args supplied)                                                                                                                                                                    |
+| Targeted version unit/Git/build tests                                                                                                                                                 | PASS: 13 new unit and 6 new integration tests                                                                                                                                                                                                          |
+| `npm run test:e2e -- tests/e2e/shell.test.ts tests/e2e/version.test.ts --update-snapshots`                                                                                            | PASS: 7; two intentional desktop footer baselines reviewed, mobile baseline unchanged                                                                                                                                                                  |
+| `npm run test:e2e` (final normal comparisons)                                                                                                                                         | PASS: **95** Chromium tests, including restore/a11y; prior run had 94 pass / 1 screenshot fixture mismatch                                                                                                                                             |
+| `PANDANOTE_VERSION=261006-12 PANDANOTE_COMMIT=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb PANDANOTE_COMMITTED_AT=2026-10-06T12:34:56.000Z npm run test:e2e -- tests/e2e/version.test.ts` | Final PASS: 1 synthetic release UI/no-JS test; first attempt failed an ambiguous hidden drawer selector, corrected                                                                                                                                     |
+| `npm audit`                                                                                                                                                                           | FAIL / report: **2 low** findings, KaTeX GHSA-238p-pmpm-9mq7 + Mermaid dependency chain; proposed force-fix downgrades Mermaid, deliberately not applied                                                                                               |
+| `.browser-spike/verify-version-image.mjs` (pinned Node)                                                                                                                               | Normal production Dockerfile via actual CLI in an isolated clean synthetic Git clone: FAILED prebuild download abort / missing Python compiler fallback                                                                                                |
+| Repeat isolated `node scripts/image-build.ts --engine podman`                                                                                                                         | FAILED npm `ECONNRESET`; no cold-image success claimed                                                                                                                                                                                                 |
+| `.browser-spike/verify-version-image-cached.mjs`                                                                                                                                      | PASS actual CLI/tar/tag build in isolated clean clone, **validation-only** Dockerfile inserts verified S18 Linux npm cache and uses offline clean ci; runtime base/stages/code stay production-shaped                                                  |
+| `.browser-spike/inspect-version-image.mjs`                                                                                                                                            | PASS non-root/no Git/history/tests/docs; OCI metadata equals private desktop/drawer/About; runtime spoof ignored; real native SQLite FTS5, Sharp WebP and Argon2; explicit migrate/setup/run and cleanup                                               |
+| Linux Git-enabled validation-image builds                                                                                                                                             | BLOCKED: HTTP apt download stalls (180 s and 600 s timeouts); HTTPS initially lacked OS CA bundle; temporary public Node/Mozilla roots restored TLS verification but subsequent apt downloads still stalled/timed out. No TLS verification bypass used |
+| `podman build -f .browser-spike/Dockerfile.version-partial-validation -t pandanote-version-partial-validation .`                                                                      | PASS clean offline Linux ci from verified S18 native/browser cache; **offline audit output is not a current audit pass**                                                                                                                               |
+| `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1 pandanote-version-partial-validation`                                                                         | PASS Linux check/lint/build, **108 unit**, **169 integration**, **9 version/a11y e2e**; **four Git cases explicitly EXCLUDED** due missing Git, not a completed Linux gate                                                                             |
+
+Synthetic production-shaped verification image:
+`d2293d2ec4aa167ceb7a2330781890074c4b43e4023c671b67c0b8fe049a933e`,
+tag `pandanote:261007-2`, synthetic clone commit
+`41724aec88220fbd874ce8702f6cc8276c4c0a92`, time
+`2026-10-07T00:00:01.000Z`. This is **not a user-repository release** and must not
+be promoted as one. Only the isolated clone was committed. Cache source was
+`localhost/pandanote-s18-browser-cached:latest` (verified existing Linux modules;
+clean ci reinstalls them, never copies Windows node_modules).
+Partial Linux test image:
+`8bb7fe91f7b7aa9bd0a8239110de88a5321893667cfa6119538973b08d31ad0b`.
+Linux Node 24.21.0 / npm 11.19.0. Actual native archive/restore/process-kill cases
+are among the 169 passing integration tests; the exclusion is only Git derivation.
+
+Intermediate issues / decisions:
+
+- First check found tar-stream event payload typed unknown; narrowed the synthetic
+  test chunk. Final diagnostics zero. Initial exact-text test edit miss applied no
+  changes and was retried safely.
+- The first release UI test matched both visible desktop and hidden drawer footer;
+  scope to the desktop sidebar, then independently test the opened drawer.
+- A targeted shell baseline had no earlier calendar fixtures; the full suite has
+  `#S11calendar(39)`. Reviewed actual/diff and retained the full-suite fixture text
+  in the changed baseline (no new mask or relaxed pixel threshold). Full 95 rerun
+  passes; no unrelated UI behavior was changed.
+- Native/network blockers reproduce previous S11/S12 download issues. Do not add a
+  compiler/upgrade native dependencies/disable TLS just to hide them. Temporary
+  Linux npm cache and public-root bootstrap are validation-only workarounds, not
+  edits to the production Dockerfile. Terminate only this session's orphaned apt
+  processes after harness timeouts; no application/container data was removed.
+- Image version is not byte-for-byte image digest reproducibility. Package 0.0.0,
+  migration ledger and backup format/compatibility are intentionally independent.
+  The wrapper uses only Node built-ins, so local image building needs pinned Node/npm
+  but no host npm ci/native modules. Linux AMD64 was validated; ARM64 was not run.
+- Existing Caddy must have a fixed shared-network peer address; documented exact
+  proxy trust and no published app port. No second Caddy or DB service introduced.
+
+Remaining / exact next task:
+
+1. Fix Linux dependency/apt connectivity and install Git in the validation image.
+   Run all **173** integration cases with no exclusions, plus common gates; retry
+   the unmodified production Dockerfile cold build. Missing Git and failed downloads
+   remain blockers, not passes. Read VERSIONING_PLAN V04 and this entry first.
+2. Review/address the two low KaTeX/Mermaid advisories separately using compatible
+   upstream versions; do not run `npm audit fix --force` or silently change stack.
+3. With user approval, commit these changes. The supported image command correctly
+   refuses the current dirty checkout; do not bypass it or present an old hash for
+   uncommitted code. Build the actual clean commit, inspect OCI labels, verify UI
+   and transfer/load that exact tag. No app data needs a migration for this feature.
+4. S18 real-VPS/public HTTPS/device/IME/screen-reader/Linux visual/performance gates
+   remain open; the version enhancement does not close them.
+5. First next validation command: `podman build -f ops/Dockerfile.validation
+-t pandanote-version-native . && podman run --rm --cpus=2 --memory=4g
+pandanote-version-native`; then affected release UI and exact-commit image.
+
+Final documentation-only close: formatted VERSIONING_PLAN/PROGRESS/README/deployment
+instructions; `npm run check`, `npm run lint`, `npm run build` and `git diff --check`
+PASS. Host `.e2e-data` cleanup and unchanged `package-lock.json` verified. Actual
+`npm run image:build -- --platform linux/amd64` on the current checkout produces the
+**expected exit 1 / Dirty working tree refusal**, before invoking an engine. This
+is validation of rejection, not an image-build pass. This session's last orphaned
+apt process was terminated. No application/test source changed after the passing
+full Windows and explicitly partial Linux gates.

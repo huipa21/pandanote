@@ -3,5 +3,7 @@
 FROM docker.io/library/node:24.21.0-bookworm-slim@sha256:5cbc7caba8c2c0f0bca675d1b61b9f2857e1cf1853c6164ee9dd409501a936e7
 WORKDIR /app
 COPY . .
-RUN npm ci
+# Git is test/build tooling only (real temporary-repository version tests).
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* && npm ci
 CMD ["sh", "-c", "node --version && npm --version && npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build"]

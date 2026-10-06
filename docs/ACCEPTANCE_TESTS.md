@@ -254,6 +254,14 @@ These are engineering targets, not previously measured promises. Record hardware
 
 Use warm/cold runs and p50/p95; report short queries explicitly rather than hiding them in averaged English results. Verify useful writing/search remains responsive during bounded processing/backup operations.
 
+## Release versioning enhancement
+
+VER-01–08 in [VERSIONING_PLAN.md](VERSIONING_PLAN.md) define the approved additional
+acceptance gate: deterministic UTC committer-date/first-parent numbering; clean and
+complete Git history; immutable committed-source builds; tag/OCI/SSR/browser equality;
+no runtime override or restore coupling; responsive sidebar/drawer/About; explicit
+Development builds and rejection of missing/invalid production metadata.
+
 ## 13. Final verification record
 
 At S18, record in PROGRESS or a linked results file:

@@ -1537,3 +1537,20 @@ accessible name (now `aria-label` "Completed/Open task: …", added after saniti
 and the tag-autocomplete textarea referenced a non-existent listbox through
 `aria-controls` (now set only while the listbox exists). Reflow at 200%/400% zoom,
 reduced motion, visible focus and dialog focus containment/restoration are asserted.
+
+## 17. Commit-derived release metadata (approved enhancement)
+
+See [VERSIONING_PLAN.md](VERSIONING_PLAN.md) for the ordered implementation and acceptance contract.
+Build tooling derives `YYMMDD-N` from the UTC committer date and same-date first-parent
+ancestry of a captured clean, non-shallow Git commit. The full hash and canonical UTC
+commit timestamp accompany the readable version. No current-branch/global daily count,
+author date, host timezone, build clock or mutable registry participates.
+
+The local image wrapper archives committed source into an immutable temporary tar,
+rechecks HEAD/cleanliness and passes metadata to the production Dockerfile. OCI
+version/revision/created labels and Vite-injected SSR/client constants use identical
+values; created means commit time. Missing/invalid production metadata fails the build.
+Ordinary non-release builds explicitly use Development. The final image needs no Git,
+Git history or runtime metadata environment. Sidebar/drawer and Settings About consume
+only public typed constants; no new endpoint/database state or authorization exception.
+Release identity does not change schema/archive compatibility or data restore semantics.

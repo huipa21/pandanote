@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 import type { Adapter } from '@sveltejs/kit';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { buildInfoFromEnvironment } from './src/lib/shared/build-info.ts';
 
 // Adapter 6 removed runtime ORIGIN and otherwise infers HTTPS from Host. Keep
 // the domain deployment-configurable while retaining Kit's built-in form CSRF
@@ -43,6 +44,9 @@ function runtimeOriginAdapter(): Adapter {
 }
 
 export default defineConfig({
+  define: {
+    __PANDANOTE_BUILD__: JSON.stringify(buildInfoFromEnvironment(process.env)),
+  },
   plugins: [
     sveltekit({
       adapter: runtimeOriginAdapter(),

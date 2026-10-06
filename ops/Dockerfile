@@ -5,12 +5,16 @@
 ARG NODE_IMAGE=docker.io/library/node:24.21.0-bookworm-slim@sha256:5cbc7caba8c2c0f0bca675d1b61b9f2857e1cf1853c6164ee9dd409501a936e7
 
 FROM ${NODE_IMAGE} AS build
+ARG PANDANOTE_VERSION
+ARG PANDANOTE_COMMIT
+ARG PANDANOTE_COMMITTED_AT
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 COPY . .
 # ORIGIN is read at runtime; the build needs no domain, DATA_DIR or secret.
-RUN npm run build
+# Reject missing/partial provenance; use `npm run image:build` from clean Git.
+RUN node scripts/verify-build-metadata.ts && npm run build
 
 FROM ${NODE_IMAGE} AS production-deps
 WORKDIR /app
@@ -20,6 +24,14 @@ RUN npm pkg delete scripts.prepare \
     && npm ci --omit=dev
 
 FROM ${NODE_IMAGE} AS runtime
+ARG PANDANOTE_VERSION
+ARG PANDANOTE_COMMIT
+ARG PANDANOTE_COMMITTED_AT
+# `created` records the UTC source commit time, not the build clock.
+LABEL org.opencontainers.image.title="PandaNote" \
+    org.opencontainers.image.version="${PANDANOTE_VERSION}" \
+    org.opencontainers.image.revision="${PANDANOTE_COMMIT}" \
+    org.opencontainers.image.created="${PANDANOTE_COMMITTED_AT}"
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \

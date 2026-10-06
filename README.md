@@ -74,10 +74,12 @@ explicit one-shot operator tasks. Full guide: **[`ops/DEPLOYMENT.md`](ops/DEPLOY
 
 ```sh
 cp ops/production.env.example .env && chmod 600 .env     # set DOMAIN and ORIGIN
-docker compose build
-docker compose --profile ops run --rm migrate           # app stopped; explicit
-docker compose --profile ops run --rm -T setup-token    # one-time token, shown only here
-docker compose up -d
+# Requires pinned Node/npm + Docker; no host npm ci is needed for this wrapper.
+npm run image:build -- --platform linux/amd64           # clean/full Git checkout
+# Set .env PANDANOTE_TAG to the printed version (YYMMDD-N).
+docker compose --profile ops run --rm --no-build migrate        # app stopped; explicit
+docker compose --profile ops run --rm --no-build -T setup-token # one-time token
+docker compose up -d --no-build
 ```
 
 Then open `https://<DOMAIN>/setup`, create the account, enable TOTP and download a
@@ -85,6 +87,28 @@ manual backup. The guide documents environment variables, upgrade/rollback,
 operator recovery, log/space inspection, graceful shutdown, manual backup/restore,
 security checklist and the two verification drills (`ops/release-drill.sh`,
 `ops/release-benchmark.sh`). Measurements and evidence: [`docs/RELEASE_RESULTS.md`](docs/RELEASE_RESULTS.md).
+
+### Versioned image and existing Caddy
+
+PandaNote needs **one app container** in addition to your existing Caddy; Node serves
+the frontend/backend and SQLite needs no separate container. Build locally with
+`npm run image:build -- --platform linux/amd64` (or `linux/arm64` for an ARM VPS).
+The command rejects dirty or shallow Git checkouts, snapshots only committed source
+and auto-tags `pandanote:YYMMDD-N`. Inspect the computed version first with
+`npm run version:release`.
+
+The date is the **UTC committer date**, and N counts same-day first-parent ancestors
+including that commit. Rebuilding the same hash preserves the version. OCI image
+labels and the app sidebar/mobile drawer footer + Settings → About show identical
+version/commit metadata; normal development builds show Development. Source Git
+history is not shipped, and runtime environment/data restores cannot override it.
+
+For local image export, use `docker image save -o pandanote-image.tar pandanote:<version>`,
+transfer with `scp`, then `docker image load -i pandanote-image.tar` on the server.
+Connect PandaNote to your existing Caddy network with its fixed proxy IP; no bundled
+proxy is needed. Exact build/transfer/run/Caddy and upgrade instructions:
+[`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md#build-locally-transfer-the-image-use-your-existing-caddy).
+Detailed rules and verification: [`docs/VERSIONING_PLAN.md`](docs/VERSIONING_PLAN.md).
 
 ## Private persistence initialization (S01)
 
