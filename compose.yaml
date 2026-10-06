@@ -2,7 +2,7 @@
 # with one persistent private data volume. See ops/DEPLOYMENT.md.
 #
 #   cp ops/production.env.example .env     # edit DOMAIN/ORIGIN, keep it private
-#   npm run image:build                 # clean Git; set PANDANOTE_TAG to printed version
+#   npm run image:build                 # clean Git; auto Docker/Podman, latest + version tags
 #   docker compose --profile ops run --rm --no-build migrate
 #   docker compose --profile ops run --rm --no-build --no-deps -T setup-token # one-time token
 #   docker compose up -d --no-build
@@ -12,13 +12,13 @@
 name: ${COMPOSE_PROJECT_NAME:-pandanote}
 
 x-app: &app-base
-  image: pandanote:${PANDANOTE_TAG:-local}
+  image: pandanote:${PANDANOTE_TAG:-latest}
   build:
     context: .
     dockerfile: ops/Dockerfile
     # Low-level builds require metadata; prefer the clean-source image wrapper.
     args:
-      PANDANOTE_VERSION: ${PANDANOTE_TAG:-}
+      PANDANOTE_VERSION: ${PANDANOTE_VERSION:-}
       PANDANOTE_COMMIT: ${PANDANOTE_COMMIT:-}
       PANDANOTE_COMMITTED_AT: ${PANDANOTE_COMMITTED_AT:-}
   environment: &app-env

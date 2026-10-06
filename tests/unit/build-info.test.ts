@@ -5,7 +5,10 @@ import {
   releaseBuildInfo,
   utcVersionDate,
 } from '../../src/lib/shared/build-info.ts';
-import { imageBuildOptions } from '../../scripts/image-build.ts';
+import {
+  imageBuildOptions,
+  resolveImageEngine,
+} from '../../scripts/image-build.ts';
 
 const hash = 'a'.repeat(40);
 const instant = '2026-10-06T00:00:00.000Z';
@@ -58,7 +61,7 @@ describe('release metadata contract', () => {
   });
   it('restricts image options; arbitrary flags cannot override metadata', () => {
     expect(imageBuildOptions([])).toEqual({
-      engine: 'docker',
+      engine: 'auto',
       platform: 'linux/amd64',
     });
     expect(
@@ -71,5 +74,38 @@ describe('release metadata contract', () => {
       ['--engine', 'docker', '--engine', 'podman'],
     ])
       expect(() => imageBuildOptions(args)).toThrow();
+  });
+  it('auto-selects a working engine, preferring Docker and falling back to Podman', () => {
+    const calls: string[] = [];
+    expect(
+      resolveImageEngine('auto', (engine) => {
+        calls.push(engine);
+        return undefined;
+      }),
+    ).toBe('docker');
+    expect(calls).toEqual(['docker']);
+    calls.length = 0;
+    expect(
+      resolveImageEngine('auto', (engine) => {
+        calls.push(engine);
+        return engine === 'docker' ? 'daemon unavailable' : undefined;
+      }),
+    ).toBe('podman');
+    expect(calls).toEqual(['docker', 'podman']);
+  });
+  it('honors explicit engines and reports missing/stopped engines actionably', () => {
+    expect(imageBuildOptions(['--engine', 'auto']).engine).toBe('auto');
+    const calls: string[] = [];
+    expect(() =>
+      resolveImageEngine('docker', (engine) => {
+        calls.push(engine);
+        return 'spawn ENOENT';
+      }),
+    ).toThrow(/docker: spawn ENOENT/);
+    expect(calls).toEqual(['docker']);
+    expect(() =>
+      resolveImageEngine('auto', () => 'connection refused'),
+    ).toThrow(/podman machine start/);
+    expect(resolveImageEngine('podman', () => undefined)).toBe('podman');
   });
 });

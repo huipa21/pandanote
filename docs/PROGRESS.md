@@ -4,13 +4,25 @@
 
 - **Phase:** S18 deployment/accessibility/measurement implemented and locally verified; **release gate NOT fully closed** (no real VPS, physical-device or screen-reader audit). S18 is committed; the approved version enhancement is implemented but its final validation remains **blocked / in progress**.
 - **Completed steps:** S00–S17 — **done**. S18 — **in progress / locally verified** (see tracker and `docs/RELEASE_RESULTS.md`).
-- **Repository:** HEAD `4828cb0` (S18 committed externally). Commit-derived version enhancement is **in progress**, per user-approved `docs/VERSIONING_PLAN.md`; no enhancement commit created by this agent.
+- **Repository:** Session baseline HEAD `25c3341` (prior version work committed externally). Follow-up image-builder patch is **implemented / Linux build validation blocked**; no commit created by this agent.
 - **Implemented in S18:** `ops/Dockerfile` (3-stage, pinned Node 24.21.0 bookworm, non-root, read-only-compatible), `compose.yaml` (app + Caddy proxy + networkless `ops` tasks migrate/setup-token/recover-auth/reindex), `ops/Caddyfile`, `ops/production.env.example`, `ops/DEPLOYMENT.md`, readiness-aware `/health`, `ops/release-drill.sh` + `ops/release-benchmark.sh` with `tests/release/` and `playwright.release.config.ts`, `tests/e2e/zzzaccessibility.test.ts` (axe-core 4.13.0 dev dependency), `tests/integration/release-hygiene.test.ts`, a11y fixes (task checkboxes, `aria-controls`), README rewritten to actual install/test instructions, ARCHITECTURE §16.
 - **Validation:** Windows check/lint/build, 95 unit + 167 integration, 94 Chromium e2e pass; Linux clean `npm ci`, check/lint/unit/integration/build + 88 e2e (all except Windows-only visual `shell.test.ts`) pass; two-domain web-restore drill with TOTP/recovery code, graceful stop (exit 0) and restart persistence pass; 10k-note benchmark meets budgets. Details and measured numbers: `docs/RELEASE_RESULTS.md`.
 - **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
 - **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
 
 ## Active enhancement: commit-derived release versioning
+
+**Latest follow-up (2026-10-06):** user requested native compilation fallback,
+`pandanote:latest` on every build and automatic Docker/Podman selection. Patched
+both dependency stages with CA/Python/make/g++, retained a small runtime, added
+bounded server probes and latest + version tags, and made Compose default to
+latest with independent provenance build args. Host check/lint/build, **110 unit +
+173 integration** and both Development/synthetic-release version e2e pass. Actual
+auto-selection chose Podman in an isolated clean snapshot, but the unmodified
+production Dockerfile stalled downloading Debian package indexes (240 s timeout).
+No Linux image/native-source-build success claimed. See the final handoff entry.
+Next: restore container apt/npm/Node-header connectivity and build the patched
+Dockerfile; then commit with user approval and build/inspect the exact release.
 
 User approved UTC committer date + same-day first-parent sequence (`YYMMDD-N`),
 clean-source image builds, identical image/web metadata, sidebar/drawer footer and
@@ -2930,3 +2942,83 @@ PASS. Host `.e2e-data` cleanup and unchanged `package-lock.json` verified. Actua
 is validation of rejection, not an image-build pass. This session's last orphaned
 apt process was terminated. No application/test source changed after the passing
 full Windows and explicitly partial Linux gates.
+
+### Session 2026-10-06 — Latest image alias, engine detection and native build fallback
+
+**State: implemented / Linux image validation blocked.** Started clean at
+`25c3341`; user explicitly requested this follow-up. No user-repository commit
+created. This supersedes the earlier default version-only tag/Docker-only selection
+and the earlier preference against adding compilers; prior history is preserved.
+S18 and the version enhancement's Linux/release gate remain open.
+
+Implemented / touched files:
+
+- `ops/Dockerfile`: CA certificates, Python 3, make and g++ before npm ci in both
+  build and production-deps stages; runtime remains independent and non-root with
+  no added compiler packages. Allows node-gyp fallback when native prebuilds fail;
+  download connectivity is still required.
+- `scripts/image-build.ts`: default auto detection probes Docker then Podman server
+  readiness via `info` with 15 s per-engine timeout; explicit docker/podman/auto
+  overrides. Missing/stopped engines report diagnostics and startup instructions.
+  Actual build spawn errors now include their cause. No engine retry after a build
+  failure. Successful builds apply `pandanote:latest` and the versioned tag to one
+  image, preserving commit-derived OCI/SSR/browser version/hash/time and immutable
+  clean committed-source archives.
+- `compose.yaml`, `ops/production.env.example`: latest is the default image tag;
+  low-level `PANDANOTE_VERSION` is separate from `PANDANOTE_TAG` (latest is never
+  valid release metadata). Existing drill/benchmark harnesses retain version pins.
+- Unit `build-info` and integration `release-version`/`release-hygiene` tests cover
+  detection preference/fallback/overrides/missing engines, both tags, Podman Docker
+  format, metadata arguments, dirty-source rejection before detection and tools in
+  both install stages only.
+- README, deployment guide, PRODUCT_SPEC, ARCHITECTURE, ACCEPTANCE_TESTS,
+  VERSIONING_PLAN and this progress: latest vs embedded identity, Docker-compatible
+  Podman save/load, image inspection, version pinning before overwriting latest,
+  stopped-app migrations and explicit container recreation on upgrade.
+
+Commands actually run (Node 24.21.0 executable and PATH, npm CLI from S00;
+`NODE_TLS_REJECT_UNAUTHORIZED=1`):
+
+- `npm exec -- prettier --write <changed text files>`: PASS.
+- `npm run check`: PASS, zero errors/warnings.
+- `npm run lint`: PASS.
+- `npm run test:unit`: PASS, 22 files / **110 tests**.
+- `npm run test:integration`: PASS, 28 files / **173 tests**, including all host Git
+  and actual SQLite/filesystem/server/archive regressions (203.48 s).
+- `npm run build`: PASS (log `.browser-spike/image-wrapper-build.log`); existing
+  lazy chunk-size warnings remain.
+- `npm run test:e2e -- tests/e2e/version.test.ts`: PASS, one Chromium Development
+  sidebar/drawer/no-JS About case.
+- `PANDANOTE_VERSION=261006-12 PANDANOTE_COMMIT=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb PANDANOTE_COMMITTED_AT=2026-10-06T12:34:56.000Z npm run test:e2e -- tests/e2e/version.test.ts`:
+  PASS, one synthetic release UI case. Full e2e not rerun (no UI source changes).
+- `podman info --format '{{.Host.Arch}}'`: PASS, amd64.
+- `node .browser-spike/verify-latest-image.mjs`: **BLOCKED / timeout after 240 s**.
+  Ignored harness created/committed only an isolated temporary clone, then ran the
+  actual wrapper with auto detection and unmodified patched Dockerfile. Selected
+  Podman correctly and passed latest + synthetic version metadata; build stalled
+  on `apt-get update`, at Debian main package-index download, before npm ci. Log:
+  `.browser-spike/latest-image.log`; context path recorded in
+  `.browser-spike/latest-image-context.json`. Synthetic commit
+  `eb846f4c0583bbecb06def9794cea56ef0dad8df`, version `261007-1`, is NOT a release.
+  No completed image or native source-compilation validation claimed. After the
+  harness timeout, terminated only this build's orphaned apt/sh PIDs 51093/51016.
+- `git diff --check`: PASS; expected Windows autocrlf warnings only. Host e2e data
+  cleaned; a generated `NUL` file from tooling removed (absent at session start).
+
+Remaining / exact next task:
+
+1. Read patched `ops/Dockerfile`, `scripts/image-build.ts`, deployment guide and
+   VERSIONING_PLAN V04. Restore Linux apt/npm/Node-header network access. In the
+   existing isolated clean context rerun `node scripts/image-build.ts` on Node
+   24.21.0; verify both tags share an image ID, OCI labels equal private web UI,
+   and run actual Linux SQLite/Sharp/Argon2/native restore tests. Exercise node-gyp
+   source fallback as well as ordinary installs; host passes are insufficient.
+2. With user approval commit the repository changes; run
+   `npm run image:build -- --platform linux/amd64` on the actual clean commit.
+   Do not bypass dirty-source rejection, publish the synthetic context or claim
+   the stalled build passed. No schema/data migration needed for these changes.
+3. On a Podman build machine export `podman save --format docker-archive -o
+pandanote-image.tar pandanote:latest`; server Docker loads and inspects labels.
+   Retain the old inspected version tag/image ID before overwriting latest.
+4. S18 real-VPS/public HTTPS/device/accessibility and the earlier Linux Git/cold
+   build gates remain open. No dependency/lockfile or UI/auth/storage change.

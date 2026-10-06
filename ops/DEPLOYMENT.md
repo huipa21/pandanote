@@ -32,9 +32,9 @@ git checkout <release tag or commit>
 cp ops/production.env.example .env
 chmod 600 .env
 $EDITOR .env          # set DOMAIN and ORIGIN
-# Requires Node 24.21.0 + npm 11 + Docker on the build machine (no host npm ci).
+# Requires Node 24.21.0 + npm 11 + Docker or Podman (no host npm ci).
 npm run image:build -- --platform linux/amd64
-$EDITOR .env          # set PANDANOTE_TAG to the printed YYMMDD-N version
+# .env defaults to PANDANOTE_TAG=latest; optionally pin the printed YYMMDD-N tag.
 ```
 
 Initialize storage explicitly, while the app is **not** running:
@@ -67,18 +67,25 @@ HTTP is accepted only for loopback development origins.
 
 You need **one additional long-running container**, PandaNote. SQLite, private files
 and the Node HTTP server are inside it; your existing Caddy remains independent.
-Build on a clean, complete Git checkout with Node 24.21.0/npm 11 and Docker Engine
-(Docker Desktop must be in Linux-container mode on Windows):
+Build on a clean, complete Git checkout with Node 24.21.0/npm 11 and Docker or
+Podman (Docker Desktop must use Linux containers on Windows; start the Podman
+machine with `podman machine start` if using Podman):
 
 The wrapper uses only Node built-ins; **no host `npm ci` is needed**. Native
-app dependencies are installed inside the Linux image. ARM64 command support is
+app dependencies are installed inside the Linux image. Python, make, g++ and CA
+certificates are installed in both dependency stages so native addons can compile
+when prebuilt downloads are unavailable; the runtime has no added build tools.
+Compilation still requires working package/Node-header download connectivity.
+ARM64 command support is
 provided, but only Linux AMD64 was validated in this session.
 
 ```sh
 npm run version:release                           # prints version/hash/UTC commit time
-npm run image:build -- --platform linux/amd64      # auto-tag pandanote:YYMMDD-N
+npm run image:build -- --platform linux/amd64      # latest + YYMMDD-N tags
 # ARM64 VPS instead: --platform linux/arm64
-# Validation alternative: append --engine podman
+# Auto-detects a working Docker server, then Podman (15 s probe timeout each).
+# Explicit override: append --engine docker or --engine podman.
+# Engine/build failure is reported; a failed build is not retried with another engine.
 ```
 
 Staged/unstaged changes and non-ignored untracked files fail **before** Docker runs.
@@ -89,17 +96,24 @@ The version date is UTC **committer** time; sequence counts same-day first-paren
 ancestors. Rebuilding an old commit never uses today's date. See
 [`docs/VERSIONING_PLAN.md`](../docs/VERSIONING_PLAN.md) for exact semantics.
 
-Replace the example tag below with the tag the build actually printed:
+Every successful build updates `pandanote:latest` and also creates the printed
+versioned tag. The version is still embedded metadata, not the word "latest".
+Export with whichever engine built the image (no binary pipes, PowerShell-safe):
 
 ```sh
-TAG=261006-1
-# Uncompressed export works in PowerShell, cmd and POSIX shells without binary pipes.
-docker image save -o pandanote-image.tar pandanote:$TAG
+# Docker build machine:
+docker image save -o pandanote-image.tar pandanote:latest
+# OR Podman build machine, Docker-compatible export:
+podman save --format docker-archive -o pandanote-image.tar pandanote:latest
 scp pandanote-image.tar user@server:/path/to/destination/
-# On the server (no Node/npm/source checkout needed for this workflow):
+# On the Docker server (no Node/npm/source checkout needed):
 docker image load -i /path/to/destination/pandanote-image.tar
-docker image inspect pandanote:$TAG --format '{{json .Config.Labels}}'
+docker image inspect pandanote:latest --format '{{json .Config.Labels}}'
 ```
+
+For the POSIX server commands below, use `TAG=latest`, or retag/pin the loaded
+image using its inspected version (`docker tag pandanote:latest pandanote:<version>`)
+and set `TAG=<version>`. Exporting only latest does not transfer its other tags.
 
 OCI labels are `org.opencontainers.image.version`, `.revision` (full Git hash), and
 `.created` (**UTC commit time**, not build time). The same values are baked into the
@@ -140,14 +154,17 @@ Never run two app instances on the same volume. On upgrades, stop/remove only th
 old **container**, preserve the volume, run migrations with the new image, and
 start the new image; make/download the pre-upgrade backup first.
 
-For the bundled Compose stack, set `PANDANOTE_TAG` to the loaded version in `.env`
-and use `--no-build`. Ordinary deployment needs no provenance environment variables.
-Low-level Docker/Compose builds require all three build arguments
-`PANDANOTE_VERSION` (`PANDANOTE_TAG` in Compose), `PANDANOTE_COMMIT`, and
+For the bundled Compose stack, use `PANDANOTE_TAG=latest` (the default) or a pinned
+loaded version in `.env`, and use `--no-build`. Ordinary deployment needs no
+provenance environment variables. Low-level Docker/Compose builds require all
+three build arguments `PANDANOTE_VERSION` (separate from the mutable image tag),
+`PANDANOTE_COMMIT`, and
 `PANDANOTE_COMMITTED_AT`. Missing/invalid values fail; these low-level primitives
 cannot prove that caller-supplied metadata describes the source, so the supported
 release path is **`npm run image:build`**, which enforces clean Git and snapshots it.
-Do not use `latest` or overwrite a version tag with different source.
+`latest` is intentionally mutable. Before loading a replacement, retain the old
+image under its inspected version or image ID for rollback. Do not overwrite a
+versioned tag with different source.
 
 ### Environment reference
 
@@ -160,7 +177,7 @@ Do not use `latest` or overwrite a version tag with different source.
 | `DISK_RESERVE_BYTES`                        | Optional override of the free-space reserve protecting the volume.                                                                     |
 | `APP_MEM_LIMIT`, `APP_CPUS`                 | Container limits (default 3g / 2). Node's heap is capped at 1536 MiB.                                                                  |
 | `HTTP_PORT`, `HTTPS_PORT`                   | Published proxy ports (80/443). Only the proxy publishes ports; the app listens on 3000 inside the private network.                    |
-| `PANDANOTE_TAG`                             | Image tag; set a release tag to pin/rollback.                                                                                          |
+| `PANDANOTE_TAG`                             | Image tag; defaults to latest, or set a versioned tag to pin/rollback.                                                                 |
 | `CADDY_TLS_DIRECTIVE`                       | Leave empty. `tls internal` is for local drills only (untrusted certificate).                                                          |
 
 `DATA_DIR` is always `/data` in the container (named volume `pandanote-data`).
@@ -209,12 +226,12 @@ recovery exist for crashes, not as a routine stop method.
 
 1. Create a **manual backup in Settings and download it off-server.**
 2. `git fetch && git checkout <new tag>`; review `docs/PROGRESS.md`/release notes.
-3. On the clean build checkout, run `npm run image:build`; transfer/load the image if building locally, then set `.env` `PANDANOTE_TAG` to the new printed version.
+3. Before loading a new image, inspect the current `pandanote:latest` labels and tag it with its old version for rollback (`docker tag pandanote:latest pandanote:<old-version>`). On the clean build checkout, run `npm run image:build`; transfer/load the new image and inspect its labels. Keep `.env` `PANDANOTE_TAG=latest` or pin the new version. Loading the image does not update an already running container.
 4. Stop the app and migrate while nothing else writes:
    ```sh
    docker compose stop app
    docker compose --profile ops run --rm --no-build migrate
-   docker compose up -d --no-build
+   docker compose up -d --no-build --force-recreate app
    docker compose ps       # wait for healthy
    ```
 5. Sign in and spot-check recent notes, a download, Drafts/Trash and Settings.

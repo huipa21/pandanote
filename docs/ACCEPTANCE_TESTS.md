@@ -258,7 +258,10 @@ Use warm/cold runs and p50/p95; report short queries explicitly rather than hidi
 
 VER-01–08 in [VERSIONING_PLAN.md](VERSIONING_PLAN.md) define the approved additional
 acceptance gate: deterministic UTC committer-date/first-parent numbering; clean and
-complete Git history; immutable committed-source builds; tag/OCI/SSR/browser equality;
+complete Git history; immutable committed-source builds; latest/version alias identity
+and OCI/SSR/browser version equality; automatic usable-engine detection with explicit
+overrides and actionable missing-engine failures; native source-build prerequisites
+in both install stages but not runtime;
 no runtime override or restore coupling; responsive sidebar/drawer/About; explicit
 Development builds and rejection of missing/invalid production metadata.
 

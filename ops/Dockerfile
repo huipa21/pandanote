@@ -5,6 +5,11 @@
 ARG NODE_IMAGE=docker.io/library/node:24.21.0-bookworm-slim@sha256:5cbc7caba8c2c0f0bca675d1b61b9f2857e1cf1853c6164ee9dd409501a936e7
 
 FROM ${NODE_IMAGE} AS build
+# Native addons can fall back to node-gyp when a prebuilt download is unavailable.
+# Keep the compiler/Python/CA bundle in install stages only, never in runtime.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 ARG PANDANOTE_VERSION
 ARG PANDANOTE_COMMIT
 ARG PANDANOTE_COMMITTED_AT
@@ -17,6 +22,9 @@ COPY . .
 RUN node scripts/verify-build-metadata.ts && npm run build
 
 FROM ${NODE_IMAGE} AS production-deps
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 # `prepare` runs svelte-kit sync (a dev dependency) and is not needed in production.

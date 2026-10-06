@@ -20,7 +20,7 @@ Authority: user decisions in the versioning interview, then PRODUCT_SPEC and ARC
 - The same hash and complete, unmodified Git history always yield the same version. Later descendants cannot renumber an older commit. Amending/rebasing changes commit identity; date/sequence is not globally unique across branches or rewritten history. Store the full hash alongside the readable version.
 - Reject staged changes, unstaged changes and untracked **non-ignored** files for release image builds. Ignored `.env`, build output and runtime data neither block builds nor enter the source snapshot.
 - Reject missing Git history and shallow checkouts rather than inventing a sequence. Do not use Git replacement objects when deriving provenance.
-- The image tag is `pandanote:<version>`. Standard OCI version/revision/created labels contain the readable version, full hash and **UTC commit time**, respectively. `created` is the source commit time, not wall-clock build time.
+- Per the user's follow-up, every build tags `pandanote:latest` and `pandanote:<version>`. `latest` is a mutable convenience alias, not release metadata. The wrapper probes running Docker then Podman automatically, with optional `--engine docker|podman|auto` override. Both install stages include native compilation prerequisites, excluded from runtime. Standard OCI version/revision/created labels contain the readable version, full hash and **UTC commit time**, respectively. `created` is the source commit time, not wall-clock build time.
 - Embed identical public metadata into the SSR and browser application at build time. Runtime environment changes, restarts, domain changes and data restores cannot override it. Git and `.git` are not needed in the final image.
 - Show a small version label at the sidebar footer and the mobile drawer footer. Settings → About shows version, full commit and UTC commit time. No version is added to public login/setup or `/health`.
 - Ordinary local development and non-release `npm run build` remain possible, explicitly labeled **Development**, not falsely labeled as a clean release.
@@ -44,9 +44,9 @@ The date rule is UTC even though the original Git timestamps use `+08:00`.
 
 ### V02 — Safe single-command image build
 
-1. Add `npm run image:build -- --platform linux/amd64` (default platform `linux/amd64`; optional `linux/arm64` and `--engine podman` for the validation environment).
+1. Add `npm run image:build -- --platform linux/amd64` (default platform `linux/amd64`; optional `linux/arm64`; auto Docker/Podman detection with explicit engine override).
 2. Derive metadata, capture **only committed source** with `git archive` into an OS temporary directory, and recheck cleanliness/HEAD before invoking the engine. Build from that immutable tar snapshot, not mutable working-tree files; this prevents ignored-file inclusion and source/metadata races.
-3. Use `ops/Dockerfile`, auto-tag `pandanote:<version>` and pass the version/hash/UTC commit time as build arguments. Do not accept arbitrary arguments that can override provenance. Propagate engine failures; always close handles and delete temporary snapshots.
+3. Use `ops/Dockerfile`, tag both `pandanote:latest` and `pandanote:<version>` and pass the version/hash/UTC commit time as build arguments. Do not accept arbitrary arguments that can override provenance. Propagate engine failures; always close handles and delete temporary snapshots.
 4. Require complete validated release metadata in the production Dockerfile; direct Docker/Compose builds without metadata fail with an actionable error instead of publishing Development as a release. Add OCI labels without shipping Git history or adding runtime environment overrides.
 5. Add Compose build-argument plumbing for explicitly documented low-level builds; recommend the versioned image command plus `docker compose ... --no-build` for deployment. Adapt release verification harnesses to the versioned workflow.
 6. Integration tests use temporary real Git repositories and a typed recording engine boundary to verify tag/arguments/committed tar, ignored files, no engine call on dirty state and failure propagation. Exercise actual CLI rejection separately, then the actual CLI/engine on a clean synthetic container-verification snapshot. This avoids introducing shell-based mock executables on Windows.
@@ -67,16 +67,16 @@ The date rule is UTC even though the original Git timestamps use `+08:00`.
 
 ## Acceptance matrix
 
-| ID     | Requirement                                                            | Verification                                                                     |
-| ------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| VER-01 | UTC committer date and first-parent daily count                        | Pure unit fixtures and real Git repositories, including offset dates and a merge |
-| VER-02 | Same commit stable across rebuilds/later descendants/host timezone     | Old-commit derivation and repeated CLI tests                                     |
-| VER-03 | Dirty, missing and shallow sources fail clearly                        | Real CLI tests; engine must not be invoked                                       |
-| VER-04 | Committed source, no ignored data; engine errors propagate             | Immutable-tar integration and synthetic container build                          |
-| VER-05 | Image tag, OCI labels, SSR and hydrated UI agree                       | Container inspect plus browser/SSR tests                                         |
-| VER-06 | No runtime override, Git requirement, schema/restore identity coupling | Build-level contract, image inspection and code review                           |
-| VER-07 | Sidebar/drawer/About responsive, accessible; dev clearly labeled       | Desktop/mobile/no-JS Playwright and accessibility regressions                    |
-| VER-08 | Release Dockerfile rejects missing/partial/invalid metadata            | Actual validation CLI and production build checks                                |
+| ID     | Requirement                                                                    | Verification                                                                     |
+| ------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| VER-01 | UTC committer date and first-parent daily count                                | Pure unit fixtures and real Git repositories, including offset dates and a merge |
+| VER-02 | Same commit stable across rebuilds/later descendants/host timezone             | Old-commit derivation and repeated CLI tests                                     |
+| VER-03 | Dirty, missing and shallow sources fail clearly                                | Real CLI tests; engine must not be invoked                                       |
+| VER-04 | Committed source, no ignored data; engine errors propagate                     | Immutable-tar integration and synthetic container build                          |
+| VER-05 | Latest/version tags reference one image; OCI labels, SSR and hydrated UI agree | Container inspect plus browser/SSR tests                                         |
+| VER-06 | No runtime override, Git requirement, schema/restore identity coupling         | Build-level contract, image inspection and code review                           |
+| VER-07 | Sidebar/drawer/About responsive, accessible; dev clearly labeled               | Desktop/mobile/no-JS Playwright and accessibility regressions                    |
+| VER-08 | Release Dockerfile rejects missing/partial/invalid metadata                    | Actual validation CLI and production build checks                                |
 
 ## Scope exclusions and limits
 

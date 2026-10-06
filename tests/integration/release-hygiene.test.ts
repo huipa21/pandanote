@@ -108,6 +108,16 @@ describe('deployment artifacts', () => {
     for (const forbidden of ['tests', 'docs', '.env', 'ops/', 'playwright'])
       for (const line of copies) expect(line).not.toContain(forbidden);
     expect(runtime).toMatch(/DATA_DIR=\/data/);
+    expect(runtime).not.toMatch(/apt-get|python3|g\+\+/);
+    for (const stage of ['build', 'production-deps']) {
+      const install = docker.split(`AS ${stage}\n`)[1].split('\nFROM ')[0];
+      expect(install).toMatch(
+        /apt-get install .*ca-certificates python3 make g\+\+/,
+      );
+      expect(install.indexOf('apt-get install')).toBeLessThan(
+        install.indexOf('npm ci'),
+      );
+    }
     for (const secret of ['.env', 'data/', '*.pnb', '*.sqlite', 'backups/'])
       expect(ignore, secret).not.toContain(`!${secret}`);
     expect(ignore[1]).toBe('**'); // allowlist, not denylist

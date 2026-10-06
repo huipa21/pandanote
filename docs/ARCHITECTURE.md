@@ -1498,7 +1498,9 @@ three stages: build (full `npm ci` + `vite build`), production dependencies
 built for Linux/glibc inside the image) and runtime (build output, production
 `node_modules`, `migrations/`, `src/lib` and only the four operator scripts — no tests,
 docs, fixtures, dev dependencies or `.env`). The base image is the same digest-pinned
-Node 24.21.0 bookworm image as the validation images.
+Node 24.21.0 bookworm image as the validation images. Both dependency-install
+stages add CA certificates, Python 3, make and g++ for native-addon source-build
+fallback; none of these added packages are installed in the final runtime stage.
 
 **Operator tasks are explicit, networkless one-shot services** in the `ops` profile
 (`migrate`, `setup-token`, `recover-auth`, `reindex`) sharing the data volume. They are
@@ -1547,7 +1549,13 @@ commit timestamp accompany the readable version. No current-branch/global daily 
 author date, host timezone, build clock or mutable registry participates.
 
 The local image wrapper archives committed source into an immutable temporary tar,
-rechecks HEAD/cleanliness and passes metadata to the production Dockerfile. OCI
+rechecks HEAD/cleanliness and passes metadata to the production Dockerfile. It
+probes `docker info` then `podman info` (bounded 15-second timeout each), prefers
+Docker when both servers work, and honors an explicit engine without fallback.
+Build errors never trigger a second-engine retry. Each successful build tags the
+same image as `pandanote:latest` and `pandanote:<version>`; latest is mutable and
+not the embedded app version. Compose defaults to latest, with a separate
+`PANDANOTE_VERSION` argument for low-level builds. OCI
 version/revision/created labels and Vite-injected SSR/client constants use identical
 values; created means commit time. Missing/invalid production metadata fails the build.
 Ordinary non-release builds explicitly use Development. The final image needs no Git,

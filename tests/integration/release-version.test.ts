@@ -173,7 +173,10 @@ describe('actual Git release derivation', () => {
           if (process.platform === 'linux')
             snapshotDirectory = dirname(readlinkSync(`/proc/self/fd/${input}`));
         },
+        () => undefined,
       );
+      expect(args.filter((arg) => arg === '-t')).toHaveLength(2);
+      expect(args).toContain('pandanote:latest');
       expect(args).toContain(`pandanote:${info.version}`);
       expect(args).toContain(`PANDANOTE_VERSION=${info.version}`);
       expect(args).toContain(`PANDANOTE_COMMIT=${info.commit}`);
@@ -186,17 +189,40 @@ describe('actual Git release derivation', () => {
         [...contents.keys()].some((name) => name.startsWith('.git/')),
       ).toBe(false);
       if (snapshotDirectory) expect(existsSync(snapshotDirectory)).toBe(false);
+      buildImage(
+        root,
+        imageBuildOptions([]),
+        (engine, actual) => {
+          expect(engine).toBe('podman');
+          expect(actual.slice(0, 3)).toEqual(['build', '--format', 'docker']);
+          expect(actual).toContain('pandanote:latest');
+          expect(actual).toContain(`PANDANOTE_VERSION=${info.version}`);
+        },
+        (engine) => (engine === 'docker' ? 'missing' : undefined),
+      );
       expect(() =>
-        buildImage(root, imageBuildOptions([]), () => {
-          throw new Error('Synthetic engine failure');
-        }),
+        buildImage(
+          root,
+          imageBuildOptions([]),
+          () => {
+            throw new Error('Synthetic engine failure');
+          },
+          () => undefined,
+        ),
       ).toThrow(/engine failure/);
       writeFileSync(join(root, 'source.txt'), 'changed');
       let invoked = false;
       expect(() =>
-        buildImage(root, imageBuildOptions([]), () => {
-          invoked = true;
-        }),
+        buildImage(
+          root,
+          imageBuildOptions([]),
+          () => {
+            invoked = true;
+          },
+          () => {
+            throw new Error('Dirty sources must fail before detection');
+          },
+        ),
       ).toThrow(/Dirty/);
       expect(invoked).toBe(false);
       // Exercise the actual CLI in this synthetic dirty repo, independent of the

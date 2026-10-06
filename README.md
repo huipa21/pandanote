@@ -74,9 +74,9 @@ explicit one-shot operator tasks. Full guide: **[`ops/DEPLOYMENT.md`](ops/DEPLOY
 
 ```sh
 cp ops/production.env.example .env && chmod 600 .env     # set DOMAIN and ORIGIN
-# Requires pinned Node/npm + Docker; no host npm ci is needed for this wrapper.
+# Requires pinned Node/npm + Docker or Podman; no host npm ci is needed.
 npm run image:build -- --platform linux/amd64           # clean/full Git checkout
-# Set .env PANDANOTE_TAG to the printed version (YYMMDD-N).
+# .env defaults to PANDANOTE_TAG=latest; use the printed version to pin a release.
 docker compose --profile ops run --rm --no-build migrate        # app stopped; explicit
 docker compose --profile ops run --rm --no-build -T setup-token # one-time token
 docker compose up -d --no-build
@@ -94,7 +94,11 @@ PandaNote needs **one app container** in addition to your existing Caddy; Node s
 the frontend/backend and SQLite needs no separate container. Build locally with
 `npm run image:build -- --platform linux/amd64` (or `linux/arm64` for an ARM VPS).
 The command rejects dirty or shallow Git checkouts, snapshots only committed source
-and auto-tags `pandanote:YYMMDD-N`. Inspect the computed version first with
+and tags the image as **`pandanote:latest`** plus `pandanote:YYMMDD-N` for rollback.
+It automatically selects a running Docker engine, falling back to Podman; override
+with `--engine docker` or `--engine podman` if needed. Both dependency stages include
+Python/compiler tools for native-addon fallback; the runtime image does not.
+Inspect the computed version first with
 `npm run version:release`.
 
 The date is the **UTC committer date**, and N counts same-day first-parent ancestors
@@ -103,8 +107,13 @@ labels and the app sidebar/mobile drawer footer + Settings → About show identi
 version/commit metadata; normal development builds show Development. Source Git
 history is not shipped, and runtime environment/data restores cannot override it.
 
-For local image export, use `docker image save -o pandanote-image.tar pandanote:<version>`,
+For local image export, use `docker image save -o pandanote-image.tar pandanote:latest`
+or **`podman save --format docker-archive -o pandanote-image.tar pandanote:latest`**,
 transfer with `scp`, then `docker image load -i pandanote-image.tar` on the server.
+Inspect the embedded version/hash/time with
+`docker image inspect pandanote:latest --format '{{json .Config.Labels}}'`.
+The web UI shows the same version even though the mutable image tag is `latest`.
+Retain a versioned tag or image ID before replacing `latest` for rollback.
 Connect PandaNote to your existing Caddy network with its fixed proxy IP; no bundled
 proxy is needed. Exact build/transfer/run/Caddy and upgrade instructions:
 [`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md#build-locally-transfer-the-image-use-your-existing-caddy).
