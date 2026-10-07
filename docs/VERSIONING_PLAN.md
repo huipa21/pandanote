@@ -3,11 +3,12 @@
 ## Status and authority
 
 User-approved post-S18 enhancement; this plan was recorded before coding.
-V01–V03 behavior is implemented. V04 is **in progress / environment-blocked**:
-Windows full gates pass; cached Linux production metadata/native/UI and partial
-Linux regressions pass, but four Linux Git integration cases and a cold production
-build remain blocked by dependency/apt download problems. Exact evidence and the
-new low-severity dependency advisories are in `PROGRESS.md`.
+V01–V03 behavior is implemented. The previous Linux Git/download blockers are
+resolved by SS05/SS06: unfiltered Linux Git/native/archive tests and actual Docker/
+Podman production builds/transfers pass. V04's exact user-release-commit build and
+verification remain pending; isolated synthetic builds are not release provenance.
+Dated outcomes/advisories and SS07 regressions are in `PROGRESS.md` and
+[simplify-setup progress](simplify-setup/PROGRESS.md).
 This does not close S18's outstanding real-VPS/device/accessibility release gates.
 Authority: user decisions in the versioning interview, then PRODUCT_SPEC and ARCHITECTURE.
 
@@ -47,8 +48,13 @@ The date rule is UTC even though the original Git timestamps use `+08:00`.
 1. Add `npm run image:build -- --platform linux/amd64` (default platform `linux/amd64`; optional `linux/arm64`; auto Docker/Podman detection with explicit engine override).
 2. Derive metadata, capture **only committed source** with `git archive` into an OS temporary directory, and recheck cleanliness/HEAD before invoking the engine. Build from that immutable tar snapshot, not mutable working-tree files; this prevents ignored-file inclusion and source/metadata races.
 3. Use `ops/Dockerfile`, tag both `pandanote:latest` and `pandanote:<version>` and pass the version/hash/UTC commit time as build arguments. Do not accept arbitrary arguments that can override provenance. Propagate engine failures; always close handles and delete temporary snapshots.
-4. Require complete validated release metadata in the production Dockerfile; direct Docker/Compose builds without metadata fail with an actionable error instead of publishing Development as a release. Add OCI labels without shipping Git history or adding runtime environment overrides.
-5. Add Compose build-argument plumbing for explicitly documented low-level builds; recommend the versioned image command plus `docker compose ... --no-build` for deployment. Adapt release verification harnesses to the versioned workflow.
+4. Require complete validated release metadata in the production Dockerfile;
+   direct Docker builds without metadata fail, never publish Development as release.
+   Add OCI labels without Git history/runtime overrides.
+5. Root `docker-compose.yml` only loads `${PANDANOTE_IMAGE:-pandanote:latest}`;
+   no build arguments/build service. Recommend the clean-source wrapper and
+   save/load flow, then docker compose up -d. Test-only release Compose selects
+   already-built images. Low-level Docker arguments cannot prove source identity.
 6. Integration tests use temporary real Git repositories and a typed recording engine boundary to verify tag/arguments/committed tar, ignored files, no engine call on dirty state and failure propagation. Exercise actual CLI rejection separately, then the actual CLI/engine on a clean synthetic container-verification snapshot. This avoids introducing shell-based mock executables on Windows.
 
 ### V03 — Embedded application metadata and UI
@@ -60,7 +66,10 @@ The date rule is UTC even though the original Git timestamps use `+08:00`.
 ### V04 — Documentation, regression and Linux gate
 
 1. Update PRODUCT_SPEC, ARCHITECTURE, IMPLEMENTATION_PLAN, ACCEPTANCE_TESTS, deployment guide, README and PROGRESS. Preserve handoff history.
-2. Document the local build/save/scp/load flow, exact image inspection, stable proxy IP, one app container with existing Caddy, stopped-app migrations and image pinning. Pin before upgrade/rollback; retain pre-upgrade manual backup requirements.
+2. Document build/save/scp/load/inspect, one app on existing Caddy network,
+   automatic startup migrations/pre-upgrade copy and image pinning. Podman exports
+   localhost/pandanote:latest and Docker retags it after load. No fixed proxy IP.
+   Retain old image plus manually downloaded full backup before upgrade/rollback.
 3. Run `npm run check`, `npm run lint`, `npm run test:unit`, `npm run test:integration`, `npm run build`, affected Playwright and full browser regressions where feasible.
 4. Validate native Sharp/SQLite and embedded metadata in the Linux production image. Since this enhancement is uncommitted during development, do not bypass dirty-source rejection or create a user-repository commit without approval. Use an explicitly synthetic, isolated **clean Git snapshot** containing the implementation for container verification; record that it is not a final release commit.
 5. Record exact commands, real failures/blockers, files changed and next task in PROGRESS. After the user commits, build the actual release with the new command and verify image label/UI equality on that exact hash.

@@ -1,4 +1,9 @@
-# Foundation through uploaded full restore and rollback (S00–S17)
+# Verification coverage (S00–S18 and simplify setup)
+
+Current contracts: browser two-step setup, username login, partial zh-CN/title,
+automatic startup SQL/data migrations and private pre-upgrade DB copy, format-v2
+archives and live-safe interactive reset. [Change progress](../docs/simplify-setup/PROGRESS.md)
+records actual commands/blockers; expected coverage below is not a pass claim.
 
 S00 tests are capability probes, not completed product features. S01 tests
 exercise the actual persistence foundation. S02 tests exercise real setup,
@@ -54,10 +59,9 @@ production credential is committed.
 - `unit/container-user.test.ts`: only default server and argument-free named tools,
   bounded positive non-root IDs. `integration/runtime-server.test.ts` fresh-health
   case tests automatic startup; SS03 integrates its account/preferences HTTP flow.
-- Standard Playwright fixture startup now uses automatic initialization and real
-  account/setup endpoints (SS03). Normal full integration remains blocked only by
-  archive fixtures, not claimed passing.
-  The reserved reset-password entry fails closed; actual recovery is SS05.
+- Standard Playwright fixtures start empty via automatic initialization and real
+  account/preferences endpoints. SS05 resolves archive integration failures and
+  tests functional reset-password; none of those former failures are excluded.
 - Linux production-image/minimal-Caddy/browser/rate-key evidence and exact commands
   are in the change handoff; that diagnostic probe is not the ordinary e2e suite.
 
@@ -315,7 +319,7 @@ production credential is committed.
 | `unit/coordinator.test.ts`               | Async draining, maintenance refusal, timeout/failure release, exclusive-capability expiry and idempotent shutdown                                                                                                                                                      |
 | `integration/migrations.test.ts`         | Real fresh/repeated/forward migrations, failed-upgrade/fresh rollback, modified/unknown/newer history rejection, read-only integrity/FKs/index order, empty account/content, settings restart                                                                          |
 | `integration/domain-persistence.test.ts` | Single account, SQLite location/status/revision/immutable creation checks, stale revision predicates, ready/FK/shared/Trash references, transactional cleanup/receipt/search/joins, retry mismatch, maintenance-gated settings (NOTE-01/02/03, POST-02/03 foundations) |
-| `integration/private-storage.test.ts`    | Production path/symlink/ID checks, random stable/lost/corrupt keys, Linux permissions, bounded durable journals, startup recovery blocking and real repeated migration CLI                                                                                             |
+| `integration/private-storage.test.ts`    | Production path/symlink/ID checks, random stable/lost/corrupt keys, Linux permissions, bounded durable journals, startup recovery blocking and real repeated shared startup                                                                                            |
 | `integration/server-boundary.test.ts`    | Actual SvelteKit production builds reject direct/indirect client imports of persistence, with inherited test-mode bypass disabled                                                                                                                                      |
 
 `tests/helpers/persistence.ts` is test-only seeding/isolated cleanup; product code
@@ -327,20 +331,20 @@ schema is pushed or runtime database migration hidden in a page request.
 
 ## S02 coverage (AUTH-01–05)
 
-| Suite                                | Scope                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unit/auth-policy.test.ts`           | Bounded exact Unicode credentials, configured/default HTTPS/loopback origin, private-network proxy trust and ignored public-peer spoofed headers, same-origin mutation and method-aware public route allowlist (AUTH-05)                                                                                                            |
-| `integration/auth.test.ts`           | Actual Argon2id salts/verification/concurrency cap; operator token issue/reissue/expiry/reuse, racing setup and transactional failure retry; hashed/expired/revoked/security-revision sessions, configured lifetime/logout; persisted IP/account rate limits and cap; real native-TS operator CLI (AUTH-01, AUTH-04/05 first slice) |
-| `integration/runtime-server.test.ts` | Actual production build + two sequential deployments with different runtime origins on one artifact; private routes, cookie flags, both Kit/form and JSON CSRF, durable password restart and Linux graceful shutdown (HTTP transport simulates a TLS-terminating proxy; not an actual HTTPS drill)                                  |
-| `integration/auth-http.test.ts`      | JSON-only authentication body, actual streamed byte limits, generic internal error responses and rate-limit retry headers                                                                                                                                                                                                           |
-| `e2e/auth.test.ts`                   | Built adapter app setup/login/logout, no plaintext credentials in ordinary DTOs/SSR, private API/file/backup paths, production cookie flags, CSRF failures and input retention on wrong password                                                                                                                                    |
+| Suite                                | Scope                                                                                                                                                                                                                                                                                              |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/auth-policy.test.ts`           | Bounded exact Unicode credentials, configured/default HTTPS/loopback origin, private-network proxy trust and ignored public-peer spoofed headers, same-origin mutation and method-aware public route allowlist (AUTH-05)                                                                           |
+| `integration/auth.test.ts`           | Actual Argon2id salts/bounds; account race/setup-window expiry/restart/transaction retry; username equal-work login; hashed/expired/revoked/security-revision sessions/lifetime/logout; persistent IP/account limits; fresh account editing (AUTH-01, AUTH-04/05)                                  |
+| `integration/runtime-server.test.ts` | Actual production build + two sequential deployments with different runtime origins on one artifact; private routes, cookie flags, both Kit/form and JSON CSRF, durable password restart and Linux graceful shutdown (HTTP transport simulates a TLS-terminating proxy; not an actual HTTPS drill) |
+| `integration/auth-http.test.ts`      | JSON-only authentication body, actual streamed byte limits, generic internal error responses and rate-limit retry headers                                                                                                                                                                          |
+| `e2e/auth.test.ts`                   | Built adapter app setup/login/logout, no plaintext credentials in ordinary DTOs/SSR, private API/file/backup paths, production cookie flags, CSRF failures and input retention on wrong password                                                                                                   |
 
 `integration/auth-mfa.test.ts` adds real encrypted enrollment/confirmation, expiry/
 cancellation/session binding, drift/replay, parallel TOTP/recovery consumption on two
 SQLite connections, restart/rollback retry, ten hashed generation-only codes,
 regeneration/secret change, single-use exact fresh scopes/session/revision/expiry,
-password races, security revocation, lifetime changes and stdin-confirmed operator
-CLI recovery. `unit/auth-factors.test.ts` covers RFC 6238 vectors and strict request
+password races, security revocation, lifetime changes and live atomic operator
+reset (interactive CLI/PTY covered separately). `unit/auth-factors.test.ts` covers RFC 6238 vectors and strict request
 schemas. AUTH-02/03/04 are implemented and tested, not fail-closed placeholders.
 
 `e2e/auth.test.ts` also exercises the full security UI on a separate built deployment
@@ -357,26 +361,27 @@ Target-VPS load and real-domain deployment/certificate audits remain S18.
 
 ## S03 coverage (UI-01/02 foundations)
 
-| Suite                            | Scope                                                                                                                                                                                                                                                                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unit/appearance.test.ts`        | Strict small appearance DTO/SSR attribute substitution; WCAG AA text and 3:1 control/focus contrast measured from actual light/dark CSS tokens                                                                                                                                                                                              |
-| `integration/appearance.test.ts` | Real SQLite updates/reopening, appearance-only merge without changing security/storage, invalid/extra-key rejection and maintenance write refusal                                                                                                                                                                                           |
-| `e2e/shell.test.ts`              | Built private shell and API auth/CSRF/validation, no-JavaScript dark SSR, preference save/reload/system changes/failure retry; 360/390/768/1440 widths, short screens, drawer/editor/nested-dialog focus/Escape/return, reduced motion, disabled Post, editor content retention, notes-only keyboard scrolling and searchable 200-tag panel |
+| Suite                            | Scope                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/appearance.test.ts`        | Strict small appearance DTO/SSR attribute substitution; WCAG AA text and 3:1 control/focus contrast measured from actual light/dark CSS tokens                                                                                                                                                                                  |
+| `integration/appearance.test.ts` | Real SQLite updates/reopening, appearance-only merge without changing security/storage, invalid/extra-key rejection and maintenance write refusal                                                                                                                                                                               |
+| `e2e/shell.test.ts`              | Built private shell and API auth/CSRF/validation, no-JavaScript dark SSR, preference save/reload/system changes/failure retry; 360/390/768/1440 widths, short screens, drawer/editor/nested-dialog focus/Escape/return, reduced motion, explicit-only Post, editor retention, notes-only scrolling and searchable 200-tag panel |
 
 Three reviewed Windows/Chromium screenshot baselines live in
 `e2e/shell.test.ts-snapshots/`; viewport-matrix images are also attached to each
 browser result. Regenerate only after visual review with
 `npm run test:e2e -- --update-snapshots`, then run normally to verify comparisons.
 Native system fonts make these platform-specific: Linux baselines have **not**
-been generated/reviewed and Linux browser verification is not claimed.
+been generated/reviewed. Linux nonvisual browser gates are recorded in PROGRESS;
+missing Linux snapshots are not counted as passed.
 
 `browser/ShellFixture.svelte` imports the real shell with 60 synthetic cards and
 200 tags through the separate Vite browser harness. It is not a product renderer,
 public app route, database seed or completed timeline/tag filtering. The real app
 has no seeded notes. The synthetic shell fixture intentionally has no account or
 storage workspace; its composer stays in memory. The built authenticated app uses
-S05 recovery storage. Posting is not implemented. Collapse is preference plumbing,
-not card functionality.
+S05 recovery storage and S08 posting. The real timeline exercises collapse/full
+cards separately; fixture-only in-memory text is not falsely called persisted work.
 
 Keyboard-shrink tests exercise mobile content heights 390/320/260 with nonzero
 safe-area insets set through Chromium's `Emulation.setSafeAreaInsetsOverride`.
@@ -398,12 +403,12 @@ S05/S08 separately test real draft recovery and working posting.
 
 ## S04 coverage (MD-01/02, TAG-01 and TAG-03 parsing foundations)
 
-| Suite                                 | Scope                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unit/tags.test.ts`                   | Unicode/NFKC/case/deduplication, literal source offsets/UTF-16/CRLF, excluded code/HTML/escapes/URLs/destinations, precise rename/remove and length/count limits                                                                                                                                                                                                                                            |
-| `unit/diagram-policy.test.ts`         | Ordinary flow/sequence arrows, pre-import directive/encoded-HTML/asset/CSS rejection and complexity limits                                                                                                                                                                                                                                                                                                  |
-| `integration/markdown-render.test.ts` | Actual production remark/rehype/Shiki, GFM, sanitized HTML/links/images, descriptor-backed direct/reference-style images, nested/reordered footnote code, unknown language and inert Mermaid metadata                                                                                                                                                                                                       |
-| `e2e/markdown.test.ts`                | Built private composer under production CSP with zero upload/mutation requests; exact clipboard write plus native clipboard round trip; real highlighted code and flow/sequence SVG geometry/theme, visible-only import, stale preview suppression, hostile asset no-fetch, separate SVG sanitizer, size/syntax errors, deadline/denied-copy recovery, desktop/mobile Write/Preview and disabled publishing |
+| Suite                                 | Scope                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/tags.test.ts`                   | Unicode/NFKC/case/deduplication, literal source offsets/UTF-16/CRLF, excluded code/HTML/escapes/URLs/destinations, precise rename/remove and length/count limits                                                                                                                                                                                                                                                 |
+| `unit/diagram-policy.test.ts`         | Ordinary flow/sequence arrows, pre-import directive/encoded-HTML/asset/CSS rejection and complexity limits                                                                                                                                                                                                                                                                                                       |
+| `integration/markdown-render.test.ts` | Actual production remark/rehype/Shiki, GFM, sanitized HTML/links/images, descriptor-backed direct/reference-style images, nested/reordered footnote code, unknown language and inert Mermaid metadata                                                                                                                                                                                                            |
+| `e2e/markdown.test.ts`                | Built private composer under production CSP with zero upload/mutation requests; exact clipboard write plus native clipboard round trip; real highlighted code and flow/sequence SVG geometry/theme, visible-only import, stale preview suppression, hostile asset no-fetch, separate SVG sanitizer, size/syntax errors, deadline/denied-copy recovery, desktop/mobile Write/Preview without premature publishing |
 
 `browser/MarkdownFixture.svelte` reuses the product renderer and SVG sanitizer, not
 spike implementations. Its stalled-render injection exercises only the timeout
@@ -434,9 +439,9 @@ is complete; transactional note tag joins are S07 and management/history is S14.
   limits remain unchanged; the expanded suite must not spend a new login per draft
   scenario and exhaust the legitimate ten-attempt/IP window.
 
-Metadata/recovery repository capabilities are tested; S08 adds date UI and base
-rechecking. Location and full server recovery entry screens remain later steps. No upload or note endpoint is simulated as
-completed posting, and no test-only draft route is shipped. Physical device/IME,
+Metadata/recovery capabilities are tested here; S08/S12/S15 suites cover date/base
+rechecking, full server recovery entry and location. No upload/note endpoint is
+simulated as completed posting, and no test-only draft route ships. Physical device/IME,
 full assistive technology and cross-platform shell baselines remain S18.
 
 ## S06 coverage (IMAGE-01, FILE-01, AUTH-05, POST-02 upload boundary)
@@ -468,8 +473,8 @@ full assistive technology and cross-platform shell baselines remain S18.
   jobs, 50 MP orientation plus 20 MP high-entropy JPEG, sampled parent/peak worker
   RSS and timings. The Linux 2-CPU/4-GB image and actual values are in PROGRESS.
 
-These are ready upload/download primitives. S07 integrates note commits; browser
-posting is S08 and full image viewing remains S12. Unused-ready inventory/storage cleanup UI remains S15.
+S07 integrates these primitives with real note commits; S08 covers posting,
+S12 the full viewer, S15 unused-attempt cleanup/inventory.
 Sharp subprocesses avoid cached private open-file handles and provide a hard
 wall-clock deadline, not a fake Promise timeout over still-running native work.
 
@@ -500,7 +505,8 @@ S07 was backend-only. The full existing browser regression suite ran at Mileston
 Post was disabled at that backend-only gate. Frozen browser posting/loss recovery is S08,
 timeline/search is S09/S10, conflict/detail UI S12 and draft/Trash screens S13.
 S10 adds transactional FTS and the production search list API. S14 supplies
-retired-tag history resolution, not silent local rewriting. Full restore remains S17.
+retired-tag history resolution, not silent local rewriting. S17 separately covers
+full restore; backend-only tests cannot substitute for its gate.
 
 ## S08 coverage (POST-01–03, DRAFT-02/04/05, NOTE-01/03, UI-02/03)
 
@@ -536,7 +542,7 @@ retired-tag history resolution, not silent local rewriting. Full restore remains
 
 S09 replaces the historical session list with the paginated SSR timeline. Posting
 assertions now include previously saved cards rather than assuming a blank session.
-Full server edit/detail/draft entry points and conflict resolution remain S12–S14.
+Full server edit/detail/draft entry and conflict choices are covered by S12–S14.
 Linux browser validation includes the actual posting test file in addition to
 security/draft/upload regressions. Physical-device/IME and release audits remain S18.
 
@@ -596,11 +602,9 @@ baselines remain Windows-only. Real hardware/OS IME and target-VPS release audit
   New timeline screenshots separately review the actual cards. Windows baselines
   are still platform-specific; Linux browser runs do not regenerate them.
 
-Search acceleration/snippets, interactive calendar, detail/viewer, full lifecycle
-screens and location popovers remain their later steps. `ops/Dockerfile.browser-validation`
-includes auth/draft/posting/timeline/upload suites; native common gates also exercise
-actual SQLite/Sharp/archive probes. Performance samples are synthetic, not VPS p95
-or proof of unbounded-session memory stability. Virtualization remains deferred.
+Search/calendar/detail/lifecycle/location suites cover their integrated features.
+Performance samples are synthetic, not VPS p95 or proof of unbounded-session memory
+stability. Non-virtualized long-session DOM growth remains a documented limitation.
 
 ## SS04 coverage (LANG-01–04, SET-06)
 
@@ -611,6 +615,29 @@ or proof of unbounded-session memory stability. Virtualization remains deferred.
 | `integration/setup-server.test.ts`     | Built server: `Accept-Language` decides `<html lang>`/text before setup completes (zh-CN, zh-Hans, zh-TW/unknown/q=0 → en); saved language/title win afterwards and are public on `/login`; escaped title; `PATCH /api/settings/general` validation/401/403 |
 | `e2e/language.test.ts`                 | Settings General picker, partial notice, zh-CN screens with per-string English fallback, title in tab/sidebar/mobile header/drawer/sign-in, hostile and 60-character titles, axe light/dark phone/desktop                                                   |
 | `e2e/auth.test.ts` (updated)           | zh-CN browser sees the Chinese sign-in/preferences screens before setup completes; unsaved language preview on the preferences page; SET-06 prefill                                                                                                         |
+
+## SS06/SS07 deployment and documentation coverage
+
+- `integration/release-hygiene.test.ts`: DOC-01 scans all current Markdown outside
+  preserved PROGRESS history for deleted config/commands/paths; local links resolve;
+  DOC-03 pins canonical operations/reset/reindex/copy rollback, one Compose/env,
+  reviewed routes, private runtime and native install tools. Intentional legacy
+  scrub/refusal code and negative test assertions are not deployment configuration.
+- `release/deployment.test.ts`: copied real root Compose + ORIGIN-only env in a
+  fresh Linux folder, real minimal TLS Caddy/setup, private modes, default/non-default
+  UID/capabilities/PID1, real-client rate buckets, restart/recreate/default idle stop,
+  interrupted backup, >1 GiB streamed archive restore, synthetic SQL/data upgrade
+  and copy rollback (DEP-01–08). SS07 reruns the copied-folder install for DOC-02;
+  complete DEP/cross-engine evidence is recorded in SS06, not falsely rerun here.
+- DEP-09 requires actual Docker and Podman image build/save/load/retag/labels/native
+  probes; an injected engine is not a transfer pass. See
+  [release harness](release/README.md) and change PROGRESS for real engine outcomes.
+- `e2e/auth.test.ts`: SS07 delayed entry modules prove Sign out is disabled before
+  hydration, then logout revokes this test's own real session. The deterministic
+  assertion failed before the fix; suite session and production limits remain intact.
+- `ops/release-drill.sh`: independent synthetic HTTPS domains, setup/MFA/manual
+  downloaded archive/uploaded restore/private-surface/session/local-draft/restart
+  gates. Test-only Caddy and `.drill/` state are never production install artifacts.
 
 ## Run
 
@@ -629,14 +656,14 @@ npm run build
 
 Unit/integration suites are separate; integration runs serially against isolated
 OS temporary SQLite/files/archive paths and removes them in `finally` blocks.
-Sharp fixtures are tiny except a generated 2800x1400 resize test; no originals
-are written to application storage. Test helpers live in `tests/spikes/`, not
-`src/lib`, to avoid mistaking probes for the eventual production implementation.
+Sharp fixtures are synthetic; originals are not retained in ready app storage.
+Capability probes live in tests/spikes, reusable fixtures in tests/helpers;
+production code never imports either.
 
 Playwright owns ports 4173/4174/4175/4176 and refuses to reuse existing servers. It builds
 and runs the adapter-node app with a fixture-only `.e2e-data/run-*` directory;
-it explicitly migrates storage and issues a disposable operator token before
-serving. The separate security fixture uses `.e2e-data/security/run-*`, a generated
+shared startup initializes before serving, then tests claim/complete setup through
+real endpoints. It does not issue an operator secret or seed a password hash. The separate security fixture uses `.e2e-data/security/run-*`, a generated
 HTTPS certificate on 4175 and private upstream on 4176. Teardown stops both test-owned
 adapter children before removing `.e2e-data`
 (Windows SQLite handles cannot be removed while open). Separate **test-only Vite
@@ -665,16 +692,15 @@ podman build -f ops/Dockerfile.browser-validation -t pandanote-browser-validatio
 podman run --rm --cpus=2 --memory=4g pandanote-browser-validation
 ```
 
-That image runs `e2e/auth.test.ts`, `e2e/drafts.test.ts` and `e2e/uploads.test.ts`
-(including actual browser restart and binary persistence); it does not claim Linux shell screenshot
-baselines. S18 will add a minimal non-root runtime, persistent volume,
-real-domain HTTPS proxy and runbook.
+That image runs all nonvisual e2e specs (including language and accessibility).
+Windows-only shell visual snapshots are an explicit remaining Linux audit, not a
+native/browser dependency skip. The production image/guide and independent-domain
+TLS restore drill are implemented; real public VPS/device/AT gates remain open.
 
 ## Probe limitations / later gates
 
-- Search eligibility is deliberately conservative (letters/numbers/spaces and
-  at least three codepoints). S10 must implement full all-term/phrase/field,
-  randomized-oracle, pagination and benchmark contracts.
+- S00 search eligibility is a probe; S10 product all-term/phrase/field, randomized
+  oracle, pagination, fallback and benchmark contracts are tested separately.
 - The legacy Markdown rewrite probe remains a feasibility test. Product S04
   parsing/rendering is tested separately; transactional tag management/history is S14.
 - Image probe is in-memory; S06 separately implements and tests streaming input
@@ -687,9 +713,8 @@ real-domain HTTPS proxy and runbook.
 - Archive probe requires regular USTAR entries without PAX/GNU extensions:
   `tar-stream` otherwise hides those headers before entry callbacks. A raw
   bounded streaming guard rejects them first. Application-owned short ASCII
-  paths fit this subset. S16/S17 must add the real manifest, DB schema/key/file
-  validation, second-pass staged extraction and crash-safe replacement. Never
+  paths fit this subset. S16/S17 product suites separately test real manifest,
+  DB schema/key/file trust, staged extraction and crash-safe replacement. Never
   use this probe alone as a restore feature.
-- S02 implements authentication/security/lifetime settings and operator recovery;
-  S03 adds appearance. Calendar/storage/backups and their sensitive handlers are
-  later steps. Fresh-auth primitives alone do not implement backup/restore.
+- Fresh-auth primitives alone are not backup/restore evidence; actual handlers,
+  streaming archives, replacement/crash tests and browser drill are required.

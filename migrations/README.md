@@ -13,11 +13,11 @@ The SS01 greenfield baseline is schema **2 / 18 domain tables**:
   staging can contain notes. Literal separate-field predicates remain authoritative.
   No virtual-table write triggers or `trusted_schema=ON` are needed.
 
-**The setup simplification is still in progress.** The old token setup entry points
-now fail closed; SS02/SS03 must finish startup/browser setup before this checkout is
-usable for a fresh deployment. Format-v2 archives and final restore integration are
-SS05. See `docs/simplify-setup/PROGRESS.md`; do not interpret migration tests as a
-passing full application gate.
+Container, dev and built start all run the shared initializer before serving:
+restore recovery → keys → SQL/data migration/pre-upgrade wrapper → settings.
+Browser two-step account setup and format-v2 backup/restore are implemented. No
+operator migration command or request-time migration. Actual application gates and
+the SS01 directory-exchange clarification: `docs/simplify-setup/PROGRESS.md`.
 
 ## Adding a migration
 
@@ -49,8 +49,8 @@ destructive down-migration feature.
 
 ## Live pre-upgrade copy and staged restore
 
-Existing container/CLI live callers use `upgradeDatabase` before applying pending
-migrations. Fresh/current databases skip capture. The wrapper uses SQLite online
+The shared container/dev/built startup uses `upgradeDatabase` before applying
+pending migrations. Fresh/current databases skip capture. The wrapper uses SQLite online
 backup (including WAL), checks page-count × 1.1 + manifest space + disk reserve,
 fsyncs a private self-contained DELETE-mode DB and manifest with from/to schema,
 immutable upgrading-app version and timestamp. Key material is never copied.
@@ -64,10 +64,15 @@ full gate can close. Upgrade paths and journal are known private storage paths.
 
 The DB-only runner is also used on isolated, validated staging without creating a
 live pre-upgrade copy. The untrusted archive's exact SQL object/ledger inventory must
-be validated before migration; a matching version alone is never enough. Final
-format-v2 archive trust/admission is SS05, not implemented by the runner alone.
+be validated before migration; a matching version alone is never enough. Format-v2
+archive trust validates exact known baseline-v1/v2 objects/ledger, migrates v1 only
+on disposable staging with SQL/data steps, rebuilds trusted FTS and reinspects.
+Format-1 pre-release archives are refused before extraction.
 
 `Persistence` opens only the current trusted history and never migrates during a
 request. `npm run search:reindex` remains stopped-app-only and changes derived search,
-never source bodies, revisions, attachments or receipts. Automatic dev/start
-initialization and removal of the old migration CLI are SS02 work still pending.
+never source bodies, revisions, attachments or receipts. Container equivalent:
+stop pandanote → `docker compose run --rm pandanote reindex` → start pandanote.
+Interactive `npm run reset-password` is separately live-safe; it does not initialize,
+migrate or recover journals. Immediate copy rollback instructions and their DB-only
+limitations are in [the deployment guide](../ops/DEPLOYMENT.md#6-roll-back-an-upgrade).

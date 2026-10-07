@@ -1,6 +1,9 @@
 # Simplify setup — specification
 
-Status: **approved, partially implemented (SS01–SS04 core; SS05 backup/restore/maintenance and SS06 deployment/image done; common gates pass).** SS01 directory-exchange clarification and SS07 documentation/full regression remain.
+Status: **approved; SS07 documentation/local full regression done.** Overall
+change remains partial for SS01 literal atomic directory-exchange clarification;
+S18 manual/Linux-visual/exact-release-commit gates also remain open. See actual
+commands/evidence below, not a final release claim.
 Actual status: [PROGRESS.md](PROGRESS.md). Decisions and rationale: [DECISIONS.md](DECISIONS.md).
 
 ## 1. Principles
@@ -149,6 +152,9 @@ Migrations:
   open clarification before SS01 can be marked done; see [PROGRESS.md](PROGRESS.md).
 - A database with a newer schema than the app (downgrade) refuses to start:
   `This data was upgraded by a newer PandaNote. Use that version, or roll back with the pre-upgrade copy (see OPERATIONS.md).`
+  The operations pointer leads to the canonical deployment guide. Copy rollback
+  is only immediately after upgrade before subsequent writes/file cleanup; later
+  recovery needs a full downloaded archive and compatible app.
 - Data from pre-release builds (old `0000_foundation…0004` history) refuses to start:
   `This data folder was created by a pre-release PandaNote and cannot be upgraded. Move it away and start with an empty folder.`
 - Restoring a backup from an older **known** schema uses the same SQL + data steps on
@@ -193,11 +199,11 @@ ORIGIN=https://notes.example.com
 ```
 
 Still supported but not in the example: `PANDANOTE_IMAGE`, `BODY_SIZE_LIMIT`
-(image default 64G), `DISK_RESERVE_BYTES`, `PORT`. Removed: `SETUP_TOKEN`,
-`TRUSTED_PROXY_IPS`, `STOP_GRACE_PERIOD`, `PROXY_NETWORK`, `DOMAIN`, `EDGE_*`,
-`APP_IP`, `HTTP(S)_PORT`, `BODY_SIZE_LIMIT_CADDY`, `CADDY_TLS_DIRECTIVE`,
-`COMPOSE_PROJECT_NAME`, `PANDANOTE_TAG`. A leftover `SETUP_TOKEN` or
-`TRUSTED_PROXY_IPS` is ignored with one startup notice (value never printed).
+(image default 64G), `DISK_RESERVE_BYTES`, `PORT`. Legacy setup-secret and
+exact-proxy-IP environment values are scrubbed/ignored with one safe startup notice,
+never accepted as configuration or logged with their values. Other former bundled
+proxy/static-network/hardening variables are not deployment inputs. Test-only Caddy
+TLS/benchmark variables belong only to the release harness.
 
 ### 9.3 Container behavior
 
@@ -238,23 +244,15 @@ Still supported but not in the example: `PANDANOTE_IMAGE`, `BODY_SIZE_LIMIT`
 `reindex` keeps its existing behavior; run it with the app stopped
 (`docker compose stop pandanote && docker compose run --rm pandanote reindex && docker compose start pandanote`).
 
-## 10. Superseded requirements
+## 10. Documentation reconciliation
 
-These earlier statements are replaced by this change:
+Main PRODUCT_SPEC/ARCHITECTURE/README/operations/acceptance now describe this
+behavior directly. Earlier operator-secret/stopped-app-migration/JSON-recovery/
+exact-proxy-IP/bundled-proxy/hardened-Compose instructions are removed, not stacked
+under warning banners. Old migration histories and format-1 archives are refused,
+not supported. Historical command names and results remain only in PROGRESS logs.
 
-- PRODUCT_SPEC §13: environment `SETUP_TOKEN` (43-char base64url, one-hour expiry,
-  rotation) and "existing-Caddy deployment … trusted proxy, graceful shutdown window".
-- PRODUCT_SPEC §2/§13 "single-user password authentication" → username + password.
-- Minimum password length 12 → 8–128.
-- ARCHITECTURE: `setup_tokens` table, `TRUSTED_PROXY_IPS` exact-IP trust, stopped-app
-  `npm run db:migrate`, `npm run auth:setup-token`, `npm run auth:recover` stdin JSON,
-  bundled Caddy `compose.yaml`, `ops/compose.external.yaml`, `ops/*.env.example`,
-  hardened Compose options, migration history `0000_foundation`–`0004_tag_receipts`,
-  backup format v1 and v4→v5 restore staging migration.
-- ACCEPTANCE_TESTS "Container startup simplification" bullets about setup token,
-  capability lists and "none is automatic" pre-upgrade backup.
-
-Unchanged: manual full backup/restore (beyond format v2), MFA, sessions, notes,
+Unchanged: manual full backup/restore beyond format v2, MFA, sessions, notes,
 search, release versioning and image build (`npm run image:build`).
 
 ## 11. Out of scope

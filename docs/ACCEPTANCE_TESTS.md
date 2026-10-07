@@ -31,7 +31,14 @@ Maintain deterministic fixtures with expected matches/statuses/dates:
 
 ### AUTH-01 — First-account setup
 
-Empty deployment cannot be claimed without the operator-held one-time token. Token can create only one account, then is consumed. No public registration endpoint. Reusing setup token fails; no predictable production password. Container startup registers an environment token only for an unclaimed account; it stores only the hash, never logs it or passes it to the HTTP process. Same-token restarts preserve original expiry; explicit rotation invalidates the old token. Existing/restored accounts ignore the token, including after restart.
+Empty deployment redirects to browser setup. Approved first visitor owns the instance:
+username/email/password/confirmation creates exactly one account/session within the
+60-minute process-start window. No setup secret/default credential/registration after
+setup. Concurrent second creation returns already_set_up; closed window returns
+setup_closed and restart reopens only unclaimed setup. Step two saves title/language/
+timezone atomically; unfinished setup resumes after login and blocks normal app APIs.
+After completion, signed-out pages redirect to username login; setup cannot replace
+an existing/restored account. SET-01–09/ACC-01–05 below extend this gate.
 
 ### AUTH-02 — Optional TOTP
 
@@ -265,30 +272,40 @@ in both install stages but not runtime;
 no runtime override or restore coupling; responsive sidebar/drawer/About; explicit
 Development builds and rejection of missing/invalid production metadata.
 
-## Container startup simplification (approved follow-up)
+## Startup and minimal deployment
 
-- A fresh root-owned host bind starts with only docker compose up: private keys,
-  migrations/settings and environment bootstrap complete before HTTP listening.
-- Startup recovers restore journals before reading keys or migrating; corrupt keys,
-  unsupported migrations, missing/invalid initial token and unsafe filesystem entries
-  fail closed without starting HTTP. Repeated initialization preserves keys/settings.
-- PUID/PGID validation refuses root/non-numeric identities. Linux ownership, private
-  modes, supplementary-group clearing and effective-capability drop are verified in
-  the deployment image, including a non-default identity.
-- execve removes the setup secret from the server environment, preserves shutdown
-  signals and graceful SQLite close. Restart retains data; no account/token reset.
-- Symbolic links, external hardlinks, special files and entries on other filesystems are refused
-  before ownership changes; internal snapshot hardlinks remain supported.
-- Single-service external-Caddy Compose uses a local bind, no published app port and
-  no default CPU/memory limits. No second app may share the data folder. Upgrades
-  still require a user-created/downloaded pre-upgrade backup; none is automatic.
+- Root docker-compose.yml + one-line required ORIGIN env, loaded image and existing
+  Caddy network start a fresh private bind with only docker compose up. No manual
+  initialization. Recovery before key/DB reads, trusted SQL + registered data steps,
+  default settings before listening; repeated current startup is a no-op.
+- Existing pending migrations first make a private online WAL-consistent DB copy
+  - from/to schema/app/time manifest; fresh/current DBs skip it. Space refusal and
+    SQL/data failure prevent serving, preserve live DB/ledger, emit safe actionable logs.
+    Known older archives migrate only on trusted staging; format-1 pre-release data
+    and unknown/newer/altered histories refuse. The copy is excluded from archives/
+    restore swaps, shown in Storage; literal atomic directory exchange remains open.
+- Default/non-default positive PUID/PGID, owner-only modes, cleared supplementary
+  groups and zero permitted/effective server capabilities must pass on Linux.
+  Root inventory rejects links/external hardlinks/special files/nested filesystems;
+  internal snapshot hardlinks remain supported. PID 1 is Node after execve.
+- Default idle stop exits 0 within 10 seconds; interrupted backups fail on restart,
+  no partial archive is listed complete. Restore replacement is journal-recovered.
+- Minimal one-service external-Caddy topology: no bundled proxy, published app port,
+  static IPs, hardening/ops services or resource overrides. Only one process/data tree.
+  Private TCP peers use one XFF/absent peer fallback; malformed/chained 400, public
+  spoof ignored; default Caddy replaces untrusted XFF and supports >1 GiB restore.
+- Actual Docker and Podman build/export/Docker load/default reference must work;
+  Podman localhost namespace explicitly retags to pandanote:latest after loading.
+- Interactive no-echo reset-password must revoke live sessions/MFA without restart
+  or content changes, refuse pipes/args/no account/pending recovery. Reindex stopped.
+  Latest DB-copy rollback is not full disaster protection: download manual backups.
 
-## Simplify setup (approved change, planned)
+## Simplify setup acceptance mapping
 
-Cases SET-_, ACC-_, LANG-_, MIG-_, BAK-_, OPS-_, DEP-* and DOC-* in
-[simplify-setup/ACCEPTANCE_TESTS.md](simplify-setup/ACCEPTANCE_TESTS.md) replace AUTH-01's
-setup-token expectations and the setup-token/capability bullets of the container
-startup section above once implemented.
+SET-_, ACC-_, LANG-_, MIG-_, BAK-_, OPS-_, DEP-* and DOC-* in
+[simplify-setup/ACCEPTANCE_TESTS.md](simplify-setup/ACCEPTANCE_TESTS.md) are the current
+extended gates. Actual evidence/blockers are in the linked change PROGRESS; no pass
+is implied by this expected matrix or by the historical S18 measurement record.
 
 ## 13. Final verification record
 

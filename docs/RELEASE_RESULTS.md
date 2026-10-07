@@ -1,4 +1,10 @@
-# S18 release verification results
+# S18 release verification results (2026-10-06 historical measurements)
+
+This records the original S18 run, **not current install instructions, audit status
+or regression counts**. Setup, proxy trust, migration/archive baseline and Compose
+were subsequently changed. Use [ops/DEPLOYMENT.md](../ops/DEPLOYMENT.md) and
+[current simplify-setup evidence](simplify-setup/PROGRESS.md) for this checkout.
+Historical measurements remain useful; they are not remeasured by a docs rewrite.
 
 Linked from `docs/ACCEPTANCE_TESTS.md` section 13. **These are measurements on a
 developer workstation using Linux containers, not on a real VPS.** The release gate is
@@ -30,14 +36,14 @@ therefore **not fully passed**; see "Not performed / explicit limitations".
 | Benchmark (`ops/release-benchmark.sh`)                                                                     | PASS functional assertions; measurements below                                                                                                                             |
 
 Intermediate failures that were fixed (not hidden): `.dockerignore` allowlist initially
-omitted `compose.yaml` and then `.dockerignore` itself (hygiene test failed in the Linux
+omitted the then-current Compose file and then `.dockerignore` itself (hygiene test failed in the Linux
 image, twice); a Prettier error in `ops/DEPLOYMENT.md`; the first benchmark run used an
 over-large Mermaid fixture rejected by the product's documented limits; `*.localhost`
 names do not resolve in Node on Windows (switched to `*.localtest.me`); and the restart
 phase of the drill failed twice because Caddy's 30 s active-health interval kept the
-restarted app marked down (`503`). Caddy now uses `health_interval 5s` and
-`lb_try_duration 30s`; an app restart is then invisible apart from a ~2.4 s delayed
-request. A content-visibility experiment to reduce DOM cost made scrolling worse and
+restarted app marked down (`503`). That historical Caddy fixture used active-health/retry overrides, masking restart
+apart from a ~2.4 s delay. Current SS06 test/production Caddy uses only reverse_proxy;
+these historical knobs are no longer required or shipped. A content-visibility experiment to reduce DOM cost made scrolling worse and
 was reverted.
 
 ## Independent deployment and restore drill (RESTORE-02)
@@ -46,14 +52,14 @@ Two production stacks (compose projects `pna`, `pnb`), separate volumes, **diffe
 domains** (`a.localtest.me:8443`, `b.localtest.me:9443`), real HTTPS edge, no shared
 state. Evidence from the passing run:
 
-- A: `/setup` with the operator token (token single-use), TOTP enrolled through the UI,
+- A: first-account setup using the then-current operator access flow, TOTP enrolled through the UI,
   published/located/draft/trash/code+Mermaid notes, a three-file post (two images + a
   file) through the real composer, dark/compact settings, a browser-local draft,
   manual backup created and **downloaded through the UI** with fresh password+TOTP.
 - Sensitive routes without a grant, and a cross-origin write, are refused at the edge.
   Anonymous probes of 20 paths (data/db/key/backup/source/config/debug/traversal) on both
   deployments return only 301/303/308/401/403/404 and never leak SQLite/key/source bytes.
-- B: temporary account created via its own token; the A archive uploaded through
+- B: temporary account created via its then-current setup flow; the A archive uploaded through
   Settings, validated, confirmed, B returned to login. The temporary session and password
   no longer work; **A's password + A's TOTP** sign in; a one-time **archived recovery
   code** also works; notes, timeline date, tags, location, server draft, Trash, exact image
@@ -62,8 +68,9 @@ state. Evidence from the passing run:
   draft and was unaffected.
 - Graceful `SIGTERM`: both app containers exited **0**. After restart A kept its session and
   local draft, and B kept restored data, files, settings and health `ok`.
-- Operator security reset through the documented `recover-auth` compose task was verified
-  separately (new password accepted, old rejected).
+- The then-current operator security-reset task was verified separately (new
+  password accepted, old rejected). Current recovery is interactive reset-password
+  and is verified live-safe by SS05; use the current guide, not this historical task.
 
 ## Measured workloads (10,000 synthetic notes, 2 CPU / 3 GiB container)
 
@@ -135,7 +142,7 @@ Server resources (process RSS = sum of container node processes; cgroup includes
 All peaks are far below the ~2 GB upload/backup budget. Reads and writes remained
 usable throughout image processing, backup and restore preparation.
 
-## Accessibility and security review
+## Accessibility and security review (dated S18 evidence, not current guarantees)
 
 - Automated axe-core WCAG 2.0/2.1/2.2 A/AA (incl. target size) on login, Timeline,
   Drafts, Trash, Tags, Settings, note detail, note dialog, composer with attachment,

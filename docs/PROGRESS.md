@@ -2,107 +2,64 @@
 
 ## Current state
 
-- **Phase:** S18 deployment/accessibility/measurement implemented and locally verified; **release gate NOT fully closed** (no real VPS, physical-device or screen-reader audit). S18 is committed; the approved version enhancement is implemented but its final validation remains **blocked / in progress**.
-- **Completed steps:** S00–S17 — **done**. S18 — **in progress / locally verified** (see tracker and `docs/RELEASE_RESULTS.md`).
-- **Repository:** Current session baseline HEAD `7114997` (SS05 committed). SS06 minimal deployment files/image validation implemented; exact outcomes in the active change and latest handoff. No user-repository commit created by this agent.
-- **Implemented in S18:** `ops/Dockerfile` (3-stage, pinned Node 24.21.0 bookworm, non-root, read-only-compatible), `compose.yaml` (app + Caddy proxy + networkless `ops` tasks migrate/setup-token/recover-auth/reindex), `ops/Caddyfile`, `ops/production.env.example`, `ops/DEPLOYMENT.md`, readiness-aware `/health`, `ops/release-drill.sh` + `ops/release-benchmark.sh` with `tests/release/` and `playwright.release.config.ts`, `tests/e2e/zzzaccessibility.test.ts` (axe-core 4.13.0 dev dependency), `tests/integration/release-hygiene.test.ts`, a11y fixes (task checkboxes, `aria-controls`), README rewritten to actual install/test instructions, ARCHITECTURE §16.
-- **Validation:** Windows check/lint/build, 95 unit + 167 integration, 94 Chromium e2e pass; Linux clean `npm ci`, check/lint/unit/integration/build + 88 e2e (all except Windows-only visual `shell.test.ts`) pass; two-domain web-restore drill with TOTP/recovery code, graceful stop (exit 0) and restart persistence pass; 10k-note benchmark meets budgets. Details and measured numbers: `docs/RELEASE_RESULTS.md`.
-- **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
-- **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
+- **Phase:** S00–S17 done; S18 locally verified but **NOT final release** (real VPS,
+  public certificates, physical-device/IME/screen-reader/Linux visual/exact-commit gates open).
+- **Repository:** SS07 session starts at clean `44cde28` (SS06). No agent-created
+  user-repository commit, dependency/lockfile change or actual application-data deletion.
+- **Current behavior:** browser username/email/password → title/language/timezone
+  setup in a 60-minute first-visitor window; partial zh-CN/title/Account/General;
+  shared startup SQL/data migrations/pre-upgrade DB copy; format-v2 backup/restore;
+  interactive live-safe reset-password. Only root docker-compose.yml/.env.example
+  with existing Caddy; non-root PID 1, private bind, minimal config.
+- **SS07 done / locally verified:** documentation reconciled, DOC guards and
+  deterministic Sign out hydration fix. Final host check/lint/build + 130 unit /
+  206 integration + 7 Linux skips; rebuilt fresh Linux 130 / all 213, no skips.
+  Full host Chromium **98**, Linux nonvisual **92**, current production drill
+  **3 + 1** and copied-folder Linux install **1** pass. Owned resources cleaned;
+  original latest preserved, exact commands/failures in latest handoff.
+- **Overall simplify-setup remains partial:** SS01 literal atomic directory exchange
+  is still an explicit user clarification; journaled rotation is crash-safe with
+  a path-absence window, not an exchange. Other implementation/regression gates
+  are locally verified; no automatic approval of that deviation or final release.
+- **Evidence:** docs/simplify-setup/PROGRESS.md is authoritative current change
+  evidence. RELEASE_RESULTS contains dated original S18 measurements, not current
+  topology/audit/count claims. Existing 2 low advisories remain, no forced update.
+- **Runtime:** Node 24.21.0/npm 11; host must pin executable **and PATH**, TLS=1.
+  Linux Podman/Compose validation tooling only, not a deployment dependency.
 
-## Active change: simplify setup and deployment (SS06 done; SS07 next)
+## Active change: simplify setup and deployment
 
-User approved on 2026-10-06 (interview in `docs/simplify-setup/DECISIONS.md`): no setup
-token; browser setup (username, email, password ×2 → site title, language, timezone);
-username login, 8–128 character passwords; automatic migrations with data steps and a
-pre-upgrade copy; one minimal root `docker-compose.yml` + one-line `.env.example`;
-interactive `reset-password`. Greenfield: pre-release data/archives are refused, not
-migrated. Plan, acceptance, operations and its own progress log live in
-`docs/simplify-setup/`. **SS05 done: format-v2 backup/restore and interactive live-safe
-reset-password clear the former archive/common-gate failures.** SS01 baseline/runner/copy,
-SS02 startup/proxy, SS03 account/setup/login and SS04 language/title/General integrate
-successfully. Windows check/lint/build, 130 unit + 204 integration (7 explicit Linux-only
-skips) + all 97 Chromium pass; Linux common gates, 130 unit + all 211 integration
-(no skips/exclusions) + 9 affected Chromium pass. Normal synthetic production image
-and genuine PTY named-reset/live-HTTP probe pass; no release/user commit created.
-SS06 adds the exact minimal root Compose/single env template, test-only Caddy stacks
-and Linux DEP-01–09 image/cross-engine gates (including >1 GiB TLS web restore).
-Current outcomes are recorded in the latest handoff. SS01's literal directory-exchange
-clarification remains open. Next: **SS07** full documentation/regression; see
-`docs/simplify-setup/PROGRESS.md`. S18 manual/VPS/release gates remain open.
-This supersedes the setup-token parts of the follow-up below.
+SS07 documentation/full local regression is done; implementation is locally verified. See [change progress](simplify-setup/PROGRESS.md) for exact commands,
+images/failures/acceptance mapping. The only next unresolved implementation
+requirement is SS01 atomicity clarification; S18 manual/release gates stay open.
 
-## Active follow-up: out-of-box container startup
+## Release versioning enhancement
 
-User explicitly approved replacing first-install manual CLI tasks with automatic
-container initialization and an environment setup token, bind-mounted project data,
-configurable UID/GID and no CPU/memory limits. Implementation is locally verified:
-root data preparation is confined to /data, then non-root recovery/migrations/token
-registration and execve handoff. New `ops/compose.external.yaml` +
-`ops/external.env.example` need only docker compose up after configuration. Same-token
-restarts never extend expiry; an existing/restored account cannot be reset by env.
-Server receives no setup token and has zero effective capabilities. KILL is retained
-only by root Docker init for signal forwarding across the UID boundary.
-
-Host check/lint/build, 119 unit, 176 integration + 2 Linux-only skips, and 5 affected
-auth/version/restore browser tests pass. Linux check/lint/build, 119 unit and 174
-integration pass **with the four Git cases explicitly excluded** (Git absent);
-all five new init tests actually execute on Linux. A normal production Dockerfile
-build in an isolated committed snapshot and fresh bind/setup/native modules/exit-0
-shutdown/restart/secret-free recreation/UID change probes pass. No final release
-commit or cloud deployment is claimed; original latest image tag was preserved.
-
-Next: user-approved commit, rebuild/load actual latest, copy the new two deployment
-files, set random SETUP_TOKEN and real origin/static Caddy IP, and run docker compose
-up. Read the final handoff below. First validation after commit:
-`npm run image:build -- --platform linux/amd64`; inspect labels and verify /setup,
-then remove SETUP_TOKEN and recreate the app. Linux Git and S18 manual gates remain.
-
-## Active enhancement: commit-derived release versioning
-
-**Latest follow-up (2026-10-06):** user requested native compilation fallback,
-`pandanote:latest` on every build and automatic Docker/Podman selection. Patched
-both dependency stages with CA/Python/make/g++, retained a small runtime, added
-bounded server probes and latest + version tags, and made Compose default to
-latest with independent provenance build args. Host check/lint/build, **110 unit +
-173 integration** and both Development/synthetic-release version e2e pass. Actual
-auto-selection chose Podman in an isolated clean snapshot, but the unmodified
-production Dockerfile stalled downloading Debian package indexes (240 s timeout).
-No Linux image/native-source-build success claimed. See the final handoff entry.
-Next: restore container apt/npm/Node-header connectivity and build the patched
-Dockerfile; then commit with user approval and build/inspect the exact release.
-
-User approved UTC committer date + same-day first-parent sequence (`YYMMDD-N`),
-clean-source image builds, identical image/web metadata, sidebar/drawer footer and
-Settings About. Detailed implementation and VER-01–08 gate:
-`docs/VERSIONING_PLAN.md`; plan recorded before coding. Implementation is present:
-`npm run version:release` / `npm run image:build`, Git archive snapshot, strict Docker
-metadata/OCI labels, Vite constants and UI. Windows check/lint/build, 108 unit,
-173 integration and 95 full e2e pass. Cached Linux production-image metadata/UI/
-native probes pass; Linux check/lint/build, 108 unit, **169 integration (four Git
-tests explicitly excluded)** and 9 affected/a11y e2e pass. Cold image npm downloads
-and installing Git in the Linux validation environment failed/timed out; excluded
-Git cases are a **blocker**, not a pass. New audit: 2 low Mermaid/KaTeX advisories;
-no forced unrelated dependency change. No user-repository commit created.
-
-Next: restore dependency/apt connectivity, install Git in the Linux validation
-image and run the complete integration suite without exclusions; then user-approved
-commit + clean exact-commit image build. Read the version handoff below, the plan
-and deployment guide. First validation: `podman build -f ops/Dockerfile.validation
--t pandanote-version-native . && podman run --rm --cpus=2 --memory=4g
-pandanote-version-native`. S18's outstanding VPS/device/screen-reader gates remain open.
+Commit-derived YYMMDD-N/latest + immutable clean-source image metadata/UI are
+implemented. SS05/SS06 resolve earlier Linux Git and cold-build/transfer blockers;
+SS07 fresh Linux native/Git/PTY/archive regression has no exclusions. Historical
+failed/excluded runs remain below, not current blockers. Docker/Podman save/load/
+retag evidence is SS06; exact user-release-commit verification remains pending.
+Read VERSIONING_PLAN and current operations guide; never promote a synthetic clone
+or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
 
-**Current priority:** the approved simplify-setup change — follow
-`docs/simplify-setup/PROGRESS.md` (SS06 done;
-next planned step **SS07** documentation/full regression). The S18 items below remain open.
+**Current priority:** resolve the sole open simplify-setup SS01 atomicity requirement
+with the user; do not silently accept a specification deviation.
 
-1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
-2. Complete the version enhancement's blocked Linux Git/cold-build validation, then commit the enhancement (user approval; S18 itself is already committed). On a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
-3. Perform and record physical-device/IME/pinch-zoom and screen-reader review; review Linux `shell.test.ts` visual baselines (`--update-snapshots` only after inspection).
-4. Raise with the user: timeline virtualization (needs approved scroll-sync/history redesign) given the measured DOM growth; optional 100k-note stress run.
-5. Re-run on the release commit: `npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build && npm run test:e2e`, the Linux validation image, `ops/release-drill.sh`, `ops/release-benchmark.sh`. Only then mark S18 done.
+1. Read AGENTS, simplify-setup SPEC §8/PROGRESS latest SS07, ARCHITECTURE §4.3,
+   pre-upgrade.ts and its integration tests. Approve durable rotation with its
+   brief path-absence window, or separately design/test a Linux atomic exchange.
+2. With approval commit, build the exact clean release using npm run image:build,
+   inspect labels/private UI identity and retain prior image/full downloaded backup.
+3. Complete S18 real VPS/public HTTPS/independent-host uploaded restore and physical
+   device/IME/pinch/screen-reader audit; review Linux visual baselines, not auto-update.
+4. Raise long-session virtualization/100k stress separately, with evidence and
+   approved scroll/history scope; current DOM growth remains a documented limitation.
+5. Re-run common/full e2e/Linux/drill/benchmark on the exact release commit. First
+   next validation: npm run check && npm run test:integration -- pre-upgrade
+   release-hygiene. Only final acceptance can close S18/project completion.
 
 Subsequent sessions should always follow the next unfinished step recorded here.
 
@@ -3540,3 +3497,83 @@ SS06 is done; **SS07 docs/full regression next**, no overall project/release cla
 Final cleanup-strict deployment rerun **5/5 PASS (4.5 min)** on final test source,
 including a **1,208,340,311-byte** TLS restore. Final pinned check/lint and targeted
 hygiene **5/5 PASS**; no owned container/test fixture/NUL remains and latest preserved.
+
+### Session 2026-10-08 — SS07 documentation and full regression
+
+**State: done (local documentation/regression gate).** Clean `44cde28`
+(SS06). No user commit, dependency/lockfile change or application-data deletion.
+Exact commands, images, acceptance mapping and failures:
+[dedicated change handoff](simplify-setup/PROGRESS.md) SS07.
+
+Implemented/touched: complete README/ops DEPLOYMENT rewrite; OPERATIONS canonical
+pointer; PRODUCT_SPEC §2/13/14, ARCHITECTURE §3/4/12/13/16 (stale other-step claims
+also reconciled), IMPLEMENTATION_PLAN/main ACCEPTANCE/VERSIONING_PLAN, dated
+RELEASE_RESULTS, simplify-setup SPEC/PLAN/README/DECISIONS/ACCEPTANCE, migrations/tests
+READMEs/RESTORE_RUNBOOK and both progress logs. Root minimal Compose/one env remain
+unchanged, explicit Podman Docker-retag preserved, first-visitor/60-minute/8–128/
+partial zh-CN/automatic SQL+data/copy/live reset/pre-release refusal/DB-only rollback
+are current. No obsolete command banners; history is kept only in PROGRESS.
+AGENTS six required scripts are unchanged, so no AGENTS command edit needed.
+
+release-hygiene adds removed-guidance scan outside history, local link resolution
+and canonical operations/script guards (7 total cases). Validation Dockerfiles add
+explicit CA/Git/native build/PTY tools and all nonvisual browser specs; no runtime
+stack/dependency change. Full browser exposed a real pre-hydration Settings Sign out
+click silently lost: ready-gate button, deterministic held-entry-module auth test
+(red before fix, green after). This is SS07's only application behavior change.
+Test logs/harnesses synthetic and ignored.
+
+Actual results so far (explicit Node 24.21.0/PATH/npm CLI, TLS=1):
+
+- Initial host check/lint/build PASS, 130 unit, 206 integration + 7 Linux-only skips
+  (213). Fresh Linux apt/clean npm ci image/common gate PASS: 130 unit/all 213
+  integration, zero skips/exclusions, including Git/native Sharp/SQLite/PTY/live
+  reset/modes/fsync/archive/rollback/process kills.
+- First full host e2e: 96 pass/1 early Sign out failure. New deterministic hydration
+  test fails before source fix, then passes. Next full: 97 pass/1 language HTTP 429
+  because new test revoked suite session; isolated real session/client bucket fixes
+  test ownership, not production policy. Final full host **98 PASS (6.1 min)**;
+  no assertions/snapshots weakened or regenerated.
+- Linux final fresh browser image **92 nonvisual Chromium PASS (4.2 min)**. Previous
+  run had 91 pass/1 same bucket failure. Linux Windows-only shell snapshots explicitly
+  excluded/unreviewed, not passed. Browser image contains source fix.
+- Normal production Dockerfile/clean-source wrapper in isolated synthetic commit
+  PASS, current image `73bdcdb73872…`, version `261007-7`, clone hash
+  `d2f269cd6c1bf11637bc94e544b2ee7356b7eef6` — NOT a user release. Original latest
+  `05a2848e…` restored. No dirty-source bypass or user commit.
+- Current production two-domain release drill **3 + 1 PASS**, both SIGTERM exits 0;
+  copied root Compose/ORIGIN-only fresh Linux/minimal Caddy/browser/private modes/
+  PID1/UID/caps/XFF install **1 PASS (DOC-02)**. First drill invocation exit127 from
+  literal quotes in PLAYWRIGHT var corrected; next 3-pass restore run's restart had
+  transient ERR_NAME_NOT_RESOLVED (synthetic DNS), Node lookup then worked, isolated
+  restart PASS and complete script rerun PASS. No DNS root-cause fix claimed.
+- Existing 2 low advisory/deprecation/install-script/lazy-chunk warnings remain;
+  no new 10k/max-bound/100k benchmark or Docker/Podman cross-transfer rerun. SS06
+  actual DEP-01–09 and dated S18 measurements remain historical evidence only.
+
+Remaining: final post-source-fix host/common and rebuilt Linux native gate + safe
+owned-stack cleanup/doc formatting close (recorded below). Overall simplify-setup
+**NOT done** while SS01's literal atomic directory exchange remains a raised user
+clarification. Journaled rotation is crash-safe but has a path-absence window.
+S18 public-VPS/independent-host restore/device/IME/AT/Linux visual/exact-release gates
+remain open. Next: read SPEC §8/ARCHITECTURE §4.3/pre-upgrade.ts/tests, resolve that
+clarification with user; then approved commit/exact clean release build/verification.
+First next validation: npm run check && npm run test:integration -- pre-upgrade
+release-hygiene.
+
+Final close: host post-fix check/lint/build, **130 unit + 206 integration/7 Linux-only
+skips PASS** (213). Rebuilt fresh Linux ops/Dockerfile.validation check/lint/build,
+**130 unit/all 213 integration, zero skips/exclusions PASS**; image
+`b24944cc0550085be0f153466b265795240affc713d0b4687668a06603a9861a`.
+Final nonvisual browser image `dc5f3c47e78648686ebd9fe0b10c251c2069da801e3038a3cf8b8c5ac3721986`
+has the source/test fix; **92 Linux/98 full host Chromium** remain passing. Current
+production image drill/copy install passes remain final; only docs changed afterwards.
+Owned pna/pnb stacks/networks/CA volumes and .drill/ss07 synthetic data binds removed,
+prior results preserved. Cleanup's final check found the generated SSH NUL file;
+removed only it and reran .e2e-data/NUL/package/lock/Compose/env/latest checks PASS.
+Original latest still `05a2848e…`, no containers remain. SS07 **done**, overall
+simplify-setup/S18 completion remains explicitly unclaimed for the listed blockers.
+Final doc-close Prettier, npm run check/lint, npm run test:integration --
+release-hygiene (7 cases), git diff --check and fixture/NUL/package/lock/Compose/env
+checks **PASS**. Only this handoff result was added afterwards; no source behavior
+changed after the full passing gates.

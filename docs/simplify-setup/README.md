@@ -1,15 +1,15 @@
 # Change: Simplify setup and deployment
 
-**Status:** SS01–SS03 core implemented / common gates blocked — approved on 2026-10-06.
-Schema-v2 migrations/copies, shared startup/proxy trust, two-step browser setup,
-username login and fresh-auth account editing are implemented. SS03-specific tests
-pass on Windows and Linux; SS04 language/title rendering and SS05 archive/recovery
-integration remain. Do not deploy this intermediate checkout as a working release:
-backup/restore is broken.
+**Status:** approved on 2026-10-06; SS07 documentation/full local regression done,
+implementation locally verified. Browser setup, username login/account edits,
+language/title, startup migrations/copy, format-v2 backup/restore, interactive live
+reset and minimal existing-Caddy deployment are implemented. SS01's literal atomic
+directory-exchange clarification and S18 manual/exact-release-commit checks remain
+open; no overall release completion is claimed.
 Actual validation and constraints: [PROGRESS.md](PROGRESS.md).
 **Type:** user-approved post-S18 change. It **supersedes** the setup-token, manual
 migration, hardened-Compose and fixed-proxy-IP parts of earlier documents (see
-[SPEC §10](SPEC.md#10-superseded-requirements)). It does not close S18's outstanding
+[SPEC §10](SPEC.md#10-documentation-reconciliation)). It does not close S18's outstanding
 real-VPS/device/accessibility gates.
 
 ## Goal
@@ -32,11 +32,12 @@ data migrations. Nobody has to run any other command.
 | [SPEC.md](SPEC.md)                         | Agreed behavior: setup flow, accounts, language, deployment, migrations |
 | [PLAN.md](PLAN.md)                         | Ordered implementation steps SS01–SS07 with done gates                  |
 | [ACCEPTANCE_TESTS.md](ACCEPTANCE_TESTS.md) | Verification cases SET-_, ACC-_, MIG-_, DEP-_, OPS-_, DOC-_             |
-| [OPERATIONS.md](OPERATIONS.md)             | Target operator guide (install, upgrade, rollback, reset password)      |
+| [OPERATIONS.md](OPERATIONS.md)             | Link to canonical ops/DEPLOYMENT.md (install/upgrade/rollback/reset)    |
 | [PROGRESS.md](PROGRESS.md)                 | Status, decision log, handoff for this change                           |
 | [DECISIONS.md](DECISIONS.md)               | Interview record and design decisions with rationale                    |
 
 Authority for this change: user interview answers (DECISIONS.md) > SPEC.md >
 main `docs/PRODUCT_SPEC.md` / `docs/ARCHITECTURE.md` where they conflict.
-After implementation, the main documents are rewritten so they no longer conflict
-(PLAN step SS07).
+Main guidance is reconciled by SS07; historical outcomes remain in PROGRESS, not
+as alternative installation instructions. The canonical guide is
+[ops/DEPLOYMENT.md](../../ops/DEPLOYMENT.md).

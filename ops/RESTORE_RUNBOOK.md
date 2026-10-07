@@ -31,9 +31,11 @@ reference/space failures leave current application data unchanged.
 
 ## Fresh replacement VPS / different domain
 
-Deploy a compatible app, set destination `ORIGIN`, persistent private `DATA_DIR`
-and HTTPS/proxy settings. Startup initializes/migrates the empty DB automatically.
-Complete the two-step browser setup with a temporary account and preferences,
+Follow [DEPLOYMENT.md](DEPLOYMENT.md): load the compatible image, copy root
+`docker-compose.yml`/`.env.example`, set destination ORIGIN and join the existing
+Caddy network. DATA_PATH defaults to `./data`; container DATA_DIR is always `/data`.
+Run docker compose up -d; startup initializes/migrates before HTTP.
+Complete two-step browser setup within 60 minutes with a temporary account/preferences,
 then follow the same uploaded restore workflow. Do not copy the source
 machine's `.env`, domain, TLS keys or app binaries from an archive; they are not
 included. After replacement use the archived credentials, not the temporary ones.
@@ -41,9 +43,10 @@ A real-domain independent-deployment drill remains the S18 release gate.
 
 ## Transport, disk and compatibility
 
-- Set adapter-node `BODY_SIZE_LIMIT=64G` and a matching streaming reverse-proxy
-  ceiling/time allowance for archives. Avoid proxy buffering of the whole body.
-  Image/file/JSON limits remain much smaller and authoritative at domain routes.
+- The image already sets adapter-node BODY_SIZE_LIMIT=64G. Minimal Caddy
+  `reverse_proxy pandanote:3000` needs no body/header/timeout overrides (>1 GiB TLS
+  restore verified). Other proxies must stream adequate size/time without buffering
+  the whole archive. Image/file/JSON caps remain smaller and authoritative.
 - Format v2 accepts the application's regular USTAR subset only. Format-v1
   pre-release archives are explicitly refused before extraction or replacement.
   It rejects PAX, GNU, links, devices, directories, duplicate/unexpected paths,
@@ -99,7 +102,7 @@ native/process-kill tests exercise deployment durability semantics.
 
 ## If the app cannot start
 
-1. Stop the app and ensure there are no other SQLite writers. Inspect only safe
+1. `docker compose stop pandanote` and ensure no other SQLite writers. Inspect only safe
    filesystem names, free space/permissions and journal phase (not note/credential
    bytes). Fix disk reserve/ownership/mount or lock problems first. Do not run
    migrations or security reset against a mixed state.

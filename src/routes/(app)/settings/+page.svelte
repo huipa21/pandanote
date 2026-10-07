@@ -137,7 +137,7 @@
 />
 <section class="surface">
   <SecuritySettings />
-  <button onclick={signOut} disabled={signingOut}
+  <button onclick={signOut} disabled={signingOut || !ready}
     >{signingOut ? 'Signing out…' : 'Sign out'}</button
   >
   <p class="help">

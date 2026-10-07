@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 function files(dir: string): string[] {
@@ -91,6 +91,83 @@ describe('production surface hygiene', () => {
       for (const match of text.matchAll(/process\.env\.([A-Z_]+)/g))
         expect(allowedEnv.has(match[1]), `${path}: ${match[1]}`).toBe(true);
     }
+  });
+});
+
+describe('current documentation contracts (DOC-01–03)', () => {
+  const documents = [
+    'README.md',
+    'AGENTS.md',
+    ...['docs', 'ops', 'migrations', 'tests'].flatMap(files),
+  ].filter((path) => path.endsWith('.md'));
+
+  it('removes obsolete operator guidance outside preserved PROGRESS history', () => {
+    const removed = [
+      'SETUP_TOKEN',
+      'TRUSTED_PROXY_IPS',
+      'db:migrate',
+      'auth:setup-token',
+      'auth:recover',
+      'compose.yaml',
+      'ops/compose.external.yaml',
+    ];
+    for (const path of documents) {
+      if (path.endsWith('PROGRESS.md')) continue;
+      const text = read(path);
+      for (const name of removed)
+        expect(text, `${path}: ${name}`).not.toContain(name);
+      expect(text, path).not.toMatch(/ops\/[\w.-]*env\.example/);
+    }
+    // Negative assertions and the deliberate legacy environment scrub code are
+    // required security tests, not supported deployment configuration.
+  });
+
+  it('resolves local Markdown links and pins the canonical install/recovery flow', () => {
+    for (const path of documents) {
+      const prose = read(path)
+        .replace(/^```[^\n]*\n[\s\S]*?^```/gm, '')
+        .replace(/`[^`\n]*`/g, '');
+      for (const match of prose.matchAll(
+        /!?\[[^\]\n]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g,
+      )) {
+        const href = match[1];
+        if (/^(?:[a-z][a-z\d+.-]*:|#)/i.test(href)) continue;
+        const target = decodeURIComponent(href.split('#')[0]);
+        expect(
+          existsSync(resolve(dirname(path), target)),
+          `${path}: ${href}`,
+        ).toBe(true);
+      }
+    }
+    const guide = read('ops/DEPLOYMENT.md');
+    for (const command of [
+      'npm run image:build -- --platform linux/amd64',
+      'docker image save -o pandanote-image.tar pandanote:latest',
+      'podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest',
+      'docker tag localhost/pandanote:latest pandanote:latest',
+      'cp .env.example .env',
+      'docker compose up -d',
+      'reverse_proxy pandanote:3000',
+      'docker compose run --rm pandanote reset-password',
+      'docker compose run --rm pandanote reindex',
+      'sudo cp data/pre-upgrade/pandanote.sqlite data/db/pandanote.sqlite',
+    ])
+      expect(guide, command).toContain(command);
+    expect(guide).toContain('First visitor owns an empty instance');
+    expect(guide).toContain('60 minutes');
+    expect(guide).toContain('8–128');
+    expect(guide).toContain('not a single atomic directory exchange');
+    expect(read('docs/simplify-setup/OPERATIONS.md')).toContain(
+      '../../ops/DEPLOYMENT.md',
+    );
+    const scripts = JSON.parse(read('package.json')).scripts as Record<
+      string,
+      string
+    >;
+    expect(scripts['reset-password']).toContain('scripts/reset-password.ts');
+    expect(scripts['search:reindex']).toContain('scripts/reindex.ts');
+    for (const removed of ['db:migrate', 'auth:setup-token', 'auth:recover'])
+      expect(scripts).not.toHaveProperty(removed);
   });
 });
 

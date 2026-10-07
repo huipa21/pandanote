@@ -1,371 +1,271 @@
-# PandaNote production deployment (single VPS)
+# PandaNote — operations guide
 
-> **Superseded deployment instructions:** SS06 now ships only the root
-> `docker-compose.yml` and `.env.example`. Follow
-> [the current minimal operations guide](../docs/simplify-setup/OPERATIONS.md),
-> including the Podman archive retag step. The historical text below is retained
-> only until SS07's documentation replacement; its removed files/commands must not
-> be used. Caddy drill files are now test-only under `tests/release/`.
+You need a Linux server with Docker (Compose v2), an existing Caddy container on a
+Docker network (here `proxynet`), and a DNS name pointing at the server. Allow your
+administrative access and Caddy's HTTP/HTTPS ports through the firewall; never
+publish the app's port 3000. Run one PandaNote process per local-disk data folder.
 
-One PandaNote app instance behind one HTTPS reverse proxy (Caddy), with one
-persistent private data volume. PandaNote is a single-user app: do not run two
-app containers, do not point two instances at the same data, and do not put the
-data directory on network storage or serverless/ephemeral disks (SQLite WAL).
+Local Linux image/Caddy/drill gates are verified; public VPS, physical-device,
+screen-reader and exact-release-commit checks remain open. See
+[progress](../docs/simplify-setup/PROGRESS.md). AMD64 is validated, ARM64 is not yet.
 
-What this directory/repository provides:
+## 1. Build the image (on your computer)
 
-| File                         | Purpose                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------- |
-| `ops/Dockerfile`             | Pinned Node 24.21.0 bookworm; native modules; root bootstrap then non-root PUID/PGID  |
-| `compose.yaml`               | `app` + `proxy` services and explicit one-shot `ops` tasks (migrate, token, recovery) |
-| `ops/Caddyfile`              | HTTPS edge: automatic certificates, streaming bodies, overwritten client address      |
-| `ops/production.env.example` | Deployment variables (copy to `.env`; keep it private)                                |
-| `ops/RESTORE_RUNBOOK.md`     | Uploaded restore, rollback and "app cannot start" procedures                          |
-| `ops/release-drill.sh`       | Two-deployment/different-domain restore drill + restart persistence                   |
-| `ops/release-benchmark.sh`   | 10k-note measured workloads on a 2-CPU/3-GiB container                                |
-
-Verified shape: a Linux VPS with about 2 CPU cores / 4 GB RAM, Docker Engine with
-the Compose v2 plugin (Podman with a Compose provider also works), a DNS name
-pointing at the VPS and TCP 80/443 (+UDP 443 for HTTP/3) reachable. Keep at least
-the disk reserve free (default: the larger of 5 GiB and 10% of the filesystem).
-The 60 GB disk is shared with the OS, images, staging and backup archives; it is
-not a promise of 60 GB of attachments.
-
-## 1. First install
+From a clean, committed, full-history checkout with Node 24.21.0/npm 11 and Docker
+or Podman (Docker Desktop in Linux-container mode on Windows):
 
 ```sh
-git clone <your repository URL> pandanote && cd pandanote
-git checkout <release tag or commit>
-cp ops/production.env.example .env
-chmod 600 .env
-$EDITOR .env          # set DOMAIN, ORIGIN and a random SETUP_TOKEN
-# Requires Node 24.21.0 + npm 11 + Docker or Podman (no host npm ci).
-npm run image:build -- --platform linux/amd64
-# .env defaults to PANDANOTE_TAG=latest; optionally pin the printed YYMMDD-N tag.
-```
-
-Generate a secret setup token on a machine with Node (the server does not need
-Node installed), and paste it into `.env`:
-
-```sh
-node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
-```
-
-Startup automatically prepares storage, recovers interrupted restores, initializes
-keys, applies trusted migrations and settings, and registers only the token hash.
-It fails before listening if initialization fails. Never start two app instances
-against the same data directory. Take/download a manual backup before upgrading;
-automatic migration is not automatic backup.
-
-```sh
-docker compose up -d --no-build
-docker compose ps        # wait until app is "healthy" and proxy is running
-```
-
-Open `https://<DOMAIN>/setup`, enter SETUP_TOKEN from `.env` within one hour and choose a password (12–256
-characters). The token is single use; requesting another one invalidates the
-previous token. Restarting with the same environment token does not renew expiry;
-changing SETUP_TOKEN explicitly rotates unclaimed access. Existing/restored accounts
-ignore it, even if left in the environment. After setup, remove SETUP_TOKEN from
-`.env` and run `docker compose up -d --no-build --force-recreate app` to remove it
-from Docker's saved container environment too. The initializer scrubs it before
-starting the server and never logs it. For CLI token reissue before account creation, remove
-SETUP_TOKEN from the environment first so it cannot override the CLI-issued token
-on the next startup. Then, in **Settings**:
-
-1. Enroll an authenticator (TOTP), confirm it, and store the ten single-use
-   recovery codes somewhere safe, away from the VPS.
-2. Create the first manual full backup and download it to protected storage off
-   the server. The archive is **unencrypted** and contains your notes, files, the
-   password hash, encrypted TOTP seed and the portable key. There is no separate
-   backup password and no automatic backup scheduler: a copy on the same server
-   is not disaster protection.
-
-If setup does not work, check `docker compose logs app` and that `ORIGIN` equals
-the exact origin (scheme + host [+ port]) users type, without a trailing slash.
-HTTP is accepted only for loopback development origins.
-
-### Build locally, transfer the image, use your existing Caddy
-
-You need **one additional long-running container**, PandaNote. SQLite, private files
-and the Node HTTP server are inside it; your existing Caddy remains independent.
-Build on a clean, complete Git checkout with Node 24.21.0/npm 11 and Docker or
-Podman (Docker Desktop must use Linux containers on Windows; start the Podman
-machine with `podman machine start` if using Podman):
-
-The wrapper uses only Node built-ins; **no host `npm ci` is needed**. Native
-app dependencies are installed inside the Linux image. Python, make, g++ and CA
-certificates are installed in both dependency stages so native addons can compile
-when prebuilt downloads are unavailable; the runtime has no added build tools.
-Compilation still requires working package/Node-header download connectivity.
-ARM64 command support is
-provided, but only Linux AMD64 was validated in this session.
-
-```sh
-npm run version:release                           # prints version/hash/UTC commit time
-npm run image:build -- --platform linux/amd64      # latest + YYMMDD-N tags
-# ARM64 VPS instead: --platform linux/arm64
-# Auto-detects a working Docker server, then Podman (15 s probe timeout each).
-# Explicit override: append --engine docker or --engine podman.
-# Engine/build failure is reported; a failed build is not retried with another engine.
-```
-
-Staged/unstaged changes and non-ignored untracked files fail **before** Docker runs.
-Commit your source first; this command does not create a commit or Git tag. A shallow
-clone needs complete history (`git fetch --unshallow`). Ignored `.env`/runtime data
-are excluded: the wrapper builds from an immutable `git archive`, not the live tree.
-The version date is UTC **committer** time; sequence counts same-day first-parent
-ancestors. Rebuilding an old commit never uses today's date. See
-[`docs/VERSIONING_PLAN.md`](../docs/VERSIONING_PLAN.md) for exact semantics.
-
-Every successful build updates `pandanote:latest` and also creates the printed
-versioned tag. The version is still embedded metadata, not the word "latest".
-Export with whichever engine built the image (no binary pipes, PowerShell-safe):
-
-```sh
+npm run version:release
+npm run image:build -- --platform linux/amd64     # or linux/arm64
 # Docker build machine:
 docker image save -o pandanote-image.tar pandanote:latest
-# OR Podman build machine, Docker-compatible export:
-podman save --format docker-archive -o pandanote-image.tar pandanote:latest
-scp pandanote-image.tar user@server:/path/to/destination/
-# On the Docker server (no Node/npm/source checkout needed):
-docker image load -i /path/to/destination/pandanote-image.tar
+# OR Podman build machine (explicit archive namespace):
+# podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest
+scp pandanote-image.tar docker-compose.yml .env.example user@server:~/pandanote/
+```
+
+Create `~/pandanote/` on the server first if missing. No host `npm ci` is needed to
+build: the wrapper uses Node built-ins and installs native dependencies inside Linux.
+Both dependency stages include CA/Python/make/g++ for compilation fallback, not the
+runtime stage. Working package/Node-header connectivity is still necessary.
+
+The wrapper selects usable Docker then Podman (`--engine docker|podman` overrides),
+rejects dirty/shallow history, and builds a committed-source archive, never your
+ignored data. Builds update `pandanote:latest` and a `YYMMDD-N` tag. UTC committer
+date + same-day first-parent sequence determine the version, not build time. Full
+hash/time/version are embedded in OCI labels and the sidebar/drawer/Settings About;
+restores/runtime configuration cannot override them. See
+[versioning](../docs/VERSIONING_PLAN.md). No commit or Git tag is created by the tool.
+
+## 2. Install (on the server)
+
+```sh
+cd ~/pandanote
+docker image load -i pandanote-image.tar
+# ONLY for a Podman-built archive (loaded as localhost/pandanote:latest):
+# docker tag localhost/pandanote:latest pandanote:latest
 docker image inspect pandanote:latest --format '{{json .Config.Labels}}'
-```
-
-For the POSIX server commands below, use `TAG=latest`, or retag/pin the loaded
-image using its inspected version (`docker tag pandanote:latest pandanote:<version>`)
-and set `TAG=<version>`. Exporting only latest does not transfer its other tags.
-
-OCI labels are `org.opencontainers.image.version`, `.revision` (full Git hash), and
-`.created` (**UTC commit time**, not build time). The same values are baked into the
-SSR/browser build: the sidebar/mobile drawer footer shows the version, and
-Settings → About shows version, hash and UTC commit time. Runtime environment
-cannot override them. `npm run dev` and ordinary `npm run build` without release
-metadata explicitly show Development. Release identity does not change DB/backup
-compatibility; restore never replaces application binaries/version.
-
-Connect the app to the **existing Caddy user-defined Docker network**. Ensure the
-Caddy address on that network is fixed; set `TRUSTED_PROXY_IPS` to that exact address
-(not a subnet and not the VPS public address). Example (substitute your real
-network, fixed Caddy IP, domain and printed tag):
-
-```sh
-docker run -d --name pandanote --init --restart unless-stopped \
-  --network caddy-net \
-  --env-file .env \
-  -v pandanote-data:/data --read-only --tmpfs /tmp:size=512m,mode=1777 \
-  --cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
-  --cap-add SETUID --cap-add SETGID --cap-add KILL --security-opt no-new-privileges:true \
-  --stop-timeout 60 \
-  --log-opt max-size=10m --log-opt max-file=5 \
-  pandanote:$TAG
-```
-
-Do not publish port 3000. In your existing Caddy configuration, use the site block
-from `ops/Caddyfile`, change `reverse_proxy app:3000` to `reverse_proxy pandanote:3000`,
-and substitute the site hostname/environment placeholders. Preserve overwritten
-`X-Forwarded-For`, streaming and upload/time limits. No second Caddy container is
-required. Open `/setup` with the token, then enroll MFA and download a manual backup.
-Never run two app instances on the same volume. On upgrades, stop/remove only the
-old **container**, preserve the data, and start the new image (startup migrates
-after recovery); make/download the pre-upgrade backup first.
-
-For the bundled Compose stack, use `PANDANOTE_TAG=latest` (the default) or a pinned
-loaded version in `.env`, and use `--no-build`. Ordinary deployment needs no
-provenance environment variables. Low-level Docker/Compose builds require all
-three build arguments `PANDANOTE_VERSION` (separate from the mutable image tag),
-`PANDANOTE_COMMIT`, and
-`PANDANOTE_COMMITTED_AT`. Missing/invalid values fail; these low-level primitives
-cannot prove that caller-supplied metadata describes the source, so the supported
-release path is **`npm run image:build`**, which enforces clean Git and snapshots it.
-`latest` is intentionally mutable. Before loading a replacement, retain the old
-image under its inspected version or image ID for rollback. Do not overwrite a
-versioned tag with different source.
-
-### Simple Compose with existing Caddy and a project-local data folder
-
-In a dedicated deployment folder on the server, copy `ops/compose.external.yaml`
-as `docker-compose.yml` and `ops/external.env.example` as `.env`. These two files
-and the loaded image are sufficient; the server needs no source checkout or Node.
-Set the real HTTPS ORIGIN, Caddy's fixed shared-network IP, network name, image tag,
-PUID/PGID and SETUP_TOKEN. The host DATA_PATH defaults to `./app-data`, outside the
-web app; Docker creates it and the initializer sets its private ownership/modes.
-Do not map an OS directory or a folder shared with another service.
-
-```sh
+cp .env.example .env
 chmod 600 .env
-docker compose config --quiet
+nano .env                      # set ORIGIN=https://notes.example.com
 docker compose up -d
-docker compose ps
-docker compose logs --tail=100 app
+docker compose ps              # wait for healthy
 ```
 
-Caddy's upstream is `pandanote-app:3000`. Keep the overwritten forwarded header
-and streaming/time limits shown above. No CPU/memory limits are set. Image defaults
-use PUID=1000, PGID=1000; other positive numeric IDs are supported, never UID/GID 0.
-Changing IDs on a subsequent startup securely updates ownership of this private
-bind tree. Bootstrap refuses symbolic links, external hardlinks, special entries,
-nested filesystems and inventories over one million entries; internal snapshot
-hardlinks are supported. The folder is trusted against concurrent writes by other
-OS users, like all private app storage. It must be local disk, not network storage.
+PandaNote's network must already exist and be the one Caddy uses. If its name is
+not `proxynet`, change **both** `proxynet` lines in `docker-compose.yml`. Add to your
+existing Caddyfile, then reload Caddy:
 
-The image starts briefly as root with CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID
-and KILL from Compose, then permanently clears supplementary groups and switches to
-PUID/PGID **before reading keys/SQLite, registering setup access or starting commands**.
-KILL lets Docker's root init process forward shutdown signals to the non-root server;
-the server itself retains none of these capabilities.
-The HTTP process has no root capabilities. Do not override `user:` in this automatic
-bind workflow. An explicitly pre-owned non-root deployment is supported only when
-its process identity and PUID/PGID agree. `docker exec` starts as the image's root
-user unless `--user` is specified; prefer non-root `docker exec --user <PUID>:<PGID>`
-and never run data-mutating maintenance against a live app.
+```caddyfile
+notes.example.com {
+	reverse_proxy pandanote:3000
+}
+```
 
-`init: true` is Docker's tiny signal-forwarding/child-reaping process, not our
-initializer. `cap_drop` removes default Linux privileges; `cap_add` permits only
-bootstrap ownership/user switching and init signal forwarding; the server loses
-these privileges when it becomes non-root.
-`no-new-privileges` prevents elevation through setuid binaries/file capabilities.
-`stop_grace_period` (STOP_GRACE_PERIOD, default 60s) gives HTTP draining and SQLite
-shutdown time before a forced kill. The initializer uses Node 24's Linux execve
-to replace itself with the server, preserving graceful signal delivery.
+Open `https://notes.example.com`. You are sent to **Setup**:
 
-### Environment reference
+1. Username, email, password (8–128 Unicode characters), re-enter password → **Create account**.
+2. Site title, language, timezone → **Finish setup**.
 
-| Variable                                                             | Meaning                                                                                                                                            |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DOMAIN`                                                             | Public host name Caddy serves and obtains certificates for.                                                                                        |
-| `ORIGIN`                                                             | **Required.** Canonical `https://host[:port]` the browser uses. Checked on every state-changing request and used for `Secure` cookies.             |
-| `EDGE_SUBNET`, `EDGE_PROXY_IP`, `APP_IP`                             | Fixed private network. The app trusts `X-Forwarded-For` **only** from `EDGE_PROXY_IP` (`TRUSTED_PROXY_IPS`, exact addresses, max 16).              |
-| `BODY_SIZE_LIMIT` / `BODY_SIZE_LIMIT_CADDY`                          | Transport ceilings (default 64G / 64GB) so full restore archives stream. Domain handlers enforce the real file/JSON/archive limits.                |
-| `DISK_RESERVE_BYTES`                                                 | Optional override of the free-space reserve protecting the volume.                                                                                 |
-| `PUID`, `PGID`                                                       | Positive non-root UID/GID, default 1000:1000; initializer secures/chowns data and permanently drops privileges.                                    |
-| `HTTP_PORT`, `HTTPS_PORT`                                            | Published proxy ports (80/443). Only the proxy publishes ports; the app listens on 3000 inside the private network.                                |
-| `PANDANOTE_TAG`                                                      | Image tag; defaults to latest, or set a versioned tag to pin/rollback.                                                                             |
-| `SETUP_TOKEN`                                                        | First-account bootstrap secret: 32 random bytes encoded as 43 base64url characters; expires one hour after first registration, never auto-renewed. |
-| `DATA_PATH`, `PROXY_NETWORK`, `PANDANOTE_IMAGE`, `STOP_GRACE_PERIOD` | External-Caddy Compose only: host bind path, external network, loaded image and graceful shutdown window.                                          |
-| `CADDY_TLS_DIRECTIVE`                                                | Leave empty. `tls internal` is for local drills only (untrusted certificate).                                                                      |
+**First visitor owns an empty instance.** Claim it promptly or restrict public
+access until ready. Setup is open for 60 minutes after the server process starts.
+If timed out: `docker compose restart pandanote` and open the site again. Once an
+account exists, setup cannot replace it. Leaving after step one resumes preferences
+after username/password login. Completed instances open Login when signed out,
+the timeline when signed in. Email is required metadata, not verified; no email is sent.
+Recommended next: enable TOTP in Settings and download a full backup.
 
-`DATA_DIR` is always `/data` in the container (named volume `pandanote-data`).
-Persistent data is: `db/` (SQLite + WAL), `files/` (WebP/attachments), `private/`
-(portable key material, restore journals), `staging/` and `backups/`
-(manual `.pnb` archives). Nothing is under a public/static path; the image
-contains no uploads or database. Back the **volume** up only with the app stopped
-or use the application's manual backup. Caddy's `caddy-data` volume holds the
-certificate account/keys; losing it only causes re-issuance.
+### What is where
 
-Using another reverse proxy is allowed if it: terminates HTTPS, **overwrites**
-(not appends) `X-Forwarded-For` with exactly one client IP, forwards `Host`,
-streams request/response bodies without buffering whole uploads, has body/time
-limits at least as large as the backup/restore you intend to use, and its exact
-peer address is listed in `TRUSTED_PROXY_IPS`. The Caddy configuration above is
-the verified path.
+| Path                 | Contents                                                                       |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `docker-compose.yml` | One PandaNote service on the existing Caddy network.                           |
+| `.env`               | Required `ORIGIN`, optional values below. Keep private.                        |
+| `./data/`            | Database, files, keys, staging, manual backups and latest pre-upgrade DB copy. |
 
-## 2. Operating the stack
+Startup automatically recovers restores, initializes keys/database/default settings,
+and applies SQL + registered data steps before HTTP listens. No migration/setup
+operator command. Linux data directories are owner-only `0700`, files `0600`.
+Never copy a live SQLite main file without WAL, regenerate lost keys or manually
+remove referenced attachment bytes.
 
-| Task                     | Command                                                                          |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| Status / health          | `docker compose ps` (app health = `GET /health`: ready, maintenance, or 503)     |
-| Logs (structured, safe)  | `docker compose logs --tail=200 app` / `proxy` (rotated by the json-file driver) |
-| Disk and data sizes      | `docker compose exec app du -sh /data/* ; df -h` and Settings → Storage          |
-| Memory / CPU             | `docker stats`                                                                   |
-| Reindex search (app off) | `docker compose stop app && docker compose --profile ops run --rm reindex`       |
-| Restart                  | `docker compose restart app`                                                     |
+### Settings in `.env`
 
-`/health` is public, read-only and returns only `{"status":"ok"}`,
-`{"status":"maintenance"}` (restore replacement in progress) or HTTP 503
-`{"status":"unavailable"}` (storage not initialized/migrated, corrupt keys,
-pending filesystem recovery). Logs never contain note text, passwords, TOTP
-seeds, recovery codes, session tokens or precise coordinates; do not add such
-logging when debugging.
+| Variable             | Required | Default                  | Meaning                                                                 |
+| -------------------- | -------- | ------------------------ | ----------------------------------------------------------------------- |
+| `ORIGIN`             | yes      | —                        | Canonical HTTPS origin, no trailing slash; HTTP only for loopback.      |
+| `DATA_PATH`          | no       | `./data`                 | Private local folder on this server for all app data.                   |
+| `PUID` / `PGID`      | no       | `1000` / `1000`          | Non-root positive numeric owner IDs.                                    |
+| `PANDANOTE_IMAGE`    | no       | `pandanote:latest`       | Set to a retained version/tag for pinning or rollback.                  |
+| `DISK_RESERVE_BYTES` | no       | max(5 GiB, 10% capacity) | Free-space floor protecting the shared filesystem.                      |
+| `BODY_SIZE_LIMIT`    | no       | `64G` in image           | Transport ceiling; domain image/file/archive limits still apply.        |
+| `PORT`               | no       | `3000`                   | Internal listener; changing it also requires changing Caddy's upstream. |
 
-### Graceful shutdown
+The only env template is root `.env.example`, with just ORIGIN required.
+Container `DATA_DIR` is always `/data`; DATA_PATH controls the host bind. Use the
+configured path, not literal `data`, in disk/recovery examples if you changed it.
+The 60 GB disk is shared with OS/images/staging/backups; do not consume the reserve.
 
-`docker compose stop app` (or a host shutdown) sends SIGTERM. The Node adapter
-stops accepting requests, drains in-flight ones, waits for a running backup to
-finish and closes SQLite/WAL; the process exits **0**. The 60 s
-`stop_grace_period` covers a typical backup. Do not `kill -9` or remove the
-container while a backup/restore is running; the journaled restore and startup
-recovery exist for crashes, not as a routine stop method.
+## 3. Everyday commands
 
-## 3. Upgrade and rollback
+| Task         | Command                                        |
+| ------------ | ---------------------------------------------- |
+| Status       | `docker compose ps`                            |
+| Logs         | `docker compose logs --tail=100 pandanote`     |
+| Restart      | `docker compose restart pandanote`             |
+| Stop / start | `docker compose stop` / `docker compose up -d` |
+| Disk usage   | Settings → Storage, or `sudo du -sh data/*`    |
 
-1. Create a **manual backup in Settings and download it off-server.**
-2. `git fetch && git checkout <new tag>`; review `docs/PROGRESS.md`/release notes.
-3. Before loading a new image, inspect the current `pandanote:latest` labels and tag it with its old version for rollback (`docker tag pandanote:latest pandanote:<old-version>`). On the clean build checkout, run `npm run image:build`; transfer/load the new image and inspect its labels. Keep `.env` `PANDANOTE_TAG=latest` or pin the new version. Loading the image does not update an already running container.
-4. Stop the old app and start the new image; its initializer recovers/migrates
-   before listening (no other instance may write):
-   ```sh
-   docker compose stop app
-   docker compose up -d --no-build --force-recreate app
-   docker compose ps       # wait for healthy
-   ```
-5. Sign in and spot-check recent notes, a download, Drafts/Trash and Settings.
+Health exposes only `ok`, `maintenance`, or HTTP 503 `unavailable`. Logs exclude
+note text/passwords/seeds/codes/sessions/precise coordinates. Docker's default idle
+shutdown window is 10 seconds; the server exits 0 after draining and closing SQLite.
+Avoid forced kills as routine operation. Interrupted restore replacement recovers
+from its durable journal at startup.
 
-Migrations are forward only and verified against the trusted migration history.
-An older image cannot open a newer schema (it fails closed before the server starts). To
-roll back after migrating, deploy the previous tag and **restore the backup taken
-in step 1** through Settings (see the restore runbook), not by editing the DB.
-Browser-local drafts stay in each browser and are not affected by upgrades.
+## 4. Backups
 
-## 4. Recovery
+Settings → Backup & Restore → create, then **download to another machine**. A
+server-only archive does not survive server loss. Full archives are unencrypted,
+sensitive and include account/MFA/portable keys. Protect them yourself. No separate
+backup password, scheduler or automatic full backup exists.
 
-- **Forgot the password / lost the authenticator and recovery codes** (operator
-  only; no web bypass). Stop the app, pipe the new password through stdin, restart:
+Stopping during creation can interrupt the backup; startup marks interrupted jobs
+failed, never lists partial archives complete. Create again after restart.
+`pre-upgrade/` is a database-only rollback aid, not a full backup. Browser drafts
+are device-only and excluded from both.
 
-  ```sh
-  docker compose stop app
-  read -rs -p 'New password: ' PW; echo
-  jq -n --arg password "$PW" '{password: $password}' |
-    docker compose --profile ops run --rm -T recover-auth \
-      node scripts/auth-recover.ts --confirm-reset-security
-  unset PW
-  docker compose start app      # then wait for `docker compose ps` = healthy
-  ```
+## 5. Upgrade
 
-  This changes the password, removes MFA/recovery codes and revokes every session;
-  enroll MFA again afterwards.
+1. Create/download a fresh full backup in Settings; retain it off-server.
+2. Keep the current image: `docker tag pandanote:latest pandanote:previous` (if
+   pinned to another tag, retain the actual running image instead).
+3. Load the new archive as in section 2, retag Podman imports, and update
+   `PANDANOTE_IMAGE` if pinned. Run `docker compose up -d`, then inspect health/logs
+   and spot-check login, notes, Drafts/Trash, Settings and a file download.
 
-- **Setup token expired** (before an account exists): `docker compose stop app`,
-  rerun the `setup-token` task, start the app.
-- **App will not start / `/health` is 503 / restore interrupted:** follow
-  `ops/RESTORE_RUNBOOK.md` ("If the app cannot start"). Preserve the entire volume
-  before manual repair; never delete journal files or regenerate keys.
-- **Disk nearly full:** use Settings → Storage and delete old manual backups after
-  downloading them; never delete files by hand inside `files/`.
-- **Lost the server:** deploy a new VPS with this guide (new or same domain),
-  initialize temporary access, upload your downloaded `.pnb` in Settings and
-  restore. Sign in with the archived password/TOTP. Domain, `.env`, TLS keys and
-  browser drafts are not part of an archive.
+Loading an image alone does not update an already-running container. A new schema
+is applied on startup, with a consistent online DB copy + manifest saved first to
+`data/pre-upgrade/`. Fresh/current schemas skip that copy. Settings → Storage shows
+its size/version/time. SQL/data/ledger/integrity changes share one IMMEDIATE
+transaction; migration failure rolls back the DB and exits without serving.
 
-## 5. Security checklist
+The latest copy replaces its predecessor using **durable journaled rotation**,
+recovering interrupted rotation before migration. There is a brief path-absence
+window, not a single atomic directory exchange; SS01's literal atomicity clarification
+is still open. It copies no keys/files. Insufficient space refuses upgrade before
+serving; logs give the required space. Do not modify migration history or down-migrate.
 
-- HTTPS only; `ORIGIN` exact; `.env` mode 600 and out of version control.
-- Firewall: allow only 22 (your admin access), 80, 443 (+UDP 443).
-- Never publish port 3000 or mount the data volume into another container.
-- Keep archives and recovery codes offline/encrypted by you; they are sensitive.
-- Update the base image/dependencies by rebuilding the pinned tag deliberately;
-  run `npm audit` (0 vulnerabilities at release) before updating the lockfile.
-- Production image has no tests, fixtures, docs, dev dependencies, demo account or
-  debug route; `tests/integration/release-hygiene.test.ts` pins the shipped route set.
+## 6. Roll back an upgrade
 
-## 6. Verification drills
+**Only immediately after a database upgrade**, before new writes: notes/settings
+written since the copy are lost. Check `pre-upgrade/manifest.json` for the source
+schema and matching old image. A no-schema image update creates no new copy: do not
+use a stale copy for it. Current migrations are database-only; keys/files are not
+restored by this procedure. After subsequent edits/deletions/cleanup/restore, use a
+full downloaded backup and a compatible instance instead.
 
-Both scripts use throw-away projects (`pna`, `pnb`, `pnc`), synthetic data and a
-local certificate authority (`*.localtest.me` resolves to 127.0.0.1 through public
-DNS) and write only to ignored `.drill/`.
+With default DATA_PATH (adjust paths if customized), and after confirming the old
+image is `pandanote:previous`:
 
 ```sh
-# Needs a clean/full Git checkout, Node 24 + `npm ci`, Playwright Chromium,
-# a compose CLI and a container CLI (DOCKER=docker or podman).
-COMPOSE="docker compose" DOCKER=docker bash ops/release-drill.sh      # restore drill
-COMPOSE="docker compose" DOCKER=docker bash ops/release-benchmark.sh  # 10k-note workloads
+docker compose down
+sudo mv data/db data/db.after-upgrade
+sudo mkdir data/db
+sudo cp data/pre-upgrade/pandanote.sqlite data/db/pandanote.sqlite
+nano .env                       # set/replace PANDANOTE_IMAGE=pandanote:previous
+docker compose up -d
 ```
 
-The drill deploys two independent production stacks with different domains,
-initializes A, enrolls TOTP, creates mixed data (images, file, draft, trash,
-location, code/Mermaid, settings), takes a manual backup, downloads it, restores it
-through Settings into the fresh deployment B, verifies archived password/TOTP and a
-recovery code, exact file bytes, search and settings, gracefully stops/starts both
-(exit code 0) and rechecks persistence and the retained browser-local draft. Results
-and the benchmark methodology are recorded in `docs/RELEASE_RESULTS.md`.
+Do not append duplicate env keys. The container fixes ownership on startup. Verify
+health/login/content before deleting `data/db.after-upgrade`; preserve it if recovery
+fails. See [RESTORE_RUNBOOK.md](RESTORE_RUNBOOK.md) for full-state recovery. An older
+image refuses newer schemas; deploy a compatible version before uploaded restore.
+
+## 7. Forgot password / lost two-step verification
+
+```sh
+docker compose run --rm pandanote reset-password
+```
+
+Interactive terminal required; no arguments or piped input. Shows username, asks
+twice without echo (8–128 characters), atomically changes password, disables MFA/
+recovery codes and revokes sessions/challenges. Notes/files/settings stay intact.
+Works with the app running, invalidating old sessions on their next request without
+restart. Maintenance verifies DATA_PATH ownership against PUID/PGID without walking
+or re-owning live files; mismatched ownership refuses. Pending recovery journals or
+no account also refuse. Enroll TOTP again after login. No public reset endpoint.
+
+## 8. Someone else completed setup / start over
+
+With server access, preserve the old directory privately first if you need anything
+from it. **This deletes ALL server data, archives and keys**; use the actual configured
+DATA_PATH, never an OS/shared folder:
+
+```sh
+docker compose down
+sudo rm -rf data                # default DATA_PATH only; irreversible
+docker compose up -d
+```
+
+Open the site and claim setup within 60 minutes. Existing browser drafts are not
+server data and remain on their browser/device.
+
+## 9. Move to a new server
+
+Install as in section 2 with destination ORIGIN, complete temporary browser setup,
+then Settings → Restore with the downloaded format-v2 `.pnb` archive. Validate the
+summary, freshly authenticate and confirm destructive replacement. Sign in with
+archived username/password/MFA. Destination origin stays configurable, old sessions
+are revoked, local browser drafts and unrelated destination archives are untouched.
+Full procedure/bounds/crash recovery: [RESTORE_RUNBOOK.md](RESTORE_RUNBOOK.md).
+Pre-release archives/data are refused; no compatibility migration is provided.
+
+## 10. Rebuild the search index (rarely needed)
+
+```sh
+docker compose stop pandanote
+docker compose run --rm pandanote reindex
+docker compose start pandanote
+```
+
+Argument-free, stopped-app-only; changes derived search, not notes/revisions/files.
+
+## 11. Troubleshooting
+
+| Log message / symptom                            | Fix                                                                                       |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `ORIGIN must be set` / `must be https`           | Set canonical HTTPS ORIGIN in `.env`, then `docker compose up -d`.                        |
+| Network `proxynet` not found                     | Use Caddy's existing network; change both network references.                             |
+| `Database upgrade failed at migration N`         | DB transaction rolled back; use the compatible previous image and report only safe logs.  |
+| `Not enough free space for the pre-upgrade copy` | Free disk space (needed size is logged), restart.                                         |
+| `upgraded by a newer PandaNote`                  | Use newer image or immediate copy rollback (section 6).                                   |
+| `created by a pre-release PandaNote`             | Move the old private data folder away and start empty.                                    |
+| Setup timed out                                  | `docker compose restart pandanote`.                                                       |
+| 502 from Caddy                                   | Check health/logs and shared network/upstream name.                                       |
+| Missing/corrupt keys or recovery journal         | Stop, preserve entire data tree, follow restore runbook; never regenerate/delete blindly. |
+
+## 12. Notes for advanced users
+
+- Container briefly starts as root to prepare only DATA_PATH, rejects links/special
+  files/nested filesystems/external hardlinks, then drops supplementary groups and
+  UID/GID permanently. Server PID 1 Node has zero effective/permitted capabilities.
+  Do not add `user:` to this automatic-root-owned-bind workflow.
+- Minimal Compose intentionally has no hardening/resource/stop-timeout overrides,
+  published ports, bundled proxy or one-off services. Image HEALTHCHECK remains.
+- Never share the data directory with another service or use network storage. Keep
+  data/archives/env/browser profiles out of Git and public paths.
+- Another proxy must terminate HTTPS, forward Host, overwrite XFF with a single
+  valid client IP and stream adequate upload sizes. Private-network/loopback/link-local
+  TCP peers are trusted; absent XFF uses their peer, invalid/chained XFF returns 400.
+  Public peers ignore XFF. Do not permit arbitrary peers onto the proxy network.
+  Leave adapter address/host/protocol/port forwarding overrides unset.
+- Dependency audits/builds are dated evidence, not permanent security guarantees.
+  Use pinned compatible updates and rerun native/archive/auth gates deliberately.
+
+## 13. Verification tooling (not installation steps)
+
+[Test-only release tooling](../tests/release/README.md) uses synthetic independent
+HTTPS domains/data under ignored `.drill/`. With Node/dependencies/Chromium and an
+isolated engine, run `bash ops/release-drill.sh` and `bash ops/release-benchmark.sh`.
+It never points at a user's data folder; its Caddy stack is not bundled deployment.
+Current gates and remaining limitations: [progress](../docs/simplify-setup/PROGRESS.md).

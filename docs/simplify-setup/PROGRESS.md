@@ -2,35 +2,38 @@
 
 ## Current state
 
-- **Status:** **SS06 done.** Minimal root Compose
-  and the single env template replace the historical deployment artifacts. Linux
-  copied-folder DEP-01–08 pass, including a 1,208,340,206-byte TLS archive restore,
-  backup interruption and synthetic SQL/data upgrade/copy rollback. Actual Docker
-  and Podman production builds/save/load/default-reference/native probes pass
-  (DEP-09). Windows/Linux common gates, 130 unit / 211 integration (7 host-only
-  Linux skips, none on Linux), 9 affected Chromium on each, the 4-case two-domain
-  drill and 100-note benchmark setup smoke pass. Full suite/doc rewrite is SS07;
-  no release/user commit created.
-- **Steps:** SS01 in progress (directory-exchange clarification remains) ·
-  SS02–SS04 implemented / common gates pass · SS05 done · SS06 done ·
-  SS07 not started. The full documentation rewrite/regression remains next;
-  this does not close S18's real-VPS/device/accessibility/release gates.
-- **Session baseline:** HEAD `7114997` (SS05 committed); clean tree before SS06.
-  No user-repository commit created by this agent; dependencies/lockfile unchanged.
+- **Status:** **SS07 done (documentation and local full regression).** Current guidance is reconciled (no obsolete deployment command
+  banners); canonical ops/DEPLOYMENT.md covers the minimal existing-Caddy install,
+  two-step setup, startup migrations/copy, rollback and live-safe interactive reset.
+  DOC guard and Sign out hydration regression added.
+- **Validation:** final post-fix host check/lint/build + 130 unit / 206 integration
+  - 7 explicit Linux skips PASS; rebuilt fresh Linux common/native/PTY/Git gates
+    130 unit / all 213 integration (zero skips/exclusions) PASS. Full host Chromium
+    **98**, Linux nonvisual Chromium **92**, current synthetic production image
+    two-domain drill **3 + 1**, copied-root ORIGIN-only Linux install **1** PASS.
+    Owned stacks/data/volumes cleaned; original latest retained, no user release commit.
+- **Steps:** SS01 in progress (literal atomic directory-exchange clarification) ·
+  SS02–SS07 implemented and locally verified; SS07 done. Overall
+  change is **not done** until SS01 is resolved; S18 public-VPS/device/AT/Linux
+  visual/exact-release-commit gates also remain open.
+- **Session baseline:** clean HEAD `44cde28` (SS06 committed). No user-repository
+  commit, dependency/lockfile change or real application-data deletion.
 
 ## Next session: exact task
 
-1. Read `AGENTS.md`, SPEC/PLAN **SS07**, OPERATIONS, the SS06 handoff below,
-   root Compose/env, `tests/release/README.md` and the current docs/runbooks.
-2. Implement **SS07**: replace the historical deployment guide with OPERATIONS,
-   reconcile superseded product/architecture/acceptance/README/versioning/migration
-   docs and pin the documentation hygiene gate, then full host/Linux/browser/drill
-   regression. Keep the Podman-to-Docker retag instruction. SS01 directory exchange
-   remains an explicit separate clarification; S18 manual/public-VPS gates stay open.
-3. First validation: `npm run check && npm run test:integration -- release-hygiene`.
-   Run release Playwright gates sequentially (shared output tree); after interruption
-   clean only owned synthetic fixtures/processes. Normal e2e and release outputs are
-   separated, but two release runs still share `test-results/release/`.
+1. Read SPEC §8, main ARCHITECTURE §4.3, pre-upgrade.ts/copy tests and the SS07
+   handoff below. **Resolve SS01 with the user:** approve documented crash-safe
+   journaled rotation (brief path-absence window), or require a separately designed
+   Linux atomic exchange. Do not silently mark the literal requirement done.
+2. After that clarification/implementation, with approval commit and build the exact
+   clean release using npm run image:build -- --platform linux/amd64. Inspect labels
+   and private UI equality; isolated synthetic commits are not release provenance.
+3. Re-run common/full e2e/native/drill on that exact commit; then S18 real VPS/public
+   HTTPS/independent-host restore and physical-device/IME/screen-reader/Linux visual
+   review. Never count missing snapshots or manual checks as passed.
+4. First validation: npm run check && npm run test:integration -- pre-upgrade
+   release-hygiene. Run release gates sequentially (shared output); remove only
+   owned synthetic resources and preserve prior history/results.
 
 ## Step tracker
 
@@ -42,7 +45,7 @@
 | SS04 | Language registry, site title, Settings General  | implemented / common gates pass | LANG/SET + host/Linux affected browser/common gates pass                        |
 | SS05 | Backup/restore format v2, maintenance commands   | done                            | BAK/OPS/MIG-07; 211 Linux integration + genuine production-image PTY/live reset |
 | SS06 | Deployment files and image                       | done                            | DEP-01–09 Linux image/cross-engine + common/affected/drill gates pass           |
-| SS07 | Documentation and full regression                | not started                     | —                                                                               |
+| SS07 | Documentation and full regression                | done / locally verified         | DOC-01–03, common/full host + nonvisual Linux browser/native/image/drill pass   |
 
 ## Known risks to watch
 
@@ -794,3 +797,129 @@ Final deployment rerun after making cleanup failures explicit:
 archive restore. No owned container remains; original latest still matches the
 recorded ID. Final pinned check/lint and targeted release-hygiene **5/5 PASS**;
 whitespace/lockfile/fixture/NUL checks pass. No code changed after these gates.
+
+### Session 2026-10-08 — SS07 documentation and full regression
+
+**State: done (local documentation/regression gate).** Clean baseline
+`44cde28` (SS06). No user-repository commit, dependency/lockfile change or real
+application-data deletion. Overall simplify-setup remains partial solely for the
+explicit SS01 literal directory-exchange clarification; no final S18 release claim.
+
+Implemented / touched:
+
+- Rewrote README and ops/DEPLOYMENT.md to one working install path: clean image
+  build/save/scp/load, explicit Podman namespace/Docker retag, root Compose + one
+  required ORIGIN + existing Caddy, prompt first-visitor account/preferences setup,
+  automatic startup migration/copy and private defaults. Upgrade/manual full backup,
+  immediate DB-only copy rollback limitations, editable image pinning (no duplicate
+  env keys), interactive live reset, stopped reindex and safe recovery are current.
+  OPERATIONS is now a link to the canonical guide, preventing duplicate drift.
+- Updated PRODUCT_SPEC §2/13/14, ARCHITECTURE §3/4/12/13/16 (also removed stale
+  later-step placeholders/version/transport claims), IMPLEMENTATION_PLAN and main
+  ACCEPTANCE, VERSIONING_PLAN, migrations/README, tests/README and restore runbook.
+  Simplify-setup SPEC/PLAN/README/DECISIONS/ACCEPTANCE retain decisions without
+  obsolete command/config/path strings. RELEASE_RESULTS is explicitly dated S18
+  evidence, not current audit/topology/setup instructions. All PROGRESS history kept.
+  AGENTS commands need no change: the six mandatory scripts remain unchanged.
+- release-hygiene adds DOC-01 obsolete-guidance scan outside PROGRESS, local Markdown
+  link resolution, canonical install/reset/reindex/rollback and supported package
+  script checks. Intentional legacy scrub/refusal source and negative assertions
+  are required, not configuration; acceptance now makes that scope explicit.
+- Validation Dockerfiles explicitly install CA/Git/native compiler/PTY prerequisites
+  before clean npm ci (no Windows native modules); browser image runs all nonvisual
+  specs, including formerly omitted language/Markdown/Mermaid/smoke/accessibility.
+  Windows shell snapshots remain an explicit Linux manual audit, not a passed test.
+- Full browser regression found an ungated SSR Sign out button: pre-hydration clicks
+  vanished before handlers existed. Settings disables it until existing onMount
+  readiness; auth.test.ts holds actual entry modules, asserts disabled, then revokes
+  its own real session. New test deterministically failed before fix and passes after.
+  Its isolated client bucket/session does not consume/revoke the suite's credential
+  or relax production limits. This is the only application behavior change in SS07.
+
+Commands/results (host explicit Node 24.21.0 executable + PATH/npm CLI, TLS=1;
+Linux Node 24.21.0/npm 11.19.0, 2-CPU/4-GiB validation containers on WSL2):
+
+| Command                                                                                                                                                                                                                                                                                                                                                                                    | Actual result                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| npm run check && npm run test:integration -- release-hygiene                                                                                                                                                                                                                                                                                                                               | PASS, zero diagnostics / 7 cases                                                                                                                                                                                                                                         |
+| npm exec -- prettier --write <changed docs/tests/source>                                                                                                                                                                                                                                                                                                                                   | PASS; repeated after edits                                                                                                                                                                                                                                               |
+| npm run check; npm run lint; npm run test:unit; npm run test:integration; npm run build (initial common chain)                                                                                                                                                                                                                                                                             | PASS: 130 unit, 206 integration + 7 Linux-only skips (213), zero diagnostics                                                                                                                                                                                             |
+| npm run test:e2e (first full)                                                                                                                                                                                                                                                                                                                                                              | FAIL: 96 pass / 1 lost early Sign out click                                                                                                                                                                                                                              |
+| npm exec -- playwright test tests/e2e/auth.test.ts --grep 'Sign out waits' (before fix, existing build)                                                                                                                                                                                                                                                                                    | FAIL as expected: button enabled with actual entry modules held                                                                                                                                                                                                          |
+| npm run test:e2e -- tests/e2e/auth.test.ts --grep 'Sign out waits' (after fix)                                                                                                                                                                                                                                                                                                             | PASS 1, actual logout/session rejection                                                                                                                                                                                                                                  |
+| npm run test:e2e (next full)                                                                                                                                                                                                                                                                                                                                                               | FAIL: 97 pass / 1 language login rate bucket; corrected new test's session/bucket ownership, not auth policy                                                                                                                                                             |
+| npm run test:e2e (final2 clean normal comparisons)                                                                                                                                                                                                                                                                                                                                         | PASS **98** (6.1 min), no snapshot updates or weakened assertions                                                                                                                                                                                                        |
+| podman build -f ops/Dockerfile.validation -t pandanote-ss07-native-validation .; podman run --rm --cpus=2 --memory=4g --name pandanote-ss07-native-run pandanote-ss07-native-validation                                                                                                                                                                                                    | PASS fresh apt/npm ci/common: 130 unit / **all 213 integration, no skips/exclusions**, build/check/lint; includes Git, PTY/live reset, root/modes/fsync, Sharp/SQLite/archive/kill/rollback                                                                              |
+| podman build -f ops/Dockerfile.browser-validation -t pandanote-ss07-browser-validation .; podman run --rm --cpus=2 --memory=4g --name pandanote-ss07-browser-run pandanote-ss07-browser-validation                                                                                                                                                                                         | Initial 91 pass / 1 same language bucket failure; final rebuild/rerun **92 PASS** (4.2 min), all nonvisual specs                                                                                                                                                         |
+| Pinned node .browser-spike/verify-ss07-image.mjs                                                                                                                                                                                                                                                                                                                                           | PASS supported clean-source wrapper/unmodified production Dockerfile in isolated synthetic committed clone, original latest restored; NOT a release                                                                                                                      |
+| COMPOSE=docker-compose DOCKER=podman DOCKER_HOST=npipe:////./pipe/podman-machine-default DRILL_DIR=.drill/ss07 PANDANOTE_IMAGE=localhost/pandanote-ss07-verification:latest PLAYWRIGHT='<pinned Node> node_modules/@playwright/test/cli.js' bash ops/release-drill.sh                                                                                                                      | Final PASS **3 phase-one + 1 restart**, both stops exit 0; preceding failures below                                                                                                                                                                                      |
+| DRILL_DIR=.drill/ss07 <pinned Node> node_modules/@playwright/test/cli.js test --config playwright.release.config.ts tests/release/restart.test.ts                                                                                                                                                                                                                                          | PASS 1 standalone after transient DNS lookup failure                                                                                                                                                                                                                     |
+| DEP_ENGINE=podman DEP_REMOTE=podman-machine DEP_IMAGE=localhost/pandanote-ss07-verification:latest DEP_UPGRADE_IMAGE=localhost/pandanote-ss07-verification:latest DEP_COMPOSE_BINARY=.browser-spike/docker-compose-linux <pinned Node> node_modules/@playwright/test/cli.js test --config playwright.release.config.ts tests/release/deployment.test.ts --grep 'copied minimal deployment' | PASS **1 DOC-02/DEP-01–05** (1.8 min): current real root Compose/ORIGIN-only env on fresh Linux folder + minimal TLS Caddy/browser setup/private modes/PID1/UID/zero caps/XFF. Upgrade parameter not exercised in this selected test; no synthetic upgrade rerun claimed |
+
+Intermediate failures/limits (not passes):
+
+- First release-script invocation quoted the PLAYWRIGHT executable inside the variable;
+  Bash treated the quote characters literally, exit 127 before tests. Fixed invocation
+  only, not the product. Next invocation passed all three restore cases and both
+  stop/start operations but restart browser got ERR_NAME_NOT_RESOLVED for synthetic
+  a.localtest.me. Node lookup then resolved both names to loopback, isolated restart
+  passed and final complete script passed. No DNS root-cause fix or real public-DNS
+  reliability claim; release test hostnames still require external DNS.
+- Prior Linux native image precedes the small Sign out source/test fix; final common
+  native rebuild/run is required below. Linux browser final and production image
+  contain the fix; remaining edits are documentation-only.
+- Fresh Linux installs report existing **2 low** Mermaid/KaTeX advisories and upstream
+  install-script/deprecation/lazy-chunk warnings. No forced unrelated update or
+  zero-audit claim. No native/browser tool was missing or skipped in passing runs.
+- No new 10k benchmark/maximum-bound/100k stress, cross-engine rebuild/transfer or
+  physical/public-VPS audit here. SS06 actual DEP-01–09 evidence remains valid history;
+  historical S18 measurements are not advertised as newly rerun performance gates.
+
+Gate mapping / remaining:
+
+| Cases                                 | Evidence / status                                                                                                                                           |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SET-01–09, ACC-01–05, LANG-01–04      | Full host + Linux nonvisual browser; unit/auth/setup/general/HTTP integration pass                                                                          |
+| MIG-01–03/05–07, BAK-01–03, OPS-01–03 | Unfiltered Linux real startup/migration/staging/archives/PTY/live server/reset/fault/kill tests pass                                                        |
+| MIG-04                                | Copy/modes/WAL/rotation/recovery pass, but **single atomic directory exchange BLOCKED** pending explicit user clarification (SS01)                          |
+| DEP-01–09                             | All actual Linux/cross-engine gates passed SS06; current DOC-02 copied install/production two-domain drill rerun passes; no claim every DEP case rerun SS07 |
+| DOC-01                                | 7-case hygiene gate scans current guidance/links/contracts, PASS                                                                                            |
+| DOC-02                                | Current synthetic production image on copied fresh Linux folder + ORIGIN-only Compose/minimal Caddy browser setup, PASS; not a cloud host                   |
+| DOC-03                                | Product/architecture/plan/acceptance/README/operations reconciled and reviewed; atomicity/partial language/pre-release refusal/S18 limits remain explicit   |
+
+Synthetic current production image `73bdcdb738728588b01fb8254116c9abbdebb8686b3d905907a5988707a9cf1e`,
+version `261007-7`, isolated commit `d2f269cd6c1bf11637bc94e544b2ee7356b7eef6`,
+UTC `2026-10-07T16:57:25.000Z` — **NOT a user release**. Wrapper/native builds
+use committed synthetic source only; original latest remains `05a2848ebd8e2c7ea6882c584694ec6e55df135fb93a5513d5cb54da40e53f14`.
+Logs/temporary harnesses stay ignored under .browser-spike; new drill state under
+.drill/ss07 only, prior drill results untouched. Final image IDs/cleanup/common
+close follow below.
+
+Next: resolve SS01 atomicity with the user (read SPEC §8, ARCHITECTURE §4.3,
+pre-upgrade.ts and copy tests). Only after approval/implementation, commit with
+approval and build/verify exact clean release; then S18 real VPS/independent-host
+restore/device/IME/AT/Linux visual gates. First validation:
+npm run check && npm run test:integration -- pre-upgrade release-hygiene.
+
+Final close (documentation-only after these source gates):
+
+- Final post-fix host npm run check/lint/test:unit/test:integration/build chain
+  **PASS**, 0 diagnostics, **130 unit + 206 integration/7 explicit Linux skips**;
+  integration 211.05 s. Fresh rebuilt ops/Dockerfile.validation image/run
+  **PASS** check/lint/build, **130 unit/all 213 integration, zero skips/exclusions**
+  (181.87 s). Image `b24944cc0550085be0f153466b265795240affc713d0b4687668a06603a9861a`.
+- Passing browser image `dc5f3c47e78648686ebd9fe0b10c251c2069da801e3038a3cf8b8c5ac3721986`
+  contains source/test fix and runs **92 nonvisual Chromium**. Full host **98** and
+  current image drill/copy install passes above remain final; only docs changed later.
+- Removed only owned pna/pnb .drill/ss07 stacks/networks/CA volumes and emptied their
+  synthetic data binds via Linux find; preserved prior drill results/log evidence.
+  No container remains. Cleanup's final check caught Podman SSH's generated NUL
+  known-hosts file (absent at baseline); removed and reran absence checks successfully.
+  No .e2e-data/NUL or package/lock/Compose/env diff; original latest is preserved.
+- SS07 **done**. Overall change stays partial for SS01 atomicity; S18 manual/Linux
+  visual/exact-commit gate stays open. No major requirement deviation approved here.
+- Final documentation close: npm exec -- prettier --write <changed progress/SPEC/
+  README/PLAN>; npm run check; npm run lint; npm run test:integration --
+  release-hygiene; git diff --check all **PASS** (0 diagnostics, 7 hygiene cases).
+  .e2e-data/NUL absence and unchanged package/lock/Compose/env **PASS**. Only this
+  result note is appended afterwards; no source/test behavior changed.

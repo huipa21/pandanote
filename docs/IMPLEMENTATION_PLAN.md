@@ -2,7 +2,10 @@
 
 ## How to use this plan
 
-Read PRODUCT_SPEC and ARCHITECTURE first. Use PROGRESS as the actual state tracker. The repository starts with documentation only; none of the steps below is implemented.
+Read PRODUCT_SPEC and ARCHITECTURE first. Use PROGRESS as the actual state tracker.
+S00–S17 are implemented; S18 is locally verified with manual/release gates open.
+This ordered plan now reflects the approved simplify-setup contracts; implementation
+and validation history remain in PROGRESS, not obsolete deployment instructions.
 
 Each step has an outcome, tasks, acceptance gate, and next-step hint. Complete the gate, then update PROGRESS. A step can span multiple sessions. Never skip a failed gate because the UI appears to work.
 
@@ -86,7 +89,10 @@ Every completed step must record changed files, tests actually run, blockers/kno
 
 ### Tasks
 
-1. Add one-time CLI/environment bootstrap token flow; consume token after creating the only account. Public registration must not exist.
+1. Implement first-visitor browser account setup in the 60-minute process-start
+   window: username, email, password/confirmation, then title/language/timezone.
+   Account/session and preference completion are atomic; singleton/race/expiry and
+   unfinished-setup routing must hold. No setup secret or registration after setup.
 2. Implement measured Argon2id password hashing, generic failed-login messaging, bounded persistent rate limiting and trusted-proxy handling.
 3. Implement 7-day default secure cookie sessions, hashed tokens, logout and revoke-all.
 4. Implement optional TOTP enrollment, confirmation, encrypted secret storage, disable/change flow, replay protection, and short-lived pending MFA challenges.
@@ -100,7 +106,8 @@ Every completed step must record changed files, tests actually run, blockers/kno
 - Password-only login works when TOTP disabled.
 - Password alone never creates full access when TOTP enabled.
 - Wrong/expired/replayed TOTP fails; recovery code works once under concurrent attempts.
-- CSRF/cross-origin attempts, expired/revoked sessions, setup reuse, and unauthenticated file calls fail.
+- CSRF/cross-origin attempts, expired/revoked sessions, second-account creation,
+  closed setup windows and unauthenticated file calls fail.
 - Cookie flags/origin behavior verified in production-like configuration.
 - No secrets/session hashes/TOTP seeds in responses/logs.
 - Fresh-auth grant expiration and scope tested.
@@ -459,7 +466,9 @@ Every completed step must record changed files, tests actually run, blockers/kno
 
 ### Tasks
 
-1. Versioned `.pnb` manifest/streaming archive format; include DB/source data, referenced files and portable auth keys; exclude sessions/local drafts/old archives/staging.
+1. Format-v2 `.pnb` manifest/streaming archive; include DB/account identity/completed
+   preferences, referenced files and portable auth keys; exclude sessions/local
+   drafts/old archives/staging/pre-upgrade copies. Refuse pre-release format 1.
 2. Fresh-auth create action, disk reserve and peak-space estimate, crash-aware manual job/progress.
 3. Consistent SQLite online snapshot plus immutable file/key capture under real write gate; avoid live-WAL copy errors.
 4. Strip transient credentials/upload batches/unreferenced attachment rows/derived backup catalogs from staged DB; retain successful receipts for included notes, clear pending associations, checksum payload entries, verify archive, finalize by rename.
@@ -511,7 +520,10 @@ Every completed step must record changed files, tests actually run, blockers/kno
 
 ### Tasks
 
-1. Production Dockerfile/Compose and HTTPS reverse-proxy example: one app instance, persistent data, configurable domain, native libraries, migrations and health checks.
+1. Production Dockerfile and minimal root docker-compose.yml + single ORIGIN env
+   template: one app on existing Caddy external network, private bind/default UID,
+   native libraries, automatic startup migrations/copy and image healthcheck.
+   No bundled proxy/ports/static IPs/hardening/ops services.
 2. Document environment/initialization, upgrade, explicit operator recovery, log/space inspection, graceful shutdown and manual backup/restore.
 3. Run full acceptance matrix, accessibility/keyboard/mobile checks and dependency/security review.
 4. Seed documented realistic 10k-note benchmark plus short-CJK search, multi-image post, long Mermaid/code note, backup and restore workloads.
@@ -542,24 +554,15 @@ V02 immutable clean-source image build, V03 embedded sidebar/drawer/About displa
 V04 documentation and host/browser/Linux verification. Apply the common gate and
 VER-01–08 acceptance cases; do not create a user-repository commit without approval.
 
-## Approved follow-up — Out-of-box container startup
-
-User explicitly superseded stopped-app first-install CLI requirements: container
-startup must prepare a project-local private bind with configurable PUID/PGID,
-recover interrupted restores before key/DB reads, initialize/migrate/settings,
-register a supplied environment setup token safely, and exec the non-root server.
-Provide simple one-service external-Caddy Compose and environment template; remove
-default CPU/memory limits. Preserve operator tools, manual pre-upgrade backups,
-clean release provenance and single-instance constraints. Test expiry/rotation,
-account/restore precedence, secret scrubbing, initialization failure, filesystem
-ownership/link safety and Linux privilege/signal handoff. Apply common gates,
-affected browser authentication tests and actual production-image Linux/native
-startup/restart/graceful-shutdown tests before declaring this enhancement done.
-
 ## Approved change — Simplify setup and deployment
 
-User-approved on 2026-10-06; supersedes the setup-token and hardened-Compose parts of
-"Out-of-box container startup" above. Follow [simplify-setup/PLAN.md](simplify-setup/PLAN.md)
+User-approved on 2026-10-06. Shared container/dev/built startup now prepares private
+storage, recovers restores before keys/DB, applies SQL + registered data steps,
+saves a latest pre-upgrade DB copy for pending upgrades and initializes settings
+before HTTP. Container permanently drops to PUID/PGID and execs PID 1 Node. Browser
+claims a sole account within 60 minutes, then finishes preferences. Interactive
+reset-password is live-safe; reindex remains stopped-app-only. Manual full backup
+before upgrade and clean-source image provenance remain required. Follow [simplify-setup/PLAN.md](simplify-setup/PLAN.md)
 in order: SS01 migration baseline/data steps/pre-upgrade copy, SS02 one startup path
 and proxy trust, SS03 accounts/setup flow/login, SS04 language and site title, SS05
 backup format v2 and `reset-password`, SS06 deployment files/image, SS07 documentation

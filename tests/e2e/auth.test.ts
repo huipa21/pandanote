@@ -595,6 +595,44 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
   }
 });
 
+test('Sign out waits for hydration and then revokes the session', async ({
+  page,
+}) => {
+  const shared = await browserSession(page);
+  // Revoke this test's own real session, not the suite's reusable credential.
+  // Use an isolated synthetic client bucket without changing production limits.
+  const login = await page.request.post('/api/auth/login', {
+    headers: { origin, 'x-forwarded-for': '192.0.2.240' },
+    data: { username: 'fixture', password },
+  });
+  expect(login.status()).toBe(200);
+  expect(
+    (await page.context().cookies()).find((c) => c.name === 'pandanote_session')
+      ?.value,
+  ).not.toBe(shared.find((c) => c.name === 'pandanote_session')?.value);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/_app/immutable/entry/*.js', async (route) => {
+    await held;
+    await route.continue();
+  });
+  const signOut = page.getByRole('button', { name: 'Sign out', exact: true });
+  try {
+    await page.goto('/settings', { waitUntil: 'commit' });
+    await expect(signOut).toBeDisabled();
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+  await expect(signOut).toBeEnabled();
+  await signOut.click();
+  await expect(page).toHaveURL(/\/login$/);
+  const privateResponse = await page.request.get('/api/notes');
+  expect(privateResponse.status()).toBe(401);
+});
+
 test('Account settings require fresh authentication, retain errors and change the next login username without signing out sessions', async ({
   page,
 }) => {

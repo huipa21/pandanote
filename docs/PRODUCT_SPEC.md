@@ -19,7 +19,10 @@ Deployment: one user, one application instance, a 2-core/4 GB RAM VPS with 60 GB
 
 Included in the first complete release:
 
-- Single-user password authentication; optional TOTP MFA and recovery codes.
+- Single account with username/password authentication; required private email metadata,
+  optional TOTP MFA and recovery codes.
+- Two-step browser setup (account, then site title/language/timezone); automatic
+  startup initialization and SQL/data migrations with a latest pre-upgrade DB copy.
 - Markdown notes without separate titles.
 - Local drafts and server draft status; browser recovery of unpublished work.
 - Timeline cards; tags; literal multilingual search; month activity calendar.
@@ -370,18 +373,54 @@ Concurrent edit handling:
 
 ## 13. Authentication and configuration
 
-> **Approved change, partially implemented:** [Simplify setup](simplify-setup/SPEC.md).
-> SS01–SS03 implement automatic startup/migrations/copies, browser two-step setup
-> (username, email, password; then title, language, timezone), username login with
-> 8–128-character passwords and fresh-auth account editing. SS04 translations/title
-> and SS05 format-v2 archives/interactive live-safe password reset are implemented;
-> SS06 minimal deployment files/image gates are implemented; SS07 rewrite remains. The setup-token bullets below are
-> historical pending SS07; the linked SPEC is authoritative for the new behavior.
-> Common host/Linux gates now pass; the overall change/release remains partial;
-> [progress](simplify-setup/PROGRESS.md) records actual evidence.
-
-- One account, no public registration. Approved deployment simplification: the container initializes private storage, recovers interrupted restores, applies trusted migrations and registers an operator-provided environment setup token before starting HTTP. No manual first-install CLI steps are required. SETUP_TOKEN must be cryptographically random (32 bytes as 43 base64url characters), is stored only as a hash, expires after one hour, and is consumed atomically. Restarts never renew the same token; changing it explicitly rotates unclaimed access. Existing/restored accounts ignore it. Remove it from the environment after setup; never log it.
-- Existing-Caddy deployment is a single app service on an external network, with environment-configurable image, domain, trusted proxy, non-root UID/GID, host bind folder and graceful shutdown window. No CPU/memory limits are imposed by default. A brief root initializer prepares only private storage and drops privileges permanently before database access/server execution.
+- One account, no registration after setup. An empty deployment redirects to
+  `/setup`: username, required email, password and confirmation, then
+  `/setup/preferences`: site title, language and timezone (browser defaults,
+  explicit Finish setup, no skip/theme/week-start). Leaving after account creation
+  resumes preferences after login; normal data APIs are blocked until completion.
+- **Approved first-visitor ownership:** no setup secret. Account creation is open
+  for 60 minutes from process start while no account exists; restart reopens that
+  window only for an unclaimed instance. Claim promptly or restrict access until
+  ready. A concurrent second creation cannot replace the singleton account.
+- Username is trimmed/lowercased, 3–32 ASCII letters/digits/`.`/`_`/`-`; login is
+  case-insensitive with generic credential errors and equivalent unknown-name work.
+  Email is trimmed, required, basic `local@domain` syntax and at most 254 characters;
+  private metadata only, no verification/sending/email recovery.
+- Password is exact 8–128 Unicode characters and at most 1024 UTF-8 bytes, without
+  trimming/normalization/complexity rules. Settings → Account username/email edits
+  require fresh authentication but do not revoke sessions.
+- Settings → General edits plain-text site title (trimmed 1–60 characters, no
+  controls) and registry language. Title appears escaped in tabs, sidebar/mobile
+  header and login, with visual ellipsis and accessible full text. English is
+  complete; Simplified Chinese is explicitly partial (setup/login/MFA/navigation/
+  General/Account), per-key English fallback. Before completion use browser language;
+  afterwards saved language controls all pages and `<html lang>`. Never translate notes.
+- Every start (container/dev/built start) recovers interrupted restores before
+  key/DB reads, creates private storage/keys/schema/settings and applies trusted
+  SQL + synchronous registered DB-only data steps before listening. All pending
+  SQL/data/ledger/integrity changes commit in one transaction or roll back fully.
+  No manual migration command or request-time migration.
+- Pending upgrades of existing DBs first save a private, WAL-consistent online DB
+  copy + manifest (from/to schema, upgrading app version, time) to `pre-upgrade/`.
+  Latest only, no keys/files, excluded from archives/restores; shown in Storage.
+  Fresh/current DBs skip it; insufficient space prevents migration/startup. This
+  rollback aid is not an automatic full backup. **Open SS01 clarification:** current
+  directory replacement is crash-safe journaled rotation with a brief path-absence
+  window, not the originally requested single atomic exchange. Do not close that
+  requirement without approval; [change progress](simplify-setup/PROGRESS.md).
+- Newer/unknown/modified/pre-release schemas refuse startup; pre-release archives
+  are refused, not retrofitted. Full details: [simplify-setup SPEC](simplify-setup/SPEC.md).
+- Existing-Caddy deployment uses only root `docker-compose.yml` and `.env.example`:
+  one app service on external `proxynet`, ORIGIN required; configurable image,
+  host bind (default `./data`) and PUID/PGID (1000:1000). No ports/bundled proxy/
+  static IPs/resource or hardening overrides/ops services. Image HEALTHCHECK remains.
+  Root briefly prepares private data then permanently drops privileges before DB/server.
+  PID 1 Node has no capabilities; default idle SIGTERM exits 0 within 10 seconds.
+  Interrupted backups fail safely on restart; journaled restore recovers.
+- Minimal Caddy site needs only `reverse_proxy pandanote:3000`. Private/loopback/
+  link-local TCP peers may supply exactly one valid XFF; absent uses peer,
+  malformed/chained returns 400. Public peers ignore XFF; adapter forwarding
+  overrides remain forbidden.
 - Domain/origin configurable through deployment environment.
 - Password securely hashed; secure sessions and login rate limits.
 - TOTP MFA optional, managed in Settings.
@@ -392,12 +431,18 @@ Concurrent edit handling:
 - Session lifetime 7 days by default; configurable. No repeated login while valid unless sensitive action requires fresh authentication.
 - Sign out all devices supported.
 - Sensitive actions include security changes, backup creation/download/deletion, and restore; require password and TOTP/recovery code if MFA is enabled.
-- If all password/MFA recovery access is lost, any operator recovery must require VPS access and be documented; never add a hidden public bypass.
+- Lost password/MFA requires VPS access: `docker compose run --rm pandanote
+reset-password` (local `npm run reset-password`). Interactive terminal/no echo,
+  double prompt, no arguments/pipes; atomically reset password, disable MFA/codes
+  and revoke sessions/challenges without changing notes/files/settings. Live-app safe,
+  pending recovery journal/no-account refusal; never a public bypass.
 
 ## 14. Settings and manual full backup/restore
 
-Suggested Settings sections:
+Settings sections:
 
+- General: site title and registry language, with partial-translation notice.
+- Account: username/email with fresh authentication.
 - Appearance: theme, density, long-note collapse.
 - Calendar: app timezone, week start.
 - Security: password, optional MFA/recovery codes, session lifetime, revoke sessions.
@@ -410,9 +455,12 @@ Suggested Settings sections:
 - Create saves a consistent full archive in a private server directory.
 - List creation time, size, completion state; allow web download and explicit deletion.
 - No separate backup password or passphrase encryption.
-- Archive contains private application/authentication data. Explain this in the UI and require protected handling.
+- Format-v2 archive contains private application/authentication data, including
+  username/email and completed title/language/timezone settings. Explain protected
+  handling in the UI. Format-1 pre-release archives are explicitly refused.
 - Include notes, server drafts, Trash, tags, files, settings, authentication/MFA configuration and needed portable key material, schema/version manifest.
-- Exclude local drafts, old backup archives, temporary/uncommitted uploads, active sessions, runtime caches, OS, DNS, TLS certificates, application binaries.
+- Exclude local drafts, old backup archives, temporary/uncommitted uploads, active
+  sessions, runtime caches, pre-upgrade DB copies, OS, DNS, TLS certificates and binaries.
 - Search index can be rebuilt.
 - Never stream a half-created backup as if complete.
 - Insufficient disk space results in a clear failure, not a broken app.
@@ -425,7 +473,11 @@ Suggested Settings sections:
 - Replace application data; do not merge.
 - Successful restore invalidates active sessions and returns to login using the restored account.
 - Failure must leave the prior application usable; provide rollback/recovery instructions.
-- On a new VPS: deploy compatible app, configure domain, securely initialize access, upload backup in Settings, restore, sign in again.
+- On a new VPS: deploy compatible app, configure destination origin, complete
+  temporary two-step browser setup, upload/validate/confirm in Settings, then sign
+  in with archived username/password/MFA. Exact known older baseline schemas migrate
+  via trusted SQL/data steps only on isolated staging; unknown/newer schemas fail.
+  Destination pre-upgrade copy is untouched and is not a copy of the restored data.
 - Domain and deployment origin stay environment-configurable, not overwritten by the source machine's domain.
 - Manual server-local backups do not protect against losing the VPS until downloaded elsewhere. State this plainly, without adding automatic backup infrastructure.
 

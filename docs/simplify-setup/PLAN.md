@@ -65,13 +65,13 @@ Files: `scripts/container-entry.ts`, `scripts/container-bootstrap.ts`,
    (`npm start`, `NODE_ENV!=='production'`); production without `ORIGIN` fails with a
    one-line explanation.
 3. Proxy trust per SPEC §9.4: replace `trustedProxyIps` with a private-range check
-   (`node:net` `BlockList`). Ignore `TRUSTED_PROXY_IPS`/`SETUP_TOKEN` with one notice.
+   (`node:net` BlockList). Ignore/scrub legacy setup-secret/proxy-IP variables
+   with one value-free notice.
 4. Entry command dispatch: default → server; `reset-password`, `reindex` → tools.
    Tools skip the ownership walk: verify `/data` is owned by PUID/PGID, drop
-   privileges, run. Remove `SETUP_TOKEN` handling.
-5. `package.json`: remove `db:migrate`, `auth:setup-token`, `auth:recover`; add
-   `reset-password`; keep `search:reindex`. Delete `scripts/migrate.ts`,
-   `scripts/setup-token.ts`.
+   privileges, run. No setup-secret bootstrap.
+5. Remove obsolete migration/setup-secret/JSON-recovery package scripts/files;
+   expose reset-password and keep search:reindex. No operator migration command.
 6. Tests: unit for proxy ranges (v4, v6, mapped v4, chains, invalid); integration for
    startup from empty folder, dev defaults, ignored legacy variables, container
    bootstrap updates.
@@ -134,7 +134,7 @@ Files: `src/lib/server/backups/{service,snapshot,trust,restore}.ts`,
 `auth-recover.ts`), `scripts/reindex.ts`, `ops/Dockerfile` COPY list.
 
 1. Archive format v2: include username/email/new settings; exclude `pre-upgrade/`;
-   remove `setup_tokens` exclusions and the v4 staging path; known-older-schema restore
+   remove obsolete secret-table exclusions and pre-release schema staging; known-older-schema restore
    runs the shared SQL + data-step runner on staging. Format v1 → clear refusal.
 2. Restore keeps destination `setupCompletedAt` semantics: restored settings come from
    the archive (always complete); sessions invalidated as before.
@@ -149,9 +149,9 @@ Gate: BAK-01–BAK-03, OPS-01–OPS-03.
 
 ## SS06 — Deployment files and image
 
-Files: `docker-compose.yml` (new, root), `.env.example`, delete `compose.yaml`,
-`ops/compose.external.yaml`, `ops/external.env.example`, `ops/production.env.example`,
-`ops/Caddyfile` (move to `tests/release/`), `ops/Dockerfile`, `.dockerignore`,
+Files: root docker-compose.yml and .env.example (only production templates),
+remove former bundled/external variants and ops env templates; Caddy moves to
+`tests/release/`. Also `ops/Dockerfile`, `.dockerignore`,
 `.gitignore` (`/data/`), `ops/release-drill.sh`, `ops/release-benchmark.sh`,
 `tests/release/**`, `tests/integration/release-hygiene.test.ts`, `scripts/image-build.ts`.
 
@@ -163,7 +163,7 @@ Files: `docker-compose.yml` (new, root), `.env.example`, delete `compose.yaml`,
 4. Move the two-domain HTTPS drill to a test-only `tests/release/compose.drill.yaml`
    - Caddyfile using the new env (no static IPs).
 5. Release-hygiene test pins: only one Compose file; no hardening keys, no
-   `SETUP_TOKEN`/`TRUSTED_PROXY_IPS` anywhere in shipped files; env example has exactly
+   obsolete setup-secret/exact-IP config in deployment files; env example has exactly
    one required key.
 6. Linux image: fresh `./data` bind → setup in browser through a real Caddy with the
    minimal site block; restart; upgrade with a synthetic extra migration (pre-upgrade
@@ -178,7 +178,7 @@ Gate: DEP-01–DEP-09 on the Linux deployment image (Windows-only results don't 
    (adjusted to what was actually implemented); update `ops/RESTORE_RUNBOOK.md`
    (new VPS: deploy → setup → restore; no token; reset-password).
 2. Update `README.md` (Production deployment, Local development, Authentication,
-   S01/S10/S14 upgrade notes that mention `db:migrate`, operator recovery),
+   S01/S10/S14 obsolete manual-upgrade notes and operator recovery),
    `docs/PRODUCT_SPEC.md` §2/§13/§14, `docs/ARCHITECTURE.md` §3/§4.3/§12/§13/§16,
    `docs/IMPLEMENTATION_PLAN.md`, `docs/ACCEPTANCE_TESTS.md` (AUTH-01, container
    startup section), `docs/VERSIONING_PLAN.md` (Compose references),
@@ -190,3 +190,10 @@ Gate: DEP-01–DEP-09 on the Linux deployment image (Windows-only results don't 
    explicitly blocked with a reason.
 
 Gate: DOC-01–DOC-03 and the full regression.
+
+**SS07 status:** done / locally verified (2026-10-08). Host full Chromium,
+Linux common/native/PTY/Git + nonvisual Chromium, current synthetic production
+image two-domain restore/restart and copied-folder install pass; detailed actual
+commands/failures/counts are in PROGRESS. This does not close SS01's literal atomic
+directory-exchange clarification or S18 real-VPS/device/AT/Linux visual/exact-release
+commit gates, nor treat excluded snapshots as passing.

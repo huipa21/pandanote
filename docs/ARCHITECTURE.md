@@ -2,7 +2,9 @@
 
 ## 1. Status and design rules
 
-This is the proposed implementation architecture for the agreed product. Names and exact schema columns may evolve, but behavior in PRODUCT_SPEC must remain intact. Document material changes in PROGRESS.
+This records implemented technical contracts. PRODUCT_SPEC remains authoritative;
+document material changes in PROGRESS. Release completion and the SS01 atomic
+directory-exchange clarification remain open.
 
 - One SvelteKit/Node application instance; SQLite and private files on persistent local disk.
 - SQLite is the source of truth. Search is derived and rebuildable.
@@ -11,10 +13,9 @@ This is the proposed implementation architecture for the agreed product. Names a
 - Browser drafts are device-local recovery storage, not offline synchronization.
 - Keep server-only modules in SvelteKit's server directory; never bundle database/filesystem/secret code into the client.
 
-> **Approved change, planned:** [docs/simplify-setup/](simplify-setup/README.md) changes
-> setup/authentication (no setup token, username + email), migrations (new baseline,
-> data steps, pre-upgrade copy), proxy trust (private-network peers) and deployment
-> files. Sections 4, 12, 13 and 16 are rewritten when that change is implemented (SS07).
+Setup/migrations/deployment follow the approved
+[simplify-setup specification](simplify-setup/SPEC.md). Evidence and remaining
+constraints: [change progress](simplify-setup/PROGRESS.md).
 
 ## 2. Dependency and directory baseline
 
@@ -73,13 +74,13 @@ The runtime baseline is Node **24.21.0 LTS**, npm **11.x**. Direct dependencies
 are exact-pinned in `package.json`; all resolutions are in `package-lock.json`.
 See PROGRESS for the selected version inventory and actual host/Linux results.
 `ops/Dockerfile.validation` pins a Debian bookworm/glibc Linux image by digest;
-it is an initial validation image, not the final production deployment.
+it runs common/native/PTY regression, not production deployment.
 
 - **SvelteKit 3:** configuration is passed directly to `sveltekit({...})` in
   `vite.config.ts`, not `svelte.config.js`. `tsconfig.json` extends `$app/tsconfig`
   (generated inside `node_modules` by sync); hook types come from
-  `@sveltejs/kit/hooks`. Origin/CSRF APIs must be rechecked against this installed
-  major when S02 adds authorization. Do not copy outdated Kit 2 examples.
+  `@sveltejs/kit/hooks`. Origin/CSRF/init APIs are verified (section 12);
+  recheck on upgrades, never copy outdated Kit 2 examples.
 - **SQLite:** better-sqlite3 **12.11.1** is selected after 13.0.3 failed repeat
   `npm ci` on both hosts by triggering an unwanted default node-gyp rebuild.
   This is a compatible version selection, not a stack substitution. Real
@@ -88,13 +89,13 @@ it is an initial validation image, not the final production deployment.
 - **Sharp:** `metadata().pages` identifies multi-frame GIF/WebP;
   `autoOrient()` before bounded resize/WebP corrects EXIF orientation. Outputs
   omit EXIF/ICC/XMP by default. Static GIF is accepted as a raster input;
-  animations are rejected. Staging, queue/byte limits and cleanup remain S06.
+  animations are rejected. Section 7 defines product staging/queue/limits/cleanup.
 - **Mermaid/CSP:** browser-only dynamic import, strict security and SVG-native
   labels work with `script-src 'self'` (no script unsafe-inline/eval). SVG styles
   require inline **style** allowance in this initial probe. DOMPurify plus a
   separate SVG policy removes foreignObject/scripts/links/external resources.
-  Production directive overrides, complexity/timeouts and full attack fixtures
-  must still be addressed in S04; the probe is not a production renderer.
+  Section 11 defines product directive/complexity/deadline/attack defenses;
+  the probe alone is not the production renderer.
 - **Archive subset:** use streaming `tar-stream` plus Node gzip/crypto. The
   application-owned `.pnb` format initially emits only regular **USTAR** files
   with short ASCII paths; no directory/link/device or PAX/GNU extension entries.
@@ -102,16 +103,16 @@ it is an initial validation image, not the final production deployment.
   raw-header guard is required **before** the parser to reject all extensions,
   followed by canonical path/type/allowlist/duplicate/size/checksum validation.
   This stricter subset needs no new archive service and avoids hidden overrides.
-  S16/S17 must add the real manifest, immutable staged input, DB schema/key/file
-  validation, safe second-pass extraction and journaled replacement.
+  Section 13 defines real manifest/staging/DB-key-file trust/extraction/replacement;
+  the probe alone is not restore evidence.
 - **Tooling:** Drizzle Kit's deprecated loader brings a vulnerable esbuild
   version. A scoped override of `@esbuild-kit/core-utils` to esbuild **0.28.2**
   removes that advisory without downgrading Drizzle. Revalidate the override
   during dependency updates and the S01 migration-generation gate.
 
 All S00 helpers remain under `tests/spikes/`; no product domain module should
-import them. The current public shell/health carry no private content. Private
-storage begins in S01; central authorization and route privacy begin in S02.
+import them. Public health/auth surfaces reveal no private content; storage and
+central authorization below apply to the integrated application.
 
 ## 3. Runtime storage
 
@@ -128,17 +129,27 @@ DATA_DIR/
   staging/backups/<job-id>/...
   staging/restores/<job-id>/...
   backups/<generated-id>.pnb
+  pre-upgrade/{pandanote.sqlite,manifest.json}
 ```
+
+Upgrade rotation may temporarily retain `pre-upgrade.tmp/`, `pre-upgrade.old/`
+and `private/pre-upgrade-state.json`; startup recovers before migration. These
+private DB-only rollback paths are excluded from archives and restore swaps.
 
 Names are generated IDs, never user paths. Retain original filenames in metadata, not storage paths. Database, WAL/SHM, files, keys, and backups need persistent volumes. Do not deploy SQLite on ephemeral serverless storage or across multiple app writers/network filesystems.
 
-Deployment variables include `ORIGIN`, data-root location, proxy trust configuration, production/dev mode, and a one-time initialization mechanism. Never hardcode the domain. All stored attachment links are ID-based relative app routes, not absolute URLs.
+Production Compose requires only `ORIGIN`; optional host DATA_PATH, PUID/PGID,
+image/reserve/transport settings are in `ops/DEPLOYMENT.md`. Container DATA_DIR is
+forced to `/data`. Non-production uses `./data` and local origins (dev 5173, built
+start 3000); production requires canonical HTTPS outside loopback and an absolute
+private data path. Never hardcode the domain. All stored attachment links are ID-based relative app routes, not absolute URLs.
 
 Default disk reserve: greater of about 5 GB or 10% of total filesystem capacity; adjustable deployment setting. The reported 60 GB is shared with OS/container layers/staging/backups, not a promise of 60 GB usable attachments. Measure actual free bytes before expensive work.
 
 ## 4. Database baseline
 
-Use foreign keys, WAL, busy timeout, and appropriate indexes. Start with `synchronous=FULL` to favor durability; change only after measured evidence and a documented risk tradeoff. Run migrations explicitly before serving production requests, not through schema-push shortcuts.
+Use foreign keys, WAL, busy timeout, and appropriate indexes. Start with `synchronous=FULL` to favor durability; change only after measured evidence and a documented risk tradeoff. Run trusted migrations automatically at startup before listening, never in a
+request or through schema-push shortcuts.
 
 All times stored consistently as UTC integer milliseconds or equivalent explicit UTC representation. IDs are unguessable UUIDs; ordering ties use a documented stable ID comparison. No title column.
 
@@ -146,7 +157,7 @@ All times stored consistently as UTC integer milliseconds or equivalent explicit
 
 | Table                   | Important fields / purpose                                                                                                                                                                                         |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `account`               | Singleton account ID, password hash, optional encrypted TOTP secret, TOTP enabled, last accepted TOTP time-step, security revision, created time                                                                   |
+| `account`               | Singleton ID, normalized username, trimmed email, password hash, encrypted TOTP secret/flags/replay step, security revision, created time                                                                          |
 | `sessions`              | Hash of random session token, account ID, expiry, revoked state/security revision; never plaintext session tokens                                                                                                  |
 | `auth_challenges`       | Short-lived pending MFA and fresh-auth grants; scoped, hashed, expiring; no full session before MFA success                                                                                                        |
 | `recovery_codes`        | Account, code hash, consumed timestamp; consume atomically                                                                                                                                                         |
@@ -188,25 +199,29 @@ Indexes at minimum:
 
 Use a read-only test inspection connection to assert these invariants; mocks alone are insufficient.
 
-### 4.3 S01 persistence contracts and implemented choices
+### 4.3 Persistence, baseline and migration contracts
 
-- `schema.ts` defines 17 domain tables and their indexes/checks. The first two
-  migrations contain generated table SQL and custom invariant triggers. FTS5 is
-  deliberately deferred to S10; `note_search` reserves a normalized body plus
-  separate JSON arrays of tag and filename fields, with source revision. It is
-  derived data, not a product search service yet.
-- `npm run db:migrate` is explicit operator initialization/upgrade, from the
-  repository root while the app is stopped. It seeds settings only, never an
-  account or notes. The runner consumes Drizzle SQL/journal files with a custom
-  contiguous SHA-256 ledger and `user_version`; hashes normalize CRLF to LF.
-  All pending SQL/ledger changes and integrity checks run in one IMMEDIATE
-  transaction. Modified histories, unknown DBs and downgrades fail closed.
-  See `migrations/README.md`. Runtime opens only the current migrated schema.
+- Schema **2 / 18 domain tables**: generated `0000_baseline.sql` includes required
+  account username/email and tag receipts; `0001_guards_and_search.sql` adds reviewed
+  invariant triggers and FTS5. No setup-secret table/title/roles. Search is derived
+  separate body/tag/filename fields with source revision.
+- Startup seeds settings, never account/notes. Trusted Drizzle SQL/journal has a
+  contiguous SHA-256 ledger + user_version; hashes normalize CRLF to LF. Entries
+  include nullable registered data_step identity. SQL then synchronous data step
+  for all pending versions, ledger/user_version/integrity/FK checks share one
+  IMMEDIATE transaction and fixed now. Steps are DB-only/bounded/deterministic.
+  Failures roll back everything and expose migration number/name, not contents.
+- Modified/unknown/newer/pre-release histories fail closed. Live pending upgrades
+  use upgradeDatabase: WAL-consistent online snapshot first, page-count × 1.1 +
+  manifest + reserve admission, private fsynced DELETE-mode DB and from/to schema,
+  embedded app identity/time manifest. Fresh/current DBs skip capture. No keys/files.
+  Storage shows the copy; trusted staging uses the DB-only runner without changing
+  the live copy. See `migrations/README.md`.
 - UTC epoch milliseconds are numeric, IDs are lowercase UUIDv4, ordering ties
   use SQLite's default BINARY text ordering. Note triggers preserve ID/creation
   time and require revision exactly +1 for every row update. Service-layer
   expected-revision predicates, content-edited timing and atomic joins/search/
-  receipts remain required when S07 implements note mutations.
+  receipts are enforced by NoteService (section 4.4).
 - A ready attachment cannot be linked if queued for cleanup; an attachment with
   any note reference (including Trash) cannot have its metadata changed or be
   deleted. Cleanup records use generated attachment IDs, never arbitrary paths.
@@ -220,20 +235,20 @@ Use a read-only test inspection connection to assert these invariants; mocks alo
 - Portable key material is a versioned JSON file containing a random key ID and
   32-byte TOTP encryption key. Exclusive, fsynced creation never overwrites keys;
   missing keys alongside an existing DB are an operator-recovery failure.
-  S02 defines authenticated AES-GCM encryption/enrollment, not S01.
+  Section 12 defines authenticated AES-GCM enrollment.
 - Settings are singleton validated JSON, schema version 1, with the agreed
   appearance/upload defaults and a seven-day session lifetime. Initial timezone
   is **UTC** until setup/settings explicitly accepts the browser proposal;
   never use the VPS timezone as a silent default.
 - `Persistence.write` always acquires the shared coordinator and runs a
-  synchronous IMMEDIATE Drizzle transaction. `writeAsync` leases protect future
+  synchronous IMMEDIATE Drizzle transaction. `writeAsync` leases protect
   filesystem operations; exclusive maintenance refuses new writes and drains
   active leases with a bounded timeout. Exclusive capabilities expire on exit;
   close drains and permanently closes the coordinator. Domain code must not
   bypass this using the exposed low-level migration/online-backup handles.
 - Journals use bounded validated private JSON and fsynced single-file replacement.
-  Pending journals block normal initialization/opening. This is a primitive, not
-  the S17 journaled multi-directory restore/recovery state machine.
+  Pending journals block normal opening; startup invokes journaled restore
+  recovery (section 13) before key/DB reads.
 - Shared DTO/validation modules contain no secrets or server dependencies.
   Kit 3 uses package `imports` mappings for `#lib`/`#lib/*`, not implicit `$lib`.
   Real production-build tests reject direct and indirect browser imports of
@@ -241,31 +256,15 @@ Use a read-only test inspection connection to assert these invariants; mocks alo
   The operator CLI uses Node 24 native TS stripping; its import graph must use
   erasable syntax and explicit relative `.ts` imports.
 
-### SS01 migration baseline and runner (common gates pass / directory clarification open)
+### Pre-upgrade durability constraint (SS01 clarification open)
 
-The runner now records nullable `data_step` identity from a synchronous version-keyed
-registry, using one fixed timestamp for all pending SQL/data/ledger operations in
-one IMMEDIATE transaction. Ledgers lacking that identity are refused as pre-release;
-there is no compatibility retrofit. SQL history is now schema v2: generated
-`0000_baseline.sql` (18 tables, required account username/email, no setup-token table)
-and custom `0001_guards_and_search.sql` (existing guards + FTS5). Version-2 data step
-backfills search for known-v1 staging. SS03 removes the old token account setup entry points;
-shared startup initializes fresh deployments (SS02), and two-step browser account
-setup/username login now work (section 12.6). Format-v2
-archive integration is implemented in SS05 (section 13.7). Passing migration tests do not close the application gate.
-Live container/CLI entry paths use an async pre-upgrade wrapper: online snapshot
-including WAL, page-count-based space estimate plus reserve, fsynced private DB/
-manifest with from/to schema, immutable build version and time, then migration.
-Fresh/current databases skip capture. Restore staging uses the same DB-only runner
-without changing the live copy. Archive schema trust compares data-step identities.
-The adapter emits `build/build-info.json` alongside bundled metadata so source
-startup tools use the same identity without runtime environment overrides.
-
-Portable Node cannot atomically rename over a nonempty directory. The first slice
-uses durable journaled rotation with a retained old copy and startup recovery before
-migration, not a single atomic exchange. Strict directory atomicity remains an
-explicit SS01 design clarification; no completion is claimed. Details/tests/handoff:
-[simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
+Portable Node cannot atomically replace a nonempty directory. Durable journaled
+rotation retains the old copy until a durable installed record and recovers before
+migration/startup. It is crash-safe but has a brief path-absence window, not a single
+atomic exchange. The literal requirement remains open, not silently relaxed.
+The adapter emits `build/build-info.json` for source startup tools to use the same
+immutable identity as bundled SSR/client code; runtime env cannot override it.
+Details: [simplify-setup progress](simplify-setup/PROGRESS.md).
 
 ### SS02 shared startup, environment and proxy contracts (implemented / common gates pass)
 
@@ -322,16 +321,16 @@ explicit SS01 design clarification; no completion is claimed. Details/tests/hand
 - `POST /api/notes` accepts create; `PATCH /api/notes/<id>` accepts update;
   `POST /api/notes/<id>/actions` accepts other lifecycle commands; path and payload
   IDs must match. `GET /api/notes/<id>` returns a bounded private snapshot (including
-  opted-in draft/Trash state) using one read transaction. No list/timeline/detail UI
-  is claimed. Responses use `ApiResult<MutationResult>` / `ApiResult<NoteSnapshot>`.
+  opted-in draft/Trash state) using one read transaction. List/detail UI contracts
+  are sections 10/11. Responses use ApiResult<MutationResult> / ApiResult<NoteSnapshot>.
   Safe 409 conflicts include current body, metadata, revision, ordered attachment
   IDs and normalized tags. No SQL, paths, credentials or stacks reach the client.
 - `NoteService.mutate` rechecks session/account/security revision inside the shared
   coordinator's IMMEDIATE transaction. Row writes use expected-revision predicates;
   every successful edit/state action increments exactly once. Body, joins, tags,
   normalized separate search fields, batch commitment, cleanup jobs and receipt are
-  atomic. FTS remains S10; derived search rows track revisions for every status,
-  and later queries must explicitly filter published source rows.
+  atomic, including FTS. Derived rows track revisions for every status;
+  ordinary queries explicitly filter published source rows.
 - Ready files must either have an existing singleton-account note reference
   (including draft/Trash, enabling conflict-copy reuse) or belong to this exact
   pending mutation batch. A different pending attempt is not authorization. Cleanup
@@ -351,10 +350,10 @@ explicit SS01 design clarification; no completion is claimed. Details/tests/hand
   reference, including clones and Trash, in the same transaction. Byte deletion
   remains the existing exclusive, restartable cleanup worker, retried on startup;
   it is not pretended atomic with SQL and does not automatically empty Trash.
-  Registry/tag history management and resolution UI remain S14. Existing retired
-  history keys fail closed rather than silently resurrecting them; local text is
-  never rewritten. Composer Post stays disabled until S08.
-- Schema remains v3/18 tables; no dependency/lockfile change. `auth/identity.ts`
+  Section 9 defines tag history/resolution. Retired keys require exact-generation
+  acknowledgement; local text changes only by explicit choice. Composer posts
+  through section 7.5's confirmed protocol.
+- Current schema is v2/18 tables. `auth/identity.ts`
   shares the existing upload session recheck with notes. Actual two-connection,
   read-only inspection, native-file, rollback, restart and production HTTP tests
   cover S07; validation evidence is in PROGRESS.
@@ -457,17 +456,17 @@ No stored title; use excerpts. `localStorage` holds text/metadata; IndexedDB hol
 - Composer selection, paste and drop write locally only. Raster images receive
   UUID `attachment:` references at the last editor selection; SVG/other files
   remain file rows. Local staging limits are 20 MB/image, 50 MB/file, 100 descriptors
-  and 1 MiB UTF-8 Markdown. Server detection/animation/pixel limits remain S06.
+  and 1 MiB UTF-8 Markdown by default; selection follows saved Storage limits.
+  Section 7 defines server detection/animation/pixel policies.
   Preview creates descriptor-backed blob URLs only while visible and revokes them
   on mode/view replacement, close, failure and workspace disposal. Missing blobs
   require repair with the original filename/size or explicit removal, including
-  source-span removal of corresponding Markdown images. Post remains disabled.
+  source-span removal of corresponding Markdown images before explicit Post.
 - Recovery kinds retain server note ID, expected revision and a base snapshot digest.
-  `recoveryMatches` requires all three before future S12/S13 association/posting,
-  including after restore. Existing server files remain references, not copied blobs.
-  S05 supplies typed metadata/recovery capabilities; server listing/status/version
-  reads, backdate/location controls, frozen posting attempts and confirmed-success
-  deletion remain their S08/S11–S13/S15 steps. No background server saving was added.
+  recoveryMatches requires all three before association/posting, including after
+  restore. Server files remain references, not copied blobs. Sections 7/10/11/15
+  define frozen posting, server reads/lists, date/location and confirmed cleanup.
+  No background server saving.
 
 ## 7. Attachment representation and posting protocol
 
@@ -572,9 +571,9 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
 - Disk reservations include incoming bytes plus conservative output space and count
   concurrent claims against statfs available bytes. Default reserve is max(5 GiB,
   10% total filesystem capacity); optional operator `DISK_RESERVE_BYTES` overrides it.
-  Adapter-node still needs `BODY_SIZE_LIMIT=512M` (documented environment example)
-  and a suitable streaming reverse proxy; its old 512 KiB default is insufficient.
-  Domain caps remain smaller and authoritative, including when transport caps rise.
+  The image sets BODY_SIZE_LIMIT=64G for full restore archives; ordinary
+  image/file/JSON caps remain smaller and authoritative. Default Caddy streams
+  without a body ceiling; other proxies need adequate transport limits.
 - Async coordinator writers now receive an expiring lease so an already-admitted
   upload can commit while maintenance **drains**, without admitting new mutations.
   Queued cleanup uses an exclusive drain, rechecks all note references (including
@@ -587,7 +586,7 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
   50 MP inputs and a 20 MP noisy JPEG), parent sampled RSS plus worker peak RSS.
   Windows/Linux results are recorded in PROGRESS; this is bounded-native evidence,
   not target-VPS latency, screenshot readability or final release performance.
-  No dependency or schema version change was needed (v3/18 tables). Full regression
+  No new processing dependency was needed. Full regression
   testing also found a pre-hydration compose click could disappear before its handler
   existed; initial compose controls now wait for mount, and file input waits for the
   local workspace. A delayed-entry-module browser assertion protects this boundary.
@@ -622,7 +621,7 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
   Only the submitted draft is cleared. A separate copy of a frozen attempt drops
   retry identity and remaps local file/image IDs and parsed Markdown destinations;
   referenced server IDs remain reusable. UI warns copying does not cancel an
-  uncertain original save; richer server conflict resolution remains S12/S14.
+  uncertain original save; sections 9/11 define server conflict/tag choices.
 - `canonicalNoteSnapshot` hashes the full ordered base metadata/body/IDs/tags,
   omitting derived attachment descriptors. For recovery edits, after receipt lookup
   and before new uploads, the composer rechecks the private server snapshot against
@@ -639,12 +638,11 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
   one bounded scroll area to keep primary controls reachable.
 - Safe GET/conflict snapshots now include ordered ready attachment descriptors
   (no private paths/digests/batch IDs); older typed recovery fixtures may omit them.
-  A successful composer save refreshes only that note and updates a date/ID-sorted,
-  deduplicated, 30-item **in-memory session list** with real processed images/file
-  downloads. A follow-up GET failure does not undo an authoritative receipt. This
-  interim list is explicitly not S09's complete SSR/cursor timeline. S09 must reuse
-  the mutation invalidation hook instead of fetching every note or prepending a
-  backdated save. No schema/dependency/lockfile change or new server autosave API.
+  Successful save refreshes only that note through shared mutation invalidation,
+  merging its revision in the persisted SSR/cursor timeline and refreshing counts.
+  Date/filter/loaded-range rules prevent artificially prepended backdates/gaps.
+  Follow-up GET failure cannot undo authoritative receipt success. No server
+  autosave API or whole-collection fetch.
 
 ## 8. Search details
 
@@ -681,18 +679,18 @@ Safe snippets are escaped text plus structured highlight ranges/segments, not da
   Limits are **20 units / 256 normalized content codepoints**, with **1024 input
   codepoints including grammar escapes**. This adjusts the 256 raw-character default
   so canonical quoted/escaped output round-trips even when NFKC expands characters.
-- Migration `0003_search_trigram.sql` adds FTS5 `trigram case_sensitive 1` over
-  already-normalized text; schema is **v4**, retaining 18 domain tables plus the
-  virtual index/shadows. The migration runner uses the application normalizer to
-  backfill every status atomically with SQL/ledger/integrity checks. No SQLite
-  ASCII-only lower() approximation or runtime automatic migration.
+- `0001_guards_and_search.sql` adds FTS5 `trigram case_sensitive 1` in schema
+  **2 / 18 domain tables**, plus virtual index/shadows. Registered version-2
+  rebuild-search-v1 backfills every status using the application normalizer,
+  atomically with SQL/data/ledger/integrity at startup or on trusted staging.
+  No SQLite ASCII-only lower() approximation.
 - `server/search/index.ts` refreshes source-derived separate body/tag/filename
   fields and FTS inside the coordinated source mutation transaction. FTS rowid
   matches the ordinary `note_search` rowid, enabling indexed deletion rather than
   scanning virtual note IDs. Permanent deletion removes FTS before the derived FK
   cascade. Status changes track source revision; all reads still filter published.
-  No virtual-table triggers or relaxation of `trusted_schema=OFF`. Future S14
-  rewrites / attachment-reference changes must use the same refresh hook.
+  No virtual-table triggers or trusted_schema relaxation. Tag rewrites and
+  attachment-reference changes use the same transactional refresh hook.
 - Acceleration conservatively accepts >=3-codepoint BMP letter/number/ASCII-space
   units, safely FTS-quoted and parameterized. Marks, punctuation, controls,
   supplementary characters and short CJK scan with `instr`. Every candidate is
@@ -702,7 +700,7 @@ Safe snippets are escaped text plus structured highlight ranges/segments, not da
   combining/width/operator cases on the actual tokenizer with acceleration on/off.
 - `q` and optional typed UTC `dayStart`/`dayEnd` half-open ranges extend the same
   timeline query, filter fingerprint and cursor. Search/tag/day mode has no month
-  anchor. Day-boundary calculation/UI remains S11, not a hidden month constraint.
+  anchor. Section 10 defines day boundaries/UI, no hidden month constraint.
 - At most three snippets (one per body/tag/filename field), each <=320 normalized
   codepoints plus optional ellipses, cross the list boundary. SQL bounds source
   windows before fetching: body windows use at most 1280 UTF-8 bytes around
@@ -772,8 +770,8 @@ Case-only display changes and rename to an existing normalized tag need explicit
   Creation/timeline/location/files/status/prior status remain unchanged. The
   default synchronous bound is 10,000 affected notes / 32 MiB source; exceeding
   it refuses safely with operator-assistance feedback, not a partial rewrite.
-- Migration `0004_tag_receipts.sql` makes schema **v5 / 19 domain tables**.
-  `tag_mutation_receipts` is separate from note-result receipts, so existing frozen
+- Schema-v2 baseline includes `tag_mutation_receipts`, separate from note-result
+  receipts, so existing frozen
   post/replay contracts stay valid. Independent content-free browser tag commands
   are persisted before transmission and reappear on Manage tags after reload.
   Exact retry resolves the original receipt before current preview/source checks;
@@ -846,7 +844,7 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   Query transport is capped at 8192 characters, cursor at 2048, normalized key at
   64 codepoints (the existing S07 domain bound); controls/hashtag markers and
   unknown query names fail clearly.
-  Search/day/month controls remain S10/S11 and are not silently accepted as filters.
+  Search/day/month controls are canonicalized in the same query contract.
 - Versioned base64url cursors carry `(timeline_at,id)`, fixed month-end anchor and
   timezone, plus a SHA-256 fingerprint of canonical filters/timezone/anchor. They
   bind query context, **not authorization**; all session/status/tag predicates
@@ -866,8 +864,8 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   revision-checked draft/Trash actions. Full source loads only on explicit expansion
   or visibility with full-card preference, never for every offscreen long note.
   Clipped controls become inert; Show less returns to that card rather than falling
-  to the list bottom and accidentally loading more pages. Location popovers and
-  detail/viewer/lifecycle screens remain S12/S13/S15.
+  to the list bottom and accidentally loading more pages. Sections 11/15 define
+  location popovers and detail/viewer/lifecycle screens.
 - Composer completion emits one authoritative mutation/snapshot event, not a
   parallel session list. The timeline merges newer revisions, refreshes a changed
   older card and sidebar counts, keeps cursor boundaries, and does not invent a
@@ -950,7 +948,7 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
 - `styles/tokens.css` centralizes both palettes, control/focus contrast, system/CJK
   fonts, spacing, density, safe-area layout sizes and reduced-motion policy.
   Desktop sidebar is 272 px, content maximum 760 px, breakpoint 900 CSS px.
-  Collapse preference sets a height token only; actual card collapse belongs to S09.
+  Collapse preference sets the height token used by actual timeline cards.
 - The central hook reads validated appearance for authenticated requests and
   replaces three application-owned HTML attribute placeholders using Kit 3's
   `transformPageChunk`. Root layout load exposes only the three-field appearance
@@ -962,20 +960,17 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   A coordinated IMMEDIATE transaction reads/merges current settings so unrelated
   security/storage fields are not overwritten. Ordinary appearance edits do not
   require fresh authentication. No schema migration/dependency changes.
-- `(app)` layout keeps the composer instance across private route navigation.
-  This historical S03 slice was **in-memory only** (superseded by section 6.3);
-  there were no note/upload calls,
-  Post is disabled, and nonempty text registers beforeunload protection. Closing
-  the mobile/expanded editor retains text. On very short mobile viewports the
-  warning is condensed to preserve a full visible text line and reachable actions.
-  This is not draft retention completion.
+- Private layout retains the draft-backed composer across route navigation.
+  Closing mobile/expanded editing retains work. Dirty/busy/conflicted state warns
+  before unload; section 6 defines durability. Short screens preserve one full
+  text line and reachable actions; explicit-only posting is section 7.
 - Native `dialog.showModal()` supplies background inertness. The small shared
   modal additionally wraps Tab/Shift+Tab, handles Escape (including filled search
   fields), restores opener focus, and lets nested dialogs own their keyboard
   events. Dynamic viewport/safe-area CSS sizes drawers/mobile editors; independent
   sidebar scrolling and a very-short-height fallback prevent inaccessible controls.
-- The production shell contains no demo notes/tags or fake activity. Later-step
-  placeholders identify their owning steps. A separate browser fixture reuses the
+- Production has no demo notes/tags/fake activity or required-feature placeholders.
+  A separate browser fixture reuses the
   actual shell with 60 synthetic cards/200 tags for scroll/height/accessibility
   checks; it is never a production route or initial data seed. Native 200% zoom is
   exercised through a temporary test-only Chrome extension, safe-area values via
@@ -1013,8 +1008,8 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   Composer), accessible copy success/failure and intersection-driven diagrams.
   Observers respect clipping/scroll containers, keep theme refresh to currently
   visible diagrams, and disconnect/abort queued work on replacement or unmount.
-  Compact and expanded/mobile editors have Write/Preview controls. No keyboard
-  publishing shortcut, upload, persistence or enabled Post was added.
+  Compact and expanded/mobile editors have Write/Preview controls. Rendering never
+  uploads/posts; sections 6/7 handle persistence/posting with no keyboard shortcut.
 - Mermaid dynamically loads only for visible fenced `mermaid` blocks, uses strict
   security and SVG-native labels, serializes work, caches 32 sanitized outputs, and
   rebases cached SVG IDs for each insertion. Invisible offscreen layout (not
@@ -1037,8 +1032,8 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   URL/autolink text, image alt text and link destinations are excluded; explicit
   human-authored link labels are eligible. Entity-generated markers are not literal
   source hashtags. `rewriteTag` replaces matching UTF-16 spans right-to-left without
-  Markdown reserialization. Server transactions/history/stale-local-tag resolution
-  remain S07/S14; parser completion does not claim tag-management completion.
+  Markdown reserialization. Sections 4/9 integrate transactions/history/stale-local
+  resolution; parser-only tests cannot substitute for management evidence.
 
 ### 11.3 S12 detail, edit, conflict and viewer contracts
 
@@ -1125,15 +1120,18 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   recoveries and uses existing reference-safe queued filesystem cleanup. No bulk
   Empty Trash action, cleanup timer, migration, dependency or backup implementation
   was added. Browser drafts/retry records remain absent from SQLite/server backup
-  sources; actual full archives/restore are still S16/S17.
+  sources; section 13 defines real full archives/restore.
 
 ## 12. Authentication and threat boundaries
 
 ### 12.1 Initialization
 
-No unauthenticated open registration. A new empty deployment needs a one-time setup token generated/displayed through VPS/CLI access (or supplied securely via environment). Setup consumes it and creates the sole account. Never enable a predictable public setup page on an empty database.
-
-A fresh replacement VPS can initialize temporary access, then use Settings to restore; restored account credentials replace the temporary ones. Document this workflow.
+Approved first-visitor ownership: empty deployments expose browser setup for 60
+minutes from process start, without a secret. Restart reopens only unclaimed setup;
+singleton transaction prevents replacement. Claim promptly or restrict access.
+Incomplete preferences gate normal pages/APIs until completion; no registration
+after setup. Section 12.6 records routing/validation. A new VPS completes temporary
+setup, then restores via Settings; archived credentials replace temporary ones.
 
 ### 12.2 Sessions and login
 
@@ -1141,7 +1139,9 @@ A fresh replacement VPS can initialize temporary access, then use Settings to re
 - High-entropy random session token, only its hash stored. HttpOnly, Secure in production, SameSite cookie; appropriate path/expiry.
 - Password success with enabled MFA creates only a short-lived challenge, not an authenticated session.
 - Challenge limits and password/MFA rate limits work across restarts; bound their tables and avoid unlimited per-IP memory.
-- Trust forwarded client IP only from configured reverse proxy. Account-wide limits complement IP limits; do not make permanent lockout easy.
+- Trust exactly one XFF only from private-network/loopback/link-local TCP peers;
+  absent uses peer, malformed/chained returns 400. Public peers ignore XFF.
+  Account-wide limits complement IP limits; no permanent lockout.
 - TOTP drift small and explicit; reject replay of an already consumed step. Recovery-code consumption atomic.
 - TOTP secret encrypted at rest with a random server key kept in private persistent key material. Full backups include the key needed for portability; therefore unencrypted archives remain sensitive.
 - Security changes rotate session/security revision and revoke appropriate sessions.
@@ -1154,62 +1154,35 @@ Same-origin/CSRF enforcement for all mutations, including uploads. Tight trusted
 
 LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects server access, not a compromised device/XSS or a downloaded unencrypted backup. Explain these limits accurately.
 
-### 12.4 S02 historical first-slice contracts (completed by section 12.5)
+### 12.4 Passwords, limits, sessions and HTTP boundary
 
-This records the initial partial implementation; section 12.5 supersedes its
-MFA/fresh-auth deferrals.
-
-- Migration `0002_setup_tokens.sql` adds a singleton **runtime** setup-token
-  table (schema version 3 / 18 tables). The operator CLI issues/reissues a
-  random 32-byte token, persists its domain-separated SHA-256 hash, and limits
-  validity to one hour. Account creation, token deletion and initial session
-  creation commit together through `Persistence.write`. No environment-token
-  alternative is needed for this CLI-first slice; no public issuance endpoint.
-- Passwords preserve exact Unicode bytes, require at least 12 codepoints and
-  at most 256 UTF-16 units / 1024 UTF-8 bytes. Argon2id v19 uses 64 MiB, three
-  passes, one lane, random salts and 32-byte output. A process-wide one-operation
-  bound rejects concurrent work with retryable `busy`; there is no waiting queue.
-  Supported encoded parameter orders are explicitly checked before verification
-  to prevent corrupt hashes requesting arbitrary resources. Windows/Linux synthetic
-  measurements are recorded in PROGRESS; target-VPS measurement remains required.
-- Setup/login have independent fixed 15-minute rate windows: 10 attempts/IP and
-  30 account-wide, counting successful attempts too. Denied requests do not extend
-  expiry. SQLite persists attempts; keyed, domain-separated IP digests avoid storing
-  plaintext addresses. Expired buckets are deleted on attempts, with a hard 1024-row
-  cap and eviction of earliest non-account buckets. MFA/fresh-auth scopes still need
-  to be added before those credential paths exist.
-- Session tokens are 32 random bytes, stored only as domain-separated hashes.
-  Host-only `pandanote_session` cookies are HttpOnly, SameSite=Strict, path `/`,
-  Secure in production, with absolute configured 1–30 day expiry (default seven).
-  Expiry, revocation and account security revision are checked on every request.
-  Expired sessions are pruned on login; at most 100 sessions are retained, with
-  oldest-session eviction. Logout deletes only the current session. MFA-enabled
-  account rows fail closed until MFA challenges/completion are implemented.
-- **Adapter 6 API correction:** unlike older releases it ignores the runtime
-  `ORIGIN` variable and exports build-time `kit.paths.origin` in its generated
-  `adapter-node.js` handoff. `vite.config.ts` wraps the adapter's `adapt` method:
-  after the stock build it replaces exactly one known `origin = undefined`
-  export with a canonical runtime `process.env.ORIGIN` reader. API drift or
-  setting `kit.paths.origin` fails the build; no dependency files are patched,
-  no domain is baked into artifacts, and no wildcard/disabled CSRF is used.
-  Built same-origin logout exercises both Kit's form CSRF and the central hook.
-- `ORIGIN` is explicit and canonical (no trailing slash); HTTP only on loopback
-  development/test origins. Adapter forwarding overrides are rejected. Peer IP comes from installed Kit 3's
-  `getClientAddress`; only peers in `TRUSTED_PROXY_IPS` (16 exact IPs maximum)
-  may supply one overwritten `X-Forwarded-For` IP. No guessed forwarding chains.
-  Central hooks enforce Origin even on JSON/login/setup, reject OPTIONS/cross-site
-  mutations, authorize all non-allowlisted routes and use no-store/private security
-  headers. Static build assets have no private user content. Endpoint authorization
-  and fresh-auth checks must still be added as sensitive domains appear.
-- One lazy runtime requires explicitly migrated storage, never creates keys/schema
-  in a request, and exposes safe 503 failures. Adapter 6's `sveltekit:shutdown`
-  event runs after request draining; runtime close is idempotent and uses the write
-  coordinator. A `beforeExit` fallback covers tools/development. Public `/health`
-  remains process liveness only and does not open persistence.
-- Authentication bodies are JSON-only with a 4 KiB actual streaming byte cap.
-  Routine DTOs never include credentials/hashes. Operator CLI output is an explicit
-  one-time terminal display, not server logging. Security/MFA DTOs and sensitive
-  action scopes are the next S02 slice, not completed functionality.
+- Passwords preserve exact Unicode bytes, **8–128 codepoints / 1024 UTF-8 bytes**.
+  Argon2id v19: 64 MiB/three passes/one lane/random salt/32-byte output. One hashing
+  operation, no queue; concurrent work fails retryably. Encoded hash parameters are
+  bounded before verification. Unknown username still verifies the same account
+  hash; credential/revision/name are rechecked afterwards. No dummy cheap path.
+- Setup/login and MFA/fresh/enrollment scopes have fixed 15-minute limits:
+  10/IP, 30/account, including successes. Denial never extends expiry. Persist
+  keyed domain-separated IP digests, prune expired buckets, hard cap 1024 rows,
+  protect account buckets, evict earliest non-account buckets.
+- Sessions: 32 random bytes, only domain-separated hashes stored. Host-only
+  pandanote_session, HttpOnly/SameSite=Strict/path `/`/Secure production, absolute
+  1–30 days (default seven). Expiry/revocation/security revision checked per request;
+  prune on login, at most 100 sessions with oldest eviction. Logout deletes current.
+- Adapter 6 ignores runtime ORIGIN itself. Vite wraps the adapter's adapt method,
+  replacing exactly one known origin export with a canonical runtime reader.
+  API drift/build-time kit.paths.origin fails the build; no library patch/baked
+  domain/wildcard/disabled CSRF. Same artifact is tested at two runtime origins.
+- TCP peer comes from Kit getClientAddress; private range BlockList contracts are
+  section 4's startup/proxy contract. Forwarding overrides are forbidden. Hooks
+  enforce exact Origin including setup/login/JSON, reject cross-site mutations,
+  authorize method-aware routes, set private/no-store/CSP/nosniff/referrer headers.
+  Endpoint grants/identity are rechecked transactionally. Static assets contain no
+  private user data. Authentication JSON has a 4 KiB actual streamed-byte cap.
+- Eager Kit init/after-drop container initializer finish before listening, skip
+  build analysis, and never migrate in requests. Adapter sveltekit:shutdown drains
+  then closes runtime/coordinator idempotently; beforeExit covers dev/tools.
+  Public health is readiness-only (section 16), not a DB-opening request.
 
 ### 12.5 S02 completed MFA and security contracts
 
@@ -1241,10 +1214,9 @@ MFA/fresh-auth deferrals.
 - Fresh grants are **single-use**, session/account/security-revision bound, with
   exact scopes: `password-change`, `mfa-enroll`, `mfa-disable`,
   `recovery-regenerate`, `sessions-revoke`, `session-lifetime`, `backup-create`,
-  `backup-download`, `backup-delete`, `restore`. They require password plus a new
-  factor when MFA is enabled. Future sensitive domains must call
-  `consumeFreshGrant(tx, identity, token, scope)` inside their coordinated action
-  transaction, not pre-consume a grant outside it. Those domains remain S16/S17.
+  `backup-download`, `backup-delete`, `restore`, `account-update`. Require password
+  plus a new enabled factor. Each domain consumes the exact grant inside its
+  coordinated transaction, never pre-consumes outside it.
 - Password changes recheck session/revision/grant expiry after asynchronous hashing.
   MFA change keeps the active secret until new confirmation. Password/MFA/recovery/
   session-lifetime changes increment security revision, remove every old session
@@ -1262,7 +1234,7 @@ MFA/fresh-auth deferrals.
   removing MFA/codes, rotating the security revision and revoking sessions/challenges
   without touching user content/settings. No route exposes it. Section 13.7 and the
   restore runbook document the current contract; the retired stdin-JSON CLI is removed.
-- Schema stays version 3 / 18 tables. Real SQLite/CLI and built-browser tests cover
+- Current baseline is schema 2 / 18 tables. Real SQLite/CLI and built-browser tests cover
   AUTH-01–05, including restart, parallel consumption, scope/expiry, rollback and
   security races. An isolated E2E app behind a generated-cert HTTPS edge exercises
   actual TLS, production cookies, trusted overwritten forwarding and security UI.
@@ -1272,9 +1244,8 @@ MFA/fresh-auth deferrals.
 
 ### 12.6 SS03 current account/setup/login contracts (implemented / common gates pass)
 
-This supersedes the token setup and password-length parts of 12.1/12.4/12.5.
 The user approved first-visitor ownership with a 60-minute process-start window;
-there is no setup token, public registration after setup or default credential.
+there is no setup secret, public registration after setup or default credential.
 
 - `AuthService.createAccount` validates normalized 3–32 ASCII username, trimmed
   required email, exact 8–128 Unicode-codepoint/1024-byte password and confirmation.
@@ -1591,7 +1562,7 @@ Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guar
   recovery/lifetime actions and all-device signout. Appearance's HTTP mutation now
   also rechecks session identity inside its merge, with bounded receive deadline.
   Storage form choices survive errors, confirmed saves invalidate shared limits,
-  and limits persist across devices. Backup/restore controls are still S16/S17.
+  and limits persist across devices. Section 13 defines backup/restore controls.
 - `server/settings/storage.ts` measures filesystem capacity/free/reserve, private
   DB/WAL/SHM, staging and archives, plus distinct stored attachment bytes. A file
   referenced outside Trash counts once in published/server-draft bytes; Trash-only
@@ -1629,111 +1600,61 @@ Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guar
   hash checks, transport cap, queue/concurrency and temporary-file cleanup remain.
   No dependency, migration, security-policy weakening or additional service was added.
 
-## 16. S18 deployment, readiness and release-verification contracts
+## 16. Deployment, readiness and release-verification contracts
 
-**Topology (implemented, `compose.yaml`, `ops/Dockerfile`, `ops/Caddyfile`).** One app
-container behind HTTPS Caddy; the bundled example uses a private bridge with fixed
-addresses and only proxy ports. `ops/compose.external.yaml` is the simple approved
-existing-Caddy alternative: one service on external proxynet, configurable host
-bind folder (default ./app-data), no published app port, no CPU/memory or V8 heap
-limits. Both use read-only rootfs, /tmp tmpfs, no-new-privileges, init and a default
-60 s stop grace. The image initially uses root to prepare only the private data
-folder with CHOWN/DAC_OVERRIDE/FOWNER/SETUID/SETGID/KILL, then clears supplementary groups
-and permanently drops to non-root PUID/PGID (default 1000:1000) before keys, SQLite
-or commands. Root preparation validates a bounded inventory, refuses symlinks,
-special files, nested filesystems and external hardlinks; internal snapshot links
-are supported. Only /data is chowned/chmodded, never source or OS paths. Non-root
-pre-owned deployments must match the configured identity. Docker exec starts as
-image root unless --user is provided; the HTTP process is always non-root with
-zero effective capabilities. KILL lets Docker's root init forward shutdown signals
-across the UID boundary. The image has
-three stages: build (full `npm ci` + `vite build`), production dependencies
-(`npm ci --omit=dev` with the dev-only `prepare` hook removed, so native modules are
-built for Linux/glibc inside the image) and runtime (build output, production
-`node_modules`, `migrations/`, `src/lib`, four operator scripts and three container
-entry/bootstrap/user scripts — no tests,
-docs, fixtures, dev dependencies or `.env`). The base image is the same digest-pinned
-Node 24.21.0 bookworm image as the validation images. Both dependency-install
-stages add CA certificates, Python 3, make and g++ for native-addon source-build
-fallback; none of these added packages are installed in the final runtime stage.
+**Topology.** Only root `docker-compose.yml`: one pandanote service, image
+`${PANDANOTE_IMAGE:-pandanote:latest}`, env_file `.env`, bind `${DATA_PATH:-./data}:/data`,
+external proxynet. No bundled proxy, ports/static IPs/ops services/resource limits/
+hardening or stop-timeout overrides. Root `.env.example` requires only ORIGIN.
+Existing Caddy needs only `reverse_proxy pandanote:3000`; default XFF replacement,
+streaming and no body ceiling support large archives without custom options.
+Private peer trust is defined in sections 4/12; forwarding overrides remain forbidden.
 
-**Operator tasks are explicit, networkless one-shot services** in the `ops` profile
-(`migrate`, `setup-token`, `recover-auth`, `reindex`) sharing the data volume. They are
-run only while `app` is stopped and remain available for recovery/maintenance.
-Per the approved follow-up, default container startup now runs restore recovery
-before key/DB reads, initializes keys, applies trusted migrations and initializes
-settings, then registers a supplied SETUP_TOKEN through a coordinated transaction.
-Existing/restored accounts ignore it; unchanged pending token hashes preserve the
-original one-hour expiry, changed tokens explicitly rotate unclaimed access, and
-missing initial credentials fail before listening. CLI-generated pending tokens
-remain compatible. Environment tokens are captured/scrubbed before initialization,
-never logged, and execve hands off to the server without a child/signal relay. All
-initialization failures abort startup safely; no automatic backup is added. Never
-run two instances on the same tree, and take a manual backup before upgrade. A schema newer
-than the image fails closed before HTTP startup, and rollback means deploying the older tag
-and restoring the pre-upgrade backup (migrations are forward only).
+**Image.** Digest-pinned Node 24.21.0 bookworm/glibc, three stages: full npm ci/build,
+production npm ci --omit=dev with prepare removed, runtime. Both install stages add
+CA/Python/make/g++ for native fallback; runtime has no added compilers/Git/tests/
+docs/dev dependencies/fixtures/secrets. It includes build/production modules/trusted
+migrations/src/lib, reset/reindex/metadata tools and container entry/bootstrap/user.
+HEALTHCHECK remains; transport BODY_SIZE_LIMIT=64G, smaller domain limits authoritative.
 
-**Proxy trust.** `TRUSTED_PROXY_IPS` is the proxy's fixed address; Caddy overwrites
-`X-Forwarded-For` with `{remote_host}`, streams bodies (`flush_interval -1`, no request
-buffering) with `request_body max_size` equal to `BODY_SIZE_LIMIT`, and sets HSTS.
-`ADDRESS_HEADER`/`HOST_HEADER`/… stay unset (rejected at startup). Domain is only
-`DOMAIN`/`ORIGIN`; certificates are automatic for public names. The optional
-`CADDY_TLS_DIRECTIVE` exists solely so release drills can use Caddy's local CA.
+**Privilege/startup.** Brief root inventory/ownership walk confined to /data, reject
+links/special entries/nested filesystems/external hardlinks, allow internal snapshot
+hardlinks. Clear supplementary groups, permanently switch to positive PUID/PGID
+(default 1000:1000) before keys/SQLite. Recovery → keys → SQL/data migrations/copy →
+settings, then execve into PID 1 Node with zero permitted/effective capabilities.
+No init service, root signal relay or setup secret. Default idle SIGTERM exits 0
+within 10 seconds; interrupted backups fail on restart, restore journals recover.
+Never two app processes on one folder; local persistent disk only.
 
-**Readiness.** `GET /health` (public, GET/HEAD only) now awaits runtime initialization:
-`200 {"status":"ok"}`, `200 {"status":"maintenance"}` while restore holds the write
-gate (so edge checks do not extend the outage), or `503 {"status":"unavailable"}` when
-storage is uninitialized/unmigrated/corrupt or filesystem recovery is pending. No
-counts, versions, paths or error text are returned. Compose healthchecks use it.
+**Maintenance.** Named argument-free `reset-password` and `reindex` use the same
+image. Verify mount PUID/PGID ownership, skip recursive chown, drop privileges.
+Reset is interactive/no-echo/live-safe (section 13.7), reindex stopped-app-only.
+Take/download a manual full backup before upgrade. Immediate DB-copy rollback is
+only safe before post-upgrade writes/files cleanup; otherwise restore a full archive
+into a compatible instance. Older images refuse newer schemas. Journaled copy
+rotation's literal atomic exchange requirement remains open (section 4.3).
 
-**Release verification harness.** `tests/integration/release-hygiene.test.ts` pins the
-exact shipped endpoint/page set, rejects debug/test imports, `console.log`, dev
-credentials and unreviewed `process.env` use, and asserts the deployment artifacts
-(non-root, pinned, no ports on app, read-only, networkless ops tasks, overwritten
-forwarded address). `playwright.release.config.ts` + `tests/release/` run against
-already deployed stacks: `ops/release-drill.sh` (two independent deployments with
-different domains, real HTTPS edge, TOTP, uploaded web restore, deployed private-
-surface probes, graceful stop with exit code 0, restart persistence) and
-`ops/release-benchmark.sh` (10k-note HTTP-seeded dataset, API/render/bundle/Mermaid/
-DOM-heap/image/backup/restore measurements with process RSS peaks). Accessibility is a
-normal e2e gate (`tests/e2e/zzzaccessibility.test.ts`, axe-core 4.13.0 as a pinned
-**dev-only** dependency; no runtime dependency or stack change).
+**Readiness.** Public GET/HEAD /health: 200 ok, 200 maintenance during restore,
+503 unavailable for unready/pending recovery. No paths/counts/account/version/error
+text. Kit/adapter init completes before listen; initialization failure exits safely.
 
-**Accessibility defects found and fixed by this gate:** GFM task-list checkboxes had no
-accessible name (now `aria-label` "Completed/Open task: …", added after sanitization),
-and the tag-autocomplete textarea referenced a non-existent listbox through
-`aria-controls` (now set only while the listbox exists). Reflow at 200%/400% zoom,
-reduced motion, visible focus and dialog focus containment/restoration are asserted.
+**Validation.** Hygiene pins routes, minimal Compose/env/image privacy, reviewed env
+access and documentation/links. `tests/release/compose.drill.yaml` + Caddyfile are
+synthetic test-only dynamic networks/local CA. Release scripts explicitly choose
+that file; normal installation does not deploy it. Copied-root-Compose Linux gates
+verify default bind/private modes, UID/capabilities/PID1, spoofed XFF/restarts,
 
-### 16.1 SS06 current deployment artifacts (supersedes historical topology above)
+> 1 GiB TLS restore, interrupted backup, synthetic SQL/data upgrade/copy rollback.
+> Cross-engine transfer: Docker save/load uses pandanote:latest; Podman exports
+> localhost/pandanote:latest as docker-archive, Docker loads and explicitly retags.
 
-The only production Compose is root `docker-compose.yml`: one `pandanote` service,
-image `${PANDANOTE_IMAGE:-pandanote:latest}`, `.env`, private `${DATA_PATH:-./data}:/data`,
-and the existing external `proxynet`. No bundled proxy, ports, static IPs, ops
-services, resource limits or Compose hardening overrides. `.env.example` requires
-only ORIGIN; UID/GID default to 1000. The unchanged production Dockerfile retains
-its pinned native install stages, immutable labels, 64G transport default,
-HEALTHCHECK and named reset/reindex tools. Entry drops privileges permanently and
-execs PID 1 Node with no permitted/effective capabilities before serving; startup
-uses the SS02 initializer and SS03 browser setup. Private peers trust one XFF;
-a minimal existing Caddy `reverse_proxy pandanote:3000` needs no header/body/timeout
-options. Default idle shutdown is within 10 seconds; interrupted backups fail on
-restart and journaled restores recover.
-
-`tests/release/compose.drill.yaml` and `tests/release/Caddyfile` are synthetic
-HTTPS test tooling only, with dynamic networks and local CA certificates. Release
-drill/benchmark scripts explicitly select that file and use real two-step browser
-setup; no operator initialization step. `tests/release/deployment.test.ts` tests a
-copied root Compose on Linux, private modes, restarts, UID/capabilities, spoofed XFF,
-
-> 1 GiB archive TLS restore, interrupted backup and synthetic SQL/data upgrade plus
-> pre-upgrade-copy rollback. Cross-engine transfer preserves labels: Docker save/load
-> uses `pandanote:latest`; Podman exports `localhost/pandanote:latest` as docker-archive,
-> then Docker loads and explicitly retags it to `pandanote:latest`. See the current
-> [operations guide](simplify-setup/OPERATIONS.md),
-> [test harness](../tests/release/README.md) and actual evidence in
-> [simplify-setup progress](simplify-setup/PROGRESS.md). SS07 owns the full historical
-> section/document reconciliation, not a claim that the final release gate is closed.
+Two-domain drill validates setup/MFA/private surfaces/download/upload/restore and
+restart; 10k benchmark measures API/SSR/bundle/Mermaid/DOM/heap/image/backup/restore.
+Axe-core 4.13.0 is dev-only; normal e2e covers light/dark/mobile/keyboard/reflow/focus.
+GFM checkbox names and conditional autocomplete aria-controls are regression-pinned.
+Real VPS/public certificates/physical-device/IME/screen-reader/exact release commit
+are still open. [Operations](../ops/DEPLOYMENT.md), [harness](../tests/release/README.md),
+[current evidence](simplify-setup/PROGRESS.md), [dated S18 measurements](RELEASE_RESULTS.md).
 
 ## 17. Commit-derived release metadata (approved enhancement)
 
@@ -1749,8 +1670,8 @@ probes `docker info` then `podman info` (bounded 15-second timeout each), prefer
 Docker when both servers work, and honors an explicit engine without fallback.
 Build errors never trigger a second-engine retry. Each successful build tags the
 same image as `pandanote:latest` and `pandanote:<version>`; latest is mutable and
-not the embedded app version. Compose defaults to latest, with a separate
-`PANDANOTE_VERSION` argument for low-level builds. OCI
+not the embedded app version. Compose only loads images and defaults to latest;
+`PANDANOTE_VERSION` is a low-level Docker build argument, not a Compose input. OCI
 version/revision/created labels and Vite-injected SSR/client constants use identical
 values; created means commit time. Missing/invalid production metadata fails the build.
 Ordinary non-release builds explicitly use Development. The final image needs no Git,
