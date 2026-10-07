@@ -12,9 +12,11 @@ import { assertSessionIdentity } from '../auth/identity.ts';
 import type { SessionIdentity } from '../auth/service.ts';
 import {
   DEFAULT_SETTINGS,
+  generalSettingsSchema,
   settingsSchema,
   type AppSettings,
 } from '../../shared/settings.ts';
+import type { Language } from '../../shared/i18n/registry.ts';
 import type { Persistence } from '../db/connection.ts';
 import { appSettings } from '../db/schema.ts';
 import { DomainError } from '../../shared/domain.ts';
@@ -73,6 +75,36 @@ export function updateAppearance(
       .where(eq(appSettings.singleton, 1))
       .run();
     return appearanceFrom(settings);
+  });
+}
+export function updateGeneral(
+  p: Persistence,
+  identity: SessionIdentity,
+  value: unknown,
+): { siteTitle: string; language: Language } {
+  const parsed = generalSettingsSchema.safeParse(value);
+  if (!parsed.success)
+    throw new DomainError(
+      'validation',
+      'Choose a site title of 1–60 characters and an available language.',
+    );
+  return p.write((tx) => {
+    assertSessionIdentity(tx, identity);
+    const row = tx
+      .select()
+      .from(appSettings)
+      .where(eq(appSettings.singleton, 1))
+      .get();
+    if (!row) throw new Error('Settings are not initialized');
+    const settings = settingsSchema.parse({
+      ...settingsSchema.parse(JSON.parse(row.valueJson)),
+      ...parsed.data,
+    });
+    tx.update(appSettings)
+      .set({ valueJson: JSON.stringify(settings), updatedAt: Date.now() })
+      .where(eq(appSettings.singleton, 1))
+      .run();
+    return { siteTitle: settings.siteTitle, language: settings.language };
   });
 }
 export function updateCalendar(

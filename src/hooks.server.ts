@@ -3,6 +3,7 @@ import { building, dev } from '$app/env';
 import { setupAccess } from '#lib/server/auth/setup-routing.ts';
 import { appearanceFrom, appearanceHtml } from '#lib/shared/appearance.ts';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
+import { matchAcceptLanguage } from '#lib/shared/i18n/registry.ts';
 import { readSettings } from '#lib/server/settings/repository.ts';
 import { getRuntime, initializeRuntime } from '#lib/server/runtime.ts';
 import { ApplicationInitializationError } from '#lib/server/initialize.ts';
@@ -96,8 +97,9 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.identity = runtime.auth.authenticate(cookie);
     if (cookie && !event.locals.identity)
       clearSessionCookie(event.cookies, runtime.policy.production);
+    const setupState = runtime.auth.setupState();
     const access = setupAccess(
-      runtime.auth.setupState(),
+      setupState,
       !!event.locals.identity,
       path,
       method,
@@ -143,18 +145,31 @@ export const handle: Handle = async ({ event, resolve }) => {
         new Response(null, { status: 303, headers: { location: '/login' } }),
       );
     }
+    const settings = readSettings(runtime.persistence);
     event.locals.appearance = appearanceFrom(
-      event.locals.identity
-        ? readSettings(runtime.persistence)
-        : DEFAULT_SETTINGS,
+      event.locals.identity ? settings : DEFAULT_SETTINGS,
     );
+    // Before setup completes only the browser can express a preference; afterwards
+    // every page, including the public sign-in page, uses the saved values.
+    event.locals.i18n = {
+      language:
+        setupState === 'complete'
+          ? settings.language
+          : matchAcceptLanguage(event.request.headers.get('accept-language')),
+      siteTitle: settings.siteTitle,
+    };
   } catch (error) {
     return protect(authErrorResponse(error));
   }
   return protect(
     await resolve(event, {
+      // Language codes come only from the code registry; safe for the attribute.
       transformPageChunk: ({ html }) =>
-        appearanceHtml(html, event.locals.appearance!),
+        appearanceHtml(
+          html,
+          event.locals.appearance!,
+          event.locals.i18n?.language,
+        ),
     }),
   );
 };

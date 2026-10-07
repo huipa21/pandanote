@@ -1,9 +1,10 @@
 <script lang="ts">
+  import PageTitle from '#lib/components/PageTitle.svelte';
   import StatusNoteList from '#lib/components/StatusNoteList.svelte';
   let { data } = $props();
 </script>
 
-<svelte:head><title>Trash — PandaNote</title></svelte:head>
+<PageTitle title="Trash" />
 <section class="surface">
   <h1>Trash</h1>
   <p>

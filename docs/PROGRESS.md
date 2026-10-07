@@ -22,8 +22,10 @@ migrated. Plan, acceptance, operations and its own progress log live in
 account/setup/login core implemented; common gates blocked** by SS05 archives.
 Two-step browser setup, username login, fresh-auth account editing and SS03-specific
 Windows/Linux tests pass. The intermediate checkout is not a working release:
-backup/restore remains broken. Next planned integration: **SS04** translations/site
-identity/Settings General; see `docs/simplify-setup/PROGRESS.md`. None of SS01–SS03
+backup/restore remains broken. SS04 translations/site
+identity/Settings General is now implemented too (en complete, zh-CN partial; common gate
+still blocked by SS05 archive failures). Next planned integration: **SS05** backup/restore
+format v2 + reset-password; see `docs/simplify-setup/PROGRESS.md`. None of SS01–SS04
 is marked fully done while their common gates remain blocked.
 This supersedes the setup-token parts of the follow-up below.
 
@@ -90,8 +92,8 @@ pandanote-version-native`. S18's outstanding VPS/device/screen-reader gates rema
 ## Next session: exact instructions
 
 **Current priority:** the approved simplify-setup change — follow
-`docs/simplify-setup/PROGRESS.md` (SS01–SS03 core implemented / common gates blocked;
-next planned integration **SS04**). The S18 items below remain open.
+`docs/simplify-setup/PROGRESS.md` (SS01–SS04 core implemented / common gates blocked;
+next planned integration **SS05**). The S18 items below remain open.
 
 1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
 2. Complete the version enhancement's blocked Linux Git/cold-build validation, then commit the enhancement (user approval; S18 itself is already committed). On a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
@@ -3398,3 +3400,14 @@ language rendering + Settings General. Read SPEC sections 5–7, PLAN SS04, the 
 setup/login/AccountSettings, hooks/root HTML/layout/shell. First validation:
 `npm run check && npm run test:integration -- auth setup-server`. Keep common/archive
 failures visible until SS05; no step or project completion claimed.
+
+### Session 2026-10-07 — SS04 language registry, site title, Settings → General
+
+Implemented / locally verified; full details, commands and results are in
+`docs/simplify-setup/PROGRESS.md` (SS04 entry). Summary: typed catalogs (en complete,
+zh-CN partial) with per-key fallback and `Accept-Language` matching; saved language/title
+rendered server-side (`<html lang>`, tab `<page> · <site title>`, sidebar/mobile header,
+sign-in); Settings → General (`PATCH /api/settings/general`). Windows check/lint/build,
+130 unit, integration 172 pass + 31 known SS05 archive failures, full e2e 94 pass + 3
+known archive failures. Linux image not re-run. Next: **SS05** (backup/restore format v2,
+`reset-password`), first validation `npm run check && npm run test:integration -- backups restores`.

@@ -1,11 +1,13 @@
 <script lang="ts">
   import { untrack, onMount } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { accountDetailsSchema } from '#lib/shared/auth.ts';
   let {
     initial,
     mfaEnabled,
   }: { initial: { username: string; email: string }; mfaEnabled: boolean } =
     $props();
+  const t = useI18n().t;
   let username = $state(untrack(() => initial.username));
   let email = $state(untrack(() => initial.email));
   let password = $state('');
@@ -27,7 +29,7 @@
     const result = await response.json();
     if (!response.ok || !result.ok) {
       fields = result.error?.fields ?? {};
-      throw new Error(result.error?.message ?? 'Could not update account.');
+      throw new Error(result.error?.message ?? t('account.failed'));
     }
     return result;
   }
@@ -58,13 +60,9 @@
       });
       username = result.account.username;
       email = result.account.email;
-      message =
-        'Account saved. Use this username the next time you sign in. Current sessions remain signed in.';
+      message = t('account.saved');
     } catch (e) {
-      error =
-        e instanceof Error
-          ? e.message
-          : 'Connection failed. Your account details remain here; retry.';
+      error = e instanceof Error ? e.message : t('account.network');
     } finally {
       busy = false;
     }
@@ -72,14 +70,11 @@
 </script>
 
 <section class="surface" aria-labelledby="account-heading">
-  <h2 id="account-heading">Account</h2>
-  <p class="help">
-    Changing username or email requires fresh authentication. Email is not
-    verified; no email is sent.
-  </p>
+  <h2 id="account-heading">{t('account.heading')}</h2>
+  <p class="help">{t('account.help')}</p>
   <form onsubmit={submit} novalidate>
     <fieldset disabled={busy || !ready}>
-      <label for="account-username">Account username</label><input
+      <label for="account-username">{t('account.username')}</label><input
         id="account-username"
         autocomplete="username"
         autocapitalize="none"
@@ -91,7 +86,7 @@
       <p id="account-username-error" class="field-error">
         {fields.username ?? ''}
       </p>
-      <label for="account-email">Account email</label><input
+      <label for="account-email">{t('account.email')}</label><input
         id="account-email"
         type="email"
         autocomplete="email"
@@ -100,14 +95,13 @@
         aria-describedby="account-email-error"
       />
       <p id="account-email-error" class="field-error">{fields.email ?? ''}</p>
-      <label for="account-password">Password to update account</label><input
+      <label for="account-password">{t('account.password')}</label><input
         id="account-password"
         type="password"
         autocomplete="current-password"
         bind:value={password}
       />
-      {#if mfaEnabled}<label for="account-code"
-          >Account authenticator or recovery code</label
+      {#if mfaEnabled}<label for="account-code">{t('account.code')}</label
         ><input
           id="account-code"
           autocomplete="one-time-code"
@@ -115,7 +109,7 @@
           bind:value={code}
         />{/if}
       <button class="primary" type="submit"
-        >{busy ? 'Saving…' : 'Authenticate and save account'}</button
+        >{busy ? t('account.saving') : t('account.save')}</button
       >
     </fieldset>
   </form>

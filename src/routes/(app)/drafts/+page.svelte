@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getContext } from 'svelte';
+  import PageTitle from '#lib/components/PageTitle.svelte';
   import {
     DRAFT_WORKSPACE,
     type DraftWorkspace,
@@ -27,7 +28,7 @@
   }
 </script>
 
-<svelte:head><title>Drafts — PandaNote</title></svelte:head>
+<PageTitle title="Drafts" />
 <section class="surface">
   <h1>Drafts</h1>
   <h2>Local drafts · this browser only</h2>

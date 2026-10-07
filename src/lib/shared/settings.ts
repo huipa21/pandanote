@@ -1,6 +1,6 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
-import { languages } from './i18n/registry.ts';
+import { languageCodes } from './i18n/registry.ts';
 
 export const siteTitleSchema = z
   .string()
@@ -16,9 +16,18 @@ export const siteTitleSchema = z
       ),
     'Use 1–60 characters without control characters.',
   );
-export const languageSchema = z.enum(
-  languages.map((language) => language.code),
-);
+export const languageSchema = z.enum(languageCodes);
+/** Settings → General: any subset, at least one field. */
+export const generalSettingsSchema = z
+  .strictObject({
+    siteTitle: siteTitleSchema.optional(),
+    language: languageSchema.optional(),
+  })
+  .refine(
+    (value) => value.siteTitle !== undefined || value.language !== undefined,
+    'Choose a site title or language.',
+  );
+export type GeneralSettings = z.infer<typeof generalSettingsSchema>;
 
 export const settingsSchema = z.strictObject({
   schemaVersion: z.literal(1),

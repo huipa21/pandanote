@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/components/PageTitle.svelte';
   import { getContext, onMount } from 'svelte';
   import { invalidate } from '$app/navigation';
   import {
@@ -118,7 +119,7 @@
   }
 </script>
 
-<svelte:head><title>Manage tags — PandaNote</title></svelte:head>
+<PageTitle title="Manage tags" />
 <section class="surface">
   <h1>Manage tags</h1>
   <p class="help">

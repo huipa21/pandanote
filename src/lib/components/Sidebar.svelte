@@ -1,5 +1,6 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Calendar from './Calendar.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
@@ -29,12 +30,14 @@
     onNavigate?: () => void;
   } = $props();
   const id = $props.id();
+  const i18n = useI18n();
+  const t = i18n.t;
   let showTags = $state(false);
   let tagQuery = $state('');
-  const nav = [
-    { href: '/', label: 'All notes' },
-    { href: '/drafts', label: 'Drafts' },
-  ];
+  const nav = $derived([
+    { href: '/', label: t('shell.allNotes') },
+    { href: '/drafts', label: t('shell.drafts') },
+  ]);
   const filteredTags = $derived(
     tags.filter((tag) =>
       tag.label.toLocaleLowerCase().includes(tagQuery.toLocaleLowerCase()),
@@ -45,7 +48,8 @@
 <div class="sidebar-content">
   <div class="sidebar-top">
     <a class="identity" href="/" onclick={onNavigate}
-      >PandaNote <span class="muted">a little room to think</span></a
+      ><span class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</span>
+      <span class="muted">{t('brand.tagline')}</span></a
     >
     <SearchControl
       {filters}
@@ -54,7 +58,7 @@
       {onSearch}
       {onNavigate}
     />
-    <nav aria-label="Notebook">
+    <nav aria-label={t('shell.notebook')}>
       {#each nav as item (item.href)}
         <a
           href={item.href}
@@ -69,20 +73,20 @@
     class="sidebar-sections"
     tabindex="0"
     role="region"
-    aria-label="Calendar and tags"
+    aria-label={t('shell.calendarAndTags')}
   >
     <section aria-labelledby={`${id}-calendar`}>
-      <h2 id={`${id}-calendar`}>Month activity</h2>
+      <h2 id={`${id}-calendar`}>{t('shell.monthActivity')}</h2>
       {#if calendar}<Calendar {calendar} {filters} {onNavigate} />{:else}<p
           class="help"
         >
-          Calendar is unavailable right now.
+          {t('shell.calendarUnavailable')}
         </p>{/if}
     </section>
     <section aria-labelledby={`${id}-tags`}>
       <div class="section-heading">
-        <h2 id={`${id}-tags`}>Tags</h2>
-        <a href="/tags" onclick={onNavigate}>Manage</a>
+        <h2 id={`${id}-tags`}>{t('shell.tags')}</h2>
+        <a href="/tags" onclick={onNavigate}>{t('shell.manage')}</a>
       </div>
       {#if tags.length}
         <ul class="tag-list">
@@ -101,28 +105,30 @@
         {#if tags.length > 6}<button
             onclick={() => {
               showTags = true;
-            }}>Show all tags ({tags.length})</button
+            }}>{t('shell.showAllTags', { count: tags.length })}</button
           >{/if}
-      {:else}<p class="help">No published tags yet.</p>{/if}
+      {:else}<p class="help">{t('shell.noTags')}</p>{/if}
     </section>
   </div>
-  <nav class="sidebar-bottom" aria-label="Utilities">
+  <nav class="sidebar-bottom" aria-label={t('shell.utilities')}>
     <a
       href="/trash"
       aria-current={active === '/trash' ? 'page' : undefined}
-      onclick={onNavigate}>Trash</a
+      onclick={onNavigate}>{t('shell.trash')}</a
     >
     <a
       href="/settings"
       aria-current={active === '/settings' ? 'page' : undefined}
-      onclick={onNavigate}>Settings</a
+      onclick={onNavigate}>{t('shell.settings')}</a
     >
-    <p class="version muted" data-app-version>Version {buildInfo.version}</p>
+    <p class="version muted" data-app-version>
+      {t('shell.version', { version: buildInfo.version })}
+    </p>
   </nav>
 </div>
 
-<Modal bind:open={showTags} title="All tags">
-  <label for={`${id}-query`}>Find a tag</label>
+<Modal bind:open={showTags} title={t('shell.allTagsTitle')}>
+  <label for={`${id}-query`}>{t('shell.findTag')}</label>
   <input
     id={`${id}-query`}
     type="search"
@@ -145,8 +151,10 @@
         >
       </li>{/each}
   </ul>
-  {#if !filteredTags.length}<p class="muted">No matching tags.</p>{/if}
-  <p class="help">Select tags to show notes matching all of them.</p>
+  {#if !filteredTags.length}<p class="muted">
+      {t('shell.noMatchingTags')}
+    </p>{/if}
+  <p class="help">{t('shell.tagHelp')}</p>
 </Modal>
 
 <style>
@@ -169,7 +177,10 @@
     text-decoration: none;
     margin-bottom: var(--space-5);
   }
-  .identity span {
+  .identity .site-title {
+    display: block;
+  }
+  .identity .muted {
     display: block;
     font-size: 0.75rem;
     font-weight: 400;
@@ -262,7 +273,7 @@
     .identity {
       margin-bottom: var(--space-2);
     }
-    .identity span {
+    .identity .muted {
       display: none;
     }
     .sidebar-bottom {

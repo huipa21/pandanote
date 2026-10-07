@@ -5,6 +5,9 @@
     type DraftWorkspace,
   } from '#lib/client/drafts/workspace.svelte.ts';
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+  import GeneralSettings from '#lib/components/GeneralSettings.svelte';
+  import PageTitle from '#lib/components/PageTitle.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import CalendarSettings from '#lib/components/CalendarSettings.svelte';
   import SecuritySettings from '#lib/components/SecuritySettings.svelte';
   import AccountSettings from '#lib/components/AccountSettings.svelte';
@@ -14,6 +17,7 @@
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
   let { data } = $props();
+  const t = useI18n().t;
   // A form snapshot intentionally survives failed saves/revalidation.
   const initial = untrack(() => data.appearance);
   let theme = $state<Appearance['theme']>(initial.theme);
@@ -85,9 +89,10 @@
   }
 </script>
 
-<svelte:head><title>Settings — PandaNote</title></svelte:head>
+<PageTitle title={t('settings.title')} />
+<h1 class="page-title">{t('settings.title')}</h1>
+<GeneralSettings />
 <section class="surface">
-  <h1>Settings</h1>
   <h2>Appearance</h2>
   <p class="help">
     Saved for your notebook, including other signed-in devices on their next
@@ -162,8 +167,8 @@
 </section>
 
 <style>
-  h1 {
-    margin-top: 0;
+  .page-title {
+    margin: 0;
   }
   .build-info dt {
     font-weight: 650;

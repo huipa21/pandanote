@@ -15,6 +15,7 @@
     type CalendarState,
   } from '#lib/client/timeline/calendar.svelte.ts';
   import { localDate } from '#lib/shared/calendar.ts';
+  import PageTitle from '#lib/components/PageTitle.svelte';
   import NoteCard from '#lib/components/NoteCard.svelte';
   import {
     READING,
@@ -437,8 +438,9 @@
   }
 </script>
 
+<PageTitle title="All notes" />
 <svelte:head
-  ><title>All notes — PandaNote</title><meta
+  ><meta
     name="description"
     content="Your private personal notebook"
   /></svelte:head

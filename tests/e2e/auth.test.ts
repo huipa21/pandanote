@@ -146,20 +146,30 @@ test('two-step first run, field retention, resume, routing, secure sessions and 
     const resume = await mobile.newPage();
     await resume.goto('/');
     await expect(resume).toHaveURL(/\/login$/);
-    await resume.getByLabel('Username', { exact: true }).fill('FiXtUrE');
-    await resume.getByLabel('Password', { exact: true }).fill(password);
-    await resume.getByRole('button', { name: 'Sign in', exact: true }).click();
+    // LANG-03: setup is incomplete, so this zh-CN browser gets Chinese screens.
+    await expect(resume.locator('html')).toHaveAttribute('lang', 'zh-CN');
+    await expect(resume).toHaveTitle('登录 · PandaNote');
+    await resume.getByLabel('用户名', { exact: true }).fill('FiXtUrE');
+    await resume.getByLabel('密码', { exact: true }).fill(password);
+    await resume.getByRole('button', { name: '登录', exact: true }).click();
     await expect(resume).toHaveURL(/\/setup\/preferences$/);
-    await expect(resume.getByLabel('Site title')).toHaveValue('PandaNote');
-    await expect(resume.getByLabel('Language')).toHaveValue('zh-CN');
-    await expect(resume.getByLabel('Timezone')).toHaveValue('Asia/Tokyo');
+    await expect(resume.getByLabel('站点标题')).toHaveValue('PandaNote');
+    await expect(resume.getByLabel('语言')).toHaveValue('zh-CN');
+    await expect(resume.getByLabel('时区')).toHaveValue('Asia/Tokyo');
+    await expect(resume.getByText('翻译进行中')).toBeVisible();
+    await expect(
+      resume.getByRole('button', { name: '完成设置' }),
+    ).toBeVisible();
     expect(
       await resume.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    await resume.getByLabel('Site title').fill('PandaNote');
-    await resume.getByLabel('Language').selectOption('en');
+    await resume.getByLabel('站点标题').fill('PandaNote');
+    // Choosing English previews the English screen before anything is saved.
+    await resume.getByLabel('语言').selectOption('en');
+    await expect(resume.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(resume.getByLabel('Timezone')).toBeVisible();
     await resume.getByLabel('Timezone').fill('UTC');
     await resume.getByLabel('Timezone').press('Tab');
     await resume.keyboard.press('Enter');

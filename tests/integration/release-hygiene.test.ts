@@ -36,6 +36,7 @@ const EXPECTED_ROUTES = [
   'api/restores/confirm',
   'api/settings/appearance',
   'api/settings/calendar',
+  'api/settings/general',
   'api/settings/storage',
   'api/settings/storage/cleanup',
   'api/tags',

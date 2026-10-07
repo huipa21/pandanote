@@ -1,5 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import PageTitle from '#lib/components/PageTitle.svelte';
+  const i18n = useI18n();
+  const t = i18n.t;
   import { setupAccountSchema } from '#lib/shared/auth.ts';
   let { data } = $props();
   let ready = $state(false);
@@ -40,39 +44,36 @@
         expired = result.error?.code === 'setup_closed';
         already = result.error?.code === 'already_set_up';
         message =
-          result.error?.message ?? 'Could not create account. Please retry.';
+          result.error?.code === 'already_set_up'
+            ? t('setup.alreadySetUp')
+            : (result.error?.message ?? t('setup.createFailed'));
         return;
       }
       password = '';
       passwordConfirm = '';
       window.location.assign('/setup/preferences');
     } catch {
-      message =
-        'Could not reach the server. Inputs remain here. Retry, or sign in if the account was created.';
+      message = t('setup.network');
     } finally {
       busy = false;
     }
   }
 </script>
 
-<svelte:head><title>Set up — PandaNote</title></svelte:head>
+<PageTitle title={t('setup.title')} />
 <main class="auth-page">
-  <h1>PandaNote</h1>
-  <h2>Set up your notebook</h2>
+  <h1 class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</h1>
+  <h2>{t('setup.heading')}</h2>
   {#if !data.windowOpen || expired}
     <p role="alert">
-      Setup has timed out. Restart PandaNote on the server to open it again (<code
-        >docker compose restart pandanote</code
-      >).
+      {t('setup.timedOut')}
+      <code>docker compose restart pandanote</code>
     </p>
   {:else}
-    <p>
-      Step 1 of 2. Setup is open for 60 minutes after the server starts. The
-      first visitor to create an account owns this notebook.
-    </p>
+    <p>{t('setup.intro')}</p>
     <form onsubmit={submit} novalidate>
       <fieldset disabled={busy || !ready || already}>
-        <label for="setup-username">Username</label>
+        <label for="setup-username">{t('setup.username')}</label>
         <input
           id="setup-username"
           name="username"
@@ -84,7 +85,7 @@
           aria-describedby="username-error"
         />
         <p id="username-error" class="field-error">{fields.username ?? ''}</p>
-        <label for="setup-email">Email</label>
+        <label for="setup-email">{t('setup.email')}</label>
         <input
           id="setup-email"
           name="email"
@@ -95,10 +96,8 @@
           aria-describedby="email-error email-help"
         />
         <p id="email-error" class="field-error">{fields.email ?? ''}</p>
-        <p id="email-help">
-          Required for future use; not verified. No email is sent.
-        </p>
-        <label for="setup-password">Password</label>
+        <p id="email-help">{t('setup.emailHelp')}</p>
+        <label for="setup-password">{t('setup.password')}</label>
         <input
           id="setup-password"
           name="password"
@@ -109,10 +108,8 @@
           aria-describedby="password-error password-help"
         />
         <p id="password-error" class="field-error">{fields.password ?? ''}</p>
-        <p id="password-help">
-          Use 8–128 characters. Spaces count; no complexity rules.
-        </p>
-        <label for="setup-confirm">Re-enter password</label>
+        <p id="password-help">{t('setup.passwordHelp')}</p>
+        <label for="setup-confirm">{t('setup.confirm')}</label>
         <input
           id="setup-confirm"
           name="passwordConfirm"
@@ -126,12 +123,12 @@
           {fields.passwordConfirm ?? ''}
         </p>
         <button class="primary" type="submit"
-          >{busy ? 'Creating account…' : 'Create account'}</button
+          >{busy ? t('setup.creating') : t('setup.create')}</button
         >
       </fieldset>
     </form>
   {/if}
   {#if message}<p role="alert">{message}</p>{/if}
-  <a href="/login">Already created your account? Sign in</a>
-  <noscript>JavaScript is required to submit this form.</noscript>
+  <a href="/login">{t('setup.signInLink')}</a>
+  <noscript>{t('setup.noscript')}</noscript>
 </main>

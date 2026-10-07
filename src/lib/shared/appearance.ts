@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { AppSettings } from './settings.ts';
+import { DEFAULT_LANGUAGE, type Language } from './i18n/registry.ts';
 
 export const appearanceSchema = z.strictObject({
   theme: z.enum(['system', 'light', 'dark']),
@@ -14,9 +15,15 @@ export function appearanceFrom(settings: AppSettings): Appearance {
     collapseLongNotes: settings.collapseLongNotes,
   };
 }
-// Enum/boolean values only: safe for HTML attributes, never user-provided CSS.
-export function appearanceHtml(html: string, appearance: Appearance): string {
+// Enum/boolean/registry-code values only: safe for HTML attributes, never
+// user-provided CSS or text.
+export function appearanceHtml(
+  html: string,
+  appearance: Appearance,
+  language: Language = DEFAULT_LANGUAGE,
+): string {
   return html
+    .replace('%pandanote.lang%', language)
     .replace('%pandanote.theme%', appearance.theme)
     .replace('%pandanote.density%', appearance.density)
     .replace('%pandanote.collapse%', String(appearance.collapseLongNotes));

@@ -1,5 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import PageTitle from './PageTitle.svelte';
+  const i18n = useI18n();
+  const t = i18n.t;
   let ready = $state(false);
   onMount(() => {
     ready = true;
@@ -30,36 +34,37 @@
       );
       const result = await response.json();
       if (!response.ok || result.ok !== true) {
-        message = result.error?.message ?? 'Unable to sign in. Please retry.';
+        message =
+          result.error?.code === 'unauthorized'
+            ? t('auth.invalid')
+            : (result.error?.message ?? t('auth.failed'));
         return;
       }
       password = '';
       if (result.mfaRequired) {
         challenge = result.challenge;
-        message =
-          'Enter your authenticator code or a single-use recovery code. This challenge expires in five minutes.';
+        message = t('auth.mfaPrompt');
         return;
       }
       code = '';
       challenge = '';
       window.location.assign('/');
     } catch {
-      message =
-        'Could not reach the server. Your inputs remain here; please retry.';
+      message = t('auth.network');
     } finally {
       busy = false;
     }
   }
 </script>
 
-<svelte:head><title>Sign in — PandaNote</title></svelte:head>
+<PageTitle title={t('auth.signIn')} />
 <main>
-  <h1>PandaNote</h1>
-  <h2>Sign in</h2>
+  <h1 class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</h1>
+  <h2>{t('auth.signIn')}</h2>
   <form onsubmit={submit}>
     <fieldset disabled={busy || !ready}>
       {#if challenge}
-        <label for="mfa-code">Authenticator or recovery code</label>
+        <label for="mfa-code">{t('auth.mfaCode')}</label>
         <input
           id="mfa-code"
           autocomplete="one-time-code"
@@ -73,10 +78,10 @@
             challenge = '';
             code = '';
             message = '';
-          }}>Start again</button
+          }}>{t('auth.startAgain')}</button
         >
       {:else}
-        <label for="username">Username</label>
+        <label for="username">{t('auth.username')}</label>
         <input
           id="username"
           name="username"
@@ -87,7 +92,7 @@
           autocapitalize="none"
           spellcheck="false"
         />
-        <label for="password">Password</label>
+        <label for="password">{t('auth.password')}</label>
         <input
           id="password"
           name="password"
@@ -99,13 +104,16 @@
         />
       {/if}
       <button type="submit"
-        >{busy ? 'Please wait…' : challenge ? 'Verify code' : 'Sign in'}</button
+        >{busy
+          ? t('auth.wait')
+          : challenge
+            ? t('auth.verify')
+            : t('auth.signIn')}</button
       >
     </fieldset>
     <p role="alert">{message}</p>
   </form>
-  <noscript>JavaScript is required to submit this authentication form.</noscript
-  >
+  <noscript>{t('auth.noscript')}</noscript>
 </main>
 
 <style>

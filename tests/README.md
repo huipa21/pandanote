@@ -574,6 +574,16 @@ includes auth/draft/posting/timeline/upload suites; native common gates also exe
 actual SQLite/Sharp/archive probes. Performance samples are synthetic, not VPS p95
 or proof of unbounded-session memory stability. Virtualization remains deferred.
 
+## SS04 coverage (LANG-01–04, SET-06)
+
+| Suite                                  | Scope                                                                                                                                                                                                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/i18n.test.ts`                    | Registry = pickers (English, 简体中文), declared-partial zh-CN, every translated key exists in English with identical placeholders, per-key fallback, tag and `Accept-Language` matching, strict General schema                                             |
+| `integration/general-settings.test.ts` | Real SQLite title/language saves merge without touching other settings or being reverted by appearance writes, survive reopening, strict rejection and live-session requirement                                                                             |
+| `integration/setup-server.test.ts`     | Built server: `Accept-Language` decides `<html lang>`/text before setup completes (zh-CN, zh-Hans, zh-TW/unknown/q=0 → en); saved language/title win afterwards and are public on `/login`; escaped title; `PATCH /api/settings/general` validation/401/403 |
+| `e2e/language.test.ts`                 | Settings General picker, partial notice, zh-CN screens with per-string English fallback, title in tab/sidebar/mobile header/drawer/sign-in, hostile and 60-character titles, axe light/dark phone/desktop                                                   |
+| `e2e/auth.test.ts` (updated)           | zh-CN browser sees the Chinese sign-in/preferences screens before setup completes; unsaved language preview on the preferences page; SET-06 prefill                                                                                                         |
+
 ## Run
 
 Use Node from `.node-version` and npm 11. Do not disable TLS verification.

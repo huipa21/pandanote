@@ -142,6 +142,33 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
       rmSync(marker);
       stop = await launch();
       expect(await (await get('/setup')).text()).toContain('Create account');
+      // LANG-03: before setup completes the browser's Accept-Language decides.
+      const localized = (path: string, language?: string, cookie = '') =>
+        fetch(`${origin}${path}`, {
+          redirect: 'manual',
+          headers: {
+            cookie,
+            ...(language ? { 'accept-language': language } : {}),
+          },
+        }).then((r) => r.text());
+      const htmlLang = (html: string) =>
+        /<html[^>]*?lang="([^"]+)"/.exec(html)?.[1];
+      const zh = await localized('/setup', 'zh-CN,zh;q=0.9,en;q=0.5');
+      expect(htmlLang(zh)).toBe('zh-CN');
+      expect(zh).toContain('创建账号');
+      expect(zh).not.toContain('>Create account<');
+      for (const header of [
+        undefined,
+        'zh-TW',
+        'fr-FR,de;q=0.5',
+        '*',
+        'zh-CN;q=0',
+        '',
+      ])
+        expect(htmlLang(await localized('/setup', header))).toBe('en');
+      expect(
+        htmlLang(await localized('/setup', 'fr;q=0.9, zh-Hans-CN;q=0.2')),
+      ).toBe('zh-CN');
       const mismatched = await post('/api/setup/account', {
         ...details,
         passwordConfirm: 'mismatch',
@@ -211,6 +238,64 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
       expect((await get('/', cookie)).status).toBe(200);
       expect((await get('/api/notes')).status).toBe(401);
       expect((await get('/api/notes', cookie)).status).toBe(200);
+      // After setup the saved language/title win over Accept-Language and are public
+      // on the sign-in page; the title is escaped plain text (LANG-03/LANG-04).
+      const login = await localized('/login', 'zh-CN');
+      expect(htmlLang(login)).toBe('en');
+      expect(login).toContain('&lt;script>escaped title&lt;/script>');
+      expect(login).not.toContain('<script>escaped title');
+      expect(login).toContain('Sign in');
+      const patch = (data: unknown, headers: Record<string, string> = {}) =>
+        fetch(`${origin}/api/settings/general`, {
+          method: 'PATCH',
+          headers: {
+            origin,
+            cookie,
+            'content-type': 'application/json',
+            ...headers,
+          },
+          body: JSON.stringify(data),
+        });
+      // LANG-01: unknown codes and malformed requests are rejected unchanged.
+      for (const data of [
+        {},
+        { language: 'fr' },
+        { language: 'zh-TW' },
+        { language: 'EN' },
+        { siteTitle: '' },
+        { siteTitle: 'x'.repeat(61) },
+        { siteTitle: 'bad\u0007' },
+        { language: 'en', extra: true },
+      ])
+        expect((await patch(data)).status).toBe(400);
+      expect((await patch({ language: 'en' }, { cookie: '' })).status).toBe(
+        401,
+      );
+      expect(
+        (
+          await patch(
+            { language: 'en' },
+            { origin: 'https://attacker.invalid' },
+          )
+        ).status,
+      ).toBe(403);
+      expect(htmlLang(await localized('/login', 'zh-CN'))).toBe('en');
+      expect((await patch({ language: 'zh-CN' })).status).toBe(200);
+      const saved = await localized('/login', 'en');
+      expect(htmlLang(saved)).toBe('zh-CN');
+      expect(saved).toContain('用户名');
+      expect(saved).toContain('&lt;script>escaped title&lt;/script>');
+      expect(await localized('/settings', 'en', cookie)).toContain('常规');
+      const renamed = await patch({ siteTitle: '  New <b>title</b> ' });
+      expect(renamed.status).toBe(200);
+      expect((await renamed.json()).data).toEqual({
+        siteTitle: 'New <b>title</b>',
+        language: 'zh-CN',
+      });
+      expect(await localized('/login')).toContain(
+        '<title>登录 · New &lt;b>title&lt;/b></title>',
+      );
+      expect((await patch({ language: 'en' })).status).toBe(200);
       expect(
         (
           await post(

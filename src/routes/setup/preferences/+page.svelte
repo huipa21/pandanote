@@ -1,14 +1,19 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import PageTitle from '#lib/components/PageTitle.svelte';
   import { setupPreferencesSchema } from '#lib/shared/auth.ts';
   import {
     languages,
+    languageInfo,
     browserLanguage,
     type Language,
   } from '#lib/shared/i18n/registry.ts';
   let { data } = $props();
+  const i18n = useI18n();
+  const t = i18n.t;
   let siteTitle = $state(untrack(() => data.siteTitle));
-  let language = $state<Language>('en');
+  let language = $state<Language>(untrack(() => i18n.language));
   let timezone = $state('UTC');
   let ready = $state(false);
   let busy = $state(false);
@@ -16,6 +21,7 @@
   let fields = $state<Record<string, string>>({});
   onMount(() => {
     language = browserLanguage(navigator.languages);
+    i18n.language = language;
     const proposed = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (setupPreferencesSchema.shape.timezone.safeParse(proposed).success)
       timezone = proposed;
@@ -43,38 +49,38 @@
       const result = await response.json();
       if (!response.ok || !result.ok) {
         fields = result.error?.fields ?? {};
-        message =
-          result.error?.message ?? 'Could not finish setup. Please retry.';
+        message = result.error?.message ?? t('prefs.failed');
         return;
       }
       window.location.assign('/');
     } catch {
-      message =
-        'Could not reach the server. Your choices remain here; please retry.';
+      message = t('prefs.network');
     } finally {
       busy = false;
     }
   }
 </script>
 
-<svelte:head><title>Preferences — PandaNote</title></svelte:head>
+<PageTitle title={t('prefs.title')} />
 <main class="auth-page">
-  <h1>Notebook preferences</h1>
-  <p>
-    Step 2 of 2. All fields are prefilled. Finish setup to open your notebook.
-  </p>
+  <h1>{t('prefs.heading')}</h1>
+  <p>{t('prefs.intro')}</p>
   <form onsubmit={submit} novalidate>
     <fieldset disabled={busy || !ready}>
-      <label for="site-title">Site title</label><input
+      <label for="site-title">{t('prefs.siteTitle')}</label><input
         id="site-title"
         bind:value={siteTitle}
         aria-invalid={!!fields.siteTitle}
         aria-describedby="title-error"
       />
       <p id="title-error" class="field-error">{fields.siteTitle ?? ''}</p>
-      <label for="language">Language</label><select
+      <label for="language">{t('prefs.language')}</label><select
         id="language"
         bind:value={language}
+        onchange={(event) => {
+          // Preview the chosen language; it is only saved by Finish setup.
+          i18n.language = event.currentTarget.value as Language;
+        }}
         aria-describedby="language-help language-error"
       >
         {#each languages as item (item.code)}<option value={item.code}
@@ -83,9 +89,9 @@
       </select>
       <p id="language-error" class="field-error">{fields.language ?? ''}</p>
       <p id="language-help">
-        Translation in progress — screens currently use English.
+        {#if !languageInfo(language).complete}{t('general.partial')}{/if}
       </p>
-      <label for="timezone">Timezone</label><input
+      <label for="timezone">{t('prefs.timezone')}</label><input
         id="timezone"
         bind:value={timezone}
         aria-invalid={!!fields.timezone}
@@ -93,10 +99,10 @@
       />
       <p id="timezone-error" class="field-error">{fields.timezone ?? ''}</p>
       <button class="primary" type="submit"
-        >{busy ? 'Saving…' : 'Finish setup'}</button
+        >{busy ? t('prefs.saving') : t('prefs.finish')}</button
       >
     </fieldset>
   </form>
   {#if message}<p role="alert">{message}</p>{/if}
-  <noscript>JavaScript is required to submit this form.</noscript>
+  <noscript>{t('setup.noscript')}</noscript>
 </main>

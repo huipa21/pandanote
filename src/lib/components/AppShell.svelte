@@ -3,6 +3,7 @@
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import Sidebar, { type ShellTag } from './Sidebar.svelte';
   import Modal from './Modal.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Composer from './Composer.svelte';
   import {
     toggleTag,
@@ -26,6 +27,8 @@
     onSearch?: (href: string) => Promise<unknown>;
     children: Snippet;
   } = $props();
+  const i18n = useI18n();
+  const t = i18n.t;
   let drawerOpen = $state(false);
   onMount(() => {
     const desktop = window.matchMedia('(min-width: 900px)');
@@ -37,9 +40,9 @@
   });
 </script>
 
-<a class="skip-link" href="#notes-pane">Skip to notes</a>
+<a class="skip-link" href="#notes-pane">{t('shell.skip')}</a>
 <div class="app-shell">
-  <aside class="desktop-sidebar" aria-label="Sidebar">
+  <aside class="desktop-sidebar" aria-label={t('shell.sidebar')}>
     <Sidebar {calendar} {active} {tags} {filters} {searchQuery} {onSearch} />
   </aside>
   <div class="main-column">
@@ -49,13 +52,22 @@
         aria-expanded={drawerOpen}
         onclick={() => {
           drawerOpen = true;
-        }}>Menu & search</button
+        }}>{t('shell.menu')}</button
       >
-      <a href="/" aria-label="PandaNote home">PandaNote</a>
+      <a
+        href="/"
+        class="brand"
+        aria-label={t('brand.home', { title: i18n.siteTitle })}
+        ><span class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</span
+        ></a
+      >
     </header>
     <div class="fixed-region">
       <div class="column-inner"><Composer /></div>
-      <section class="filter-region column-inner" aria-label="Active filters">
+      <section
+        class="filter-region column-inner"
+        aria-label={t('shell.activeFilters')}
+      >
         {#if active === '/' && (filters.tags.length || filters.query || filters.day)}
           <div class="filter-chips">
             {#if filters.query}<a
@@ -81,11 +93,11 @@
               >
             {/each}
           </div>
-          <a href="/">Clear all</a>
+          <a href="/">{t('shell.clearAll')}</a>
         {:else}<span class="muted"
             >{active === '/'
-              ? 'All notes · no active filters'
-              : 'Your notebook'}</span
+              ? t('shell.noFilters')
+              : t('shell.yourNotebook')}</span
           >{/if}
       </section>
     </div>
@@ -100,7 +112,7 @@
     </main>
   </div>
 </div>
-<Modal bind:open={drawerOpen} title="Notebook navigation" kind="drawer">
+<Modal bind:open={drawerOpen} title={t('shell.drawer')} kind="drawer">
   <Sidebar
     {calendar}
     {active}
@@ -199,7 +211,8 @@
       border-bottom: 1px solid var(--border);
       background: var(--surface);
     }
-    .mobile-header a {
+    .mobile-header .brand {
+      min-width: 0;
       text-decoration: none;
       color: var(--text);
       font-weight: 650;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import {
     canonicalFilters,
     filterHref,
@@ -20,6 +21,7 @@
     onNavigate?: () => void;
   } = $props();
   const id = $props.id();
+  const t = useI18n().t;
   let value = $state(untrack(() => query));
   let message = $state('');
   let ready = $state(false);
@@ -96,18 +98,18 @@
           if (generation === current) {
             flight = 0;
             pending = false;
-            message = 'Search could not load. Edit the query to retry.';
+            message = t('search.failed');
           }
         });
     }, 300);
   }
 </script>
 
-<label class="search-label" for={id}>Search notes</label>
+<label class="search-label" for={id}>{t('search.label')}</label>
 <input
   {id}
   type="search"
-  placeholder="Words or &quot;exact phrase&quot;"
+  placeholder={t('search.placeholder')}
   disabled={!ready}
   bind:value
   oninput={changed}
@@ -130,7 +132,7 @@
   class="help"
   aria-live="polite"
 >
-  {message || 'All terms · published notes · all months'}
+  {message || t('search.help')}
 </p>
 
 <style>

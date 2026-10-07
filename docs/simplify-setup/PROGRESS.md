@@ -2,41 +2,48 @@
 
 ## Current state
 
-- **Status:** **SS01–SS03 core implemented / common gates blocked by SS05 archives**.
+- **Status:** **SS01–SS04 core implemented / common gates blocked by SS05 archives**.
   Automatic startup, schema-v2 migrations/copies, private-network proxy trust,
-  browser two-step setup, username login and fresh-auth account editing are implemented.
-  SS03-specific SET/ACC coverage passes on Windows and Linux. Language/title rendering
-  is SS04; archives and interactive reset-password remain SS05.
+  browser two-step setup, username login, fresh-auth account editing, typed language
+  catalogs (English complete, 简体中文 partial), saved/`Accept-Language` rendering,
+  site title in tab/sidebar/mobile header/sign-in and Settings → General are
+  implemented. SS03/SS04-specific SET/ACC/LANG coverage passes on Windows (Linux image
+  not re-run for SS04: no native/server-runtime change). Archives and interactive
+  `reset-password` remain SS05.
   **Do not deploy this intermediate state as a fully working release: backup/restore is broken.**
 - **Steps:** SS01 in progress · SS02 in progress / common gate blocked ·
-  SS03 implemented / common gate blocked · SS04 not started · SS05 not started · SS06 not started · SS07 not started.
-- **Session baseline:** HEAD `50e3465`; working tree clean before SS03. No user-repository commit created.
+  SS03 implemented / common gate blocked · SS04 implemented / common gate blocked ·
+  SS05 not started · SS06 not started · SS07 not started.
+- **Session baseline:** HEAD `6f50805` (SS03 committed); working tree clean before SS04.
+  No user-repository commit created by this agent.
 
 ## Next session: exact task
 
-1. Read `AGENTS.md`, this folder, and the SS03 handoff below. Read
-   `src/lib/shared/{auth,settings,i18n/registry}.ts`, setup/login pages, shell components,
-   `hooks.server.ts`, setup-routing, AccountSettings and auth/setup-server tests.
-2. Next planned integration: **SS04** typed catalogs/fallback/Accept-Language, saved
-   language and title rendering, Settings General. Preserve the authoritative two-option
-   registry introduced by SS03; it is not yet a translation catalog. SS01's directory
-   exchange clarification and SS05 archive integration remain open.
-3. First validation: `npm run check && npm run test:integration -- auth setup-server`;
-   then SS04 browser cases and common gate. Unfiltered integration currently has **31
-   archive failures**; full Playwright has **3 archive failures**, not skipped passes.
-   `reset-password` is still a fail-closed reserved entry until SS05.
+1. Read `AGENTS.md`, this folder (SPEC §8/§9.5, PLAN SS05, ACCEPTANCE BAK/OPS) and the
+   SS04 handoff below. Read `src/lib/server/backups/{service,snapshot,trust,restore}.ts`,
+   `src/lib/shared/backups.ts`, `scripts/auth-recover.ts` (to be replaced by
+   `reset-password`), `scripts/reindex.ts`, `ops/Dockerfile`, and the failing
+   `tests/integration/{backups,restores}.test.ts`.
+2. Next planned integration: **SS05** archive format v2 (username/email/new settings,
+   no `pre-upgrade/`, no `setup_tokens`), staged old-known-schema restore through the
+   shared SQL + data-step runner, interactive `reset-password`. This also clears the
+   **31 archive integration failures** and **3 Playwright archive failures** that
+   block every common gate. SS01's directory-exchange clarification stays open.
+3. First validation: `npm run check && npm run test:integration -- backups restores`;
+   then the full common gate and the affected Playwright specs
+   (`tests/e2e/backups.test.ts tests/e2e/zzrestore.test.ts`).
 
 ## Step tracker
 
-| Step | Title                                            | State                             | Evidence                                                                                  |
-| ---- | ------------------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------- |
-| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress / gate blocked        | Schema-v2 baseline + core tests; planned startup/auth/archive integration pending         |
-| SS02 | One startup path, environment, proxy trust       | in progress / gate blocked        | Startup/proxy core + Linux image/Caddy verified; common auth/archive/browser gate pending |
-| SS03 | Accounts, setup flow, login                      | implemented / common gate blocked | SET-01–09/ACC-01–05 pass; Windows/Linux common gate blocked by 31 SS05 archive failures   |
-| SS04 | Language registry, site title, Settings General  | not started                       | —                                                                                         |
-| SS05 | Backup/restore format v2, maintenance commands   | not started                       | —                                                                                         |
-| SS06 | Deployment files and image                       | not started                       | —                                                                                         |
-| SS07 | Documentation and full regression                | not started                       | —                                                                                         |
+| Step | Title                                            | State                             | Evidence                                                                                           |
+| ---- | ------------------------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress / gate blocked        | Schema-v2 baseline + core tests; planned startup/auth/archive integration pending                  |
+| SS02 | One startup path, environment, proxy trust       | in progress / gate blocked        | Startup/proxy core + Linux image/Caddy verified; common auth/archive/browser gate pending          |
+| SS03 | Accounts, setup flow, login                      | implemented / common gate blocked | SET-01–09/ACC-01–05 pass; common gate blocked by 31 SS05 archive failures                          |
+| SS04 | Language registry, site title, Settings General  | implemented / common gate blocked | LANG-01–04, SET-06 pass (unit, integration, e2e); common gate blocked by the same archive failures |
+| SS05 | Backup/restore format v2, maintenance commands   | not started                       | —                                                                                                  |
+| SS06 | Deployment files and image                       | not started                       | —                                                                                                  |
+| SS07 | Documentation and full regression                | not started                       | —                                                                                                  |
 
 ## Known risks to watch
 
@@ -446,3 +453,76 @@ root hook/HTML/layout/shell. First validation `npm run check && npm run test:int
 -- auth setup-server`. Keep archive failures visible until SS05, complete SS06 deployment
 and SS07 docs/full gate later. Old intermediate settings/data are pre-release, not
 silently retrofitted; user data was retained, not deleted. No S18 manual/VPS gate closed.
+
+### Session 2026-10-07 — SS04 language registry, site title, Settings → General
+
+**State: implemented / common gate blocked by SS05 archives.** Started from `6f50805`,
+clean tree. No commit, dependency/lockfile or application-data change.
+
+Implemented / touched files:
+
+- `src/lib/shared/i18n/{en,zh-CN,registry,index}.ts`: `en` is the typed complete
+  catalog (`MessageKey`); `zh-CN` is `Partial<Catalog>` (compile-time subset check);
+  per-key English fallback with literal `{placeholder}` filling. Registry = `languageCodes`
+  (`en`, `zh-CN`), native names, `complete` flag (zh-CN **declared partial** although
+  all current keys are translated — the rest of the UI is not), tag matcher
+  (zh, zh-CN/SG/Hans → zh-CN; zh-TW/HK/MO/Hant and unknown → en) and a bounded,
+  q-value-aware `Accept-Language` matcher. `browserLanguage()` reuses the matcher.
+- `hooks.server.ts`, `app.html`, `app.d.ts`, `appearance.ts`: `locals.i18n` = saved
+  language/title when setup is complete, else `Accept-Language` best match + stored
+  title; `<html lang="%pandanote.lang%">` substituted server-side from registry codes.
+  `+layout.server.ts`/`+layout.svelte`: reactive `I18n` context (`client/i18n.svelte.ts`,
+  `useI18n()` with English default for isolated fixtures), client `lang` follows it.
+- Translated scope (SPEC §5): AuthForm (sign-in + MFA, “Invalid username or password.”
+  mapped by error code), setup and preferences pages (with unsaved live language
+  preview and the partial-language notice), Sidebar/AppShell/mobile header/drawer/
+  SearchControl, AccountSettings, new Settings → General and the Settings title.
+- Site title: `PageTitle.svelte` (`<page> · <site title>`; all page titles moved to it
+  — **tab titles changed from `X — PandaNote` to `X · PandaNote`**), sidebar and mobile
+  header brand, sign-in/setup headings. Escaped text only; `.site-title` ellipsis CSS,
+  full text stays in DOM + `title`; mobile brand link aria-label contains the title.
+- Settings → General: `GeneralSettings.svelte`, `PATCH /api/settings/general`
+  (`updateGeneral`, strict partial `{siteTitle?, language?}`, session identity checked,
+  merged inside the write transaction, no fresh auth; same-origin by the hook).
+  Interpretation of “immediate save”: language saves on change; title via its Save
+  button. Status/alert paragraphs render only when non-empty (existing Appearance
+  tests use page-wide `getByRole('status')`).
+- Tests: new `unit/i18n.test.ts`, `integration/general-settings.test.ts`,
+  `e2e/language.test.ts`; extended `integration/setup-server.test.ts` (real HTTP
+  Accept-Language, saved-wins-after-setup, escaping, PATCH validation/401/403) and
+  `e2e/auth.test.ts` (zh-CN browser sees Chinese sign-in/preferences before setup
+  completes, preview); route inventory + smoke title updated; `settings-dark-compact`
+  Windows visual baseline intentionally regenerated (new General section).
+  Docs: ARCHITECTURE §12 language bullet, `tests/README.md` SS04 table.
+
+Validation (Windows, Node 24.15.0 on PATH — **not the repository-pinned 24.21.0**; npm scripts):
+
+- `npm run check`: **pass**, 0 errors/warnings. `npm run lint`: **pass** (after Prettier).
+  `npm run build`: **pass** (existing chunk-size warnings).
+- `npm run test:unit`: **130 pass** (25 files, incl. 6 new i18n tests).
+- `npm run test:integration`: **31 fail / 172 pass / 3 skipped (206)**; all failures are
+  the known `backups.test.ts` (7) and `restores.test.ts` (24) archive cases (SS05).
+  `general-settings`, `setup-server`, `release-hygiene` pass.
+- `npm run test:e2e` (full): **3 fail / 94 pass**; failures are the known
+  `backups.test.ts` ×2 and `zzrestore.test.ts` archive cases. `language.test.ts` and
+  updated `auth.test.ts` pass; axe on zh-CN settings, English settings and public
+  sign-in (light/dark, 390/1440).
+- Intermediate failure fixed: a first shell run failed because my General section
+  added a second `role=status` (strict-mode) and its cascade leaked the dark theme
+  into the next screenshot test. `shell-light-1440x900` differs when `shell.test.ts`
+  runs alone (it depends on a tag seeded by earlier specs): not regenerated.
+- **Not run:** Linux validation image (no native/server-runtime change), any real-device
+  or screen-reader review of Chinese text/IME.
+
+Known gaps / decisions:
+
+- Server and shared-zod validation messages (e.g. “3–32 characters…”) and the rest of
+  the app (timeline, composer, calendar, Appearance/Security/Storage/Backup settings,
+  tag/draft screens) stay English by design; zh-CN is labelled partial.
+- Setup/login pages before completion follow `Accept-Language`; the preferences page
+  starts from the browser's `navigator.languages` and previews the choice only
+  locally until “Finish setup”.
+- Language changes via Settings apply to all sessions on their next page load.
+
+Exact next task: **SS05** (see “Next session” above). First validation:
+`npm run check && npm run test:integration -- backups restores`.

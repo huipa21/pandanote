@@ -6,7 +6,7 @@ test('adapter-node login gate and minimal health response work', async ({
 }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/login$/);
-  await expect(page).toHaveTitle('Sign in — PandaNote');
+  await expect(page).toHaveTitle('Sign in · PandaNote');
   await expect(page.getByRole('heading', { name: 'PandaNote' })).toBeVisible();
   await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
   const health = await request.get('/health');

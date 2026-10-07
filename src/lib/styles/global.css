@@ -159,3 +159,11 @@ h2 {
     transition-duration: 0s !important;
   }
 }
+/* User-provided site title: plain text, one line with an ellipsis. The full text
+   stays in the DOM (and the title attribute) for assistive technology. */
+.site-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

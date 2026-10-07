@@ -1302,10 +1302,25 @@ there is no setup token, public registration after setup or default credential.
   username controls subsequent logins. Account DTOs for drafts remain ID/MFA only;
   username/email are returned only by the private Settings loader/account response.
 - Settings gains siteTitle/language/setupCompletedAt defaults, without an old-settings
-  retrofit (greenfield). A minimal two-option language registry is introduced now for
-  setup validation/defaults; SS04 still owns catalogs, translated screens, HTML lang,
-  public title rendering and Settings General. Auth/setup/account forms keep fields
-  on errors, never echo passwords, and pass keyboard/mobile/axe light/dark checks.
+  retrofit (greenfield). Auth/setup/account forms keep fields on errors, never echo
+  passwords, and pass keyboard/mobile/axe light/dark checks.
+- **Language and site identity (SS04).** `src/lib/shared/i18n/`: `en.ts` is the complete
+  typed source catalog (`MessageKey`); `zh-CN.ts` is `Partial<Catalog>`, so an unknown
+  key is a compile error; `translate()` falls back per key to English and fills
+  `{name}` placeholders literally. `registry.ts` is the only language list
+  (`languageCodes`, native names, `complete` = declared whole-UI coverage AND every key;
+  zh-CN is declared partial) plus the tag/`Accept-Language` matchers (q-values,
+  bounded; Simplified Chinese = zh, zh-CN/SG/Hans; zh-TW/HK/Hant and unknown → en).
+  `hooks.server.ts` sets `locals.i18n` = saved language/title once setup is complete,
+  otherwise `Accept-Language` + stored title; `<html lang>` is substituted server-side
+  from registry codes only. The root layout provides a reactive `I18n` context
+  (`useI18n()`, English default in isolated fixtures); `PageTitle` renders
+  `<page> · <site title>`. The site title is only ever rendered as escaped text
+  (`.site-title`: one line, CSS ellipsis, full text stays in the DOM and `title`).
+  `PATCH /api/settings/general` (`updateGeneral`, strict partial `{siteTitle?, language?}`,
+  session-checked, merged inside the write transaction, no fresh auth) backs Settings →
+  General: language saves immediately on change, the title via its Save button.
+  Server/zod validation messages and non-planned screens stay English.
 - Removed `api/auth/setup` and retired token methods. Browser test servers initialize
   empty storage through normal startup and claim/complete it through real endpoints;
   no token CLI, production seed or auth bypass remains in those fixtures. Common
