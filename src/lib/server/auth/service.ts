@@ -3,6 +3,10 @@ import { DomainError, type AccountDto } from '../../shared/domain.ts';
 import {
   authTokenSchema,
   passwordSchema,
+  usernameSchema,
+  setupAccountSchema,
+  accountDetailsSchema,
+  setupPreferencesSchema,
   freshAuthScopeSchema,
   type FreshAuthScope,
 } from '../../shared/auth.ts';
@@ -46,49 +50,138 @@ export interface PendingMfaCredential {
 }
 export type LoginResult = SessionCredential | PendingMfaCredential;
 const failedLogin = (): DomainError =>
-  new DomainError('unauthorized', 'Unable to sign in. Check your credentials.');
-const setupUnavailable = (): DomainError =>
+  new DomainError('unauthorized', 'Invalid username or password.');
+const alreadySetUp = (): DomainError =>
   new DomainError(
-    'busy',
-    'Browser account setup is not implemented for this schema yet.',
+    'already_set_up',
+    'An account already exists. Sign in to continue.',
   );
+// Serialize first-account hashing across connections in this single app process.
+// Ordinary password work retains its one-operation/no-queue resource bound.
+let creatingAccount: Promise<SessionCredential> | undefined;
+const dummyHash =
+  '$argon2id$v=19$m=65536,t=3,p=1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 export class AuthService {
   private readonly persistence: Persistence;
   private readonly limiter: AuthRateLimiter;
   private readonly clock: () => number;
-  constructor(persistence: Persistence, clock = Date.now) {
+  private readonly startedAt: number;
+  constructor(persistence: Persistence, clock = Date.now, startedAt = clock()) {
     this.persistence = persistence;
     this.limiter = new AuthRateLimiter(persistence);
     this.clock = clock;
+    this.startedAt = startedAt;
   }
-  // Transitional fail-closed boundary after SS01 removes setup-token storage.
-  // SS02 removes the startup token call; SS03 replaces these retired entry points
-  // with validated browser account setup. Never seed an invented username/email.
-  issueSetupToken(): string {
-    throw setupUnavailable();
+  setupState(): 'new' | 'account' | 'complete' {
+    if (!this.persistence.db.select({ id: account.id }).from(account).get())
+      return 'new';
+    return readSettings(this.persistence).setupCompletedAt === null
+      ? 'account'
+      : 'complete';
   }
-  bootstrapSetupToken(_token: string | undefined): void {
-    void _token; // Retired credential is deliberately ignored, never persisted.
-    if (this.persistence.db.select({ id: account.id }).from(account).get())
-      return;
-    throw setupUnavailable();
+  setupWindowOpen(): boolean {
+    return this.clock() < this.startedAt + 60 * 60_000;
   }
-  setup(
-    _token: string,
-    _password: unknown,
-    _ip: string,
-  ): Promise<SessionCredential> {
-    void _token;
-    void _password;
-    void _ip;
-    return Promise.reject(setupUnavailable());
+  assertSetupOpen(): void {
+    if (this.setupState() !== 'new') throw alreadySetUp();
+    if (!this.setupWindowOpen())
+      throw new DomainError(
+        'setup_closed',
+        'Setup has timed out. Restart PandaNote on the server to open it again (docker compose restart pandanote).',
+      );
   }
-  async login(password: unknown, ip: string): Promise<LoginResult> {
+  async createAccount(value: unknown, ip: string): Promise<SessionCredential> {
+    this.assertSetupOpen();
+    this.limiter.attempt('setup', ip, this.clock());
+    const input = setupAccountSchema.parse(value);
+    if (creatingAccount) {
+      try {
+        await creatingAccount;
+      } catch {
+        /* A failed commit permits a retry. */
+      }
+      this.assertSetupOpen();
+    }
+    const work = this.persistence.coordinator.writeAsync(async () => {
+      this.assertSetupOpen();
+      const passwordHash = await hashPassword(input.password);
+      return this.persistence.write((tx) => {
+        this.assertSetupOpen();
+        const id = newPrivateId();
+        tx.insert(account)
+          .values({
+            id,
+            username: input.username,
+            email: input.email,
+            passwordHash,
+            createdAt: this.clock(),
+          })
+          .run();
+        return this.createSession(tx, id, 1, this.clock());
+      });
+    });
+    creatingAccount = work;
+    try {
+      return await work;
+    } finally {
+      if (creatingAccount === work) creatingAccount = undefined;
+    }
+  }
+  finishSetup(identity: SessionIdentity, value: unknown): void {
+    const input = setupPreferencesSchema.parse(value);
+    this.persistence.write((tx) => {
+      this.currentIdentity(tx, identity);
+      const settings = readSettings(this.persistence);
+      if (settings.setupCompletedAt !== null) throw alreadySetUp();
+      tx.update(appSettings)
+        .set({
+          valueJson: JSON.stringify({
+            ...settings,
+            ...input,
+            setupCompletedAt: this.clock(),
+          }),
+          updatedAt: this.clock(),
+        })
+        .run();
+    });
+  }
+  accountDetails(identity: SessionIdentity) {
+    return this.persistence.write((tx) => {
+      const owner = this.currentIdentity(tx, identity);
+      return { username: owner.username, email: owner.email };
+    });
+  }
+  updateAccount(identity: SessionIdentity, grant: string, value: unknown) {
+    const details = accountDetailsSchema.parse(value);
+    return this.persistence.write((tx) => {
+      this.consumeFreshGrant(tx, identity, grant, 'account-update');
+      const owner = this.currentIdentity(tx, identity);
+      tx.update(account).set(details).where(eq(account.id, owner.id)).run();
+      return details; // Sessions/security revision do not change for a username edit.
+    });
+  }
+  async login(
+    username: unknown,
+    password: unknown,
+    ip: string,
+  ): Promise<LoginResult> {
     this.limiter.attempt('login', ip, this.clock());
     return this.persistence.coordinator.writeAsync(async () => {
       const snapshot = this.persistence.db.select().from(account).get();
-      if (!snapshot || !(await verifyPassword(snapshot.passwordHash, password)))
+      const parsedUsername = usernameSchema.safeParse(username);
+      // Always verify the same bounded hash, even for unknown usernames. A correct
+      // password with the wrong username still cannot create a challenge/session.
+      const verified = await verifyPassword(
+        snapshot?.passwordHash ?? dummyHash,
+        password,
+      );
+      if (
+        !snapshot ||
+        !parsedUsername.success ||
+        parsedUsername.data !== snapshot.username ||
+        !verified
+      )
         throw failedLogin();
       return this.persistence.write((tx) => {
         const current = tx.select().from(account).get();
@@ -96,7 +189,8 @@ export class AuthService {
           !current ||
           current.id !== snapshot.id ||
           current.securityRevision !== snapshot.securityRevision ||
-          current.passwordHash !== snapshot.passwordHash
+          current.passwordHash !== snapshot.passwordHash ||
+          current.username !== parsedUsername.data
         )
           throw failedLogin();
         if (current.totpEnabled === 1) {

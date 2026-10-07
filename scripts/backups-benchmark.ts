@@ -42,11 +42,20 @@ try {
   initializeSettings(p);
   const password = 'synthetic-benchmark-password 密碼';
   const auth = new AuthService(p);
-  const initial = await auth.setup(
-    auth.issueSetupToken(),
-    password,
+  const initial = await auth.createAccount(
+    {
+      username: 'benchmark',
+      email: 'benchmark@example.invalid',
+      password,
+      passwordConfirm: password,
+    },
     '192.0.2.71',
   );
+  auth.finishSetup(auth.authenticate(initial.token)!, {
+    siteTitle: 'PandaNote',
+    language: 'en',
+    timezone: 'UTC',
+  });
   const identity = auth.authenticate(initial.token)!;
   const fileId = randomUUID(),
     noteId = randomUUID(),

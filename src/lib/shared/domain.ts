@@ -75,6 +75,9 @@ export const expectedRevisionSchema = revisionSchema;
 
 export type ErrorCode =
   | 'validation'
+  | 'setup_required'
+  | 'already_set_up'
+  | 'setup_closed'
   | 'unauthorized'
   | 'rate-limited'
   | 'fresh-auth-required'

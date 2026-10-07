@@ -240,9 +240,12 @@
             autocomplete="new-password"
             bind:value={newPassword}
             required
-            minlength="12"
             maxlength="256"
-          />{/if}
+            aria-describedby="new-password-help"
+          />
+          <p id="new-password-help" class="help">
+            Use 8–128 characters. Spaces count; no complexity rules.
+          </p>{/if}
         {#if action === 'lifetime'}<label for="session-days"
             >Session lifetime (days)</label
           ><input

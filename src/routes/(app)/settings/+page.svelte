@@ -7,6 +7,7 @@
   const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
   import CalendarSettings from '#lib/components/CalendarSettings.svelte';
   import SecuritySettings from '#lib/components/SecuritySettings.svelte';
+  import AccountSettings from '#lib/components/AccountSettings.svelte';
   import StorageSettings from '#lib/components/StorageSettings.svelte';
   import BackupSettings from '#lib/components/BackupSettings.svelte';
   import { buildInfo } from '#lib/shared/version.ts';
@@ -125,6 +126,10 @@
   <p role="alert">{error}</p>
 </section>
 <CalendarSettings initial={data.calendar} />
+<AccountSettings
+  initial={data.accountDetails}
+  mfaEnabled={data.account.mfaEnabled}
+/>
 <section class="surface">
   <SecuritySettings />
   <button onclick={signOut} disabled={signingOut}

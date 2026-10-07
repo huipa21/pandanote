@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { browserSession } from '../helpers/browser-session.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,7 +11,6 @@ import {
 } from '@playwright/test';
 import type { LocalDraft } from '../../src/lib/client/drafts/model.ts';
 const origin = 'http://127.0.0.1:4173';
-const password = 'synthetic-e2e-only-secret 密碼';
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2xoAAAAASUVORK5CYII=',
   'base64',
@@ -32,21 +31,7 @@ async function signIn(page: Page) {
       return;
     }
   }
-  let response = await page.request.post(`${origin}/api/auth/login`, {
-    data: { password },
-    headers: { origin },
-  });
-  if (response.status() === 401) {
-    const { token } = JSON.parse(
-      readFileSync('.e2e-data/fixture.json', 'utf8'),
-    ) as { token: string };
-    response = await page.request.post(`${origin}/api/auth/setup`, {
-      data: { token, password },
-      headers: { origin },
-    });
-  }
-  expect(response.status()).toBe(200);
-  sessionCookies = await page.context().cookies();
+  sessionCookies = await browserSession(page);
 }
 async function records(page: Page): Promise<LocalDraft[]> {
   return page.evaluate(() =>

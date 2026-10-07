@@ -8,7 +8,6 @@ import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, it } from 'vitest';
 import { withPersistence } from '../helpers/persistence.ts';
-import { AuthService } from '../../src/lib/server/auth/service.ts';
 
 async function unusedPort(): Promise<number> {
   const server = createServer();
@@ -38,7 +37,6 @@ it('one production build honors two runtime origins, keeps data private, logs ou
   expect(build.error, build.stderr).toBeUndefined();
   expect(build.status, build.stderr).toBe(0);
   await withPersistence(async (p, root) => {
-    const setupToken = new AuthService(p).issueSetupToken();
     await p.close();
     const password = 'synthetic-runtime-only-password';
     const content = {
@@ -107,19 +105,26 @@ it('one production build honors two runtime origins, keeps data private, logs ou
         const denied = await fetch(`${base}/files/private`, {
           redirect: 'manual',
         });
-        expect(denied.status).toBe(401);
+        expect(denied.status).toBe(deployment === 'loopback' ? 409 : 401);
         const page = await fetch(base, { redirect: 'manual' });
         expect(page.status).toBe(303);
-        expect(page.headers.get('location')).toBe('/login');
+        expect(page.headers.get('location')).toBe(
+          deployment === 'loopback' ? '/setup' : '/login',
+        );
         const login = await fetch(
-          `${base}/api/auth/${deployment === 'loopback' ? 'setup' : 'login'}`,
+          `${base}${deployment === 'loopback' ? '/api/setup/account' : '/api/auth/login'}`,
           {
             method: 'POST',
             headers: { origin, 'content-type': 'application/json' },
             body: JSON.stringify(
               deployment === 'loopback'
-                ? { token: setupToken, password }
-                : { password },
+                ? {
+                    username: 'fixture',
+                    email: 'fixture@example.invalid',
+                    password,
+                    passwordConfirm: password,
+                  }
+                : { username: 'fixture', password },
             ),
           },
         );
@@ -130,6 +135,18 @@ it('one production build honors two runtime origins, keeps data private, logs ou
         expect(setCookie).toMatch(/Secure/i);
         expect(setCookie).toMatch(/SameSite=Strict/i);
         const cookie = setCookie.split(';')[0];
+        if (deployment === 'loopback') {
+          const finish = await fetch(`${base}/api/setup/preferences`, {
+            method: 'POST',
+            headers: { cookie, origin, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              siteTitle: 'PandaNote',
+              language: 'en',
+              timezone: 'UTC',
+            }),
+          });
+          expect(finish.status).toBe(200);
+        }
         const home = await fetch(base, { headers: { cookie } });
         expect(home.status).toBe(200);
         expect(await home.text()).not.toContain(password);
@@ -240,7 +257,6 @@ it('one production build honors two runtime origins, keeps data private, logs ou
         ).toBe(400);
         for (const secret of [
           password,
-          setupToken,
           cookie.split('=')[1],
           content.bodyMarkdown,
           'Edited private #Work',
@@ -260,7 +276,7 @@ it('one production build honors two runtime origins, keeps data private, logs ou
         expect(
           (await fetch(`${base}/api/notes`, { headers: { cookie } })).status,
         ).toBe(401);
-        for (const secret of [password, setupToken, cookie.split('=')[1]])
+        for (const secret of [password, cookie.split('=')[1]])
           expect(output).not.toContain(secret);
       } finally {
         child.kill('SIGTERM');

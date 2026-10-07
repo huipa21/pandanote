@@ -18,30 +18,13 @@ const env = {
   DATA_DIR: data,
   NODE_ENV: 'production',
   BODY_SIZE_LIMIT: '512M',
-  TRUSTED_PROXY_IPS: security ? '127.0.0.1,::ffff:127.0.0.1' : '',
   ADDRESS_HEADER: '',
   HOST_HEADER: '',
   PROTOCOL_HEADER: '',
   PORT_HEADER: '',
 };
-try {
-  execFileSync(process.execPath, ['scripts/migrate.ts'], {
-    env,
-    stdio: 'pipe',
-  });
-  const token = execFileSync(process.execPath, ['scripts/setup-token.ts'], {
-    env,
-    encoding: 'utf8',
-    stdio: 'pipe',
-  }).trim();
-  // Test-only fixture handoff, excluded from git and removed at teardown.
-  await writeFile(resolve(parent, 'fixture.json'), JSON.stringify({ token }), {
-    mode: 0o600,
-  });
-} catch {
-  await rm(data, { recursive: true, force: true });
-  throw new Error('E2E private storage initialization failed');
-}
+// The real built server initializes empty storage; browser/API setup creates
+// test accounts through the same public flow as production. No CLI token/seed.
 // Synthetic, short-lived TLS key/certificate: never a production credential.
 // Exercise the real HTTPS edge and overwritten trusted-proxy header in S02.
 /** @type {import('node:https').Server | undefined} */

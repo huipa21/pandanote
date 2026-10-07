@@ -20,6 +20,7 @@ import { withPersistence } from '../helpers/persistence.ts';
 import { Persistence } from '../../src/lib/server/db/connection.ts';
 import { writePrivateJson } from '../../src/lib/server/storage/private-storage.ts';
 import { AuthService } from '../../src/lib/server/auth/service.ts';
+import { createFixtureAccount } from '../helpers/auth.ts';
 import { BackupService } from '../../src/lib/server/backups/service.ts';
 import { RestoreService } from '../../src/lib/server/backups/restore.ts';
 import {
@@ -45,11 +46,7 @@ const sha = (bytes: Buffer | string) =>
   createHash('sha256').update(bytes).digest('hex');
 async function fixture(p: Persistence, secret = password) {
   const auth = new AuthService(p);
-  const credential = await auth.setup(
-    auth.issueSetupToken(),
-    secret,
-    '192.0.2.79',
-  );
+  const credential = await createFixtureAccount(auth, secret, '192.0.2.79');
   let identity = auth.authenticate(credential.token)!;
   let codes: string[] = [];
   let grantIp = 100;
@@ -245,7 +242,7 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       expect(destination.storage.readKeys()).toEqual(source.storage.readKeys());
       expect(d.auth.authenticate(d.credential.token)).toBeNull();
       expect(d.auth.authenticate(enabled.credential.token)).toBeNull();
-      const login = await d.auth.login(password, '192.0.2.80');
+      const login = await d.auth.login('fixture', password, '192.0.2.80');
       expect(login.mfaRequired).toBe(true);
       if (!login.mfaRequired) throw Error('MFA missing');
       const credential = d.auth.completeMfa(
@@ -256,7 +253,7 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       const restored = d.auth.authenticate(credential.token)!;
       const factorNow = Date.now() + 60_000;
       const totpAuth = new AuthService(destination, () => factorNow);
-      const totpLogin = await totpAuth.login(password, '192.0.2.81');
+      const totpLogin = await totpAuth.login('fixture', password, '192.0.2.81');
       if (!totpLogin.mfaRequired) throw Error('Restored MFA missing');
       const totpCredential = totpAuth.completeMfa(
         totpLogin.token,

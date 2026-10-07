@@ -2,41 +2,41 @@
 
 ## Current state
 
-- **Status:** **SS01/SS02 core implemented / full gates blocked**. Schema-v2 baseline,
-  SQL/data migrations and private pre-upgrade copies are implemented. Shared startup
-  now initializes container, dev and built server paths before requests. Environment
-  defaults and private-network proxy trust are tested, including the Linux image/Caddy.
-  Browser account setup remains SS03; archives and interactive recovery remain SS05.
-  **Do not deploy this intermediate state for note-taking.**
-- **Steps:** SS01 in progress · SS02 in progress / integration gate blocked ·
-  SS03 not started · SS04 not started · SS05 not started · SS06 not started · SS07 not started.
-- **Session baseline:** HEAD `65c6067`; working tree clean before SS02. No user-repository commit created.
+- **Status:** **SS01–SS03 core implemented / common gates blocked by SS05 archives**.
+  Automatic startup, schema-v2 migrations/copies, private-network proxy trust,
+  browser two-step setup, username login and fresh-auth account editing are implemented.
+  SS03-specific SET/ACC coverage passes on Windows and Linux. Language/title rendering
+  is SS04; archives and interactive reset-password remain SS05.
+  **Do not deploy this intermediate state as a fully working release: backup/restore is broken.**
+- **Steps:** SS01 in progress · SS02 in progress / common gate blocked ·
+  SS03 implemented / common gate blocked · SS04 not started · SS05 not started · SS06 not started · SS07 not started.
+- **Session baseline:** HEAD `50e3465`; working tree clean before SS03. No user-repository commit created.
 
 ## Next session: exact task
 
-1. Read `AGENTS.md`, this folder, and the SS02 handoff below. Read
-   `src/lib/{shared/auth,shared/settings,server/auth/service,server/auth/policy,server/initialize,server/runtime}.ts`,
-   `src/hooks.server.ts`, setup/login routes, settings repository and auth/browser fixtures.
-2. Next planned integration: **SS03** account schemas, createAccount, username login
-   and the two-step browser setup/routing. Replace obsolete token fixtures with real
-   account setup, not invented production identities or test bypasses. SS01's strict
-   directory-exchange clarification and SS05 archive integration remain open.
-3. First validation: `npm run check && npm run test:integration -- startup container-bootstrap migrations pre-upgrade`;
-   then the common gate and affected Playwright tests. The unfiltered suite currently
-   reports 54 old-token-dependent failures; do not exclude them. `reset-password`
-   is only a fail-closed reserved entry until SS05 implements the interactive tool.
+1. Read `AGENTS.md`, this folder, and the SS03 handoff below. Read
+   `src/lib/shared/{auth,settings,i18n/registry}.ts`, setup/login pages, shell components,
+   `hooks.server.ts`, setup-routing, AccountSettings and auth/setup-server tests.
+2. Next planned integration: **SS04** typed catalogs/fallback/Accept-Language, saved
+   language and title rendering, Settings General. Preserve the authoritative two-option
+   registry introduced by SS03; it is not yet a translation catalog. SS01's directory
+   exchange clarification and SS05 archive integration remain open.
+3. First validation: `npm run check && npm run test:integration -- auth setup-server`;
+   then SS04 browser cases and common gate. Unfiltered integration currently has **31
+   archive failures**; full Playwright has **3 archive failures**, not skipped passes.
+   `reset-password` is still a fail-closed reserved entry until SS05.
 
 ## Step tracker
 
-| Step | Title                                            | State                      | Evidence                                                                                  |
-| ---- | ------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------- |
-| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress / gate blocked | Schema-v2 baseline + core tests; planned startup/auth/archive integration pending         |
-| SS02 | One startup path, environment, proxy trust       | in progress / gate blocked | Startup/proxy core + Linux image/Caddy verified; common auth/archive/browser gate pending |
-| SS03 | Accounts, setup flow, login                      | not started                | —                                                                                         |
-| SS04 | Language registry, site title, Settings General  | not started                | —                                                                                         |
-| SS05 | Backup/restore format v2, maintenance commands   | not started                | —                                                                                         |
-| SS06 | Deployment files and image                       | not started                | —                                                                                         |
-| SS07 | Documentation and full regression                | not started                | —                                                                                         |
+| Step | Title                                            | State                             | Evidence                                                                                  |
+| ---- | ------------------------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------- |
+| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress / gate blocked        | Schema-v2 baseline + core tests; planned startup/auth/archive integration pending         |
+| SS02 | One startup path, environment, proxy trust       | in progress / gate blocked        | Startup/proxy core + Linux image/Caddy verified; common auth/archive/browser gate pending |
+| SS03 | Accounts, setup flow, login                      | implemented / common gate blocked | SET-01–09/ACC-01–05 pass; Windows/Linux common gate blocked by 31 SS05 archive failures   |
+| SS04 | Language registry, site title, Settings General  | not started                       | —                                                                                         |
+| SS05 | Backup/restore format v2, maintenance commands   | not started                       | —                                                                                         |
+| SS06 | Deployment files and image                       | not started                       | —                                                                                         |
+| SS07 | Documentation and full regression                | not started                       | —                                                                                         |
 
 ## Known risks to watch
 
@@ -361,3 +361,88 @@ unchanged known blockers. Overall gate remains exit 1. Linux images/probe above
 precede documentation-only edits, not application changes. `git diff --check` and
 fixture cleanup pass; package-lock unchanged, no NUL remains, original latest still
 points to `05a2848ebd8e2c7ea6882c584694ec6e55df135fb93a5513d5cb54da40e53f14`.
+
+### 2026-10-07 — SS03 accounts, two-step setup and username login
+
+**State: implemented / common gate blocked by SS05 archive integration.** Started
+clean at `50e3465`. No user-repository commit, dependency/lockfile change, application
+storage deletion or production account seed. SS03's specific SET/ACC gates pass;
+this does not mark SS01/SS02/SS03 or the product fully done while common gates fail.
+
+Implemented/touched:
+
+- `shared/auth.ts`: normalized 3–32 ASCII username; required trimmed basic email;
+  exact 8–128 Unicode-codepoint password with 1024-byte bound, no complexity/trim/
+  normalization; strict confirmation/preferences/account schemas; account-update scope.
+  `shared/settings.ts`: siteTitle/language/setupCompletedAt defaults. The minimal
+  `shared/i18n/registry.ts` supplies the two authoritative language options and browser
+  default only; catalogs/translations/HTML language/title/shell/General remain SS04.
+- `auth/service.ts`: removed retired token methods; createAccount + initial hashed
+  session commit atomically, rate limits include invalid setup fields, singleton
+  hashing serialized across connections, window rechecked after hashing. Runtime
+  captures process-start time before initialization; injectable service clock proves
+  59-minute success/60-minute close/restart. Login always verifies the actual bounded
+  Argon2 hash even for an unknown username, then rechecks username/hash/revision.
+  No second-factor/full-session regression. finishSetup atomically saves preferences
+  and completion; account changes consume exact fresh grants without signing out devices.
+- `auth/{setup-routing,validation,http,policy}.ts`, hooks: all three setup states,
+  exact page/API gates, 409 setup_required/already_set_up and 403 setup_closed, no
+  non-setup data APIs during step two, same-origin/private headers remain. Field
+  responses contain safe messages, never passwords. Removed `api/auth/setup`; new
+  `api/setup/{account,preferences}` and private `api/auth/account` are reviewed surfaces.
+- `/setup` and `/setup/preferences`: retained fields and adjacent accessible errors,
+  first-visitor/60-minute notice and expired restart message, browser language/timezone
+  prefill, no skip/theme/week-start. AuthForm now username/password with unchanged MFA
+  interaction. AccountSettings + Settings loader/page provide fresh-auth username/email
+  editing and error retention; SecuritySettings explains/enforces the new password rule.
+- Tests: `unit/setup`, rewritten `integration/auth` (obsolete token cases replaced by
+  equivalent account/timeout/race/rollback/security cases), `integration/setup-server`
+  (actual built HTTP, injected child-only clock, every routing cell, timeout/restart,
+  rate limits, validation/race), MFA/account tests; auth Playwright (keyboard, mobile,
+  different-device resume, field failures/retention, cookies/CSRF, account changes,
+  axe light/dark 390/1440 scans on both setup pages), helper/fixture/hygiene updates.
+  Browser launcher now starts truly empty storage; shared sessions come only from
+  actual setup/login endpoints. Archive test/benchmark accounts also use real setup;
+  archive assertions stay intact and fail honestly pending SS05.
+
+Commands actually run (host Node 24.21.0 executable + PATH, npm CLI at
+`C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js`, TLS verification = 1;
+logs under ignored `.browser-spike/ss03-*`):
+
+| Command                                                                                                    | Actual result                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm exec -- prettier --write <touched files>`                                                             | PASS; repeated after edits                                                                                                                                             |
+| `npm run check`                                                                                            | PASS, zero errors/warnings                                                                                                                                             |
+| `npm run lint`                                                                                             | PASS; initial unused old drafts password constant removed                                                                                                              |
+| `npm run test:unit`                                                                                        | PASS, **124 / 24 files**                                                                                                                                               |
+| `npm run test:integration -- auth setup-server runtime-server startup release-hygiene`                     | PASS, **39 / 7 files**, including real MFA/operator/HTTP/clock/rate tests                                                                                              |
+| `npm run test:integration`                                                                                 | **FAIL: 31 fail / 170 pass / 3 Linux-only skips (204)**; only backups/restores fail                                                                                    |
+| `npm run build`                                                                                            | PASS, standalone and browser builds; existing lazy chunk warnings                                                                                                      |
+| `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/version.test.ts`                                     | PASS **4 Chromium tests**, including all SS03 auth/setup/account flows and axe scans                                                                                   |
+| `npm run test:e2e`                                                                                         | **FAIL: 3 fail / 93 pass (96)**; only two backup creation cases and the archive round trip fail; shell baselines unchanged                                             |
+| `podman build -f .browser-spike/Dockerfile.ss03-tests -t pandanote-ss03-native-tests .`                    | PASS clean offline Linux ci from verified SS02 native/browser cache, Git/CA installed; no Windows modules or fresh audit claim                                         |
+| `podman run --rm --cpus=2 --memory=4g --name pandanote-ss03-native-validation pandanote-ss03-native-tests` | Overall **exit 1**; Linux check/lint/build + **124 unit pass**; unfiltered integration **31 fail / 173 pass (204)**, no skips/exclusions; affected **4 Chromium pass** |
+| `git diff --check`, `test ! -e .e2e-data`                                                                  | PASS, fixture cleanup verified                                                                                                                                         |
+
+Linux image `8f1e855078669ffaf90f465c8a6226853000ebf4b5dd04d1f4922d090645a379`
+uses Node 24.21.0/npm 11.19.0/Git 2.39.5, 2 CPU/4 GiB container on the existing WSL2
+VM. Sharp/SQLite/filesystem/modes/root/Git/clock tests execute; actual archive restore
+**does not pass**. Native output: check=0 lint=0 unit=0 integration=1 build=0 e2e=0.
+This is a validation image, not a clean committed production release image or VPS.
+
+Intermediate results: first check exposed 69 old-fixture signature/schema errors;
+all replaced with genuine createAccount/username calls, not compatibility methods.
+First targeted auth gate passed 37 before new HTTP/MFA-account cases; expanded gate
+passes 39. First affected browser run passed 3 before adding account/axe/keyboard cases;
+final affected run passes 4 on both hosts. Full regressions were not excluded/retried
+as passes: SS05 snapshot still deletes absent setup_tokens, and trust still has old
+format/version/table assumptions. Do not fix only the table name without implementing
+format v2 and complete safe restore. The unexposed old operatorRecover/CLI remains
+SS05 cleanup; the named reset-password tool is not implemented.
+
+Remaining/next: **SS04** catalogs/fallback/Accept-Language + saved language/title +
+Settings General. Read SPEC sections 5–7, PLAN SS04, registry, setup/login/AccountSettings,
+root hook/HTML/layout/shell. First validation `npm run check && npm run test:integration
+-- auth setup-server`. Keep archive failures visible until SS05, complete SS06 deployment
+and SS07 docs/full gate later. Old intermediate settings/data are pre-release, not
+silently retrofitted; user data was retained, not deleted. No S18 manual/VPS gate closed.

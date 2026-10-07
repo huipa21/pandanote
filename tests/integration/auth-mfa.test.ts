@@ -5,6 +5,7 @@ import { expect, it } from 'vitest';
 import { withPersistence } from '../helpers/persistence.ts';
 import { Persistence } from '../../src/lib/server/db/connection.ts';
 import { AuthService } from '../../src/lib/server/auth/service.ts';
+import { createFixtureAccount } from '../helpers/auth.ts';
 import {
   account,
   authChallenges,
@@ -27,7 +28,7 @@ const otp = (secret: string, time: number) =>
 async function fixture(p: Persistence) {
   let time = epoch;
   const auth = new AuthService(p, () => time);
-  const initial = await auth.setup(auth.issueSetupToken(), password, ip);
+  const initial = await createFixtureAccount(auth, password, ip);
   let identity = auth.authenticate(initial.token)!;
   const grant = await auth.freshAuth(
     identity,
@@ -129,7 +130,7 @@ it('expired, canceled and replaced enrollments fail, and another session cannot 
   await withPersistence(async (p) => {
     const f = await fixture(p);
     const other = f.auth.authenticate(
-      (await f.auth.login(password, ip)).token,
+      (await f.auth.login('fixture', password, ip)).token,
     )!;
     expect(() =>
       f.auth.confirmEnrollment(
@@ -180,7 +181,7 @@ it('password alone grants no access; wrong, expired, reused challenge and old/ou
   await withPersistence(async (p) => {
     const f = await fixture(p);
     f.enable();
-    const challenge = await f.auth.login(password, ip);
+    const challenge = await f.auth.login('fixture', password, ip);
     expect(challenge.mfaRequired).toBe(true);
     expect(f.auth.authenticate(challenge.token)).toBeNull();
     const before = p.db.select().from(sessions).all();
@@ -205,12 +206,12 @@ it('password alone grants no access; wrong, expired, reused challenge and old/ou
         ip,
       ),
     ).toThrow();
-    const expired = await f.auth.login(password, ip);
+    const expired = await f.auth.login('fixture', password, ip);
     f.advance(5 * 60_000);
     expect(() =>
       f.auth.completeMfa(expired.token, otp(f.enrollment.secret, f.time), ip),
     ).toThrow();
-    const past = await f.auth.login(password, ip);
+    const past = await f.auth.login('fixture', password, ip);
     expect(
       f.auth.authenticate(
         f.auth.completeMfa(
@@ -226,8 +227,8 @@ it('parallel TOTP and recovery consumption accept exactly once across separate r
   await withPersistence(async (p) => {
     const f = await fixture(p);
     const enabled = f.enable();
-    const a = await f.auth.login(password, ip);
-    const b = await f.auth.login(password, ip);
+    const a = await f.auth.login('fixture', password, ip);
+    const b = await f.auth.login('fixture', password, ip);
     const second = new Persistence(p.storage);
     try {
       const other = new AuthService(second, () => f.time);
@@ -240,8 +241,8 @@ it('parallel TOTP and recovery consumption accept exactly once across separate r
         ),
       ]);
       expect(attempts.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-      const c = await f.auth.login(password, ip);
-      const d = await f.auth.login(password, ip);
+      const c = await f.auth.login('fixture', password, ip);
+      const d = await f.auth.login('fixture', password, ip);
       const recovery = await Promise.allSettled([
         Promise.resolve().then(() =>
           f.auth.completeMfa(c.token, enabled.codes[0].toUpperCase(), ip),
@@ -259,7 +260,7 @@ it('parallel TOTP and recovery consumption accept exactly once across separate r
     const reopened = new Persistence(p.storage);
     try {
       const restarted = new AuthService(reopened, () => f.time);
-      const pending = await restarted.login(password, ip);
+      const pending = await restarted.login('fixture', password, ip);
       expect(() =>
         restarted.completeMfa(pending.token, enabled.codes[0], ip),
       ).toThrow();
@@ -284,7 +285,7 @@ it('MFA completion transaction failure rolls back code, challenge and session so
   await withPersistence(async (p) => {
     const f = await fixture(p);
     const enabled = f.enable();
-    const pending = await f.auth.login(password, ip);
+    const pending = await f.auth.login('fixture', password, ip);
     p.write((tx) =>
       tx.run(
         sql`CREATE TRIGGER fail_mfa BEFORE INSERT ON sessions BEGIN SELECT RAISE(ABORT, 'synthetic'); END`,
@@ -329,7 +330,7 @@ it('fresh authentication requires both factors, binds exact scope/session/revisi
     expect(() => consume('backup-download', f.initial.token)).toThrow(
       /Authenticate again/,
     );
-    const pending = await f.auth.login(password, ip);
+    const pending = await f.auth.login('fixture', password, ip);
     const other = f.auth.authenticate(
       f.auth.completeMfa(pending.token, enabled.codes[0], ip).token,
     )!;
@@ -355,7 +356,7 @@ it('password, recovery regeneration and disable rotate sessions and reject prior
   await withPersistence(async (p) => {
     const f = await fixture(p);
     const enabled = f.enable();
-    const pending = await f.auth.login(password, ip);
+    const pending = await f.auth.login('fixture', password, ip);
     const regenerated = f.auth.regenerateRecoveryCodes(
       f.identity,
       await f.grant('recovery-regenerate'),
@@ -378,10 +379,10 @@ it('password, recovery regeneration and disable rotate sessions and reject prior
       replacement,
     );
     expect(f.auth.authenticate(regenerated.credential.token)).toBeNull();
-    await expect(f.auth.login(password, ip)).rejects.toMatchObject({
+    await expect(f.auth.login('fixture', password, ip)).rejects.toMatchObject({
       code: 'unauthorized',
     });
-    const newPending = await f.auth.login(replacement, ip);
+    const newPending = await f.auth.login('fixture', replacement, ip);
     expect(() =>
       f.auth.completeMfa(newPending.token, enabled.codes[1], ip),
     ).toThrow();
@@ -398,7 +399,9 @@ it('password, recovery regeneration and disable rotate sessions and reject prior
     expect(f.auth.authenticate(disabled.token)!.account.mfaEnabled).toBe(false);
     expect(p.db.select().from(recoveryCodes).all()).toEqual([]);
     expect(p.db.select().from(account).get()!.totpSecretEncrypted).toBeNull();
-    expect((await f.auth.login(replacement, ip)).mfaRequired).toBeUndefined();
+    expect(
+      (await f.auth.login('fixture', replacement, ip)).mfaRequired,
+    ).toBeUndefined();
   });
 });
 it('changing authenticator keeps old MFA until confirmation, replaces secret and invalidates old recovery codes', async () => {
@@ -424,7 +427,7 @@ it('changing authenticator keeps old MFA until confirmation, replaces secret and
     expect(p.db.select().from(account).get()!.totpSecretEncrypted).not.toBe(
       old,
     );
-    const pending = await f.auth.login(password, ip);
+    const pending = await f.auth.login('fixture', password, ip);
     expect(() =>
       f.auth.completeMfa(pending.token, enabled.codes[0], ip),
     ).toThrow();
@@ -438,8 +441,8 @@ it('changing authenticator keeps old MFA until confirmation, replaces secret and
 it('password-only fresh authentication changes session lifetime and revoke-all invalidates every session and grant', async () => {
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => epoch);
-    const initial = await auth.setup(auth.issueSetupToken(), password, ip);
-    const second = await auth.login(password, ip);
+    const initial = await createFixtureAccount(auth, password, ip);
+    const second = await auth.login('fixture', password, ip);
     const identity = auth.authenticate(initial.token)!;
     const wrongScope = await auth.freshAuth(
       identity,
@@ -521,7 +524,7 @@ it('MFA/fresh-auth/enrollment rate limits persist and challenge storage stays bo
           })
           .run();
     });
-    const pending = await f.auth.login(password, ip);
+    const pending = await f.auth.login('fixture', password, ip);
     expect(p.db.select().from(authChallenges).all()).toHaveLength(100);
     expect(
       JSON.stringify(p.db.select().from(authChallenges).all()),
@@ -534,6 +537,38 @@ it('MFA/fresh-auth/enrollment rate limits persist and challenge storage stays bo
         new AuthRateLimiter(p).attempt(action, '192.0.2.99', f.time),
       ).toThrow(/Too many/);
     }
+  });
+});
+it('account-update fresh grants require the enabled factor, bind one use and leave current sessions valid', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    const enabled = f.enable();
+    await expect(
+      f.auth.freshAuth(f.identity, 'account-update', password, undefined, ip),
+    ).rejects.toMatchObject({ code: 'unauthorized' });
+    const grant = await f.auth.freshAuth(
+      f.identity,
+      'account-update',
+      password,
+      enabled.codes[0],
+      ip,
+    );
+    expect(
+      f.auth.updateAccount(f.identity, grant.token, {
+        username: 'new.owner',
+        email: 'new@example.invalid',
+      }),
+    ).toEqual({ username: 'new.owner', email: 'new@example.invalid' });
+    expect(f.auth.authenticate(enabled.credential.token)).not.toBeNull();
+    expect(() =>
+      f.auth.updateAccount(f.identity, grant.token, {
+        username: 'other',
+        email: 'new@example.invalid',
+      }),
+    ).toThrow(/Authenticate again/);
+    const pending = await f.auth.login('NEW.OWNER', password, ip);
+    expect(pending.mfaRequired).toBe(true);
+    expect(f.auth.authenticate(pending.token)).toBeNull();
   });
 });
 it('operator recovery requires explicit CLI confirmation/stdin and VPS access; resets factors and revokes all access', async () => {
@@ -565,11 +600,11 @@ it('operator recovery requires explicit CLI confirmation/stdin and VPS access; r
       expect(auth.authenticate(enabled.credential.token)).toBeNull();
       expect(reopened.db.select().from(recoveryCodes).all()).toEqual([]);
       expect(reopened.db.select().from(account).get()!.totpEnabled).toBe(0);
-      await expect(auth.login(password, ip)).rejects.toMatchObject({
+      await expect(auth.login('fixture', password, ip)).rejects.toMatchObject({
         code: 'unauthorized',
       });
       expect(
-        auth.authenticate((await auth.login(replacement, ip)).token),
+        auth.authenticate((await auth.login('fixture', replacement, ip)).token),
       ).not.toBeNull();
       expect(reopened.native.pragma('integrity_check', { simple: true })).toBe(
         'ok',

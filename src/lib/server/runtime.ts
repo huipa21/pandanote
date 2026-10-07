@@ -27,6 +27,8 @@ export interface Runtime {
   policy: AuthPolicy;
   close: () => Promise<void>;
 }
+// Capture before initialization, not when the first visitor arrives.
+const processStartedAt = Date.now();
 let current: Runtime | undefined;
 let initializing: Promise<void> | undefined;
 // Init is called by Kit before requests, never by getRuntime/health/handle.
@@ -41,7 +43,7 @@ async function openRuntime(development: boolean): Promise<void> {
   const persistence = new Persistence(storage);
   try {
     readSettings(persistence);
-    const auth = new AuthService(persistence);
+    const auth = new AuthService(persistence, Date.now, processStartedAt);
     const disk = new DiskBudget(persistence.storage.root);
     const attachments = new AttachmentService(persistence, disk);
     const backups = new BackupService(persistence, auth, disk);

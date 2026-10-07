@@ -1,26 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { browserSession } from '../helpers/browser-session.ts';
 import { expect, test } from '@playwright/test';
 const fixture = 'http://127.0.0.1:4174';
 
 test('built private composer previews highlighted code and Mermaid under the production CSP without uploading', async ({
   page,
 }) => {
-  const origin = 'http://127.0.0.1:4173';
-  const password = 'synthetic-e2e-only-secret 密碼';
-  let login = await page.request.post('/api/auth/login', {
-    data: { password },
-    headers: { origin },
-  });
-  if (login.status() === 401) {
-    const { token } = JSON.parse(
-      readFileSync('.e2e-data/fixture.json', 'utf8'),
-    ) as { token: string };
-    login = await page.request.post('/api/auth/setup', {
-      data: { token, password },
-      headers: { origin },
-    });
-  }
-  expect(login.status()).toBe(200);
+  await browserSession(page);
   const mutations: string[] = [];
   const violations: string[] = [];
   page.on('request', (request) => {

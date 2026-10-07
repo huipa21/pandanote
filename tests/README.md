@@ -33,8 +33,8 @@ production credential is committed.
   Fixtures use the generated two-file baseline; username/email are required and the
   setup-token table is absent.
 - MIG-01–07 are **not all completed**: actual fresh startup now passes (SS02), but
-  archive integration remains SS05. Old token auth and format-v1 archive fixtures
-  currently fail; assertions are not skipped or weakened to hide dependencies.
+  archive integration remains SS05. SS03 replaces token auth fixtures with real
+  account creation; archive cases currently fail and are not skipped or weakened.
   Directory replacement is recoverable rotation, not a portable single atomic
   exchange; see `docs/simplify-setup/PROGRESS.md`.
 
@@ -53,13 +53,36 @@ production credential is committed.
   missing/empty/invalid/chain XFF, public spoof ignoring, unchanged CSRF/allowlist.
 - `unit/container-user.test.ts`: only default server and argument-free named tools,
   bounded positive non-root IDs. `integration/runtime-server.test.ts` fresh-health
-  case now tests automatic startup; its account fixture still requires SS03.
-- Standard Playwright fixture startup still uses retired initialization/token CLI
-  paths and is blocked until SS03 adapts it to real account setup. Normal full
-  integration is also blocked by those auth/archive fixtures, not claimed passing.
+  case tests automatic startup; SS03 integrates its account/preferences HTTP flow.
+- Standard Playwright fixture startup now uses automatic initialization and real
+  account/setup endpoints (SS03). Normal full integration remains blocked only by
+  archive fixtures, not claimed passing.
   The reserved reset-password entry fails closed; actual recovery is SS05.
 - Linux production-image/minimal-Caddy/browser/rate-key evidence and exact commands
   are in the change handoff; that diagnostic probe is not the ordinary e2e suite.
+
+## SS03 accounts/setup/login coverage (implemented / common gate blocked)
+
+- `unit/setup.test.ts`: identity/password/codepoint/confirmation/preferences boundaries,
+  exact language registry/browser defaults and every setup routing cell.
+- `integration/auth.test.ts`: real Argon2/SQLite, two-connection account race, window
+  and hash-time expiry/restart, session/preferences rollback, generic username/password
+  timing, stale-username/revision login, session bounds/expiry/restart, exact fresh scope,
+  retained sessions, eight-character password change and persistent bounded abuse limits.
+- `integration/setup-server.test.ts`: actual built server, child-only injected clock,
+  expired page/API/restart, every page/API/file state, direct validation/confirmation,
+  setup and login limits, race/CSRF/private headers and post-completion setup refusal.
+- `integration/auth-mfa.test.ts`: existing full MFA/challenge/recovery/security suite
+  uses real account creation; account-update requires the enabled factor and one-use grant.
+- `e2e/auth.test.ts`: full first-run/resume/new-device/mobile/keyboard/field retention,
+  default language/timezone, production cookies/CSRF, unchanged MFA/security interactions,
+  account editor/new username/no session revocation. Both setup screens pass axe at
+  390/1440 light/dark. Fixture launcher has no token/CLI initialization or seeded hash;
+  cached synthetic sessions are always issued through real setup/login.
+- SET-01–09/ACC-01–05 pass on Windows and Linux. Unfiltered integration still has 31
+  archive failures; full Chromium has 3 archive failures. SS05 owns format-v2 snapshot/
+  trust/restore and interactive reset. Language/title rendering is SS04, not completed
+  by a setup picker. Exact commands/native-image results: simplify-setup PROGRESS.
 
 ## Commit-derived versioning coverage (VER-01–08)
 

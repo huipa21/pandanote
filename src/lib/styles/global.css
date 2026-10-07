@@ -108,6 +108,36 @@ h2 {
   white-space: nowrap;
   border: 0;
 }
+.auth-page {
+  max-width: 30rem;
+  margin: 2rem auto;
+  padding: var(--space-4);
+}
+.auth-page fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.auth-page label {
+  display: block;
+  margin-top: var(--space-3);
+}
+.auth-page input,
+.auth-page select {
+  display: block;
+  width: 100%;
+}
+.auth-page button {
+  margin-block: var(--space-3);
+}
+.auth-page code {
+  overflow-wrap: anywhere;
+}
+.field-error {
+  color: var(--danger);
+  margin-block: var(--space-1);
+}
 .skip-link {
   position: fixed;
   top: var(--space-2);

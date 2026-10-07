@@ -21,7 +21,9 @@ const EXPECTED_ROUTES = [
   'api/auth/logout',
   'api/auth/mfa',
   'api/auth/security',
-  'api/auth/setup',
+  'api/auth/account',
+  'api/setup/account',
+  'api/setup/preferences',
   'api/backups',
   'api/backups/[backupId]',
   'api/backups/[backupId]/download',
@@ -63,6 +65,7 @@ describe('production surface hygiene', () => {
       '(app)/trash',
       'login',
       'setup',
+      'setup/preferences',
     ]);
   });
 

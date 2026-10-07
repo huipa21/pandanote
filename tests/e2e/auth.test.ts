@@ -1,20 +1,36 @@
 import { readFileSync } from 'node:fs';
+import { scanSetup } from '../helpers/setup-accessibility.ts';
+import { browserSession } from '../helpers/browser-session.ts';
 import { generateSync } from 'otplib';
 import { expect, test, request as playwrightRequest } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:4173';
 const password = 'synthetic-e2e-only-secret 密碼';
 
-test('operator setup, private routes, secure password session, CSRF, logout and retry work in the built app', async ({
+test('two-step first run, field retention, resume, routing, secure sessions and username login work in the built app', async ({
   page,
   context,
   request,
+  browser,
 }) => {
-  const token = (
-    JSON.parse(readFileSync('.e2e-data/fixture.json', 'utf8')) as {
-      token: string;
-    }
-  ).token;
+  test.setTimeout(90_000);
+  const account = {
+    username: 'FIXTURE',
+    email: 'fixture@example.invalid',
+    password,
+    passwordConfirm: password,
+  };
+  for (const path of [
+    '/',
+    '/login',
+    '/notes/x',
+    '/settings',
+    '/setup/preferences',
+  ]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(303);
+    expect(response.headers().location).toBe('/setup');
+  }
   for (const path of [
     '/api/notes',
     '/files/id/display.webp',
@@ -22,94 +38,185 @@ test('operator setup, private routes, secure password session, CSRF, logout and 
     '/backups/id',
   ]) {
     const response = await request.get(path);
-    expect(response.status()).toBe(401);
+    expect(response.status()).toBe(409);
+    expect((await response.json()).error.code).toBe('setup_required');
     expect(response.headers()['cache-control']).toBe('no-store');
     expect(response.headers()['x-content-type-options']).toBe('nosniff');
     expect(response.headers()['x-frame-options']).toBe('DENY');
   }
   for (const spoof of [undefined, 'https://attacker.invalid', 'null']) {
-    const response = await request.post('/api/auth/setup', {
-      data: { token, password },
-      headers: spoof ? { origin: spoof } : {},
-    });
-    expect(response.status()).toBe(403);
+    expect(
+      (
+        await request.post('/api/setup/account', {
+          data: account,
+          headers: spoof ? { origin: spoof } : {},
+        })
+      ).status(),
+    ).toBe(403);
   }
-  const invalid = await request.post('/api/auth/setup', {
-    data: { token: 'a'.repeat(43), password },
+  const invalid = await request.post('/api/setup/account', {
+    data: { ...account, passwordConfirm: 'mismatch' },
     headers: { origin },
   });
-  expect(invalid.status()).toBe(401);
-  await page.goto('/setup');
-  await page.getByLabel('One-time setup token').fill(token);
-  await page.getByLabel('Choose a password').fill(password);
-  const setupResponsePromise = page.waitForResponse('/api/auth/setup');
-  await page.getByRole('button', { name: 'Create account' }).click();
-  const setupResponse = await setupResponsePromise;
-  expect(setupResponse.status()).toBe(200);
-  await expect(page).toHaveURL(`${origin}/`);
+  expect(invalid.status()).toBe(400);
+  expect(await invalid.text()).not.toContain(password);
+  await page.goto('/');
   await expect(
-    page.getByText('You are signed in.', { exact: false }),
-  ).toBeVisible();
+    page.getByRole('button', { name: 'Create account' }),
+  ).toBeEnabled();
+  await scanSetup(page);
+  await page.getByLabel('Username', { exact: true }).fill('ab');
+  await page.getByLabel('Email', { exact: true }).fill(account.email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Re-enter password').fill('mismatch');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('#username-error')).toContainText('3–32');
+  await expect(page.locator('#confirm-error')).toContainText('match');
+  await expect(page.getByLabel('Password', { exact: true })).toHaveValue(
+    password,
+  );
+  for (const invalid of ['ab', 'a'.repeat(33), 'bad name']) {
+    await page.getByLabel('Username', { exact: true }).fill(invalid);
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.locator('#username-error')).not.toBeEmpty();
+    await expect(page.getByLabel('Username', { exact: true })).toHaveValue(
+      invalid,
+    );
+  }
+  await page.getByLabel('Username', { exact: true }).fill('FIXTURE');
+  for (const invalid of ['', 'bad-email', 'a'.repeat(245) + '@example.io']) {
+    await page.getByLabel('Email', { exact: true }).fill(invalid);
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.locator('#email-error')).not.toBeEmpty();
+  }
+  await page.getByLabel('Email', { exact: true }).fill(account.email);
+  for (const invalid of ['1234567', 'a'.repeat(129)]) {
+    await page.getByLabel('Password', { exact: true }).fill(invalid);
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.locator('#password-error')).not.toBeEmpty();
+    await expect(page.getByLabel('Password', { exact: true })).toHaveValue(
+      invalid,
+    );
+  }
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Re-enter password').fill(password);
+  // Keyboard-only activation of the explicit submit button.
+  await page.getByLabel('Re-enter password').press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(`${origin}/setup/preferences`);
+  await expect(
+    page.getByRole('button', { name: 'Finish setup' }),
+  ).toBeEnabled();
+  await scanSetup(page);
   const cookie = (await context.cookies()).find(
     (c) => c.name === 'pandanote_session',
   )!;
-  expect(cookie).toBeDefined();
-  expect(cookie.httpOnly).toBe(true);
-  expect(cookie.secure).toBe(true);
-  expect(cookie.sameSite).toBe('Strict');
-  expect(cookie.path).toBe('/');
+  expect(cookie).toMatchObject({
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+    path: '/',
+  });
   expect(cookie.expires - Date.now() / 1000).toBeGreaterThan(6.9 * 86_400);
   expect(await page.evaluate(() => document.cookie)).not.toContain(
     cookie.value,
   );
+  const headers = { cookie: `pandanote_session=${cookie.value}` };
+  expect((await request.get('/api/notes', { headers })).status()).toBe(409);
+  expect(
+    (await request.get('/settings', { headers, maxRedirects: 0 })).headers()
+      .location,
+  ).toBe('/setup/preferences');
+  expect(
+    (
+      await request.post('/api/setup/account', {
+        data: account,
+        headers: { origin },
+      })
+    ).status(),
+  ).toBe(409);
+  // Leave after step one. A different device signs in and must finish preferences.
+  const mobile = await browser.newContext({
+    baseURL: origin,
+    locale: 'zh-CN',
+    timezoneId: 'Asia/Tokyo',
+    viewport: { width: 390, height: 844 },
+  });
+  try {
+    const resume = await mobile.newPage();
+    await resume.goto('/');
+    await expect(resume).toHaveURL(/\/login$/);
+    await resume.getByLabel('Username', { exact: true }).fill('FiXtUrE');
+    await resume.getByLabel('Password', { exact: true }).fill(password);
+    await resume.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(resume).toHaveURL(/\/setup\/preferences$/);
+    await expect(resume.getByLabel('Site title')).toHaveValue('PandaNote');
+    await expect(resume.getByLabel('Language')).toHaveValue('zh-CN');
+    await expect(resume.getByLabel('Timezone')).toHaveValue('Asia/Tokyo');
+    expect(
+      await resume.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await resume.getByLabel('Site title').fill('PandaNote');
+    await resume.getByLabel('Language').selectOption('en');
+    await resume.getByLabel('Timezone').fill('UTC');
+    await resume.getByLabel('Timezone').press('Tab');
+    await resume.keyboard.press('Enter');
+    await expect(resume).toHaveURL(`${origin}/`);
+  } finally {
+    await mobile.close();
+  }
+  for (const path of ['/setup', '/setup/preferences'])
+    expect(
+      (await request.get(path, { headers, maxRedirects: 0 })).headers()
+        .location,
+    ).toBe('/');
+  expect(
+    (
+      await request.post('/api/setup/preferences', {
+        headers: { ...headers, origin },
+        data: { siteTitle: 'again', language: 'en', timezone: 'UTC' },
+      })
+    ).status(),
+  ).toBe(409);
+  await page.goto('/');
   const body = await page.content();
   for (const secret of [
     password,
-    token,
     cookie.value,
     'passwordHash',
     'sessionHash',
     'totpSecretEncrypted',
   ])
     expect(body).not.toContain(secret);
-  // APIRequestContext does not share Chromium's Secure-cookie loopback
-  // exception, so present the captured credential explicitly on this HTTP test.
   expect(
     (
-      await request.get('/__spikes/mermaid', {
-        headers: { cookie: `pandanote_session=${cookie.value}` },
-        maxRedirects: 0,
-      })
+      await request.get('/__spikes/mermaid', { headers, maxRedirects: 0 })
     ).status(),
   ).toBe(404);
-  const reuse = await request.post('/api/auth/setup', {
-    data: { token, password },
-    headers: { origin },
-  });
-  expect(reuse.status()).toBe(401);
-  const crossSiteLogout = await page.request.post('/api/auth/logout', {
-    headers: { origin: 'https://attacker.invalid' },
-  });
-  expect(crossSiteLogout.status()).toBe(403);
-  await page.reload();
-  await page.getByRole('link', { name: 'Settings', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Sign out', exact: true }),
-  ).toBeVisible();
+  expect(
+    (
+      await page.request.post('/api/auth/logout', {
+        headers: { origin: 'https://attacker.invalid' },
+      })
+    ).status(),
+  ).toBe(403);
+  await page.goto('/settings');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(
     (await context.cookies()).some((c) => c.name === 'pandanote_session'),
   ).toBe(false);
-  // Revoked token cannot regain access even if manually presented again.
-  const revoked = await request.get('/api/notes', {
-    headers: { cookie: `pandanote_session=${cookie.value}` },
-  });
-  expect(revoked.status()).toBe(401);
+  expect((await request.get('/api/notes', { headers })).status()).toBe(401);
+  expect(
+    (await request.get('/setup', { maxRedirects: 0 })).headers().location,
+  ).toBe('/login');
+  await page.getByLabel('Username', { exact: true }).fill('fixture');
   await page.getByLabel('Password', { exact: true }).fill('wrong');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText(
-    'Unable to sign in. Check your credentials.',
+    'Invalid username or password.',
   );
   await expect(page.getByLabel('Password', { exact: true })).toHaveValue(
     'wrong',
@@ -118,7 +225,7 @@ test('operator setup, private routes, secure password session, CSRF, logout and 
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(`${origin}/`);
   const loginDto = await request.post('/api/auth/login', {
-    data: { password },
+    data: { username: 'fixture', password },
     headers: { origin },
   });
   expect(await loginDto.json()).toEqual({ ok: true });
@@ -141,17 +248,27 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     ignoreHTTPSErrors: true,
   });
   const login = await page.request.post('/api/auth/login', {
-    data: { password },
+    data: { username: 'fixture', password },
     headers: { origin },
   });
-  if (login.status() === 401) {
-    const { token } = JSON.parse(
-      readFileSync('.e2e-data/security/fixture.json', 'utf8'),
-    ) as { token: string };
+  if (login.status() === 409) {
     expect(
       (
-        await page.request.post('/api/auth/setup', {
-          data: { token, password },
+        await page.request.post('/api/setup/account', {
+          data: {
+            username: 'fixture',
+            email: 'fixture@example.invalid',
+            password,
+            passwordConfirm: password,
+          },
+          headers: { origin },
+        })
+      ).status(),
+    ).toBe(200);
+    expect(
+      (
+        await page.request.post('/api/setup/preferences', {
+          data: { siteTitle: 'PandaNote', language: 'en', timezone: 'UTC' },
           headers: { origin },
         })
       ).status(),
@@ -160,7 +277,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
   const second = await browser.newContext({ ignoreHTTPSErrors: true });
   const other = await second.newPage();
   const loginOther = await second.request.post(`${origin}/api/auth/login`, {
-    data: { password },
+    data: { username: 'fixture', password },
     headers: { origin },
   });
   expect(loginOther.status()).toBe(200);
@@ -257,7 +374,9 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
       .getByRole('button', { name: 'Confirm MFA', exact: true })
       .click();
     await expect(
-      page.getByRole('alert').filter({ hasText: 'Unable to sign in' }),
+      page
+        .getByRole('alert')
+        .filter({ hasText: 'Invalid username or password' }),
     ).toBeVisible();
     await page
       .getByLabel('New authenticator code')
@@ -288,6 +407,9 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     await expect(other).toHaveURL(/\/login$/);
     await page.reload();
     await expect(
+      page.getByLabel('Account authenticator or recovery code'),
+    ).toBeVisible();
+    await expect(
       page.getByRole('region', { name: 'New recovery codes' }),
     ).toHaveCount(0);
     expect(
@@ -299,6 +421,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     ).not.toContain(enrollment.secret);
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page).toHaveURL(/\/login$/);
+    await page.getByLabel('Username', { exact: true }).fill('fixture');
     await page.getByLabel('Password', { exact: true }).fill(password);
     const pendingResponse = page.waitForResponse('/api/auth/login');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -316,7 +439,9 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
       expect((await request.get(path)).status()).toBe(401);
     await page.getByLabel('Authenticator or recovery code').fill('invalid');
     await page.getByRole('button', { name: 'Verify code' }).click();
-    await expect(page.getByRole('alert')).toContainText('Unable to sign in');
+    await expect(page.getByRole('alert')).toContainText(
+      'Invalid username or password',
+    );
     // Confirmation consumed the current step. A next-step code is within the
     // explicit one-step drift and avoids a 30-second wall-clock test sleep.
     await page.getByLabel('Authenticator or recovery code').fill(
@@ -354,7 +479,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     const firstRecoveryChallenge = (
       await (
         await request.post('/api/auth/login', {
-          data: { password },
+          data: { username: 'fixture', password },
           headers: { origin },
         })
       ).json()
@@ -362,7 +487,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     const secondRecoveryChallenge = (
       await (
         await request.post('/api/auth/login', {
-          data: { password },
+          data: { username: 'fixture', password },
           headers: { origin },
         })
       ).json()
@@ -384,7 +509,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     const regenerated: string[] = (await regen.json()).codes;
     expect(regenerated).toHaveLength(10);
     const oldPending = await request.post('/api/auth/login', {
-      data: { password },
+      data: { username: 'fixture', password },
       headers: { origin },
     });
     const oldChallenge = (await oldPending.json()).challenge;
@@ -408,7 +533,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     expect(
       (
         await request.post('/api/auth/login', {
-          data: { password },
+          data: { username: 'fixture', password },
           headers: { origin },
         })
       ).status(),
@@ -448,6 +573,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
         })
       ).status(),
     ).toBe(401);
+    await page.getByLabel('Username', { exact: true }).fill('fixture');
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page).toHaveURL(`${origin}/`);
@@ -457,4 +583,67 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     await context.close();
     await request.dispose();
   }
+});
+
+test('Account settings require fresh authentication, retain errors and change the next login username without signing out sessions', async ({
+  page,
+}) => {
+  const cookies = await browserSession(page);
+  const cookie = cookies.find((c) => c.name === 'pandanote_session')!;
+  const headers = { origin, cookie: `${cookie.name}=${cookie.value}` };
+  await page.goto('/settings');
+  await page.getByLabel('Account username').fill('!');
+  await page
+    .getByRole('button', { name: 'Authenticate and save account' })
+    .click();
+  await expect(page.locator('#account-username-error')).not.toBeEmpty();
+  await page.getByLabel('Account username').fill('Updated.Owner');
+  await page.getByLabel('Account email').fill('Owner@example.invalid');
+  await page.getByLabel('Password to update account').fill('wrong');
+  await page
+    .getByRole('button', { name: 'Authenticate and save account' })
+    .click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Invalid username or password' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Account username')).toHaveValue(
+    'Updated.Owner',
+  );
+  await page.getByLabel('Password to update account').fill(password);
+  await page
+    .getByRole('button', { name: 'Authenticate and save account' })
+    .click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Account saved.' }),
+  ).toBeVisible();
+  expect(
+    (await page.request.get('/api/auth/security', { headers })).status(),
+  ).toBe(200);
+  expect(
+    (
+      await page.request.post('/api/auth/login', {
+        headers: { origin },
+        data: { username: 'fixture', password },
+      })
+    ).status(),
+  ).toBe(401);
+  expect(
+    (
+      await page.request.post('/api/auth/login', {
+        headers: { origin },
+        data: { username: 'UPDATED.OWNER', password },
+      })
+    ).status(),
+  ).toBe(200);
+  // Keep the shared fixture identity stable for other feature regressions.
+  await page.getByLabel('Account username').fill('fixture');
+  await page.getByLabel('Account email').fill('fixture@example.invalid');
+  await page.getByLabel('Password to update account').fill(password);
+  await page
+    .getByRole('button', { name: 'Authenticate and save account' })
+    .click();
+  await expect(page.getByLabel('Account username')).toHaveValue('fixture');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Account saved.' }),
+  ).toBeVisible();
 });

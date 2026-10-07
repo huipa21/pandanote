@@ -10,7 +10,7 @@
 - **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
 - **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
 
-## Active change: simplify setup and deployment (SS01/SS02 gates blocked)
+## Active change: simplify setup and deployment (SS01–SS03 common gates blocked)
 
 User approved on 2026-10-06 (interview in `docs/simplify-setup/DECISIONS.md`): no setup
 token; browser setup (username, email, password ×2 → site title, language, timezone);
@@ -18,12 +18,13 @@ username login, 8–128 character passwords; automatic migrations with data step
 pre-upgrade copy; one minimal root `docker-compose.yml` + one-line `.env.example`;
 interactive `reset-password`. Greenfield: pre-release data/archives are refused, not
 migrated. Plan, acceptance, operations and its own progress log live in
-`docs/simplify-setup/`. **SS01 baseline/runner/copy and SS02 startup/proxy core
-implemented; full gates blocked** by SS03 account/setup and SS05 archive/recovery
-integration. Fresh dev/start/container initialization and Linux image/private-proxy
-behavior now pass. The intermediate checkout is still not deployable for note-taking.
-Next planned integration: **SS03**; see `docs/simplify-setup/PROGRESS.md` (neither
-SS01 nor SS02 is marked done).
+`docs/simplify-setup/`. **SS01 baseline/runner/copy, SS02 startup/proxy and SS03
+account/setup/login core implemented; common gates blocked** by SS05 archives.
+Two-step browser setup, username login, fresh-auth account editing and SS03-specific
+Windows/Linux tests pass. The intermediate checkout is not a working release:
+backup/restore remains broken. Next planned integration: **SS04** translations/site
+identity/Settings General; see `docs/simplify-setup/PROGRESS.md`. None of SS01–SS03
+is marked fully done while their common gates remain blocked.
 This supersedes the setup-token parts of the follow-up below.
 
 ## Active follow-up: out-of-box container startup
@@ -89,8 +90,8 @@ pandanote-version-native`. S18's outstanding VPS/device/screen-reader gates rema
 ## Next session: exact instructions
 
 **Current priority:** the approved simplify-setup change — follow
-`docs/simplify-setup/PROGRESS.md` (SS01/SS02 core implemented / gates blocked;
-next planned integration **SS03**). The S18 items below remain open.
+`docs/simplify-setup/PROGRESS.md` (SS01–SS03 core implemented / common gates blocked;
+next planned integration **SS04**). The S18 items below remain open.
 
 1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
 2. Complete the version enhancement's blocked Linux Git/cold-build validation, then commit the enhancement (user approval; S18 itself is already committed). On a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
@@ -3337,3 +3338,63 @@ auth service/policy, initializer/runtime/hooks and setup/login/settings/browser 
 First command: `npm run check && npm run test:integration -- startup container-bootstrap migrations pre-upgrade`.
 SS01 directory atomicity and SS05 archive integration remain open; SS06 deployment
 files and SS07 doc/full-regression work remain. S18 manual/VPS gates stay open.
+
+### Session 2026-10-07 — SS03 accounts, setup flow and username login
+
+**State: implemented / common gate blocked by SS05 archives.** Started clean at
+`50e3465`; no commit, dependencies/lockfile changes or application-data deletion.
+
+Implemented/touched: shared auth/settings schemas and minimal language registry,
+AuthService atomic createAccount/finishSetup/username login/fresh account update,
+process-start window clock, setup routing/validation/status codes/hooks, new setup
+account/preferences + private account endpoints (old token endpoint/methods removed),
+two setup pages, username/MFA AuthForm, AccountSettings/private loader/page and password
+rule help. Real browser/server fixtures now create accounts through genuine endpoints.
+Auth/MFA/runtime/archive fixture signatures, reviewed route inventory and test/docs
+mapping updated; obsolete token tests replaced by race/expiry/rollback invariants.
+
+Behavior: username normalized 3–32 ASCII, required trimmed email, exact 8–128 Unicode
+password + server/client equality; singleton account/session transaction; 60-minute
+process-start window rechecked after hashing; complete three-state routing; preferences
+transaction with browser defaults; real equal-work unknown-username verification;
+unchanged MFA/cookies/CSRF/limits; scoped fresh username/email edits retain sessions.
+SS04 still owns translations, HTML language/title/shell identity and General; SS05
+still owns format-v2 backups/restore and interactive reset-password.
+
+Validation (explicit Node 24.21.0 executable + PATH/npm CLI, TLS=1):
+
+- `npm run check`, `npm run lint`, `npm run build`: **pass**, zero diagnostics;
+  existing lazy-library build warnings retained. Initial check had 69 obsolete fixture
+  signatures; initial lint found an unused old fixture constant, both corrected.
+- `npm run test:unit`: **124 pass**. `npm run test:integration -- auth setup-server
+runtime-server startup release-hygiene`: **39 pass**, real SQLite/Argon2/HTTP clock,
+  every routing cell/races/rollback/rates/MFA/scopes/session checks.
+- Unfiltered `npm run test:integration`: **31 fail / 170 pass / 3 Linux-only skips
+  (204)**, only backups/restores. No exclusions or archive assertions removed.
+- `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/version.test.ts`: **4 Chromium
+  pass**, including full setup/new-device resume, defaults, adjacent validation/input
+  retention, mobile/keyboard, axe light/dark phone/desktop on both setup screens,
+  HTTPS MFA/security, account editing/new username/retained sessions and version.
+- Full `npm run test:e2e`: **3 fail / 93 pass (96)**. Only two backup creation cases
+  and the archive round trip fail; prior shell baselines unchanged.
+- `podman build -f .browser-spike/Dockerfile.ss03-tests -t pandanote-ss03-native-tests .`:
+  **pass**, clean cached offline Linux ci with Git/CA, no Windows modules/current audit
+  claim. `podman run --rm --cpus=2 --memory=4g --name pandanote-ss03-native-validation
+pandanote-ss03-native-tests`: **overall exit 1**. Linux check/lint/build and **124
+  unit pass**; unfiltered integration **31 fail / 173 pass (204)**, no skips/exclusions;
+  affected **4 Chromium pass**. Image `8f1e855078669ffaf90f465c8a6226853000ebf4b5dd04d1f4922d090645a379`,
+  Node 24.21.0/npm 11.19.0/Git 2.39.5. Native Sharp/SQLite/modes/root/Git execute;
+  archive restore does not pass. This is not a final production image/VPS/release.
+- `git diff --check` and `test ! -e .e2e-data`: **pass**. Logs/harness ignored in
+  `.browser-spike/ss03-*`; actual user data/keys/archives retained.
+
+Known blockers: SS05 snapshot still references deleted setup_tokens and old archive
+trust versions/tables. Fix the complete format-v2/trust/restore contract in SS05, not
+only the first failing SQL statement. SS01 directory exchange clarification and S18
+manual/VPS gates remain open. Full details: `docs/simplify-setup/PROGRESS.md`.
+
+Exact next task: **SS04** typed catalogs/fallback/Accept-Language and saved site title/
+language rendering + Settings General. Read SPEC sections 5–7, PLAN SS04, the registry,
+setup/login/AccountSettings, hooks/root HTML/layout/shell. First validation:
+`npm run check && npm run test:integration -- auth setup-server`. Keep common/archive
+failures visible until SS05; no step or project completion claimed.

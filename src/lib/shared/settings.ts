@@ -1,8 +1,35 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
+import { languages } from './i18n/registry.ts';
+
+export const siteTitleSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      [...value].length >= 1 &&
+      [...value].length <= 60 &&
+      ![...value].some(
+        (c) =>
+          c.codePointAt(0)! < 32 ||
+          (c.codePointAt(0)! >= 127 && c.codePointAt(0)! <= 159),
+      ),
+    'Use 1–60 characters without control characters.',
+  );
+export const languageSchema = z.enum(
+  languages.map((language) => language.code),
+);
 
 export const settingsSchema = z.strictObject({
   schemaVersion: z.literal(1),
+  siteTitle: siteTitleSchema,
+  language: languageSchema,
+  setupCompletedAt: z
+    .number()
+    .int()
+    .min(0)
+    .max(Number.MAX_SAFE_INTEGER)
+    .nullable(),
   timezone: z
     .string()
     .max(100)
@@ -49,6 +76,9 @@ export type AppSettings = z.infer<typeof settingsSchema>;
 export const DEFAULT_SETTINGS: Readonly<AppSettings> = Object.freeze(
   settingsSchema.parse({
     schemaVersion: 1,
+    siteTitle: 'PandaNote',
+    language: 'en',
+    setupCompletedAt: null,
     timezone: 'UTC',
     theme: 'system',
     density: 'comfortable',

@@ -71,18 +71,21 @@ export function authErrorResponse(error: unknown): Response {
         code: 'busy',
         message: 'Authentication is temporarily unavailable. Please retry.',
       };
-  const status =
-    body.code === 'fresh-auth-required'
+  const status = ['setup_required', 'already_set_up'].includes(body.code)
+    ? 409
+    : body.code === 'setup_closed'
       ? 403
-      : body.code === 'conflict'
-        ? 409
-        : body.code === 'unauthorized'
-          ? 401
-          : body.code === 'rate-limited'
-            ? 429
-            : body.code === 'validation'
-              ? 400
-              : 503;
+      : body.code === 'fresh-auth-required'
+        ? 403
+        : body.code === 'conflict'
+          ? 409
+          : body.code === 'unauthorized'
+            ? 401
+            : body.code === 'rate-limited'
+              ? 429
+              : body.code === 'validation'
+                ? 400
+                : 503;
   return Response.json(
     { ok: false, error: body },
     {

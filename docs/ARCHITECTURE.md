@@ -249,9 +249,9 @@ one IMMEDIATE transaction. Ledgers lacking that identity are refused as pre-rele
 there is no compatibility retrofit. SQL history is now schema v2: generated
 `0000_baseline.sql` (18 tables, required account username/email, no setup-token table)
 and custom `0001_guards_and_search.sql` (existing guards + FTS5). Version-2 data step
-backfills search for known-v1 staging. Old token account setup entry points fail closed until
-SS03 replaces them; shared startup now initializes fresh deployments (SS02), but
-browser account setup is still unusable. Format-v2
+backfills search for known-v1 staging. SS03 removes the old token account setup entry points;
+shared startup initializes fresh deployments (SS02), and two-step browser account
+setup/username login now work (section 12.6). Format-v2
 archive integration is SS05. Passing migration tests do not close the application gate.
 Live container/CLI entry paths use an async pre-upgrade wrapper: online snapshot
 including WAL, page-count-based space estimate plus reserve, fsynced private DB/
@@ -293,8 +293,8 @@ explicit SS01 design clarification; no completion is claimed. Details/tests/hand
   Node with zero effective/permitted capabilities and idle shutdown within 10 s.
 - Migrate/setup-token package scripts/files are removed; stopped-app reindex remains.
   Reset-password is a reserved fail-closed entry, not functional recovery until SS05.
-  Browser setup/auth fixtures and archive integration still block the full gate;
-  evidence/status are in [simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
+  Browser setup/auth fixtures are now integrated by SS03; archive integration still
+  blocks the full gate. Evidence/status are in [simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
 
 ### 4.4 S07 implemented note mutation contracts
 
@@ -1269,6 +1269,47 @@ MFA/fresh-auth deferrals.
   Self-signed certificate trust is test-context-only; application TLS verification
   is never disabled. Native/Linux and browser outcomes are recorded in PROGRESS;
   target-VPS load/real-domain certificate/physical-device release audits remain S18.
+
+### 12.6 SS03 current account/setup/login contracts (implemented / common gate blocked)
+
+This supersedes the token setup and password-length parts of 12.1/12.4/12.5.
+The user approved first-visitor ownership with a 60-minute process-start window;
+there is no setup token, public registration after setup or default credential.
+
+- `AuthService.createAccount` validates normalized 3–32 ASCII username, trimmed
+  required email, exact 8–128 Unicode-codepoint/1024-byte password and confirmation.
+  Existing Argon2id parameters/resource bound stay unchanged. First-account hashing
+  is serialized within the single process so racing connections get one success and
+  one `already_set_up`, not a second account. The transaction rechecks the account
+  and setup window after hashing, then inserts account + hashed session together.
+- Runtime captures start time before initialization; service clock/start are injectable
+  for tests only. The window closes at 60 minutes; restart opens another window only
+  while no account exists. Page/API expiration, hash-boundary expiry, races and
+  session-commit rollback are tested on real HTTP/SQLite and Linux.
+- Setup states come from SQLite on each request: no account → new; account and null
+  `setupCompletedAt` → account; completion timestamp → complete. Hooks implement the
+  approved routing table. Auth/login/MFA and signed-in logout remain usable during
+  step two; other data/settings/file APIs are denied. `finishSetup` checks the session
+  and saves trimmed title, registry language, IANA timezone and completion atomically.
+  Repeats return `already_set_up`; there is no skip or setup-time theme/week-start.
+- Username login always performs real bounded password verification against the same
+  account hash, including unknown usernames; checks normalized identity and rechecks
+  username/password hash/security revision after verification. Generic credential
+  failures do not disclose account state. MFA/challenges/cookies/rate limits remain.
+- Private `api/auth/account` consumes single-use session/revision-bound `account-update`
+  fresh authorization in the update transaction. Enabled MFA requires its factor.
+  Username/email edits do not revoke sessions or change security revision; the new
+  username controls subsequent logins. Account DTOs for drafts remain ID/MFA only;
+  username/email are returned only by the private Settings loader/account response.
+- Settings gains siteTitle/language/setupCompletedAt defaults, without an old-settings
+  retrofit (greenfield). A minimal two-option language registry is introduced now for
+  setup validation/defaults; SS04 still owns catalogs, translated screens, HTML lang,
+  public title rendering and Settings General. Auth/setup/account forms keep fields
+  on errors, never echo passwords, and pass keyboard/mobile/axe light/dark checks.
+- Removed `api/auth/setup` and retired token methods. Browser test servers initialize
+  empty storage through normal startup and claim/complete it through real endpoints;
+  no token CLI, production seed or auth bypass remains in those fixtures. Common
+  gates still fail on SS05 archive snapshot/trust assumptions, not authentication.
 
 ## 13. Full backup/restore design
 

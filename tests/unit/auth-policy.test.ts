@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import {
   authTokenSchema,
   passwordSchema,
-  setupRequestSchema,
+  setupAccountSchema,
 } from '../../src/lib/shared/auth.ts';
 import {
   authPolicy,
@@ -20,9 +20,11 @@ it('preserves Unicode password bytes and validates bounded credentials without e
   expect(passwordSchema.safeParse('a'.repeat(257)).success).toBe(false);
   expect(authTokenSchema.safeParse('../not-a-token').success).toBe(false);
   expect(
-    setupRequestSchema.safeParse({
-      token: 'a'.repeat(43),
-      password: 'a'.repeat(12),
+    setupAccountSchema.safeParse({
+      username: 'fixture',
+      email: 'fixture@example.invalid',
+      password: 'a'.repeat(8),
+      passwordConfirm: 'a'.repeat(8),
       admin: true,
     }).success,
   ).toBe(false);

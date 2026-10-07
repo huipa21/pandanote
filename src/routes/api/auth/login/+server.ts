@@ -9,14 +9,14 @@ import {
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
   try {
+    // Service validation keeps invalid and unknown usernames inside the same
+    // verification/rate-limit boundary as incorrect passwords.
     const parsed = loginRequestSchema.safeParse(await readAuthJson(request));
     if (!parsed.success)
-      throw new DomainError(
-        'unauthorized',
-        'Unable to sign in. Check your credentials.',
-      );
+      throw new DomainError('unauthorized', 'Invalid username or password.');
     const runtime = locals.runtime!;
     const credential = await runtime.auth.login(
+      parsed.data.username,
       parsed.data.password,
       locals.clientIp!,
     );

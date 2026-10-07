@@ -1,5 +1,6 @@
 import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
 import { building, dev } from '$app/env';
+import { setupAccess } from '#lib/server/auth/setup-routing.ts';
 import { appearanceFrom, appearanceHtml } from '#lib/shared/appearance.ts';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
 import { readSettings } from '#lib/server/settings/repository.ts';
@@ -95,6 +96,38 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.identity = runtime.auth.authenticate(cookie);
     if (cookie && !event.locals.identity)
       clearSessionCookie(event.cookies, runtime.policy.production);
+    const access = setupAccess(
+      runtime.auth.setupState(),
+      !!event.locals.identity,
+      path,
+      method,
+    );
+    if (access) {
+      if ('redirect' in access)
+        return protect(
+          new Response(null, {
+            status: 303,
+            headers: { location: access.redirect },
+          }),
+        );
+      return protect(
+        Response.json(
+          {
+            ok: false,
+            error: {
+              code: access.code,
+              message:
+                access.code === 'already_set_up'
+                  ? 'An account already exists. Sign in to continue.'
+                  : access.code === 'setup_required'
+                    ? 'Finish setup to continue.'
+                    : 'Sign in to continue.',
+            },
+          },
+          { status: access.status },
+        ),
+      );
+    }
     if (!event.locals.identity && !isPublicAuthRoute(path, method)) {
       if (usesUnauthorizedResponse(path, method))
         return protect(

@@ -1,9 +1,11 @@
 # Change: Simplify setup and deployment
 
-**Status:** SS01/SS02 core implemented / full gates blocked — approved on 2026-10-06.
-Schema-v2 migrations, private pre-upgrade copies and shared startup/proxy trust are
-implemented. Account/setup and archive/recovery integration remain SS03/SS05.
-Do not deploy this intermediate checkout for note-taking.
+**Status:** SS01–SS03 core implemented / common gates blocked — approved on 2026-10-06.
+Schema-v2 migrations/copies, shared startup/proxy trust, two-step browser setup,
+username login and fresh-auth account editing are implemented. SS03-specific tests
+pass on Windows and Linux; SS04 language/title rendering and SS05 archive/recovery
+integration remain. Do not deploy this intermediate checkout as a working release:
+backup/restore is broken.
 Actual validation and constraints: [PROGRESS.md](PROGRESS.md).
 **Type:** user-approved post-S18 change. It **supersedes** the setup-token, manual
 migration, hardened-Compose and fixed-proxy-IP parts of earlier documents (see

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { browserSession } from '../helpers/browser-session.ts';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,22 +11,8 @@ import {
 } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:4173';
-const password = 'synthetic-e2e-only-secret 密碼';
 async function signIn(page: Page, context: BrowserContext) {
-  let response = await page.request.post('/api/auth/login', {
-    data: { password },
-    headers: { origin },
-  });
-  if (response.status() === 401) {
-    const { token } = JSON.parse(
-      readFileSync('.e2e-data/fixture.json', 'utf8'),
-    ) as { token: string };
-    response = await page.request.post('/api/auth/setup', {
-      data: { token, password },
-      headers: { origin },
-    });
-  }
-  expect(response.status()).toBe(200);
+  await browserSession(page);
   // Browser request contexts do not send Secure cookies over loopback HTTP,
   // while Chromium does. The context still stores the server-issued cookie.
   expect(

@@ -205,7 +205,7 @@ it('built npm-start path defaults local origin/storage, ignores legacy values on
             body: '{}',
           },
         );
-        expect(invalidLogin.status).toBe(401);
+        expect(invalidLogin.status).toBe(409); // Fresh deployment requires setup.
         const bytes = readFileSync(
           join(root, 'data/private/key-material.json'),
         );
@@ -279,7 +279,7 @@ it('real Vite dev startup initializes before responding and uses the dev origin 
       },
       body: '{}',
     });
-    expect(bad.status).toBe(401); // Not CSRF 403: default is 5173, not npm-start's 3000.
+    expect(bad.status).toBe(409); // Setup gate, not CSRF 403: dev origin is 5173.
   } finally {
     child.kill('SIGTERM');
     await Promise.race([

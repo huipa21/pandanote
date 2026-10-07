@@ -1,6 +1,6 @@
 # Simplify setup — specification
 
-Status: **approved, partially implemented (SS01 migration and SS02 startup/proxy core; full gates blocked).**
+Status: **approved, partially implemented (SS01 migration, SS02 startup/proxy and SS03 account/setup/login core; common gates blocked by SS05 archives).**
 Actual status: [PROGRESS.md](PROGRESS.md). Decisions and rationale: [DECISIONS.md](DECISIONS.md).
 
 ## 1. Principles

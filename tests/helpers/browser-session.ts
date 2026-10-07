@@ -22,16 +22,30 @@ export async function browserSession(page: Page): Promise<Cookie[]> {
   const password = 'synthetic-e2e-only-secret 密碼';
   let response = await page.request.post('/api/auth/login', {
     headers: { origin },
-    data: { password },
+    data: { username: 'fixture', password },
   });
-  if (response.status() === 401) {
-    const { token } = JSON.parse(
-      readFileSync('.e2e-data/fixture.json', 'utf8'),
-    ) as { token: string };
-    response = await page.request.post('/api/auth/setup', {
+  if (response.status() === 409) {
+    response = await page.request.post('/api/setup/account', {
       headers: { origin },
-      data: { token, password },
+      data: {
+        username: 'fixture',
+        email: 'fixture@example.invalid',
+        password,
+        passwordConfirm: password,
+      },
     });
+    expect(response.status()).toBe(200);
+    const cookie = (await page.context().cookies()).find(
+      (c) => c.name === 'pandanote_session',
+    )!;
+    expect(
+      (
+        await page.request.post('/api/setup/preferences', {
+          headers: { origin, cookie: `${cookie.name}=${cookie.value}` },
+          data: { siteTitle: 'PandaNote', language: 'en', timezone: 'UTC' },
+        })
+      ).status(),
+    ).toBe(200);
   }
   expect(response.status()).toBe(200);
   const cookies = await page.context().cookies();

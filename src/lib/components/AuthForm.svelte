@@ -4,9 +4,8 @@
   onMount(() => {
     ready = true;
   });
-  let { setup = false }: { setup?: boolean } = $props();
+  let username = $state('');
   let password = $state('');
-  let token = $state('');
   let challenge = $state('');
   let code = $state('');
   let busy = $state(false);
@@ -19,21 +18,13 @@
     message = '';
     try {
       const response = await fetch(
-        challenge
-          ? '/api/auth/mfa'
-          : setup
-            ? '/api/auth/setup'
-            : '/api/auth/login',
+        challenge ? '/api/auth/mfa' : '/api/auth/login',
         {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(
-            challenge
-              ? { challenge, code }
-              : setup
-                ? { token, password }
-                : { password },
+            challenge ? { challenge, code } : { username, password },
           ),
         },
       );
@@ -43,7 +34,6 @@
         return;
       }
       password = '';
-      token = '';
       if (result.mfaRequired) {
         challenge = result.challenge;
         message =
@@ -62,32 +52,12 @@
   }
 </script>
 
-<svelte:head
-  ><title>{setup ? 'Set up' : 'Sign in'} — PandaNote</title></svelte:head
->
+<svelte:head><title>Sign in — PandaNote</title></svelte:head>
 <main>
   <h1>PandaNote</h1>
-  <h2>{setup ? 'Set up your notebook' : 'Sign in'}</h2>
-  {#if setup}
-    <p>
-      An operator-held, one-time token is required. There is no public
-      registration.
-    </p>
-  {/if}
+  <h2>Sign in</h2>
   <form onsubmit={submit}>
     <fieldset disabled={busy || !ready}>
-      {#if setup}
-        <label for="setup-token">One-time setup token</label>
-        <input
-          id="setup-token"
-          name="token"
-          type="password"
-          autocomplete="off"
-          bind:value={token}
-          required
-          maxlength="43"
-        />
-      {/if}
       {#if challenge}
         <label for="mfa-code">Authenticator or recovery code</label>
         <input
@@ -106,35 +76,34 @@
           }}>Start again</button
         >
       {:else}
-        <label for="password">{setup ? 'Choose a password' : 'Password'}</label>
+        <label for="username">Username</label>
+        <input
+          id="username"
+          name="username"
+          autocomplete="username"
+          bind:value={username}
+          required
+          maxlength="32"
+          autocapitalize="none"
+          spellcheck="false"
+        />
+        <label for="password">Password</label>
         <input
           id="password"
           name="password"
           type="password"
-          autocomplete={setup ? 'new-password' : 'current-password'}
+          autocomplete="current-password"
           bind:value={password}
           required
-          minlength={setup ? 12 : 1}
           maxlength="256"
-          aria-describedby={setup ? 'password-help' : undefined}
         />
-        {#if setup}<p id="password-help">
-            Use 12–256 characters. Keep this password safely.
-          </p>{/if}
       {/if}
       <button type="submit"
-        >{busy
-          ? 'Please wait…'
-          : challenge
-            ? 'Verify code'
-            : setup
-              ? 'Create account'
-              : 'Sign in'}</button
+        >{busy ? 'Please wait…' : challenge ? 'Verify code' : 'Sign in'}</button
       >
     </fieldset>
     <p role="alert">{message}</p>
   </form>
-  {#if setup}<a href="/login">Already set up? Sign in</a>{/if}
   <noscript>JavaScript is required to submit this authentication form.</noscript
   >
 </main>
@@ -176,10 +145,7 @@
   button:disabled {
     cursor: wait;
   }
-  a {
-    color: var(--accent);
-  }
-  :is(input, button, a):focus-visible {
+  :is(input, button):focus-visible {
     outline: var(--focus-width) solid var(--accent);
     outline-offset: 3px;
   }

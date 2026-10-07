@@ -24,6 +24,7 @@ import { eq } from 'drizzle-orm';
 import { expect, it } from 'vitest';
 import { withPersistence, seedNote } from '../helpers/persistence.ts';
 import { AuthService } from '../../src/lib/server/auth/service.ts';
+import { createFixtureAccount } from '../helpers/auth.ts';
 import { BackupService } from '../../src/lib/server/backups/service.ts';
 import {
   verifyArchive,
@@ -47,11 +48,7 @@ import type { FreshAuthScope } from '../../src/lib/shared/auth.ts';
 const password = 'synthetic-backup-only 密碼 password';
 async function fixture(p: Persistence) {
   const auth = new AuthService(p);
-  const initial = await auth.setup(
-    auth.issueSetupToken(),
-    password,
-    '192.0.2.70',
-  );
+  const initial = await createFixtureAccount(auth, password, '192.0.2.70');
   const identity = auth.authenticate(initial.token)!;
   return {
     auth,

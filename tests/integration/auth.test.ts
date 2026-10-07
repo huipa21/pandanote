@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { eq, sql } from 'drizzle-orm';
 import { expect, it } from 'vitest';
 import { withPersistence } from '../helpers/persistence.ts';
+import { createFixtureAccount } from '../helpers/auth.ts';
 import { Persistence } from '../../src/lib/server/db/connection.ts';
 import { account, sessions } from '../../src/lib/server/db/schema.ts';
 import { AuthService } from '../../src/lib/server/auth/service.ts';
@@ -19,12 +19,22 @@ import {
   replaceSettings,
   readSettings,
 } from '../../src/lib/server/settings/repository.ts';
-
 const password = 'synthetic only: 密碼-not-a-live-credential';
 const now = 1_800_000_000_000;
 const ip = '192.0.2.1';
+const details = {
+  username: '  Notebook.Owner  ',
+  email: ' Owner@example.invalid ',
+  password,
+  passwordConfirm: password,
+};
+const preferences = {
+  siteTitle: ' My notebook ',
+  language: 'zh-CN',
+  timezone: 'Asia/Hong_Kong',
+};
 
-it('uses real salted Argon2id with exact password bytes, bounded parameters and one in-flight operation', async () => {
+it('uses real salted bounded Argon2id, exact password bytes and one in-flight operation', async () => {
   const pending = hashPassword(password);
   await expect(hashPassword(password)).rejects.toMatchObject({ code: 'busy' });
   const hash = await pending;
@@ -38,47 +48,52 @@ it('uses real salted Argon2id with exact password bytes, bounded parameters and 
   expect(await verifyPassword('corrupt', password)).toBe(false);
   expect(() => hashPassword('short')).toThrow();
 });
-it('requires an operator token, invalidates reissued/expired tokens and atomically creates only one account with hashed session', async () => {
+it('creates the sole account and hashed session atomically, normalizes identity and completes preferences once', async () => {
   await withPersistence(async (p) => {
-    let time = now;
-    const auth = new AuthService(p, () => time);
-    await expect(
-      auth.setup(newAuthToken(), password, ip),
-    ).rejects.toMatchObject({ code: 'unauthorized' });
-    const old = auth.issueSetupToken();
-    const token = auth.issueSetupToken();
-    expect(token).not.toBe(old);
-    await expect(auth.setup(old, password, ip)).rejects.toMatchObject({
-      code: 'unauthorized',
-    });
-    time += 60 * 60_000;
-    await expect(auth.setup(token, password, ip)).rejects.toMatchObject({
-      code: 'unauthorized',
-    });
-    const current = auth.issueSetupToken();
-    const credential = await auth.setup(current, password, ip);
-    expect(credential.expiresAt).toBe(time + 7 * 86_400_000);
+    const auth = new AuthService(p, () => now);
+    expect(auth.setupState()).toBe('new');
+    const credential = await auth.createAccount(details, ip);
+    expect(credential.expiresAt).toBe(now + 7 * 86_400_000);
     const identity = auth.authenticate(credential.token)!;
     expect(Object.keys(identity.account).sort()).toEqual(['id', 'mfaEnabled']);
-    expect(identity.account.mfaEnabled).toBe(false);
-    await expect(auth.setup(current, password, ip)).rejects.toMatchObject({
-      code: 'unauthorized',
+    expect(auth.setupState()).toBe('account');
+    expect(auth.accountDetails(identity)).toEqual({
+      username: 'notebook.owner',
+      email: 'Owner@example.invalid',
     });
-    expect(() => auth.issueSetupToken()).toThrow(/already exists/);
+    await expect(auth.createAccount(details, ip)).rejects.toMatchObject({
+      code: 'already_set_up',
+    });
+    auth.finishSetup(identity, preferences);
+    expect(auth.setupState()).toBe('complete');
+    expect(readSettings(p)).toMatchObject({
+      siteTitle: 'My notebook',
+      language: 'zh-CN',
+      timezone: 'Asia/Hong_Kong',
+      setupCompletedAt: now,
+      theme: 'system',
+      weekStart: 1,
+    });
+    expect(() => auth.finishSetup(identity, preferences)).toThrow(
+      /already exists/,
+    );
     const inspector = new Database(p.storage.databasePath, { readonly: true });
     try {
       expect(
         inspector.prepare('SELECT count(*) AS n FROM account').get(),
       ).toEqual({ n: 1 });
-      expect(inspector.prepare('SELECT * FROM setup_tokens').all()).toEqual([]);
-      const stored = inspector
-        .prepare('SELECT token_hash FROM sessions')
-        .get() as { token_hash: string };
-      expect(stored.token_hash).toBe(tokenHash('session', credential.token));
+      expect(
+        inspector
+          .prepare("SELECT name FROM sqlite_schema WHERE name='setup_tokens'")
+          .all(),
+      ).toEqual([]);
+      expect(
+        inspector.prepare('SELECT token_hash FROM sessions').get(),
+      ).toEqual({ token_hash: tokenHash('session', credential.token) });
       const dump =
         JSON.stringify(inspector.prepare('SELECT * FROM account').all()) +
         JSON.stringify(inspector.prepare('SELECT * FROM sessions').all());
-      for (const secret of [password, current, credential.token])
+      for (const secret of [password, credential.token])
         expect(dump).not.toContain(secret);
       expect(inspector.pragma('integrity_check', { simple: true })).toBe('ok');
       expect(inspector.pragma('foreign_key_check')).toEqual([]);
@@ -87,67 +102,108 @@ it('requires an operator token, invalidates reissued/expired tokens and atomical
     }
   });
 });
-it('concurrent setup cannot create a second account and expiry during hashing cannot consume a stale token', async () => {
+it('concurrent setup across two SQLite connections creates one account; loser gets already_set_up', async () => {
   await withPersistence(async (p) => {
-    const auth = new AuthService(p, () => now);
-    const token = auth.issueSetupToken();
-    const results = await Promise.allSettled([
-      auth.setup(token, password, ip),
-      auth.setup(token, password, '192.0.2.2'),
-    ]);
-    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect(p.native.prepare('SELECT count(*) AS n FROM account').get()).toEqual(
-      { n: 1 },
-    );
-  });
-  await withPersistence(async (p) => {
-    let time = now;
-    const auth = new AuthService(p, () => time);
-    const token = auth.issueSetupToken();
-    const pending = auth.setup(token, password, ip);
-    time += 60 * 60_000;
-    await expect(pending).rejects.toMatchObject({ code: 'unauthorized' });
-    expect(p.native.prepare('SELECT * FROM account').all()).toEqual([]);
-    expect(p.native.prepare('SELECT * FROM sessions').all()).toEqual([]);
-    expect(
-      p.native.prepare('SELECT count(*) AS n FROM setup_tokens').get(),
-    ).toEqual({ n: 1 });
+    const second = new Persistence(p.storage);
+    try {
+      const a = new AuthService(p, () => now),
+        b = new AuthService(second, () => now);
+      const results = await Promise.allSettled([
+        a.createAccount(details, ip),
+        b.createAccount(details, '192.0.2.2'),
+      ]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(results.find((r) => r.status === 'rejected')).toMatchObject({
+        reason: { code: 'already_set_up' },
+      });
+      expect(
+        p.native.prepare('SELECT count(*) AS n FROM account').get(),
+      ).toEqual({ n: 1 });
+      expect(
+        p.native.prepare('SELECT count(*) AS n FROM sessions').get(),
+      ).toEqual({ n: 1 });
+    } finally {
+      await second.close();
+    }
   });
 });
-it('failure during session commit rolls back account and token consumption, allowing a safe retry', async () => {
+it('setup window closes at 60 minutes, rechecks after hashing and reopens on process restart', async () => {
+  await withPersistence(async (p) => {
+    let time = now;
+    const auth = new AuthService(p, () => time, now);
+    time += 61 * 60_000;
+    expect(auth.setupWindowOpen()).toBe(false);
+    await expect(auth.createAccount(details, ip)).rejects.toMatchObject({
+      code: 'setup_closed',
+    });
+    const restarted = new AuthService(p, () => time);
+    expect(restarted.setupWindowOpen()).toBe(true);
+    const pending = restarted.createAccount(details, ip);
+    time += 60 * 60_000;
+    await expect(pending).rejects.toMatchObject({ code: 'setup_closed' });
+    expect(p.native.prepare('SELECT * FROM account').all()).toEqual([]);
+    expect(p.native.prepare('SELECT * FROM sessions').all()).toEqual([]);
+    await new AuthService(p, () => time).createAccount(details, ip);
+  });
+  await withPersistence(async (p) => {
+    const auth = new AuthService(p, () => now + 59 * 60_000, now);
+    await auth.createAccount(details, ip);
+  });
+});
+it('failed first-session commit rolls back the account; retry succeeds; failed preferences preserve all settings', async () => {
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => now);
-    const token = auth.issueSetupToken();
     p.write((tx) =>
       tx.run(
         sql`CREATE TRIGGER synthetic_fail_session BEFORE INSERT ON sessions BEGIN SELECT RAISE(ABORT, 'synthetic'); END`,
       ),
     );
-    await expect(auth.setup(token, password, ip)).rejects.toThrow(/synthetic/);
+    await expect(auth.createAccount(details, ip)).rejects.toThrow(/synthetic/);
     expect(p.native.prepare('SELECT * FROM account').all()).toEqual([]);
-    expect(
-      p.native.prepare('SELECT count(*) AS n FROM setup_tokens').get(),
-    ).toEqual({ n: 1 });
     p.write((tx) => tx.run(sql`DROP TRIGGER synthetic_fail_session`));
+    const identity = auth.authenticate(
+      (await auth.createAccount(details, ip)).token,
+    )!;
+    const before = readSettings(p);
+    p.write((tx) =>
+      tx.run(
+        sql`CREATE TRIGGER synthetic_fail_preferences BEFORE UPDATE ON app_settings BEGIN SELECT RAISE(ABORT, 'synthetic'); END`,
+      ),
+    );
+    expect(() => auth.finishSetup(identity, preferences)).toThrow(/synthetic/);
+    expect(readSettings(p)).toEqual(before);
+    p.write((tx) => tx.run(sql`DROP TRIGGER synthetic_fail_preferences`));
+    auth.finishSetup(identity, preferences);
+  });
+});
+it('unknown username and wrong password have identical generic failures and comparable real verification timing', async () => {
+  await withPersistence(async (p) => {
+    const auth = new AuthService(p);
+    await createFixtureAccount(auth, password, ip);
+    const times: number[] = [];
+    for (const [username, secret] of [
+      ['unknown', password],
+      ['fixture', 'incorrect'],
+    ]) {
+      const start = performance.now();
+      await expect(auth.login(username, secret, ip)).rejects.toMatchObject({
+        code: 'unauthorized',
+        message: 'Invalid username or password.',
+      });
+      times.push(performance.now() - start);
+    }
+    expect(Math.max(...times) / Math.min(...times)).toBeLessThan(3);
     expect(
-      auth.authenticate((await auth.setup(token, password, ip)).token),
+      auth.authenticate((await auth.login('  FIXTURE ', password, ip)).token),
     ).not.toBeNull();
   });
 });
-it('login, logout, revoked/expired/security-revision sessions and configured lifetimes use real persistence', async () => {
+it('logout, revoked/expired/revision sessions, lifetimes and restart use real persistence', async () => {
   await withPersistence(async (p) => {
     let time = now;
     const auth = new AuthService(p, () => time);
-    await expect(auth.login('wrong', ip)).rejects.toMatchObject({
-      code: 'unauthorized',
-      message: 'Unable to sign in. Check your credentials.',
-    });
-    const initial = await auth.setup(auth.issueSetupToken(), password, ip);
-    await expect(auth.login('wrong', ip)).rejects.toMatchObject({
-      code: 'unauthorized',
-      message: 'Unable to sign in. Check your credentials.',
-    });
-    const second = await auth.login(password, ip);
+    const initial = await createFixtureAccount(auth, password, ip);
+    const second = await auth.login('fixture', password, ip);
     auth.logout(auth.authenticate(initial.token)!);
     expect(auth.authenticate(initial.token)).toBeNull();
     expect(auth.authenticate(second.token)).not.toBeNull();
@@ -162,31 +218,41 @@ it('login, logout, revoked/expired/security-revision sessions and configured lif
     );
     expect(auth.authenticate(second.token)).toBeNull();
     replaceSettings(p, { ...readSettings(p), sessionLifetimeDays: 1 });
-    const oneDay = await auth.login(password, ip);
+    const oneDay = await auth.login('fixture', password, ip);
     expect(oneDay.expiresAt).toBe(time + 86_400_000);
     time = oneDay.expiresAt;
     expect(auth.authenticate(oneDay.token)).toBeNull();
-    const next = await auth.login(password, ip);
-    p.write((tx) => tx.update(account).set({ securityRevision: 2 }).run());
-    expect(auth.authenticate(next.token)).toBeNull();
-    expect(p.native.pragma('foreign_key_check')).toEqual([]);
+    const next = await auth.login('fixture', password, ip);
+    await p.close();
+    const reopened = new Persistence(p.storage);
+    try {
+      const restarted = new AuthService(reopened, () => time);
+      expect(restarted.authenticate(next.token)).not.toBeNull();
+      reopened.write((tx) =>
+        tx.update(account).set({ securityRevision: 2 }).run(),
+      );
+      expect(restarted.authenticate(next.token)).toBeNull();
+    } finally {
+      await reopened.close();
+    }
   });
 });
-it('a security revision change while password verification is in flight rejects the stale login', async () => {
-  await withPersistence(async (p) => {
-    const auth = new AuthService(p, () => now);
-    await auth.setup(auth.issueSetupToken(), password, ip);
-    const before = p.native.prepare('SELECT * FROM sessions').all();
-    const pending = auth.login(password, ip);
-    p.write((tx) => tx.update(account).set({ securityRevision: 2 }).run());
-    await expect(pending).rejects.toMatchObject({ code: 'unauthorized' });
-    expect(p.native.prepare('SELECT * FROM sessions').all()).toEqual(before);
-  });
+it('username or security revision changing during verification rejects stale login', async () => {
+  for (const change of [{ securityRevision: 2 }, { username: 'changed' }])
+    await withPersistence(async (p) => {
+      const auth = new AuthService(p, () => now);
+      await createFixtureAccount(auth, password, ip);
+      const before = p.native.prepare('SELECT * FROM sessions').all();
+      const pending = auth.login('fixture', password, ip);
+      p.write((tx) => tx.update(account).set(change).run());
+      await expect(pending).rejects.toMatchObject({ code: 'unauthorized' });
+      expect(p.native.prepare('SELECT * FROM sessions').all()).toEqual(before);
+    });
 });
-it('successful login bounds the session table and preserves its newest credential', async () => {
+it('successful login bounds sessions and preserves the newest credential', async () => {
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => now);
-    const initial = await auth.setup(auth.issueSetupToken(), password, ip);
+    const initial = await createFixtureAccount(auth, password, ip);
     const owner = auth.authenticate(initial.token)!.account.id;
     p.write((tx) => {
       for (let i = 0; i < 100; i++)
@@ -200,17 +266,17 @@ it('successful login bounds the session table and preserves its newest credentia
           })
           .run();
     });
-    const latest = await auth.login(password, ip);
+    const latest = await auth.login('fixture', password, ip);
     expect(
       p.native.prepare('SELECT count(*) AS n FROM sessions').get(),
     ).toEqual({ n: 100 });
     expect(auth.authenticate(latest.token)).not.toBeNull();
   });
 });
-it('MFA-enabled rows create only pending challenges; password success never creates a full session', async () => {
+it('MFA password success grants only a pending challenge, never a full session', async () => {
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => now);
-    const initial = await auth.setup(auth.issueSetupToken(), password, ip);
+    const initial = await createFixtureAccount(auth, password, ip);
     p.write((tx) =>
       tx
         .update(account)
@@ -223,14 +289,91 @@ it('MFA-enabled rows create only pending challenges; password success never crea
     );
     expect(auth.authenticate(initial.token)).toBeNull();
     const before = p.native.prepare('SELECT * FROM sessions').all();
-    const pending = await auth.login(password, ip);
+    const pending = await auth.login('fixture', password, ip);
     expect(pending.mfaRequired).toBe(true);
     expect(auth.authenticate(pending.token)).toBeNull();
     expect(() => auth.completeMfa(pending.token, '123456', ip)).toThrow();
     expect(p.native.prepare('SELECT * FROM sessions').all()).toEqual(before);
   });
 });
-it('rate limits persist across restart, have fixed expiry, complement rotating IPs and bound storage', async () => {
+it('account changes consume exact fresh scope without revoking sessions; eight-character password changes work', async () => {
+  await withPersistence(async (p) => {
+    const auth = new AuthService(p, () => now);
+    const initial = await createFixtureAccount(auth, password, ip);
+    const identity = auth.authenticate(initial.token)!;
+    expect(() =>
+      auth.updateAccount(identity, newAuthToken(), {
+        username: 'new',
+        email: 'new@example.invalid',
+      }),
+    ).toThrow(/Authenticate again/);
+    const wrong = await auth.freshAuth(
+      identity,
+      'password-change',
+      password,
+      undefined,
+      ip,
+    );
+    expect(() =>
+      auth.updateAccount(identity, wrong.token, {
+        username: 'new',
+        email: 'new@example.invalid',
+      }),
+    ).toThrow(/Authenticate again/);
+    const grant = await auth.freshAuth(
+      identity,
+      'account-update',
+      password,
+      undefined,
+      ip,
+    );
+    expect(() =>
+      auth.updateAccount(identity, grant.token, {
+        username: '!',
+        email: 'bad',
+      }),
+    ).toThrow();
+    expect(
+      auth.updateAccount(identity, grant.token, {
+        username: '  NEW ',
+        email: ' new@example.invalid ',
+      }),
+    ).toEqual({ username: 'new', email: 'new@example.invalid' });
+    expect(auth.authenticate(initial.token)).not.toBeNull();
+    expect(() =>
+      auth.updateAccount(identity, grant.token, {
+        username: 'other',
+        email: 'new@example.invalid',
+      }),
+    ).toThrow(/Authenticate again/);
+    await expect(auth.login('fixture', password, ip)).rejects.toMatchObject({
+      code: 'unauthorized',
+    });
+    expect(
+      auth.authenticate((await auth.login('NEW', password, ip)).token),
+    ).not.toBeNull();
+    const fresh = await auth.freshAuth(
+      identity,
+      'password-change',
+      password,
+      undefined,
+      ip,
+    );
+    await expect(
+      auth.changePassword(identity, fresh.token, '1234567'),
+    ).rejects.toThrow();
+    const credential = await auth.changePassword(
+      identity,
+      fresh.token,
+      '12345678',
+    );
+    expect(auth.authenticate(credential.token)).not.toBeNull();
+    expect(
+      auth.authenticate((await auth.login('new', '12345678', ip)).token),
+    ).not.toBeNull();
+  });
+});
+it('setup and login limits persist, have fixed expiry, complement rotating IPs and bound storage', async () => {
   await withPersistence(async (p) => {
     const limiter = new AuthRateLimiter(p);
     for (let i = 0; i < 10; i++) limiter.attempt('login', ip, now);
@@ -275,33 +418,5 @@ it('rate limits persist across restart, have fixed expiry, complement rotating I
     } finally {
       await reopened.close();
     }
-  });
-});
-it('operator CLI emits a random token only with VPS filesystem access, reissues safely, and refuses after setup', async () => {
-  await withPersistence(async (p, root) => {
-    await p.close();
-    const env = { ...process.env, DATA_DIR: root, NODE_ENV: 'production' };
-    const run = () =>
-      execFileSync(process.execPath, ['scripts/setup-token.ts'], {
-        cwd: process.cwd(),
-        env,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }).trim();
-    const first = run();
-    const second = run();
-    expect(first).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(second).not.toBe(first);
-    const reopened = new Persistence(p.storage);
-    try {
-      const auth = new AuthService(reopened);
-      await expect(auth.setup(first, password, ip)).rejects.toMatchObject({
-        code: 'unauthorized',
-      });
-      await auth.setup(second, password, ip);
-    } finally {
-      await reopened.close();
-    }
-    expect(run).toThrow();
   });
 });

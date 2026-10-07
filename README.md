@@ -1,5 +1,12 @@
 # PandaNote
 
+> **Current checkout:** simplify-setup SS01–SS03 core is implemented. Startup is
+> automatic; setup is username/email/password → preferences; login uses username.
+> Authentication/setup tests pass on Windows and Linux, but **backup/restore is
+> currently broken pending SS05**. Do not deploy this intermediate checkout as a
+> release. Older S00–S18 deployment/recovery sections below are historical until
+> SS06/SS07 updates; follow [current progress](docs/simplify-setup/PROGRESS.md).
+
 A single-user, responsive, Markdown-first personal notes application.
 **Notes, drafts, search/calendar, tags, location, Settings, manual full backups, uploaded restore/rollback and a reproducible single-VPS container deployment are implemented. The release gate (S18) is verified on Linux containers and a two-domain restore drill; real-VPS/physical-device/screen-reader audits are still operator checks — see [Release status](#release-status).**
 One-time operator setup, password login/logout and private route protection are
@@ -54,13 +61,16 @@ installation earlier in PATH.
 node --version
 npm ci
 cp .env.example .env
-npm run db:migrate
-npm run auth:setup-token
 npm run dev -- --host 127.0.0.1
 ```
 
-Open `http://localhost:5173/setup` and enter the operator-held token to create
-the sole account; subsequent visits use `/login`. `dev`, `start` and operator
+Open `http://localhost:5173/`: fresh storage redirects to `/setup`. Create the
+sole account (username, required email, password and confirmation, 8–128 characters),
+then finish site title/language/timezone preferences. Setup is open for 60 minutes
+from process start; restart if it times out. There is no token. Interrupted step two
+resumes after username/password login; completed instances use `/login`.
+Startup creates private storage/keys/schema/settings automatically. The setup language
+picker stores a choice; translations/site-title rendering arrive in SS04. `dev`, `start` and operator
 commands load a private `.env` if present; real environment variables take precedence.
 `.env.example` documents the environment contract. `/health` exposes only `{ "status": "ok" }` with no-store caching;
 it is **readiness-aware** (HTTP 503 `unavailable` until storage is initialized and
@@ -69,10 +79,11 @@ deployment use the container/HTTPS setup below, not `npm run dev`.
 
 ## Production deployment (S18)
 
-> **Planned change:** setup and deployment are being simplified (no setup token, one
-> `docker-compose.yml`, `.env` with only `ORIGIN`, setup in the browser). See
-> [`docs/simplify-setup/`](docs/simplify-setup/README.md). The instructions below describe
-> the current build until that change is implemented.
+> **Change in progress:** browser account setup/startup are implemented without
+> tokens. Simplified deployment artifacts and archive/recovery integration are not
+> finished. See [`docs/simplify-setup/`](docs/simplify-setup/README.md). The deployment
+> instructions below are superseded historical guidance, not a working install guide
+> for this intermediate checkout.
 
 One app container behind a Caddy HTTPS proxy, private persistent data and automatic
 startup initialization (restore recovery, keys, migrations, settings and first-account

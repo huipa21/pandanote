@@ -30,8 +30,7 @@ export function readSettings(persistence: Persistence): AppSettings {
     .from(appSettings)
     .where(eq(appSettings.singleton, 1))
     .get();
-  if (!row)
-    throw new Error('Settings are not initialized; run npm run db:migrate');
+  if (!row) throw new Error('Settings are not initialized; restart PandaNote.');
   return settingsSchema.parse(JSON.parse(row.valueJson));
 }
 export function initializeSettings(persistence: Persistence): void {
