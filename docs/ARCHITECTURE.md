@@ -241,7 +241,7 @@ Use a read-only test inspection connection to assert these invariants; mocks alo
   The operator CLI uses Node 24 native TS stripping; its import graph must use
   erasable syntax and explicit relative `.ts` imports.
 
-### SS01 migration baseline and runner (in progress / integration gate blocked)
+### SS01 migration baseline and runner (common gates pass / directory clarification open)
 
 The runner now records nullable `data_step` identity from a synchronous version-keyed
 registry, using one fixed timestamp for all pending SQL/data/ledger operations in
@@ -252,7 +252,7 @@ and custom `0001_guards_and_search.sql` (existing guards + FTS5). Version-2 data
 backfills search for known-v1 staging. SS03 removes the old token account setup entry points;
 shared startup initializes fresh deployments (SS02), and two-step browser account
 setup/username login now work (section 12.6). Format-v2
-archive integration is SS05. Passing migration tests do not close the application gate.
+archive integration is implemented in SS05 (section 13.7). Passing migration tests do not close the application gate.
 Live container/CLI entry paths use an async pre-upgrade wrapper: online snapshot
 including WAL, page-count-based space estimate plus reserve, fsynced private DB/
 manifest with from/to schema, immutable build version and time, then migration.
@@ -267,7 +267,7 @@ migration, not a single atomic exchange. Strict directory atomicity remains an
 explicit SS01 design clarification; no completion is claimed. Details/tests/handoff:
 [simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
 
-### SS02 shared startup, environment and proxy contracts (core implemented / gate blocked)
+### SS02 shared startup, environment and proxy contracts (implemented / common gates pass)
 
 - `server/initialize.ts` is the single async startup sequence: restore recovery,
   portable keys, trusted migration/pre-upgrade copy, default settings. Container
@@ -292,9 +292,9 @@ explicit SS01 design clarification; no completion is claimed. Details/tests/hand
   before permanent privilege drop. Linux default-capability image verifies PID 1
   Node with zero effective/permitted capabilities and idle shutdown within 10 s.
 - Migrate/setup-token package scripts/files are removed; stopped-app reindex remains.
-  Reset-password is a reserved fail-closed entry, not functional recovery until SS05.
-  Browser setup/auth fixtures are now integrated by SS03; archive integration still
-  blocks the full gate. Evidence/status are in [simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
+  Reset-password is interactive live-safe recovery (SS05); no web counterpart.
+  Browser setup/auth fixtures are integrated by SS03; format-v2 archive integration
+  is implemented by SS05 (section 13.7). Evidence/status are in [simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
 
 ### 4.4 S07 implemented note mutation contracts
 
@@ -1257,11 +1257,11 @@ MFA/fresh-auth deferrals.
   code display/download, confirmed destructive actions and safe errors/retry. Secrets
   stay transient in component memory, never localStorage/URLs. Generation response
   loss requires regeneration; enrollment can be canceled/restarted after expiry.
-- `npm run auth:recover -- --confirm-reset-security` is filesystem/operator-only,
-  requires a stopped app and a new password in bounded stdin JSON, never argv/env.
-  It atomically resets password, removes MFA/codes/setup state, rotates revision and
-  revokes all access without touching user content. No route exposes it. README
-  documents the secret-safe operator workflow and missing-key refusal.
+- `npm run reset-password` is filesystem/operator-only, interactive/no-echo and
+  argument-free. It can run against a live app, atomically resetting the password,
+  removing MFA/codes, rotating the security revision and revoking sessions/challenges
+  without touching user content/settings. No route exposes it. Section 13.7 and the
+  restore runbook document the current contract; the retired stdin-JSON CLI is removed.
 - Schema stays version 3 / 18 tables. Real SQLite/CLI and built-browser tests cover
   AUTH-01–05, including restart, parallel consumption, scope/expiry, rollback and
   security races. An isolated E2E app behind a generated-cert HTTPS edge exercises
@@ -1270,7 +1270,7 @@ MFA/fresh-auth deferrals.
   is never disabled. Native/Linux and browser outcomes are recorded in PROGRESS;
   target-VPS load/real-domain certificate/physical-device release audits remain S18.
 
-### 12.6 SS03 current account/setup/login contracts (implemented / common gate blocked)
+### 12.6 SS03 current account/setup/login contracts (implemented / common gates pass)
 
 This supersedes the token setup and password-length parts of 12.1/12.4/12.5.
 The user approved first-visitor ownership with a 60-minute process-start window;
@@ -1323,8 +1323,8 @@ there is no setup token, public registration after setup or default credential.
   Server/zod validation messages and non-planned screens stay English.
 - Removed `api/auth/setup` and retired token methods. Browser test servers initialize
   empty storage through normal startup and claim/complete it through real endpoints;
-  no token CLI, production seed or auth bypass remains in those fixtures. Common
-  gates still fail on SS05 archive snapshot/trust assumptions, not authentication.
+  no token CLI, production seed or auth bypass remains in those fixtures. SS05
+  integrates archive snapshot/trust/maintenance, and common host/Linux gates pass.
 
 ## 13. Full backup/restore design
 
@@ -1343,7 +1343,7 @@ files/<generated-id>/<known-variant>
 
 Manifest includes format/schema/app compatibility versions, created time, entry paths/sizes/SHA-256 checksums, note/attachment counts, and clearly described included/excluded sections. The manifest lists payload checksums, not its own recursive checksum. Do not include source archive/backups/staging/WAL/live session credentials.
 
-The snapshot includes account/MFA/recovery-code state and settings. Remove sessions/challenges/rate-limit/setup-token runtime state, upload batches, unreferenced/pending attachment rows, pending cleanup jobs, and source backup-job paths from the staged database. Preserve useful successful mutation receipts for included notes so a recovered client can recognize a previously committed post. Preserve tag-management receipts alongside included tag history, so an uncertain browser management retry can recognize its original success rather than rewrite restored notes again. Clear pending batch associations on referenced ready attachments. Rebuild search after restore.
+The snapshot includes account username/email/MFA/recovery-code state and completed settings (title/language/timezone). Remove sessions/challenges/rate-limit runtime state, upload batches, unreferenced/pending attachment rows, pending cleanup jobs, and source backup-job paths from the staged database. The pre-upgrade copy is excluded and untouched by restore. Preserve useful successful mutation receipts for included notes so a recovered client can recognize a previously committed post. Preserve tag-management receipts alongside included tag history, so an uncertain browser management retry can recognize its original success rather than rewrite restored notes again. Clear pending batch associations on referenced ready attachments. Rebuild search after restore.
 
 Backup-job records from the source are not valid paths on a destination; reset the catalog and rediscover existing completed destination archives using bounded, validated manifest reads. Never include those archives in the restored source payload or automatically delete them.
 
@@ -1389,8 +1389,8 @@ Domain/origin/data-root and deployment TLS configuration are not overwritten by 
 ### 13.5 S16 implemented manual backup contracts
 
 - `shared/backups.ts`, `server/backups/{service,archive,snapshot,http}.ts` and
-  `/api/backups` implement manual private jobs and format-v1 `.pnb` regular USTAR
-  tar.gz. Manifest-first strict JSON includes schema **v5**, app **0.0.0**, capture
+  `/api/backups` implement manual private jobs and format-v2 `.pnb` regular USTAR
+  tar.gz. Manifest-first strict JSON includes schema **v2**, app **0.0.0**, capture
   time, counts, explicit scope and per-payload sizes/SHA-256. Bounds: 100,000 entries,
   16 MiB manifest, <8 GiB each USTAR payload, 64 GiB payload/compressed bytes. No
   extensions/directories/links/devices/duplicate/unknown paths are accepted. A raw
@@ -1413,7 +1413,7 @@ Domain/origin/data-root and deployment TLS configuration are not overwritten by 
   filesystem under the gate. The gate releases before hashing/compression; captured
   hardlinks survive later reference-safe deletion without archiving link entries.
 - A bounded Node subprocess sanitizes **only our own online snapshot**, never an
-  upload. It clears sessions/challenges/rates/setup tokens, pending/unreferenced
+  upload. It clears sessions/challenges/rates, pending/unreferenced
   attachments/batches, cleanup/backup catalogs and derived search. Referenced batch
   associations become null by temporarily dropping/reinstating the exact trusted
   immutable-metadata trigger in this disposable DB transaction. Retain successful
@@ -1470,8 +1470,9 @@ Domain/origin/data-root and deployment TLS configuration are not overwritten by 
   limits remain smaller. Receive and archive/staging deadlines are ten minutes.
 - Exact SQL object inventory and hash ledger are generated by trusted migrations in
   an in-memory DB and compared to uploaded `sqlite_schema` **before** integrity/FK
-  queries or any write. Only exact known v4/v5 snapshots are supported; v4 migrates
-  through trusted application SQL on disposable staging. Unknown/newer schema,
+  queries or any write. Only exact known baseline-v1/v2 snapshots in format v2 are
+  supported; v1 migrates through trusted SQL plus registered data steps on disposable
+  staging. Format-v1 pre-release archives are refused. Unknown/newer schema,
   altered tables/indexes/triggers/views/virtual modules fail. Read-only/query-only/
   trusted-schema-off native inspection and sequential Sharp WebP metadata/full decode run in a bounded
   subprocess with a hard sixty-second kill; extensions/supplied SQL are never loaded
@@ -1516,6 +1517,34 @@ Domain/origin/data-root and deployment TLS configuration are not overwritten by 
   rejection, supported staged migration, nine injected-error and ten actual process-
   kill boundaries, and real Settings download/upload/summary/confirmation/login tests
   are recorded in PROGRESS. Real-domain/maximum-bound/VPS release drill remains S18.
+
+### 13.7 SS05 current archive and operator-reset contracts
+
+- Archive format **2** includes normalized username/trimmed email and completed
+  title/language/timezone settings. The manifest explicitly excludes `pre-upgrade`;
+  no traversal of that folder occurs during capture, and restore only swaps DB,
+  referenced files and portable keys. The destination copy stays byte-identical.
+  Format **1** fails with the explicit pre-release refusal before extraction.
+- Schema trust accepts only positive versions within the shipped contiguous
+  baseline history, comparing exact migration-produced objects and SQL/data-step
+  ledger identities read-only first. Baseline v1 has no FTS/triggers; staging runs
+  the shared SQL/data-step runner to v2. Current FTS is recreated from trusted DDL
+  (not the whole guards migration), then derived search is rebuilt and reinspected.
+  Invalid username/email or incomplete setup settings refuse replacement. Restored
+  completed settings and archived account determine login; domain stays external.
+- `reset-password` requires stdin **and stdout** TTYs and no arguments. Bounded raw
+  input is never echoed; Unicode/backspace, validation/mismatch retry and cancellation
+  restore terminal mode. No credentials are accepted from argv/environment/stdin JSON.
+  It displays the username and configured login URL, never a password. Missing
+  account points to setup; pending journals fail closed without performing recovery.
+- Prompts hold no SQLite handles. After confirmation, reopen current persistence,
+  recheck account identity, hash with normal Argon2 bounds, and reset MFA/codes plus
+  password/security revision/sessions/challenges in one IMMEDIATE transaction.
+  Journal and database inode checks repeat under that lock after hashing; a concurrent
+  replacement refuses reset instead of writing retained data. Auth services never
+  cache credential/revision state, so old sessions fail on the next live HTTP request.
+  Reset does not migrate/initialize, rewrite settings/notes/files/keys or clear rates.
+  `reindex` remains argument-free, stopped-app, atomic and content-preserving.
 
 ## 14. Testing, observability, deployment
 

@@ -8,6 +8,8 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
   page,
   context,
 }) => {
+  // Separate synthetic client bucket; production IP/account limits stay unchanged.
+  await context.setExtraHTTPHeaders({ 'x-forwarded-for': '192.0.2.200' });
   const cookies = await browserSession(page);
   const oldToken = cookies.find((c) => c.name === 'pandanote_session')!.value;
   const headers = { origin, cookie: `pandanote_session=${oldToken}` };
@@ -35,6 +37,23 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
   await expect(page.getByTestId('composer').getByRole('status')).toHaveText(
     'Saved on this device.',
   );
+  // Include non-default public identity/language settings in the downloaded archive.
+  expect(
+    (
+      await page.request.patch('/api/settings/general', {
+        headers,
+        data: { siteTitle: 'Archived 香港 notebook', language: 'zh-CN' },
+      })
+    ).status(),
+  ).toBe(200);
+  expect(
+    (
+      await page.request.patch('/api/settings/calendar', {
+        headers,
+        data: { timezone: 'Asia/Hong_Kong', weekStart: 1 },
+      })
+    ).status(),
+  ).toBe(200);
   await page.goto('/settings');
   const backups = page.getByTestId('backup-settings'),
     restores = page.getByTestId('restore-settings');
@@ -64,6 +83,22 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
   const download = await downloading,
     archivePath = (await download.path())!;
   for (const popup of context.pages()) if (popup !== page) await popup.close();
+  expect(
+    (
+      await page.request.patch('/api/settings/general', {
+        headers,
+        data: { siteTitle: 'Temporary destination', language: 'en' },
+      })
+    ).status(),
+  ).toBe(200);
+  expect(
+    (
+      await page.request.patch('/api/settings/calendar', {
+        headers,
+        data: { timezone: 'UTC', weekStart: 1 },
+      })
+    ).status(),
+  ).toBe(200);
   const updated = await page.request.patch(`/api/notes/${saved.noteId}`, {
     headers,
     data: {
@@ -139,8 +174,13 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
       ),
     ),
   ).toBe(true);
-  await page.getByLabel('Password', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'Archived 香港 notebook',
+  );
+  await page.locator('input[autocomplete="username"]').fill('FIXTURE');
+  await page.locator('input[autocomplete="current-password"]').fill(password);
+  await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).toHaveURL(`${origin}/`);
   const freshCookies = await context.cookies();
   const newHeaders = {
@@ -160,11 +200,39 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
     (await page.request.get('/api/restores', { headers: newHeaders })).status(),
   ).toBe(200);
   await expect(restores.getByTestId('restore-summary')).toHaveCount(0);
+  await expect(page.locator('input[autocomplete="username"]')).toHaveValue(
+    'fixture',
+  );
+  await expect(page.locator('input[autocomplete="email"]')).toHaveValue(
+    'fixture@example.invalid',
+  );
+  await expect(page.getByLabel('App timezone', { exact: true })).toHaveValue(
+    'Asia/Hong_Kong',
+  );
+  await expect(page).toHaveTitle(/Archived 香港 notebook/);
+  // Keep the shared synthetic instance predictable for subsequent full-suite specs.
+  expect(
+    (
+      await page.request.patch('/api/settings/general', {
+        headers: newHeaders,
+        data: { siteTitle: 'PandaNote', language: 'en' },
+      })
+    ).status(),
+  ).toBe(200);
+  expect(
+    (
+      await page.request.patch('/api/settings/calendar', {
+        headers: newHeaders,
+        data: { timezone: 'UTC', weekStart: 1 },
+      })
+    ).status(),
+  ).toBe(200);
 });
 test('invalid private upload leaves live app usable; CSRF/auth/fresh-scope checks and mobile destructive confirmation are enforced', async ({
   page,
   context,
 }) => {
+  await context.setExtraHTTPHeaders({ 'x-forwarded-for': '192.0.2.201' });
   const cookies = await browserSession(page),
     headers = {
       origin,

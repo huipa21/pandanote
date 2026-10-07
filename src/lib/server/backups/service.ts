@@ -19,6 +19,7 @@ import {
   backupDeleteSchema,
   backupCommandSchema,
   backupManifestSchema,
+  BACKUP_FORMAT,
   BACKUP_MAX_ENTRIES,
   BACKUP_MAX_BYTES,
   type BackupJob,
@@ -391,7 +392,7 @@ export class BackupService {
       }
       const manifest = backupManifestSchema.parse({
         format: 'PandaNote',
-        formatVersion: 1,
+        formatVersion: BACKUP_FORMAT,
         schemaVersion: SCHEMA_VERSION,
         appVersion: '0.0.0',
         createdAt: capturedAt,
@@ -399,7 +400,7 @@ export class BackupService {
         included:
           'notes,drafts,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys',
         excluded:
-          'local-drafts,sessions,challenges,rate-limits,setup-tokens,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,deployment',
+          'local-drafts,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment',
         entries,
       });
       await this.update(id, 'archiving', 50);

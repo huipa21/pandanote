@@ -18,7 +18,7 @@ production credential is committed.
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
 
-## SS01 migration baseline/core (in progress / full gate blocked)
+## SS01 migration baseline/core (common gates pass / directory clarification open)
 
 - `integration/data-migrations.test.ts`: real SQL-before-data registry execution,
   fixed timestamp/ledger identity, repeat no-op, changed step/hash/downgrade/
@@ -32,13 +32,13 @@ production credential is committed.
   verifies baseline v1→v2 SQL/data backfill and isolated staging with live state intact.
   Fixtures use the generated two-file baseline; username/email are required and the
   setup-token table is absent.
-- MIG-01–07 are **not all completed**: actual fresh startup now passes (SS02), but
-  archive integration remains SS05. SS03 replaces token auth fixtures with real
-  account creation; archive cases currently fail and are not skipped or weakened.
+- MIG-01–07 core tests pass, including actual fresh startup (SS02) and staged
+  archive SQL/data migration (SS05). SS03 uses real account creation; SS05 clears
+  the former archive integration failures without skipping/removing safety cases.
   Directory replacement is recoverable rotation, not a portable single atomic
   exchange; see `docs/simplify-setup/PROGRESS.md`.
 
-## SS02 startup/environment/proxy coverage (core implemented / full gate blocked)
+## SS02 startup/environment/proxy coverage (implemented / common gates pass)
 
 - `integration/startup.test.ts`: shared fresh/repeat/default-data initialization,
   known-v1 data-step rollback/upgrade and pre-upgrade copy, actual adapter-node
@@ -61,7 +61,7 @@ production credential is committed.
 - Linux production-image/minimal-Caddy/browser/rate-key evidence and exact commands
   are in the change handoff; that diagnostic probe is not the ordinary e2e suite.
 
-## SS03 accounts/setup/login coverage (implemented / common gate blocked)
+## SS03 accounts/setup/login coverage (implemented / common gates pass)
 
 - `unit/setup.test.ts`: identity/password/codepoint/confirmation/preferences boundaries,
   exact language registry/browser defaults and every setup routing cell.
@@ -79,10 +79,38 @@ production credential is committed.
   account editor/new username/no session revocation. Both setup screens pass axe at
   390/1440 light/dark. Fixture launcher has no token/CLI initialization or seeded hash;
   cached synthetic sessions are always issued through real setup/login.
-- SET-01–09/ACC-01–05 pass on Windows and Linux. Unfiltered integration still has 31
-  archive failures; full Chromium has 3 archive failures. SS05 owns format-v2 snapshot/
-  trust/restore and interactive reset. Language/title rendering is SS04, not completed
-  by a setup picker. Exact commands/native-image results: simplify-setup PROGRESS.
+- SET-01–09/ACC-01–05 pass on Windows and Linux. SS04 covers language/title rendering;
+  SS05 integrates format-v2 archives/interactive reset and clears former archive
+  failures. Exact commands/native-image results: simplify-setup PROGRESS.
+
+## SS05 backup/restore and maintenance coverage (BAK-01–03, OPS-01–03, MIG-07)
+
+- `unit/backups.test.ts`: strict format-v2 manifests/path/byte/scope bounds; rejects
+  format 1/unknown versions and arbitrary extra fields.
+- `integration/backups.test.ts`: existing real WAL/SQLite/file/key/MFA/concurrency/
+  streamed-upload/disk-full/crash/archive-attack tests now assert format/schema 2,
+  account username/email, absence of the removed table, excluded pre-upgrade bytes.
+- `integration/restores.test.ts`: independent source/destination with non-default
+  archived username/email/title/language/timezone, portable MFA/keys/files/receipts,
+  completed setup and revoked sessions; destination archives/copy untouched. Format
+  1 explicitly refused before extraction; known baseline v1 migrates on staging
+  with registered data-step identity and rebuilt FTS before confirmation. Every
+  original schema/image/path/checksum/injected-failure/process-kill case remains.
+- `integration/auth-mfa.test.ts`: second-connection live reset, final-delete fault
+  proving full rollback, uncached credential/revision checks, MFA/grant/session erasure.
+- `integration/reset-password.test.ts` + `helpers/terminal.ts`: no-TTY/argv/pipes
+  refuse on all hosts; Linux util-linux `script` supplies a genuine pseudo-TTY (no
+  runtime PTY dependency). No-echo Unicode/eight-character/max-bound/backspace,
+  mismatch retries, cancellation, no-account/setup URL, pending/new restore journal
+  refusal and actual built HTTP old-session/challenge rejection/new-password login
+  without restart. PTY cases explicitly skip on Windows and must actually pass on Linux.
+- `e2e/zzrestore.test.ts`: downloaded archive uploaded/confirmed in Settings restores
+  zh-CN/title/timezone/account metadata, returns to archived username/password login,
+  retains browser drafts and destination archives; real auth/CSRF/invalid uploads.
+  Synthetic per-suite client buckets keep production abuse limits unchanged.
+- No CLI starts migrations/recovery. Existing stopped-app reindex regression still
+  proves notes/revisions unchanged; production Docker COPY already ships named
+  reset/reindex scripts plus the server-only terminal module.
 
 ## Commit-derived versioning coverage (VER-01–08)
 
@@ -114,7 +142,7 @@ production credential is committed.
   images/unchanged files, settings, password/MFA/recovery/portable keys and included
   receipts. Both old source/destination credentials fail; restored MFA login works,
   source-derived search is rebuilt and unrelated destination archives/catalog remain.
-  Known-v4 migration, unexpected views/triggers/virtual modules/altered schema,
+  Known baseline-v1 SQL/data migration, unexpected views/triggers/virtual modules/altered schema,
   newer version, altered FTS configuration/oversized shadow cells, bad counts/keys/
   password/settings/tag references, checksum-consistent
   corrupted WebP bitstreams/missing variants, wrong grants,

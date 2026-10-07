@@ -12,6 +12,12 @@ import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
+import {
+  loadMigrations,
+  applyMigrations,
+} from '../../src/lib/server/db/migrations.ts';
+import { DATA_MIGRATIONS } from '../../src/lib/server/db/data-migrations.ts';
+import { PRE_RELEASE_BACKUP_MESSAGE } from '../../src/lib/shared/backups.ts';
 import sharp from 'sharp';
 import { generateSync } from 'otplib';
 import { expect, it } from 'vitest';
@@ -40,7 +46,10 @@ import {
   type NoteMutation,
 } from '../../src/lib/shared/notes.ts';
 import { type FreshAuthScope } from '../../src/lib/shared/auth.ts';
-import { updateCalendar } from '../../src/lib/server/settings/repository.ts';
+import {
+  updateCalendar,
+  updateGeneral,
+} from '../../src/lib/server/settings/repository.ts';
 const password = 'synthetic-restore-source 密碼 password';
 const sha = (bytes: Buffer | string) =>
   createHash('sha256').update(bytes).digest('hex');
@@ -211,6 +220,16 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       timezone: 'Asia/Hong_Kong',
       weekStart: 0,
     });
+    updateGeneral(source, f.identity, {
+      siteTitle: 'Archived 香港 notebook',
+      language: 'zh-CN',
+    });
+    source.write((tx) =>
+      tx
+        .update(account)
+        .set({ username: 'archived.owner', email: 'archived@example.invalid' })
+        .run(),
+    );
     const archive = await backup(source, f),
       snapshots = [a, b, c, media].map((r) => notes.get(f.identity, r.noteId));
     await withPersistence(async (destination) => {
@@ -222,6 +241,12 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       const kept = await backup(destination, d),
         keptBytes = readFileSync(kept),
         oldKeys = destination.storage.readKeys();
+      const copy = destination.storage.preUpgradeDirectory('current', true);
+      writeFileSync(
+        join(copy, 'pandanote.sqlite'),
+        'destination copy must survive restore',
+      );
+      writeFileSync(join(copy, 'manifest.json'), '{}');
       const s = restore(destination, d),
         summary = await upload(s, d, archive);
       expect(summary).toMatchObject({
@@ -242,7 +267,11 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       expect(destination.storage.readKeys()).toEqual(source.storage.readKeys());
       expect(d.auth.authenticate(d.credential.token)).toBeNull();
       expect(d.auth.authenticate(enabled.credential.token)).toBeNull();
-      const login = await d.auth.login('fixture', password, '192.0.2.80');
+      const login = await d.auth.login(
+        'archived.owner',
+        password,
+        '192.0.2.80',
+      );
       expect(login.mfaRequired).toBe(true);
       if (!login.mfaRequired) throw Error('MFA missing');
       const credential = d.auth.completeMfa(
@@ -253,7 +282,11 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       const restored = d.auth.authenticate(credential.token)!;
       const factorNow = Date.now() + 60_000;
       const totpAuth = new AuthService(destination, () => factorNow);
-      const totpLogin = await totpAuth.login('fixture', password, '192.0.2.81');
+      const totpLogin = await totpAuth.login(
+        'ARCHIVED.OWNER',
+        password,
+        '192.0.2.81',
+      );
       if (!totpLogin.mfaRequired) throw Error('Restored MFA missing');
       const totpCredential = totpAuth.completeMfa(
         totpLogin.token,
@@ -300,6 +333,15 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       ).toEqual(
         source.native.prepare('SELECT value_json FROM app_settings').get(),
       );
+      expect(d.auth.setupState()).toBe('complete');
+      expect(d.auth.accountDetails(restored)).toEqual({
+        username: 'archived.owner',
+        email: 'archived@example.invalid',
+      });
+      expect(readFileSync(join(copy, 'pandanote.sqlite'), 'utf8')).toBe(
+        'destination copy must survive restore',
+      );
+      expect(readFileSync(join(copy, 'manifest.json'), 'utf8')).toBe('{}');
       expect(enrollment.secret).not.toBe('');
       expect(
         readdirSync(join(destination.storage.root, 'private/journals')),
@@ -494,7 +536,7 @@ async function alteredArchive(
   );
   return result;
 }
-it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismatched counts/files/keys/settings and newer schema BEFORE replacement; permits trusted v4 migration', async () => {
+it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismatched counts/files/keys/settings and newer schema BEFORE replacement; migrates known v1 with registered data step on staging', async () => {
   const root = await mkdtemp(join(tmpdir(), 'pandanote-restore-attack-'));
   try {
     await withPersistence(async (p) => {
@@ -526,8 +568,8 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
           db.unsafeMode(false);
         },
         (db, m) => {
-          m.schemaVersion = 6;
-          db.pragma('user_version=6');
+          m.schemaVersion = 3;
+          db.pragma('user_version=3');
         },
         (db, m) => {
           m.counts.notes++;
@@ -536,6 +578,12 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
           writeFileSync(join(extracted, 'snapshot/key-material.json'), '{}');
         },
         (db) => db.exec("UPDATE app_settings SET value_json='{}'"),
+        (db) => db.exec("UPDATE account SET username='INVALID USER'"),
+        (db) => db.exec("UPDATE account SET email='invalid'"),
+        (db) =>
+          db.exec(
+            "UPDATE app_settings SET value_json=json_set(value_json,'$.setupCompletedAt',NULL)",
+          ),
         (db) =>
           db.exec(
             "UPDATE account SET password_hash='$argon2id$v=19$m=999999999,t=3,p=1$x$x'",
@@ -552,21 +600,72 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
           n: 1,
         });
       }
+      const legacy = await alteredArchive(archive, root, (_db, m) => {
+        // A manifest-first format refusal must precede extraction/SQLite writes.
+        Object.assign(m, { formatVersion: 1 });
+      });
+      await expect(upload(s, f, legacy)).rejects.toMatchObject({
+        code: 'invalid-backup',
+        message: PRE_RELEASE_BACKUP_MESSAGE,
+      });
+      expect(readdirSync(join(p.storage.root, 'staging/restores'))).toEqual([]);
       const older = await alteredArchive(archive, root, (db, m) => {
-        db.exec(
-          'DROP TABLE tag_mutation_receipts; DELETE FROM __pandanote_migrations WHERE version=5;',
-        );
-        db.pragma('user_version=4');
-        m.schemaVersion = 4;
+        db.exec('DROP TABLE note_search_fts');
+        const trusted = new Database(':memory:');
+        try {
+          applyMigrations(trusted, loadMigrations().slice(0, 1));
+          const names = new Set(
+            (
+              trusted.prepare('SELECT name FROM sqlite_schema').all() as {
+                name: string;
+              }[]
+            ).map((row) => row.name),
+          );
+          for (const row of db
+            .prepare("SELECT name FROM sqlite_schema WHERE type='trigger'")
+            .all() as { name: string }[])
+            if (!names.has(row.name)) db.exec(`DROP TRIGGER ${row.name}`);
+        } finally {
+          trusted.close();
+        }
+        db.exec('DELETE FROM __pandanote_migrations WHERE version=2');
+        db.pragma('user_version=1');
+        m.schemaVersion = 1;
       });
       const summary = await upload(s, f, older);
-      expect(summary.schemaVersion).toBe(4);
+      expect(summary.schemaVersion).toBe(1);
+      // Migrated copy is already ready BEFORE confirmation; live DB is untouched.
+      const stage = new Database(
+        join(
+          p.storage.root,
+          'staging/restores',
+          summary.id,
+          'state/db/pandanote.sqlite',
+        ),
+        { readonly: true },
+      );
+      try {
+        expect(stage.pragma('user_version', { simple: true })).toBe(2);
+        expect(
+          stage
+            .prepare(
+              'SELECT data_step FROM __pandanote_migrations WHERE version=2',
+            )
+            .get(),
+        ).toEqual({ data_step: DATA_MIGRATIONS.get(2)!.name });
+        expect(
+          stage.prepare('SELECT count(*) n FROM note_search_fts').get(),
+        ).toEqual({ n: 1 });
+      } finally {
+        stage.close();
+      }
+      expect(f.auth.authenticate(f.credential.token)).not.toBeNull();
       await s.confirm(f.identity, {
         id: summary.id,
         confirmed: true,
         grant: await f.grant('restore'),
       });
-      expect(p.native.pragma('user_version', { simple: true })).toBe(5);
+      expect(p.native.pragma('user_version', { simple: true })).toBe(2);
       expect(
         p.native.prepare('SELECT count(*) n FROM note_search_fts').get(),
       ).toEqual({ n: 1 });

@@ -12,22 +12,23 @@ import {
 it('bounds manifests and permits only explicit included/excluded fields and payload paths', () => {
   const manifest = {
     format: 'PandaNote',
-    formatVersion: 1,
-    schemaVersion: 5,
+    formatVersion: 2,
+    schemaVersion: 2,
     appVersion: '0.0.0',
     createdAt: Date.now(),
     counts: { notes: 0, attachments: 0 },
     included:
       'notes,drafts,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys',
     excluded:
-      'local-drafts,sessions,challenges,rate-limits,setup-tokens,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,deployment',
+      'local-drafts,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment',
     entries: ['snapshot/pandanote.sqlite', 'snapshot/key-material.json'].map(
       (path) => ({ path, size: 1, sha256: 'a'.repeat(64) }),
     ),
   };
   expect(backupManifestSchema.safeParse(manifest).success).toBe(true);
   for (const changed of [
-    { ...manifest, formatVersion: 2 },
+    { ...manifest, formatVersion: 1 },
+    { ...manifest, formatVersion: 3 },
     { ...manifest, password: 'unsupported' },
     { ...manifest, entries: [manifest.entries[0], manifest.entries[0]] },
     {

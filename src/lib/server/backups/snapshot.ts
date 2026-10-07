@@ -21,7 +21,7 @@ try {
   db.pragma('temp_store = FILE');
   const trigger = db.prepare("SELECT sql FROM sqlite_schema WHERE name='attachments_referenced_guard'").get().sql;
   db.transaction(() => {
-    db.exec('DELETE FROM sessions; DELETE FROM auth_challenges; DELETE FROM auth_rate_limits; DELETE FROM setup_tokens; DELETE FROM backup_jobs; DELETE FROM file_cleanup_jobs;');
+    db.exec('DELETE FROM sessions; DELETE FROM auth_challenges; DELETE FROM auth_rate_limits; DELETE FROM backup_jobs; DELETE FROM file_cleanup_jobs;');
     db.exec('DELETE FROM attachments WHERE NOT EXISTS (SELECT 1 FROM note_attachments WHERE attachment_id=attachments.id)');
     db.exec('DROP TRIGGER attachments_referenced_guard; UPDATE attachments SET batch_id=NULL;');
     db.exec(trigger);

@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { idSchema, instantSchema } from './domain.ts';
 
-export const BACKUP_FORMAT = 1;
+export const BACKUP_FORMAT = 2;
+export const PRE_RELEASE_BACKUP_MESSAGE =
+  'This backup was created by a pre-release PandaNote and cannot be restored. Start with an empty instance and create a new backup.';
 export const BACKUP_MAX_ENTRIES = 100_000;
 export const BACKUP_MANIFEST_BYTES = 16 * 1024 ** 2;
 export const BACKUP_MAX_BYTES = 64 * 1024 ** 3;
@@ -33,7 +35,7 @@ export const backupManifestSchema = z
       'notes,drafts,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys',
     ),
     excluded: z.literal(
-      'local-drafts,sessions,challenges,rate-limits,setup-tokens,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,deployment',
+      'local-drafts,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment',
     ),
     entries: z
       .array(backupEntrySchema)

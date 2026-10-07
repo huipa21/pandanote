@@ -13,6 +13,7 @@ import {
   SCHEMA_VERSION,
 } from '../db/migrations.ts';
 import { settingsSchema } from '../../shared/settings.ts';
+import { usernameSchema, emailSchema } from '../../shared/auth.ts';
 import { uploadItemSchema } from '../../shared/attachments.ts';
 import {
   idSchema,
@@ -54,7 +55,7 @@ let db;
     }
   }
   if (db.prepare('SELECT count(*) n FROM notes').get().n > 100000 || db.prepare('SELECT coalesce(sum(length(CAST(body_markdown AS BLOB))),0) n FROM notes').get().n > 268435456) throw Error('notes');
-  if (db.prepare('SELECT count(*) n FROM note_search_fts_config').get().n !== config.length || JSON.stringify(db.prepare('SELECT * FROM note_search_fts_config ORDER BY k').all()) !== JSON.stringify(config)) throw Error('fts config');
+  if (config !== null && (db.prepare('SELECT count(*) n FROM note_search_fts_config').get().n !== config.length || JSON.stringify(db.prepare('SELECT * FROM note_search_fts_config ORDER BY k').all()) !== JSON.stringify(config))) throw Error('fts config');
   if (db.pragma('integrity_check', { simple:true }) !== 'ok' || db.pragma('foreign_key_check').length) throw Error('integrity');
   const sharp = require(process.argv[2]);
   sharp.cache(false); sharp.concurrency(1);
@@ -91,8 +92,12 @@ async function inspect(
       )
       .all();
     config = trusted
-      .prepare('SELECT * FROM note_search_fts_config ORDER BY k')
-      .all();
+      .prepare(
+        "SELECT 1 FROM sqlite_schema WHERE name='note_search_fts_config'",
+      )
+      .get()
+      ? trusted.prepare('SELECT * FROM note_search_fts_config ORDER BY k').all()
+      : null;
     ledger = trusted
       .prepare(
         'SELECT version,name,hash,data_step FROM __pandanote_migrations ORDER BY version',
@@ -162,7 +167,7 @@ export async function trustSnapshot(
   manifest: BackupManifest,
   signal: AbortSignal,
 ): Promise<Omit<RestoreSummary, 'id' | 'bytes'>> {
-  if (![4, SCHEMA_VERSION].includes(manifest.schemaVersion))
+  if (manifest.schemaVersion < 1 || manifest.schemaVersion > SCHEMA_VERSION)
     throw new Error('Unsupported schema');
   const path = join(root, 'snapshot/pandanote.sqlite');
   await inspect(
@@ -182,12 +187,11 @@ export async function trustSnapshot(
       'sessions',
       'auth_challenges',
       'auth_rate_limits',
-      'setup_tokens',
       'upload_batches',
       'file_cleanup_jobs',
       'backup_jobs',
       'note_search',
-      'note_search_fts',
+      ...(manifest.schemaVersion >= 2 ? ['note_search_fts'] : []),
     ])
       if (
         (db.prepare(`SELECT count(*) n FROM ${table}`).get() as { n: number }).n
@@ -200,6 +204,11 @@ export async function trustSnapshot(
     if (owners.length !== 1) throw new Error('Missing singleton account');
     const owner = owners[0];
     idSchema.parse(owner.id);
+    if (
+      usernameSchema.parse(owner.username) !== owner.username ||
+      emailSchema.parse(owner.email) !== owner.email
+    )
+      throw new Error('Invalid account identity');
     instantSchema.parse(owner.created_at);
     number(owner.security_revision);
     if (!passwordHash.test(String(owner.password_hash)))
@@ -225,7 +234,11 @@ export async function trustSnapshot(
       unknown
     >[];
     if (settings.length !== 1) throw new Error('Missing singleton settings');
-    settingsSchema.parse(JSON.parse(String(settings[0].value_json)));
+    const preferences = settingsSchema.parse(
+      JSON.parse(String(settings[0].value_json)),
+    );
+    if (preferences.setupCompletedAt === null)
+      throw new Error('Backup setup is incomplete');
     instantSchema.parse(settings[0].updated_at);
     let recoveries = 0;
     for await (const row of asRows(db, 'recovery_codes', signal)) {
@@ -376,10 +389,7 @@ export async function trustSnapshot(
       else trash++;
     }
     if (count !== manifest.counts.notes) throw new Error('Note counts');
-    for (const table of [
-      'mutation_receipts',
-      ...(manifest.schemaVersion >= 5 ? ['tag_mutation_receipts'] : []),
-    ])
+    for (const table of ['mutation_receipts', 'tag_mutation_receipts'])
       for await (const row of asRows(db, table, signal)) {
         idSchema.parse(row.mutation_id);
         digestSchema.parse(row.request_digest);
@@ -425,11 +435,15 @@ export async function trustSnapshot(
     // Search is excluded source data. Replace even its validated known shadow
     // tables/config with fresh trusted DDL before any derived-index mutation;
     // never carry uploaded internal FTS state into the live installation.
-    staged.exec('DROP TABLE note_search_fts');
-    for (const statement of loadMigrations().find(
-      (m) => m.name === '0003_search_trigram',
-    )!.statements)
-      staged.exec(statement);
+    if (manifest.schemaVersion >= 2) {
+      staged.exec('DROP TABLE note_search_fts');
+      const ddl = loadMigrations()[1].statements.find((statement) =>
+        statement.includes('CREATE VIRTUAL TABLE note_search_fts USING fts5('),
+      );
+      if (!ddl) throw new Error('Missing trusted search DDL');
+      staged.exec(ddl);
+    }
+    // Includes the registered synchronous data steps, without a live pre-upgrade copy.
     applyMigrations(staged);
     // This connection belongs only to disposable staging. Explicit transaction
     // boundaries allow cooperative yielding without an async Drizzle callback
@@ -437,7 +451,7 @@ export async function trustSnapshot(
     staged.exec('BEGIN IMMEDIATE');
     try {
       staged.exec(
-        'DELETE FROM sessions; DELETE FROM auth_challenges; DELETE FROM auth_rate_limits; DELETE FROM setup_tokens; DELETE FROM backup_jobs; DELETE FROM note_search_fts; DELETE FROM note_search;',
+        'DELETE FROM sessions; DELETE FROM auth_challenges; DELETE FROM auth_rate_limits; DELETE FROM backup_jobs; DELETE FROM note_search_fts; DELETE FROM note_search;',
       );
       const writer = drizzle(staged);
       let processed = 0;

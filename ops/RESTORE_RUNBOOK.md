@@ -17,7 +17,7 @@ passwords, grants, TOTP seeds or recovery codes in logs, tickets or git.
    authenticate again with the _current destination_ credentials. This replaces,
    not merges, DB/files/key material. Writes drain/refuse temporarily. Unrelated
    destination `.pnb` archives are kept and their verified catalog is rebuilt.
-5. Wait for the login page. Sign in with the _archived account_ password and MFA
+5. Wait for the login page. Sign in with the _archived account_ username, password and MFA
    or an unconsumed archived recovery code. Every old session is invalidated.
    Confirm important notes, Drafts, Trash and private downloads. Local browser
    drafts remain on that browser, not in the archive; recheck server versions
@@ -32,9 +32,9 @@ reference/space failures leave current application data unchanged.
 ## Fresh replacement VPS / different domain
 
 Deploy a compatible app, set destination `ORIGIN`, persistent private `DATA_DIR`
-and HTTPS/proxy settings, and explicitly migrate the empty DB. Use the
-operator-held one-time setup-token procedure to initialize temporary access.
-Sign in and follow the same uploaded restore workflow. Do not copy the source
+and HTTPS/proxy settings. Startup initializes/migrates the empty DB automatically.
+Complete the two-step browser setup with a temporary account and preferences,
+then follow the same uploaded restore workflow. Do not copy the source
 machine's `.env`, domain, TLS keys or app binaries from an archive; they are not
 included. After replacement use the archived credentials, not the temporary ones.
 A real-domain independent-deployment drill remains the S18 release gate.
@@ -44,11 +44,17 @@ A real-domain independent-deployment drill remains the S18 release gate.
 - Set adapter-node `BODY_SIZE_LIMIT=64G` and a matching streaming reverse-proxy
   ceiling/time allowance for archives. Avoid proxy buffering of the whole body.
   Image/file/JSON limits remain much smaller and authoritative at domain routes.
-- Format v1 accepts the application's regular USTAR subset only. It rejects PAX,
-  GNU, links, devices, directories, duplicate/unexpected paths, bad checksums,
-  missing entries, excessive expansion and unknown/newer schemas. Schema v5 is
-  current; exact known v4 snapshots migrate through trusted v5 application SQL
-  on disposable staging. No supplied SQL or extension is executed.
+- Format v2 accepts the application's regular USTAR subset only. Format-v1
+  pre-release archives are explicitly refused before extraction or replacement.
+  It rejects PAX, GNU, links, devices, directories, duplicate/unexpected paths,
+  bad checksums, missing entries, excessive expansion and unknown/newer schemas.
+  Schema v2 is current; exact known baseline-v1 snapshots migrate through trusted
+  SQL plus registered data steps on disposable staging. No supplied SQL or
+  extension is executed. Restored setup must already be complete; archived
+  username/email/title/language/timezone replace the destination preferences.
+- `pre-upgrade/` is excluded from archives and outside the restore replacement
+  set. The destination's existing copy is retained unchanged; it is not a copy of
+  the restored archive and must not be mistaken for one.
 - Safety bounds: 64 GiB compressed/payload, 100,000 total entries, 16 MiB manifest,
   <8 GiB individual payload, 4 KiB portable keys; at most 100,000 notes / 256 MiB
   total Markdown, 1 MiB per note, one million rows per ordinary table / 16 KiB
@@ -96,7 +102,7 @@ native/process-kill tests exercise deployment durability semantics.
 1. Stop the app and ensure there are no other SQLite writers. Inspect only safe
    filesystem names, free space/permissions and journal phase (not note/credential
    bytes). Fix disk reserve/ownership/mount or lock problems first. Do not run
-   migrations, setup-token issuance or security reset against a mixed state.
+   migrations or security reset against a mixed state.
 2. Preserve the **entire private data directory**, including DB/WAL, files, key
    material, journal and both generated restore directories, on protected storage
    before manual repair. This is explicit operator intervention, not an automatic
@@ -113,6 +119,10 @@ native/process-kill tests exercise deployment durability semantics.
    DB/files/keys, overwrite portable keys, delete unrelated backups, or edit the
    journal to pretend success. A missing old part may already have been rolled
    back; verify against the preserved complete directory before making changes.
-5. After repair/recovery, use normal archived credentials or the documented
-   stopped-app `auth:recover` security-reset procedure only on a coherent state.
-   There is no web-based operator bypass.
+5. After repair/recovery, use normal archived credentials or run
+   `docker compose run --rm pandanote reset-password` (locally:
+   `npm run reset-password`) in an interactive terminal. It asks twice without
+   echo, changes the password, disables MFA/recovery codes and revokes sessions
+   atomically without touching notes/files/settings. It also works while the app
+   runs, but refuses arguments, piped input, missing accounts and pending restore
+   journals. Re-enable MFA afterwards. There is no web-based operator bypass.

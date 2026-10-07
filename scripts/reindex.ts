@@ -5,6 +5,8 @@ import { reindexSearch } from '../src/lib/server/search/index.ts';
 // Operator-only repair. Stop the single application instance first. Content,
 // revisions, receipts and files are untouched. No note text/query is logged.
 try {
+  if (process.argv.length !== 2)
+    throw new Error('reindex accepts no arguments');
   const p = new Persistence(new PrivateStorage());
   try {
     const count = reindexSearch(p);

@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { generateSync } from 'otplib';
 import { sql } from 'drizzle-orm';
 import { expect, it } from 'vitest';
@@ -571,47 +570,44 @@ it('account-update fresh grants require the enabled factor, bind one use and lea
     expect(f.auth.authenticate(pending.token)).toBeNull();
   });
 });
-it('operator recovery requires explicit CLI confirmation/stdin and VPS access; resets factors and revokes all access', async () => {
-  await withPersistence(async (p, root) => {
+it('operator reset on a second connection is atomic and immediately invalidates uncached credentials, factors, grants and sessions', async () => {
+  await withPersistence(async (p) => {
     const f = await fixture(p);
     const enabled = f.enable();
-    await p.close();
-    const env = { ...process.env, DATA_DIR: root, NODE_ENV: 'production' };
-    const run = (args: string[], input: string) =>
-      execFileSync(process.execPath, ['scripts/auth-recover.ts', ...args], {
-        env,
-        encoding: 'utf8',
-        input,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-    expect(() => run([], JSON.stringify({ password: replacement }))).toThrow();
-    expect(() =>
-      run(['--confirm-reset-security'], JSON.stringify({ password: 'short' })),
-    ).toThrow();
-    const output = run(
-      ['--confirm-reset-security'],
-      JSON.stringify({ password: replacement }),
-    );
-    expect(output).toContain('all sessions revoked');
-    expect(output).not.toContain(replacement);
-    const reopened = new Persistence(p.storage);
+    const before = p.db.select().from(account).get()!;
+    const operator = new Persistence(p.storage);
     try {
-      const auth = new AuthService(reopened);
-      expect(auth.authenticate(enabled.credential.token)).toBeNull();
-      expect(reopened.db.select().from(recoveryCodes).all()).toEqual([]);
-      expect(reopened.db.select().from(account).get()!.totpEnabled).toBe(0);
-      await expect(auth.login('fixture', password, ip)).rejects.toMatchObject({
-        code: 'unauthorized',
-      });
-      expect(
-        auth.authenticate((await auth.login('fixture', replacement, ip)).token),
-      ).not.toBeNull();
-      expect(reopened.native.pragma('integrity_check', { simple: true })).toBe(
-        'ok',
+      const auth = new AuthService(operator);
+      await expect(auth.resetPassword('short')).rejects.toThrow();
+      p.native.exec(
+        "CREATE TRIGGER reset_fault BEFORE DELETE ON sessions BEGIN SELECT RAISE(ABORT,'synthetic rollback'); END",
       );
-      expect(reopened.native.pragma('foreign_key_check')).toEqual([]);
+      await expect(auth.resetPassword(replacement)).rejects.toThrow();
+      expect(p.db.select().from(account).get()).toEqual(before);
+      expect(f.auth.authenticate(enabled.credential.token)).not.toBeNull();
+      expect(p.db.select().from(recoveryCodes).all()).toHaveLength(10);
+      p.native.exec('DROP TRIGGER reset_fault');
+      await auth.resetPassword(replacement);
+      expect(f.auth.authenticate(enabled.credential.token)).toBeNull();
+      expect(p.db.select().from(recoveryCodes).all()).toEqual([]);
+      expect(p.db.select().from(authChallenges).all()).toEqual([]);
+      expect(p.db.select().from(sessions).all()).toEqual([]);
+      expect(p.db.select().from(account).get()).toMatchObject({
+        totpEnabled: 0,
+        totpSecretEncrypted: null,
+        lastTotpStep: null,
+        securityRevision: before.securityRevision + 1,
+      });
+      await expect(f.auth.login('fixture', password, ip)).rejects.toMatchObject(
+        { code: 'unauthorized' },
+      );
+      const logged = await f.auth.login('fixture', replacement, ip);
+      expect(logged.mfaRequired).not.toBe(true);
+      expect(f.auth.authenticate(logged.token)).not.toBeNull();
+      expect(p.native.pragma('integrity_check', { simple: true })).toBe('ok');
+      expect(p.native.pragma('foreign_key_check')).toEqual([]);
     } finally {
-      await reopened.close();
+      await operator.close();
     }
   });
 });

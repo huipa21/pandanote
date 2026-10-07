@@ -10,7 +10,7 @@
 - **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
 - **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
 
-## Active change: simplify setup and deployment (SS01–SS03 common gates blocked)
+## Active change: simplify setup and deployment (SS05 done; SS06 next)
 
 User approved on 2026-10-06 (interview in `docs/simplify-setup/DECISIONS.md`): no setup
 token; browser setup (username, email, password ×2 → site title, language, timezone);
@@ -18,15 +18,16 @@ username login, 8–128 character passwords; automatic migrations with data step
 pre-upgrade copy; one minimal root `docker-compose.yml` + one-line `.env.example`;
 interactive `reset-password`. Greenfield: pre-release data/archives are refused, not
 migrated. Plan, acceptance, operations and its own progress log live in
-`docs/simplify-setup/`. **SS01 baseline/runner/copy, SS02 startup/proxy and SS03
-account/setup/login core implemented; common gates blocked** by SS05 archives.
-Two-step browser setup, username login, fresh-auth account editing and SS03-specific
-Windows/Linux tests pass. The intermediate checkout is not a working release:
-backup/restore remains broken. SS04 translations/site
-identity/Settings General is now implemented too (en complete, zh-CN partial; common gate
-still blocked by SS05 archive failures). Next planned integration: **SS05** backup/restore
-format v2 + reset-password; see `docs/simplify-setup/PROGRESS.md`. None of SS01–SS04
-is marked fully done while their common gates remain blocked.
+`docs/simplify-setup/`. **SS05 done: format-v2 backup/restore and interactive live-safe
+reset-password clear the former archive/common-gate failures.** SS01 baseline/runner/copy,
+SS02 startup/proxy, SS03 account/setup/login and SS04 language/title/General integrate
+successfully. Windows check/lint/build, 130 unit + 204 integration (7 explicit Linux-only
+skips) + all 97 Chromium pass; Linux common gates, 130 unit + all 211 integration
+(no skips/exclusions) + 9 affected Chromium pass. Normal synthetic production image
+and genuine PTY named-reset/live-HTTP probe pass; no release/user commit created.
+SS01's literal directory-exchange clarification remains open. Next: **SS06** minimal
+deployment artifacts/image gates, then SS07 full documentation/regression; see
+`docs/simplify-setup/PROGRESS.md`. S18 manual/VPS/release gates remain open.
 This supersedes the setup-token parts of the follow-up below.
 
 ## Active follow-up: out-of-box container startup
@@ -92,8 +93,8 @@ pandanote-version-native`. S18's outstanding VPS/device/screen-reader gates rema
 ## Next session: exact instructions
 
 **Current priority:** the approved simplify-setup change — follow
-`docs/simplify-setup/PROGRESS.md` (SS01–SS04 core implemented / common gates blocked;
-next planned integration **SS05**). The S18 items below remain open.
+`docs/simplify-setup/PROGRESS.md` (SS05 done / common gates pass;
+next planned integration **SS06**). The S18 items below remain open.
 
 1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
 2. Complete the version enhancement's blocked Linux Git/cold-build validation, then commit the enhancement (user approval; S18 itself is already committed). On a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
@@ -3411,3 +3412,66 @@ sign-in); Settings → General (`PATCH /api/settings/general`). Windows check/li
 130 unit, integration 172 pass + 31 known SS05 archive failures, full e2e 94 pass + 3
 known archive failures. Linux image not re-run. Next: **SS05** (backup/restore format v2,
 `reset-password`), first validation `npm run check && npm run test:integration -- backups restores`.
+
+### Session 2026-10-07 — SS05 backup/restore and maintenance commands
+
+**State: done.** Started clean at `e300e51` (SS04). No user-repository commit,
+dependency/lockfile/topology change or actual application-data deletion. Full details,
+exact commands/image IDs/failures/next task: `docs/simplify-setup/PROGRESS.md` SS05.
+
+Implemented/touched: shared format-v2 manifest + server backup archive/service/snapshot/
+trust/restore; username/email/completed title/language/timezone, pre-upgrade exclusion/
+untouched destination, explicit format-1 pre-release refusal before extraction,
+known baseline-v1 trusted SQL/data-step migration only on staging, trusted current
+FTS recreation/rebuild/reinspection. Removed obsolete table/v4/v5/name assumptions;
+all original schema/image/archive/fault/kill safety tests remain. Interactive raw
+no-echo `scripts/reset-password.ts`/server terminal helper + `AuthService.resetPassword`
+requires stdin/stdout TTY, no arguments/pipes; validates/re-prompts Unicode/backspace,
+cancels safely, displays username/configured login URL. Prompts hold no DB handles;
+reopen/identity/journal/inode checks prevent races; one IMMEDIATE reset transaction
+updates password/MFA/codes/revision/sessions/challenges, preserves notes/settings/
+files/keys and invalidates live HTTP credentials immediately. No auth-state cache
+or web bypass. Retired auth-recover script/API removed; reindex remains stopped-app
+and now argument-free. Production Docker COPY already includes new scripts/helper.
+
+New PTY helper + integration reset tests; expanded backups/restores/auth-MFA/unit and
+Settings downloaded-archive e2e. Updated ARCHITECTURE/current PRODUCT_SPEC pointer,
+restore runbook/tests README/change SPEC and both handoffs; full rewrite remains SS07.
+
+Final results (explicit host Node 24.21.0 + PATH/npm CLI, TLS=1):
+
+- `npm run check`, `npm run lint`, `npm run build`: **PASS**, zero diagnostics;
+  existing chunk warnings retained. `npm run test:unit`: **130 PASS**.
+- `npm run test:integration`: **204 PASS + 7 explicit Linux-only skips (211)**,
+  35 files. Former 31 archive integration failures cleared, none excluded.
+- Affected `test:e2e -- auth/backups/zzrestore/language` specs: **9 PASS**;
+  final clean standalone `npm run test:e2e`: **97 PASS**, normal unchanged baselines.
+- Git/CA Linux cached-clean-ci image: check/lint/build **PASS**, **130 unit + all
+  211 integration PASS (zero skips/exclusions)**, **9 affected Chromium PASS**.
+  Actual PTY/live-HTTP/reset/SQLite/Sharp/archive/fsync/rollback/process-kill/Git/root
+  cases execute; native image `3e009b4a41ff849339894fe4ad2311ce3870d2c1e5f93c29a77be5a1681264d6`.
+- Unmodified production Dockerfile/wrapper in isolated synthetic commit **PASS**;
+  actual image genuine PTY named reset via entry/privilege drop and live HTTP auth,
+  manual backup/download/upload/confirm/archive-login roundtrip, native Sharp/SQLite/
+  Argon2, non-default UID/zero caps, named stopped reindex and idle exit-0 within 10 s
+  **PASS**. Synthetic image `40f2d0f2840006c4c5903f30d3f342203331f5a634fcfe9c5ababbdb2d13f22f`
+  is **not a release**; original latest restored (`05a2848e…`); cached deps, no cold
+  download/audit/source-build claim. Owned containers/root/fixtures removed.
+
+Intermediate failures: new browser timezone fixture omitted weekStart (400), then
+shared fresh-auth test IP exhausted its unchanged budget; fixed fixture + separate
+synthetic client buckets, Windows/Linux 9/9 pass. Combined common/full-browser command
+hit 600 s timeout after 93 cases and left stale test dirs. First standalone rerun
+13 fail/84 pass inspected the wrong stale DB; normal teardown cleaned it, clean
+standalone rerun **97/97 pass**. No assertion/baseline weakening. Production PTY
+probe succeeded but host-to-WSL post-SSH requests ECONNRESET twice; app still running;
+final probe uses real in-container HTTP and passes reset/archive/native checks.
+Initial unpinned Node 24.15 result is not final evidence; all final gates pinned.
+Generated NUL removed; whitespace/fixture cleanup/lockfile/latest preservation pass.
+
+Next: **SS06** minimal root deployment files/image/real Caddy gates; read change
+SPEC §9, PLAN SS06, DEP acceptance/current deployment/hygiene/release scripts. First
+validation `npm run check && npm run test:integration -- release-hygiene
+container-bootstrap startup reset-password`. SS01 literal directory-exchange
+clarification, SS07 documentation/full gate and S18 real-VPS/device/AT/release remain
+open. No overall simplify-setup or project completion claimed.

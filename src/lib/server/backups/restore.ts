@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { DomainError, idSchema } from '../../shared/domain.ts';
 import { BACKUP_MAX_BYTES } from '../../shared/backups.ts';
+import { SCHEMA_VERSION } from '../db/migrations.ts';
 import {
   restoreConfirmSchema,
   type RestoreSummary,
@@ -144,7 +145,7 @@ export class RestoreService {
           undefined,
           undefined,
           (value) => {
-            if (![4, 5].includes(value.schemaVersion))
+            if (value.schemaVersion < 1 || value.schemaVersion > SCHEMA_VERSION)
               throw new Error('Unsupported schema');
             const databaseBytes = value.entries.find(
               (e) => e.path === 'snapshot/pandanote.sqlite',

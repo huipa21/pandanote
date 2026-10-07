@@ -7,12 +7,13 @@ import { createGzip, createGunzip } from 'node:zlib';
 import tar from 'tar-stream';
 import {
   backupManifestSchema,
+  PRE_RELEASE_BACKUP_MESSAGE,
   BACKUP_MANIFEST_BYTES,
   BACKUP_MAX_BYTES,
   BACKUP_MAX_ENTRIES,
   type BackupManifest,
 } from '../../shared/backups.ts';
-import { idSchema } from '../../shared/domain.ts';
+import { DomainError, idSchema } from '../../shared/domain.ts';
 
 // tar-stream consumes extension records before entry callbacks. Reject them at
 // the raw boundary, including hidden PAX/GNU name/size overrides. No extraction.
@@ -85,9 +86,17 @@ function byteLimit(max: number): Transform {
   });
 }
 function parseManifest(bytes: Buffer): BackupManifest {
-  const manifest = backupManifestSchema.parse(
-    JSON.parse(bytes.toString('utf8')),
-  );
+  const input: unknown = JSON.parse(bytes.toString('utf8'));
+  if (
+    input !== null &&
+    typeof input === 'object' &&
+    'format' in input &&
+    input.format === 'PandaNote' &&
+    'formatVersion' in input &&
+    input.formatVersion === 1
+  )
+    throw new DomainError('invalid-backup', PRE_RELEASE_BACKUP_MESSAGE);
+  const manifest = backupManifestSchema.parse(input);
   for (const entry of manifest.entries) {
     if (entry.path.startsWith('files/'))
       idSchema.parse(entry.path.split('/')[1]);

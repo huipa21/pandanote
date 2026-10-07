@@ -374,9 +374,10 @@ Concurrent edit handling:
 > SS01–SS03 implement automatic startup/migrations/copies, browser two-step setup
 > (username, email, password; then title, language, timezone), username login with
 > 8–128-character passwords and fresh-auth account editing. SS04 translations/title
-> rendering, SS05 archives/recovery and SS06 deployment files remain. The setup-token
-> bullets below are historical pending the SS07 full rewrite; the linked SPEC is
-> authoritative for the new behavior. Full gates remain blocked by archive integration;
+> and SS05 format-v2 archives/interactive live-safe password reset are implemented;
+> SS06 deployment files and SS07 rewrite remain. The setup-token bullets below are
+> historical pending SS07; the linked SPEC is authoritative for the new behavior.
+> Common host/Linux gates now pass; the overall change/release remains partial;
 > [progress](simplify-setup/PROGRESS.md) records actual evidence.
 
 - One account, no public registration. Approved deployment simplification: the container initializes private storage, recovers interrupted restores, applies trusted migrations and registers an operator-provided environment setup token before starting HTTP. No manual first-install CLI steps are required. SETUP_TOKEN must be cryptographically random (32 bytes as 43 base64url characters), is stored only as a hash, expires after one hour, and is consumed atomically. Restarts never renew the same token; changing it explicitly rotates unclaimed access. Existing/restored accounts ignore it. Remove it from the environment after setup; never log it.

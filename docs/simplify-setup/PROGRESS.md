@@ -2,54 +2,53 @@
 
 ## Current state
 
-- **Status:** **SS01–SS04 core implemented / common gates blocked by SS05 archives**.
-  Automatic startup, schema-v2 migrations/copies, private-network proxy trust,
-  browser two-step setup, username login, fresh-auth account editing, typed language
-  catalogs (English complete, 简体中文 partial), saved/`Accept-Language` rendering,
-  site title in tab/sidebar/mobile header/sign-in and Settings → General are
-  implemented. SS03/SS04-specific SET/ACC/LANG coverage passes on Windows (Linux image
-  not re-run for SS04: no native/server-runtime change). Archives and interactive
-  `reset-password` remain SS05.
-  **Do not deploy this intermediate state as a fully working release: backup/restore is broken.**
-- **Steps:** SS01 in progress · SS02 in progress / common gate blocked ·
-  SS03 implemented / common gate blocked · SS04 implemented / common gate blocked ·
-  SS05 not started · SS06 not started · SS07 not started.
-- **Session baseline:** HEAD `6f50805` (SS03 committed); working tree clean before SS04.
-  No user-repository commit created by this agent.
+- **Status:** **SS05 done; former archive/common-gate blocker cleared.** Schema-v2
+  startup/setup/account/language/title behavior now integrates with format-v2
+  backup/restore and interactive, no-echo, live-safe `reset-password`. Windows
+  check/lint/build, 130 unit, 204 integration + 7 explicit Linux-only skips and
+  all 97 Chromium tests pass. Linux check/lint/build, 130 unit, all 211 integration
+  (no skips/exclusions) and 9 affected Chromium tests pass. Normal production image
+  plus genuine named-command PTY/live-HTTP probe pass (synthetic, not a release).
+- **Steps:** SS01 in progress (directory-exchange clarification remains) ·
+  SS02–SS04 implemented / common gates now pass · SS05 done · SS06 not started ·
+  SS07 not started. Deployment artifacts and full doc rewrite remain later steps;
+  this does not close S18's real-VPS/device/accessibility/release gates.
+- **Session baseline:** HEAD `e300e51` (SS04 committed); clean tree before SS05.
+  No user-repository commit created by this agent; dependencies/lockfile unchanged.
 
 ## Next session: exact task
 
-1. Read `AGENTS.md`, this folder (SPEC §8/§9.5, PLAN SS05, ACCEPTANCE BAK/OPS) and the
-   SS04 handoff below. Read `src/lib/server/backups/{service,snapshot,trust,restore}.ts`,
-   `src/lib/shared/backups.ts`, `scripts/auth-recover.ts` (to be replaced by
-   `reset-password`), `scripts/reindex.ts`, `ops/Dockerfile`, and the failing
-   `tests/integration/{backups,restores}.test.ts`.
-2. Next planned integration: **SS05** archive format v2 (username/email/new settings,
-   no `pre-upgrade/`, no `setup_tokens`), staged old-known-schema restore through the
-   shared SQL + data-step runner, interactive `reset-password`. This also clears the
-   **31 archive integration failures** and **3 Playwright archive failures** that
-   block every common gate. SS01's directory-exchange clarification stays open.
-3. First validation: `npm run check && npm run test:integration -- backups restores`;
-   then the full common gate and the affected Playwright specs
-   (`tests/e2e/backups.test.ts tests/e2e/zzrestore.test.ts`).
+1. Read `AGENTS.md`, SPEC §9, PLAN **SS06**, acceptance DEP-01–09, target OPERATIONS
+   and the SS05 handoff below; inspect current `compose.yaml`, `ops/compose.external.yaml`,
+   env examples, `ops/Dockerfile`, image-build script, release drill/benchmark and hygiene.
+2. Implement **SS06** minimal root `docker-compose.yml`/single env template, remove
+   superseded deployment artifacts, move Caddy/drill stack into test-only release
+   files, validate image name/save/load and actual Linux deployment gates. Keep
+   named reset/reindex and private/non-root/same-origin/restore protections intact.
+   SS01 directory exchange remains an open clarification, not an SS05 defect.
+3. First validation: `npm run check && npm run test:integration -- release-hygiene
+container-bootstrap startup reset-password`. Host PTY skips are explicit; rerun
+   Linux image for all native/PTY/deployment gates. Never rerun after timeout with
+   stale `.e2e-data/run-*` fixtures; stop owned processes and clean only test data.
 
 ## Step tracker
 
-| Step | Title                                            | State                             | Evidence                                                                                           |
-| ---- | ------------------------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress / gate blocked        | Schema-v2 baseline + core tests; planned startup/auth/archive integration pending                  |
-| SS02 | One startup path, environment, proxy trust       | in progress / gate blocked        | Startup/proxy core + Linux image/Caddy verified; common auth/archive/browser gate pending          |
-| SS03 | Accounts, setup flow, login                      | implemented / common gate blocked | SET-01–09/ACC-01–05 pass; common gate blocked by 31 SS05 archive failures                          |
-| SS04 | Language registry, site title, Settings General  | implemented / common gate blocked | LANG-01–04, SET-06 pass (unit, integration, e2e); common gate blocked by the same archive failures |
-| SS05 | Backup/restore format v2, maintenance commands   | not started                       | —                                                                                                  |
-| SS06 | Deployment files and image                       | not started                       | —                                                                                                  |
-| SS07 | Documentation and full regression                | not started                       | —                                                                                                  |
+| Step | Title                                            | State                           | Evidence                                                                        |
+| ---- | ------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------- |
+| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress                     | Integration/common gates pass; literal directory-exchange clarification open    |
+| SS02 | One startup path, environment, proxy trust       | implemented / common gates pass | Startup/proxy + Linux image/Caddy; full common gates now pass                   |
+| SS03 | Accounts, setup flow, login                      | implemented / common gates pass | SET/ACC + host/Linux regressions pass                                           |
+| SS04 | Language registry, site title, Settings General  | implemented / common gates pass | LANG/SET + host/Linux affected browser/common gates pass                        |
+| SS05 | Backup/restore format v2, maintenance commands   | done                            | BAK/OPS/MIG-07; 211 Linux integration + genuine production-image PTY/live reset |
+| SS06 | Deployment files and image                       | not started                     | —                                                                               |
+| SS07 | Documentation and full regression                | not started                     | —                                                                               |
 
 ## Known risks to watch
 
 - Adapter 6 handler awaits `server.init` before index calls `listen` (verified in SS02).
   Kit 3's environment module is `$app/env`; build analysis must skip initialization.
-- AuthService in-memory state when `reset-password` runs against a live server (SS05.3).
+- AuthService live reset is verified in SS05: DB-backed credential/revision state,
+  immediate session rejection, journal/replacement checks, atomic rollback; preserve it.
 - Podman-built image name after `docker image load` (`localhost/` prefix) (SS06.3).
 - Caddy defaults for body size, response-header timeout and `X-Forwarded-For`
   replacement must be confirmed on the pinned Caddy version (DEP-05, DEP-08).
@@ -526,3 +525,115 @@ Known gaps / decisions:
 
 Exact next task: **SS05** (see “Next session” above). First validation:
 `npm run check && npm run test:integration -- backups restores`.
+
+### Session 2026-10-07 — SS05 backup/restore and maintenance commands
+
+**State: done.** Started clean at `e300e51` (SS04). No user-repository commit,
+application-data deletion, dependency/lockfile or deployment-topology change.
+Former 31 integration/3 browser archive failures are cleared, not excluded.
+SS01 directory-exchange clarification, SS06 deployment and SS07 full doc rewrite
+remain open; no S18 real-VPS/manual/release completion claimed.
+
+Implemented / touched:
+
+- `shared/backups.ts`, `server/backups/{archive,service,snapshot,trust,restore}.ts`:
+  format **2**, explicit pre-release format-1 refusal before extraction; removed
+  obsolete table/v4/v5/name assumptions. Exact migration-produced schema/ledger
+  comparison includes data-step identity. Known baseline-v1 has no FTS/guards;
+  trusted SQL + registered search data step run only on staging, then trusted FTS
+  recreation/semantic search rebuild and final inspection. Current archives preserve
+  username/email/title/language/timezone/completed setup; invalid identity/incomplete
+  setup fail before replacement. `pre-upgrade` is explicitly excluded and destination
+  copy remains outside swaps. Existing file/MFA/key/receipt/privacy/budget/journal/
+  rollback/crash protections remain, including all original attack/fault tests.
+- `scripts/reset-password.ts`, new `server/maintenance/terminal.ts`, `auth/service.ts`:
+  argument-free stdin/stdout TTY requirement, bounded Unicode raw/no-echo prompts,
+  validation/mismatch retry, backspace and cancellation with terminal restoration.
+  Username + configured login URL printed; no secret echo/argv/env/stdin JSON.
+  Missing account points to setup, pending restore/upgrade recovery refuses; no
+  migration/init/recovery or ownership traversal. No DB handles during prompting;
+  reopen/recheck account afterwards, then Argon2 + one IMMEDIATE transaction updates
+  password/MFA/codes/security revision/sessions/challenges. Journal/inode/cancellation
+  rechecks after hashing refuse concurrent replacement rather than writing retained
+  DB. Existing AuthService reads credentials/revisions from SQLite, not a cache.
+- Removed `scripts/auth-recover.ts`/retired API; `scripts/reindex.ts` rejects arguments,
+  otherwise retains stopped-app atomic/content-preserving behavior. Docker COPY list
+  already ships reset/reindex and `src/lib` (including terminal helper), so no image
+  COPY change was needed. Compose/env changes deliberately remain SS06.
+- `tests/{unit/backups,integration/backups,integration/restores,integration/auth-mfa,
+integration/reset-password,e2e/zzrestore}.test.ts`, new `tests/helpers/terminal.ts`:
+  BAK/OPS/MIG-07 coverage. Genuine util-linux `script` pseudo-TTY on Linux, no runtime
+  PTY dependency. Live built HTTP reset rejects old sessions/password/challenges,
+  accepts eight-character Unicode password without MFA/restart, keeps notes/files/
+  keys/settings; final-delete fault proves full rollback. No-account, args/pipes,
+  cancellation, journals including restore starting mid-prompt covered. Independent
+  archived MFA/account metadata roundtrip and staged-v1 data-step/FTS assertions;
+  downloaded Settings archive restores zh-CN/title/timezone/email and completed login,
+  leaves local work/archives. Synthetic distinct client buckets retain abuse limits.
+- ARCHITECTURE §13.7/current archive details, PRODUCT_SPEC current-status pointer,
+  target SPEC status, `ops/RESTORE_RUNBOOK.md`, tests README and both progress logs.
+  Full historical deployment/doc replacement remains SS07; history preserved.
+
+Commands/results (Windows explicit Node **24.21.0** executable + PATH, npm CLI
+`C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js`, TLS verification **1**;
+Linux Node 24.21.0/npm 11.19.0/Git 2.39.5, WSL2 container 2 CPUs/4 GiB):
+
+| Command                                                                                                                       | Real result                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check` / `npm run lint` / `npm run build`                                                                            | PASS, zero diagnostics; existing lazy-library chunk warnings retained                                                                                                                                                                                                                                                                                                 |
+| `npm run test:unit`                                                                                                           | PASS, **130 / 25 files**                                                                                                                                                                                                                                                                                                                                              |
+| `npm run test:integration -- backups restores auth-mfa reset-password`                                                        | Early PASS **48 + 3 Linux-only skips**, before final additional PTY case                                                                                                                                                                                                                                                                                              |
+| `npm run test:integration` (final)                                                                                            | PASS, **204 + 7 Linux-only skips / 211 / 35 files**; no failed/excluded cases                                                                                                                                                                                                                                                                                         |
+| `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/backups.test.ts tests/e2e/zzrestore.test.ts tests/e2e/language.test.ts` | Final PASS **9**; two intermediate failures below                                                                                                                                                                                                                                                                                                                     |
+| `npm run test:e2e` (clean final standalone)                                                                                   | PASS **97**, normal unchanged visual baselines + full a11y; 5.3 min                                                                                                                                                                                                                                                                                                   |
+| `podman build -f .browser-spike/Dockerfile.ss05-tests -t pandanote-ss05-native-tests .`                                       | PASS clean offline Linux `npm ci --offline --no-audit` from verified SS03 cache, not Windows modules/current audit                                                                                                                                                                                                                                                    |
+| `podman run --rm --cpus=2 --memory=4g --name pandanote-ss05-native-validation pandanote-ss05-native-tests`                    | PASS check/lint/build, **130 unit + all 211 integration (zero skips/exclusions)**, **9 affected Chromium**; RESULT all 0                                                                                                                                                                                                                                              |
+| Pinned `node .browser-spike/verify-ss05-image.mjs`                                                                            | PASS normal unmodified production Dockerfile via actual clean-source image wrapper in an isolated synthetic committed clone; original latest restored                                                                                                                                                                                                                 |
+| Pinned `node .browser-spike/probe-ss05-image.mjs`                                                                             | PASS actual production image: genuine Python-pty→`podman run -it … reset-password` through named entry/privilege drop, live HTTP auth/MFA/session reset, real manual create/download/upload/confirm archive restore/login, native Sharp WebP/SQLite trigram/Argon2, named stopped reindex, missing-TTY refusal, UID 12345:12346/zero caps and idle exit 0 within 10 s |
+| `git diff --check`, `test ! -e .e2e-data`, `test ! -e NUL`                                                                    | PASS; synthetic fixture/probe cleanup and original latest preserved                                                                                                                                                                                                                                                                                                   |
+
+Linux test image: `3e009b4a41ff849339894fe4ad2311ce3870d2c1e5f93c29a77be5a1681264d6`.
+Production-shaped **synthetic/not release** image: `40f2d0f2840006c4c5903f30d3f342203331f5a634fcfe9c5ababbdb2d13f22f`,
+`localhost/pandanote-ss05-verification:latest`, version `261010-1`, isolated commit
+`00e3e72607d21f6542b594d0ce0856aeec1bc3f9`. Uses cached production dependency layers;
+not a cold download/source-compilation claim. Original `localhost/pandanote:latest`
+remains `05a2848ebd8e2c7ea6882c584694ec6e55df135fb93a5513d5cb54da40e53f14`.
+Ignored harness/logs `.browser-spike/ss05-*`; probe root/containers removed.
+
+Failures/intermediate findings (not passes):
+
+- First check/34 archive tests passed on accidentally selected system Node 24.15.0.
+  All later common/browser/image commands use the explicit pinned executable; no
+  unpinned result treated as final gate. One exact-edit miss applied nothing.
+- Affected browser run **8 pass/1 fail**: new timezone fixture omitted required
+  `weekStart`, so API correctly returned 400. Added the required preference.
+  Next **7 pass/2 fail**: shared synthetic fresh-auth IP bucket exhausted after SS04
+  account/language tests; separate test-client IPs keep unchanged production limits.
+  Final affected **9/9** pass on Windows/Linux; no security limit weakened.
+- Combined final-common + full-browser command exceeded its **600 s harness timeout**
+  after 93 browser cases; not a complete pass. It left stale `.e2e-data/run-*`.
+  First standalone rerun **13 fail/84 pass** because older fixture directory was
+  selected by existing DB-inspection helpers (ENOENT/missing receipts/wrong seeded
+  DB), not live archive failure. Normal teardown removed stale test dirs; verified
+  no owned app process, reran from clean fixture → **97/97**. No test assertions or
+  screenshots changed to conceal this. Remove stale owned fixtures after interruption.
+- Production probe reached successful genuine PTY reset twice, then host-to-WSL
+  forwarded HTTP returned ECONNRESET after slow SSH. App remained running. Final
+  post-PTY requests execute real HTTP inside the container (Linux integration also
+  proves external built-server HTTP); complete production reset/archive/native probe
+  passes. No production network/restore behavior or TLS policy changed.
+- Removed tooling-generated `NUL` absent at baseline. Existing install-script/
+  upstream deprecation/chunk warnings retained; no fresh audit claim.
+
+Exact next task: **SS06**. Read current next-session list, SPEC §9/PLAN SS06/DEP tests,
+current deployment files/hygiene/image wrapper/release drill. Implement minimal root
+Compose + one env template and real Linux deployment tests. First validation:
+`npm run check && npm run test:integration -- release-hygiene container-bootstrap
+startup reset-password`. SS01 directory atomicity stays a separate open clarification;
+SS07 removes superseded shipped documentation, then full final regression/drill.
+
+Documentation-only close: Prettier on changed Markdown, `npm run lint`,
+`npm run check` and `git diff --check` pass after final handoff updates. No
+application/test code changed after the full host/Linux/image gates. Podman SSH
+recreated a `NUL` known-hosts artifact; removed only that generated file and
+rechecked `.e2e-data`/NUL absence. No unrelated processes/data were touched.

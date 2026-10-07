@@ -148,6 +148,12 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
         })
         .run();
     });
+    const copy = p.storage.preUpgradeDirectory('current', true);
+    writeFileSync(
+      join(copy, 'pandanote.sqlite'),
+      'excluded upgrade copy sentinel',
+    );
+    writeFileSync(join(copy, 'manifest.json'), '{}');
     const s = new BackupService(p, f.auth, new DiskBudget(root, 0));
     const id = randomUUID();
     const grant = await f.grant('backup-create');
@@ -163,6 +169,11 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
     });
     const path = p.storage.backupPath(id);
     const manifest = await verifyArchive(path, AbortSignal.timeout(10_000));
+    expect(manifest).toMatchObject({ formatVersion: 2, schemaVersion: 2 });
+    expect(manifest.excluded).toContain('pre-upgrade');
+    expect(
+      manifest.entries.every((entry) => !entry.path.includes('pre-upgrade')),
+    ).toBe(true);
     expect(manifest.counts).toEqual({ notes: 3, attachments: 1 });
     const entries = await payloads(path);
     expect(
@@ -190,7 +201,6 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
         'sessions',
         'auth_challenges',
         'auth_rate_limits',
-        'setup_tokens',
         'upload_batches',
         'file_cleanup_jobs',
         'backup_jobs',
@@ -218,9 +228,18 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
       expect(db.prepare('SELECT value_json FROM app_settings').get()).toEqual(
         p.native.prepare('SELECT value_json FROM app_settings').get(),
       );
-      expect(db.prepare('SELECT password_hash FROM account').get()).toEqual(
-        p.native.prepare('SELECT password_hash FROM account').get(),
+      expect(
+        db.prepare('SELECT username,email,password_hash FROM account').get(),
+      ).toEqual(
+        p.native
+          .prepare('SELECT username,email,password_hash FROM account')
+          .get(),
       );
+      expect(
+        db
+          .prepare("SELECT 1 FROM sqlite_schema WHERE name='setup_tokens'")
+          .get(),
+      ).toBeUndefined();
       expect(
         db
           .prepare(
@@ -785,15 +804,15 @@ it('production archive verifier rejects checksum changes, truncation, unexpected
       keys = Buffer.from('synthetic keys');
     const manifest = {
       format: 'PandaNote' as const,
-      formatVersion: 1 as const,
-      schemaVersion: 5,
+      formatVersion: 2 as const,
+      schemaVersion: 2,
       appVersion: '0.0.0',
       createdAt: Date.now(),
       counts: { notes: 0, attachments: 0 },
       included:
         'notes,drafts,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys' as const,
       excluded:
-        'local-drafts,sessions,challenges,rate-limits,setup-tokens,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,deployment' as const,
+        'local-drafts,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment' as const,
       entries: [
         { path: 'snapshot/pandanote.sqlite', size: db.length, sha256: sha(db) },
         {

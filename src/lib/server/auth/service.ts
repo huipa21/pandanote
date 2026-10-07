@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import { and, asc, count, eq, isNull, lte, ne } from 'drizzle-orm';
 import { DomainError, type AccountDto } from '../../shared/domain.ts';
 import {
@@ -27,6 +28,7 @@ import {
   normalizeRecoveryCode,
 } from './factors.ts';
 import { newPrivateId } from '../storage/private-storage.ts';
+import { JournalStore } from '../maintenance/journal.ts';
 import { readSettings } from '../settings/repository.ts';
 import { hashPassword, verifyPassword } from './passwords.ts';
 import { newAuthToken, tokenHash } from './tokens.ts';
@@ -710,13 +712,38 @@ export class AuthService {
       };
     });
   }
-  // Operator-only filesystem API. Never expose a route. Requires app stopped;
-  // reset deliberately disables MFA, erases old factors and signs out everyone.
-  async operatorRecover(password: unknown): Promise<void> {
+  // Operator-only filesystem API. No web route. A second process may reset a
+  // running app: IMMEDIATE serializes writes; every auth path rereads DB state.
+  async resetPassword(password: unknown, signal?: AbortSignal): Promise<void> {
     passwordSchema.parse(password);
+    signal?.throwIfAborted();
+    const assertNoRestore = () => {
+      if (
+        new JournalStore(
+          this.persistence.storage,
+          this.persistence.coordinator,
+        ).list().length
+      )
+        throw new DomainError(
+          'busy',
+          'Restore recovery is pending. Restart PandaNote before resetting the password.',
+        );
+    };
+    assertNoRestore();
+    const file = statSync(this.persistence.storage.databasePath);
     return this.persistence.coordinator.writeAsync(async () => {
       const passwordHash = await hashPassword(password);
       this.persistence.write((tx) => {
+        // Recheck after prompting/hashing, under the SQLite write lock. Never
+        // mutate a retained DB if a journaled replacement has begun meanwhile.
+        signal?.throwIfAborted();
+        assertNoRestore();
+        const currentFile = statSync(this.persistence.storage.databasePath);
+        if (file.dev !== currentFile.dev || file.ino !== currentFile.ino)
+          throw new DomainError(
+            'busy',
+            'Application data changed during password reset. Run reset-password again.',
+          );
         const owner = tx.select().from(account).get();
         if (!owner) throw new DomainError('conflict', 'No account exists.');
         tx.update(account)
