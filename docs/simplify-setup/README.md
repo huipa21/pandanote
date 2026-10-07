@@ -1,8 +1,9 @@
 # Change: Simplify setup and deployment
 
-**Status:** SS01 in progress / full gate blocked — approved on 2026-10-06.
-Schema-v2 baseline, data steps and pre-upgrade copies are implemented; startup/setup
-and archive integration are pending. Do not deploy this intermediate checkout.
+**Status:** SS01/SS02 core implemented / full gates blocked — approved on 2026-10-06.
+Schema-v2 migrations, private pre-upgrade copies and shared startup/proxy trust are
+implemented. Account/setup and archive/recovery integration remain SS03/SS05.
+Do not deploy this intermediate checkout for note-taking.
 Actual validation and constraints: [PROGRESS.md](PROGRESS.md).
 **Type:** user-approved post-S18 change. It **supersedes** the setup-token, manual
 migration, hardened-Compose and fixed-proxy-IP parts of earlier documents (see

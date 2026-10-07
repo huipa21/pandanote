@@ -1,34 +1,46 @@
-import { authPolicy } from '../src/lib/server/auth/policy.ts';
+import {
+  authPolicy,
+  StartupConfigurationError,
+} from '../src/lib/server/auth/policy.ts';
+import {
+  ignoreLegacyEnvironment,
+  ApplicationInitializationError,
+} from '../src/lib/server/initialize.ts';
 import { bootstrapContainer } from './container-bootstrap.ts';
-import { DatabaseUpgradeError } from '../src/lib/server/db/migrations.ts';
-import { becomeContainerUser, containerIdentity } from './container-user.ts';
+import {
+  becomeContainerUser,
+  containerIdentity,
+  containerCommand,
+} from './container-user.ts';
 
-// Capture once, erase before recovery/initialization/subprocesses, and never log.
-const setupToken = process.env.SETUP_TOKEN;
-delete process.env.SETUP_TOKEN;
 try {
-  const command = process.argv.slice(2);
-  if (command[0] !== 'node' || command.length < 2 || !process.execve)
-    throw new Error('Unsupported container command');
-  // Root preparation is confined to the image's private mount, never OS paths.
-  if (process.env.DATA_DIR !== '/data')
-    throw new Error('Container DATA_DIR must be /data');
-  becomeContainerUser(containerIdentity(process.env));
-  if (command.length === 2 && command[1] === 'build/index.js') {
+  ignoreLegacyEnvironment(process.env);
+  // The image's private mount is authoritative, regardless of env_file DATA_DIR.
+  process.env.DATA_DIR = '/data';
+  const command = containerCommand(process.argv.slice(2));
+  const tool = command === 'server' ? undefined : command;
+  if (!process.execve) throw new Error('Container exec handoff unavailable');
+  // Tools do not walk/chown a running app's tree. They verify the mount owner,
+  // then drop permanently to the configured identity before opening any files.
+  becomeContainerUser(containerIdentity(process.env), {}, Boolean(tool));
+  if (!tool) {
     authPolicy(process.env);
-    await bootstrapContainer(setupToken);
+    await bootstrapContainer();
     console.info('PandaNote startup initialization complete.');
   }
-  // Replace the initializer, not a child server: preserve PID/signals/shutdown.
+  // Replace the initializer, preserving PID 1/signals and adapter shutdown.
   process.execve(
     process.execPath,
-    [process.execPath, ...command.slice(1)],
+    [process.execPath, tool ? `scripts/${tool}.ts` : 'build/index.js'],
     process.env,
   );
 } catch (error) {
-  if (error instanceof DatabaseUpgradeError) console.error(error.message);
-  console.error(
-    'PandaNote startup failed. Check DATA_DIR=/data, PUID/PGID, private data permissions, restore recovery, migration compatibility, and SETUP_TOKEN (43-character base64url, first setup only). No server started.',
-  );
+  // All called startup routines expose safe messages; never print native causes.
+  const message =
+    error instanceof ApplicationInitializationError ||
+    error instanceof StartupConfigurationError
+      ? error.message
+      : 'PandaNote startup failed. Check ORIGIN, PUID/PGID, private data ownership and the supported command. No server started.';
+  console.error(message);
   process.exitCode = 1;
 }

@@ -25,17 +25,41 @@ production credential is committed.
   pre-release refusal, all-pending SQL/data/FK rollback and no cause/content leaks.
 - `integration/pre-upgrade.test.ts`: fresh/no-op skip, WAL-consistent old-schema
   snapshot, manifest/replacement/key preservation, injected low-space budget,
-  actual stopped-app CLI upgrade/low-space safe log, Linux modes, malformed/unsafe
+  actual shared-startup upgrade/low-space safe log, Linux modes, malformed/unsafe
   staging refusal, four actual process kills across durable rotation boundaries.
 - `integration/build-metadata.test.ts`: actual adapter-generated immutable startup
   identity agrees with embedded SSR identity. `integration/search-migration.test.ts`
   verifies baseline v1→v2 SQL/data backfill and isolated staging with live state intact.
   Fixtures use the generated two-file baseline; username/email are required and the
   setup-token table is absent.
-- MIG-01–07 are **not all completed**: final startup/archive integration remains
-  pending. Old token auth/bootstrap and format-v1 archive fixtures currently fail;
-  assertions are not skipped or weakened to hide planned SS02/SS03/SS05 dependencies. Directory replacement is recoverable rotation, not
-  a portable single atomic exchange; see `docs/simplify-setup/PROGRESS.md`.
+- MIG-01–07 are **not all completed**: actual fresh startup now passes (SS02), but
+  archive integration remains SS05. Old token auth and format-v1 archive fixtures
+  currently fail; assertions are not skipped or weakened to hide dependencies.
+  Directory replacement is recoverable rotation, not a portable single atomic
+  exchange; see `docs/simplify-setup/PROGRESS.md`.
+
+## SS02 startup/environment/proxy coverage (core implemented / full gate blocked)
+
+- `integration/startup.test.ts`: shared fresh/repeat/default-data initialization,
+  known-v1 data-step rollback/upgrade and pre-upgrade copy, actual adapter-node
+  and Vite dev starts, local origins, safe missing-production-origin/corrupt-key
+  refusal before listen, scrubbed legacy values and durable restart.
+- `integration/container-bootstrap.test.ts`: token-free empty initialization,
+  no account seeding, preserved settings/keys, restore recovery ordering;
+  Linux root filesystem/drop-capability tests plus maintenance ownership refusal
+  and no child traversal/chown. These root cases explicitly skip on Windows.
+- `unit/auth-policy.test.ts`: local origin defaults/production validation and
+  forwarding override prohibition; private/public IPv4/IPv6/mapped-v4 range edges,
+  missing/empty/invalid/chain XFF, public spoof ignoring, unchanged CSRF/allowlist.
+- `unit/container-user.test.ts`: only default server and argument-free named tools,
+  bounded positive non-root IDs. `integration/runtime-server.test.ts` fresh-health
+  case now tests automatic startup; its account fixture still requires SS03.
+- Standard Playwright fixture startup still uses retired initialization/token CLI
+  paths and is blocked until SS03 adapts it to real account setup. Normal full
+  integration is also blocked by those auth/archive fixtures, not claimed passing.
+  The reserved reset-password entry fails closed; actual recovery is SS05.
+- Linux production-image/minimal-Caddy/browser/rate-key evidence and exact commands
+  are in the change handoff; that diagnostic probe is not the ordinary e2e suite.
 
 ## Commit-derived versioning coverage (VER-01–08)
 
@@ -254,7 +278,7 @@ schema is pushed or runtime database migration hidden in a page request.
 
 | Suite                                | Scope                                                                                                                                                                                                                                                                                                                               |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unit/auth-policy.test.ts`           | Bounded exact Unicode credentials, configured HTTPS/loopback origin, exact proxy trust and ignored spoofed headers, same-origin mutation and method-aware public route allowlist (AUTH-05)                                                                                                                                          |
+| `unit/auth-policy.test.ts`           | Bounded exact Unicode credentials, configured/default HTTPS/loopback origin, private-network proxy trust and ignored public-peer spoofed headers, same-origin mutation and method-aware public route allowlist (AUTH-05)                                                                                                            |
 | `integration/auth.test.ts`           | Actual Argon2id salts/verification/concurrency cap; operator token issue/reissue/expiry/reuse, racing setup and transactional failure retry; hashed/expired/revoked/security-revision sessions, configured lifetime/logout; persisted IP/account rate limits and cap; real native-TS operator CLI (AUTH-01, AUTH-04/05 first slice) |
 | `integration/runtime-server.test.ts` | Actual production build + two sequential deployments with different runtime origins on one artifact; private routes, cookie flags, both Kit/form and JSON CSRF, durable password restart and Linux graceful shutdown (HTTP transport simulates a TLS-terminating proxy; not an actual HTTPS drill)                                  |
 | `integration/auth-http.test.ts`      | JSON-only authentication body, actual streamed byte limits, generic internal error responses and rate-limit retry headers                                                                                                                                                                                                           |

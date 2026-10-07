@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { containerIdentity } from '../../scripts/container-user.ts';
+import {
+  containerIdentity,
+  containerCommand,
+} from '../../scripts/container-user.ts';
+
+it('dispatches only the default server and named argument-free maintenance commands', () => {
+  expect(containerCommand([])).toBe('server');
+  expect(containerCommand(['node', 'build/index.js'])).toBe('server');
+  expect(containerCommand(['reset-password'])).toBe('reset-password');
+  expect(containerCommand(['reindex'])).toBe('reindex');
+  for (const args of [
+    ['sh'],
+    ['node', 'scripts/auth-recover.ts'],
+    ['reset-password', 'secret'],
+    ['reindex', '--help'],
+    ['server'],
+  ])
+    expect(() => containerCommand(args)).toThrow(/Unsupported/);
+});
 
 describe('container user configuration', () => {
   it('defaults to a non-root identity and accepts configured IDs', () => {

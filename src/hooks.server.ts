@@ -1,9 +1,12 @@
-import type { Handle } from '@sveltejs/kit/hooks';
+import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
+import { building, dev } from '$app/env';
 import { appearanceFrom, appearanceHtml } from '#lib/shared/appearance.ts';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
 import { readSettings } from '#lib/server/settings/repository.ts';
-import { getRuntime } from '#lib/server/runtime.ts';
+import { getRuntime, initializeRuntime } from '#lib/server/runtime.ts';
+import { ApplicationInitializationError } from '#lib/server/initialize.ts';
 import {
+  StartupConfigurationError,
   clientIp,
   isPublicAuthRoute,
   sameOrigin,
@@ -14,6 +17,25 @@ import {
   authErrorResponse,
   clearSessionCookie,
 } from '#lib/server/auth/http.ts';
+
+// Adapter-node's handler awaits server.init before index.js calls listen. Builds
+// must never initialize storage. Vite also awaits init before invoking our handle.
+export const init: ServerInit = async () => {
+  if (!building) {
+    try {
+      await initializeRuntime(dev);
+    } catch (error) {
+      // Kit logs thrown errors, so discard native causes at this outer boundary.
+      // eslint-disable-next-line preserve-caught-error -- native causes may disclose private paths/SQL
+      throw new Error(
+        error instanceof ApplicationInitializationError ||
+          error instanceof StartupConfigurationError
+          ? error.message
+          : 'PandaNote startup failed. Check private storage and recovery.',
+      );
+    }
+  }
+};
 
 function protect(response: Response): Response {
   response.headers.set('cache-control', 'no-store');
@@ -32,7 +54,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.identity = null;
   const path = event.url.pathname;
   const method = event.request.method;
-  // Liveness is public, read-only and contains no readiness/account metadata.
+  // Readiness is public, read-only and contains no private/account metadata.
   if (path === '/health' && ['GET', 'HEAD'].includes(method))
     return protect(await resolve(event));
   try {
@@ -68,7 +90,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.clientIp = clientIp(
       event.getClientAddress(),
       event.request.headers,
-      runtime.policy,
     );
     const cookie = event.cookies.get(SESSION_COOKIE);
     event.locals.identity = runtime.auth.authenticate(cookie);

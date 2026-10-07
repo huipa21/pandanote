@@ -2,48 +2,46 @@
 
 ## Current state
 
-- **Status:** **SS01 in progress / full gate blocked**. Schema-v2 baseline, required
-  username/email, setup-token table removal, data steps and pre-upgrade copy are
-  implemented. Old setup entry points fail closed; fresh deployment is not usable
-  until SS02/SS03. Archive integration is SS05. Do not deploy this intermediate state.
-- **Steps:** SS01 in progress · SS02 not started · SS03 not started · SS04 not started ·
-  SS05 not started · SS06 not started · SS07 not started.
-- **Baseline:** HEAD `1dab01f` ("modify server deployment docker compose file").
-  Working tree clean before planning.
+- **Status:** **SS01/SS02 core implemented / full gates blocked**. Schema-v2 baseline,
+  SQL/data migrations and private pre-upgrade copies are implemented. Shared startup
+  now initializes container, dev and built server paths before requests. Environment
+  defaults and private-network proxy trust are tested, including the Linux image/Caddy.
+  Browser account setup remains SS03; archives and interactive recovery remain SS05.
+  **Do not deploy this intermediate state for note-taking.**
+- **Steps:** SS01 in progress · SS02 in progress / integration gate blocked ·
+  SS03 not started · SS04 not started · SS05 not started · SS06 not started · SS07 not started.
+- **Session baseline:** HEAD `65c6067`; working tree clean before SS02. No user-repository commit created.
 
 ## Next session: exact task
 
-1. Read `AGENTS.md`, this folder (README, DECISIONS, SPEC, PLAN, ACCEPTANCE_TESTS),
-   then `src/lib/server/db/migrations.ts`, `src/lib/server/db/schema.ts`,
-   `migrations/README.md`, `migrations/0000_baseline.sql`,
-   `migrations/0001_guards_and_search.sql`, `tests/integration/migrations.test.ts`.
-2. Review the SS01 continuation below and the portable directory-replacement
-   constraint. Core migration validation is implemented; full startup/archive gates
-   require the already-planned SS02/SS03/SS05 integration. Do not reinstate obsolete
-   token storage or change old tests to fake success. The next planned coding task is
-   **SS02** shared initialization and removal of the token bootstrap call, after
-   acknowledging this inter-step gate blocker; SS01 is not marked done.
-3. Validate first with `npm run test:integration -- migrations pre-upgrade search-migration`, then the common gate
-   (`npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run build`).
-   Expect many existing tests that reference the setup token to fail until SS03; record
-   them honestly rather than deleting assertions early, or adapt them in SS01 only where
-   the schema change requires it.
+1. Read `AGENTS.md`, this folder, and the SS02 handoff below. Read
+   `src/lib/{shared/auth,shared/settings,server/auth/service,server/auth/policy,server/initialize,server/runtime}.ts`,
+   `src/hooks.server.ts`, setup/login routes, settings repository and auth/browser fixtures.
+2. Next planned integration: **SS03** account schemas, createAccount, username login
+   and the two-step browser setup/routing. Replace obsolete token fixtures with real
+   account setup, not invented production identities or test bypasses. SS01's strict
+   directory-exchange clarification and SS05 archive integration remain open.
+3. First validation: `npm run check && npm run test:integration -- startup container-bootstrap migrations pre-upgrade`;
+   then the common gate and affected Playwright tests. The unfiltered suite currently
+   reports 54 old-token-dependent failures; do not exclude them. `reset-password`
+   is only a fail-closed reserved entry until SS05 implements the interactive tool.
 
 ## Step tracker
 
-| Step | Title                                            | State                      | Evidence                                                                          |
-| ---- | ------------------------------------------------ | -------------------------- | --------------------------------------------------------------------------------- |
-| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress / gate blocked | Schema-v2 baseline + core tests; planned startup/auth/archive integration pending |
-| SS02 | One startup path, environment, proxy trust       | not started                | —                                                                                 |
-| SS03 | Accounts, setup flow, login                      | not started                | —                                                                                 |
-| SS04 | Language registry, site title, Settings General  | not started                | —                                                                                 |
-| SS05 | Backup/restore format v2, maintenance commands   | not started                | —                                                                                 |
-| SS06 | Deployment files and image                       | not started                | —                                                                                 |
-| SS07 | Documentation and full regression                | not started                | —                                                                                 |
+| Step | Title                                            | State                      | Evidence                                                                                  |
+| ---- | ------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------- |
+| SS01 | Migration baseline, data steps, pre-upgrade copy | in progress / gate blocked | Schema-v2 baseline + core tests; planned startup/auth/archive integration pending         |
+| SS02 | One startup path, environment, proxy trust       | in progress / gate blocked | Startup/proxy core + Linux image/Caddy verified; common auth/archive/browser gate pending |
+| SS03 | Accounts, setup flow, login                      | not started                | —                                                                                         |
+| SS04 | Language registry, site title, Settings General  | not started                | —                                                                                         |
+| SS05 | Backup/restore format v2, maintenance commands   | not started                | —                                                                                         |
+| SS06 | Deployment files and image                       | not started                | —                                                                                         |
+| SS07 | Documentation and full regression                | not started                | —                                                                                         |
 
 ## Known risks to watch
 
-- adapter-node `init` hook vs. listen ordering (PLAN SS02.1).
+- Adapter 6 handler awaits `server.init` before index calls `listen` (verified in SS02).
+  Kit 3's environment module is `$app/env`; build analysis must skip initialization.
 - AuthService in-memory state when `reset-password` runs against a live server (SS05.3).
 - Podman-built image name after `docker image load` (`localhost/` prefix) (SS06.3).
 - Caddy defaults for body size, response-header timeout and `X-Forwarded-For`
@@ -256,3 +254,110 @@ directories; removed them with `rmdir` and verified fixture cleanup.
 
 Current state remains **SS01 in progress / full gate blocked**. Follow the exact
 next task above; read this final evidence instead of relying on pre-baseline passes.
+
+### 2026-10-07 — SS02 startup, environment and proxy trust
+
+**State: core implemented / full integration gate blocked.** Started clean at
+`65c6067`. No user-repository commit, dependency change or application-data deletion.
+
+Implemented/touched:
+
+- `server/initialize.ts`: one async recovery → keys → migration/pre-upgrade wrapper →
+  settings path; safe errors retain native causes server-side only. Container bootstrap
+  delegates to it after privilege drop. `runtime.ts` initializes once from Kit's `init`,
+  including existing cleanup, and `getRuntime` only returns an already-ready instance.
+  No request performs migrations or creates keys/accounts.
+- `hooks.server.ts`: building guard via installed Kit 3 `$app/env`, eager init and
+  value-free safe failure boundary. Inspected adapter 6 `src/handler.js` (top-level
+  await server.init) and `src/index.js` (imports handler before listen): production
+  failures exit before listening. Real built-server and Vite dev tests cover this.
+- `auth/policy.ts`, generated origin handoff in `vite.config.ts`: local dev origin
+  5173 / non-production built start 3000; production requires canonical ORIGIN,
+  HTTPS outside loopback. DATA_DIR defaults to ./data only outside production.
+  Container always forces /data. Forwarding overrides remain prohibited.
+- BlockList private peer ranges: loopback, RFC1918, v4/v6 link-local and IPv6 ULA;
+  mapped-v4 decimal/hex works. Private peers accept exactly one IP XFF, fall back to
+  peer when absent, reject chains/invalid/empty with 400; public peers ignore XFF.
+  Legacy variables are ignored, scrubbed and produce one notice without their values.
+- Container named dispatch (`server`, `reset-password`, `reindex` contracts) rejects
+  arbitrary commands/arguments. Maintenance checks only mount ownership, skips the
+  ownership walk and drops groups/UID/GID before execution. Linux tests prove no
+  child traversal/chown and zero effective capabilities.
+- Removed package migrate/setup-token/recover scripts and deleted migrate/setup-token
+  files. `reset-password` is a **reserved fail-closed entry, not implemented recovery**;
+  SS05 owns the interactive, live-safe implementation. Retired `auth-recover.ts`
+  remains unexposed for SS05 removal. Docker COPY was minimally updated now so deleted
+  files do not break builds; old Compose/examples are still SS06, not updated here.
+  Root env template now has only required ORIGIN plus commented optional variables.
+- Tests: startup/CLI helper, container bootstrap, policy/command ranges, private storage,
+  pre-upgrade shared-startup and fresh HTTP readiness, release hygiene. Existing
+  account/MFA/archive assertions were not removed/excluded to fake a full pass.
+
+Validation (final host uses explicit Node 24.21.0 executable + PATH/npm CLI, TLS=1):
+
+- `npm run check`: pass, zero diagnostics. `npm run lint`: pass after documenting
+  intentional native-cause redaction at Kit logging boundary. `npm run test:unit`:
+  **120 pass**. `npm run build`: pass (existing large lazy-chunk warnings).
+- `npm run test:integration -- startup`: **4 pass**, including real Vite, built
+  restart/defaults, safe no-listen failures, known-v1 startup data-step rollback/upgrade.
+  Earlier targeted run had one expectation mismatch (invalid login is 401, not 400);
+  corrected that assertion, not production authorization.
+- `npm run test:integration`: **FAIL — 54 fail / 143 pass / 3 Linux-only Windows
+  skips (200)**, five files: auth/auth-mfa/backups/restores/runtime-server. All failures
+  still depend on retired token setup or removed token CLI; startup/container tests pass.
+- `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/version.test.ts`: **blocked,
+  exit 1** at obsolete fixture initialization; no browser tests passed. The build passes.
+- `podman build -f .browser-spike/Dockerfile.ss02-tests -t pandanote-ss02-native-tests .`:
+  pass, Git/CA-equipped SS01 base with clean `npm ci --offline --no-audit` from Linux
+  cache, not Windows modules or a fresh audit. Image `9ee508baf5c3ed500599c2b5281060f77f3a0492ac854156bc4c8d313bb53f72`.
+- `podman run --rm --cpus=2 --memory=4g --name pandanote-ss02-native-validation
+pandanote-ss02-native-tests sh -c 'node --version; git --version; npm run check;
+c=$?; npm run lint; l=$?; npm run test:unit; u=$?; npm run test:integration; i=$?;
+npm run build; b=$?; npm run test:integration -- migrations pre-upgrade
+search-migration startup container-bootstrap private-storage release-hygiene sqlite
+images archive; t=$?; printf "RESULT check=%s lint=%s unit=%s integration=%s build=%s core-native=%s\\n" "$c" "$l" "$u" "$i" "$b" "$t";
+test "$c$l$u$i$b$t" = 000000'`: overall exit 1. Linux check/lint/build and **120
+  unit pass**; unfiltered integration **54 fail / 146 pass (200), no exclusions or
+  skips**; explicit startup/core/native suite **66 pass**. Root maintenance/modes,
+  Sharp/SQLite/archive probes and all four Git cases execute; actual archive restore
+  remains blocked, not passed by probes.
+- Pinned `node .browser-spike/verify-ss02-image.mjs`: **pass** normal unmodified
+  production Dockerfile via actual clean-source wrapper in an isolated synthetic
+  committed clone (no user commit). Fresh image dependency installs pass; existing
+  two low Mermaid/KaTeX advisories remain. A pinned retry first hit a tooling-generated
+  NUL file; removed only that new file and reran successfully. Original latest preserved.
+  Synthetic image `localhost/pandanote-ss02-verification:latest`, ID
+  `23ed8d0ea0529ca367b788e53a30dcadb289261464815649a009e9944eadc4cd`,
+  version `261009-1`, commit `04b07901a693b8899146c1f6c19d08b1987ae484`: **NOT a release**.
+- Pinned `node .browser-spike/probe-ss02-image.mjs`: **pass** fresh root-owned Linux
+  bind, forced /data, PID 1 Node, UID/GID 12345:12346, effective/permitted capabilities
+  zero, secret-free server environment, one safe legacy notice, ready schema/settings/
+  keys, restart persistence, root-ID refusal, named reindex and wrong-owner refusal.
+  Idle SIGTERM exits 0 within default 10 s. Real Caddy **2.11.6** with only
+  `localhost { reverse_proxy pandanote-ss02-app:3000 }` plus actual Chromium TLS/login
+  load passes; Caddy replaces spoofed XFF, three spoof/nonspoof login attempts use
+  the same real-client rate bucket and no spoof bucket. First diagnostic attempted
+  /proc/1/environ as image root and got EACCES; reran as the actual app UID. The first
+  diagnostic also selected system Node 24.15; final probe/wrapper reruns use explicit
+  24.21.0. Self-signed TLS trust is test-context-only. Probe containers/bind removed.
+
+Remaining / next:
+
+- Common gate and normal e2e remain blocked by SS03 auth fixtures/setup; SS05 archives/
+  interactive reset are not functional. No full SS02/SS01 completion, public VPS,
+  production setup, maximum-size restore or backup-during-stop success is claimed.
+- Strict pre-upgrade directory atomic exchange remains SS01's documented clarification.
+  SS06 owns simple Compose/deployment artifacts; SS07 owns full doc rewrites/regression.
+- Next task: **SS03**, starting strict username/email/password/setup schemas and
+  atomic createAccount, then username login/routing/preferences and real fixtures.
+  Read the files in the current next-session list; first command is
+  `npm run check && npm run test:integration -- startup container-bootstrap migrations pre-upgrade`.
+  Logs/harnesses are ignored under `.browser-spike/`; original data/keys/archives retained.
+
+Final close rerun after documentation updates used the explicit pinned executable
+(`v24.21.0` verified), npm CLI and PATH/TLS=1: check/lint/build **pass**, **120 unit
+pass**, unfiltered integration **54 fail / 143 pass / 3 Linux-only skips (200)**,
+unchanged known blockers. Overall gate remains exit 1. Linux images/probe above
+precede documentation-only edits, not application changes. `git diff --check` and
+fixture cleanup pass; package-lock unchanged, no NUL remains, original latest still
+points to `05a2848ebd8e2c7ea6882c584694ec6e55df135fb93a5513d5cb54da40e53f14`.

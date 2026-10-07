@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
+  chownSync,
   existsSync,
   linkSync,
   lstatSync,
@@ -15,8 +16,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { bootstrapContainer } from '../../scripts/container-bootstrap.ts';
-import { AuthService } from '../../src/lib/server/auth/service.ts';
-import { tokenHash, newAuthToken } from '../../src/lib/server/auth/tokens.ts';
+import { DEFAULT_SETTINGS } from '../../src/lib/shared/settings.ts';
+import { readSettings } from '../../src/lib/server/settings/repository.ts';
+import { SCHEMA_VERSION } from '../../src/lib/server/db/migrations.ts';
+import { ignoreLegacyEnvironment } from '../../src/lib/server/initialize.ts';
+import { vi } from 'vitest';
 import { Persistence } from '../../src/lib/server/db/connection.ts';
 import {
   PrivateStorage,
@@ -26,81 +30,63 @@ import { JournalStore } from '../../src/lib/server/maintenance/journal.ts';
 import { WriteCoordinator } from '../../src/lib/server/maintenance/coordinator.ts';
 import { withPersistence } from '../helpers/persistence.ts';
 
-it('bootstraps fresh native storage; repeated startup preserves keys/token expiry; setup consumes it', async () => {
+it('bootstraps fresh native storage without a token or seeded account; restart preserves keys/settings', async () => {
   const root = mkdtempSync(join(tmpdir(), 'pandanote-container-init-'));
   let persistence: Persistence | undefined;
-  const token = newAuthToken();
   const options = { dataDir: root, production: true };
   try {
-    await bootstrapContainer(token, options);
+    await bootstrapContainer(options);
     const storage = new PrivateStorage(options);
     const keys = readFileSync(storage.keyPath);
     persistence = new Persistence(storage);
-    const pending = persistence.native
-      .prepare('SELECT * FROM setup_tokens')
-      .get();
-    expect(pending).toMatchObject({ token_hash: tokenHash('setup', token) });
-    expect(JSON.stringify(pending)).not.toContain(token);
-    await persistence.close();
-    persistence = undefined;
-    await bootstrapContainer(token, options);
-    expect(readFileSync(storage.keyPath)).toEqual(keys);
-    persistence = new Persistence(storage);
-    expect(
-      persistence.native.prepare('SELECT * FROM setup_tokens').get(),
-    ).toEqual(pending);
-    const auth = new AuthService(persistence);
-    await auth.setup(
-      token,
-      'synthetic password for container setup',
-      '192.0.2.180',
+    expect(readSettings(persistence)).toEqual(DEFAULT_SETTINGS);
+    expect(persistence.native.pragma('user_version', { simple: true })).toBe(
+      SCHEMA_VERSION,
     );
-    const owner = persistence.native.prepare('SELECT * FROM account').get();
-    await persistence.close();
-    persistence = undefined;
-    // Even stale/invalid configured tokens cannot reset an existing account.
-    await bootstrapContainer(
-      'invalid-but-ignored-for-existing-account',
-      options,
-    );
-    await bootstrapContainer(undefined, options);
-    persistence = new Persistence(storage);
-    expect(persistence.native.prepare('SELECT * FROM account').get()).toEqual(
-      owner,
+    expect(persistence.native.prepare('SELECT * FROM account').all()).toEqual(
+      [],
     );
     expect(
-      persistence.native.prepare('SELECT * FROM setup_tokens').all(),
+      persistence.native
+        .prepare("SELECT name FROM sqlite_schema WHERE name='setup_tokens'")
+        .all(),
     ).toEqual([]);
+    persistence.write((tx) =>
+      tx.run(
+        "UPDATE app_settings SET value_json=json_set(value_json, '$.timezone', 'Asia/Tokyo')",
+      ),
+    );
+    await persistence.close();
+    persistence = undefined;
+    await bootstrapContainer(options);
+    expect(readFileSync(storage.keyPath)).toEqual(keys);
+    expect(existsSync(storage.preUpgradeDirectory('current'))).toBe(false);
+    persistence = new Persistence(storage);
+    expect(readSettings(persistence).timezone).toBe('Asia/Tokyo');
   } finally {
     await persistence?.close();
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-it('environment token rotation is explicit, expiry is not renewed, and missing/invalid initial tokens fail closed', async () => {
-  await withPersistence(async (p) => {
-    let now = 1_800_000_000_000;
-    const auth = new AuthService(p, () => now);
-    expect(() => auth.bootstrapSetupToken(undefined)).toThrow(/SETUP_TOKEN/);
-    expect(() => auth.bootstrapSetupToken('short')).toThrow();
-    const first = newAuthToken();
-    auth.bootstrapSetupToken(first);
-    now += 60 * 60_000;
-    auth.bootstrapSetupToken(first);
-    await expect(
-      auth.setup(first, 'synthetic password only', '192.0.2.181'),
-    ).rejects.toMatchObject({ code: 'unauthorized' });
-    const second = newAuthToken();
-    auth.bootstrapSetupToken(second);
-    await expect(
-      auth.setup(first, 'synthetic password only', '192.0.2.182'),
-    ).rejects.toMatchObject({ code: 'unauthorized' });
-    expect(
-      p.native.prepare('SELECT token_hash FROM setup_tokens').get(),
-    ).toEqual({ token_hash: tokenHash('setup', second) });
-    auth.bootstrapSetupToken(undefined); // Existing CLI/environment token is retained.
-    await auth.setup(second, 'synthetic password only', '192.0.2.183');
-  });
+it('ignores and scrubs legacy variables with one value-free notice, including invalid values', () => {
+  const env = {
+    SETUP_TOKEN: 'synthetic-legacy-secret',
+    TRUSTED_PROXY_IPS: '*invalid*',
+  };
+  const notice = vi.spyOn(console, 'info').mockImplementation(() => {});
+  try {
+    ignoreLegacyEnvironment(env);
+    ignoreLegacyEnvironment(env);
+    expect(env).toEqual({});
+    expect(notice).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(notice.mock.calls)).not.toContain(
+      'synthetic-legacy-secret',
+    );
+    expect(JSON.stringify(notice.mock.calls)).not.toContain('*invalid*');
+  } finally {
+    notice.mockRestore();
+  }
 });
 
 it('startup recovers a pending restore journal before opening/migrating the database', async () => {
@@ -117,7 +103,7 @@ it('startup recovers a pending restore journal before opening/migrating the data
       updatedAt: Date.now(),
     });
     await p.close();
-    await bootstrapContainer(newAuthToken(), {
+    await bootstrapContainer({
       dataDir: storage.root,
       production: true,
     });
@@ -163,6 +149,50 @@ it.skipIf(process.platform !== 'linux' || process.getuid?.() !== 0)(
       });
       expect(lstatSync(data).uid).toBe(12345);
       expect(lstatSync(join(data, 'synthetic')).mode & 0o777).toBe(0o600);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+it.skipIf(process.platform !== 'linux' || process.getuid?.() !== 0)(
+  'Linux maintenance verifies ownership, drops privileges without walking/chowning, and rejects wrong owners',
+  () => {
+    const root = mkdtempSync(join(tmpdir(), 'pandanote-maintenance-user-'));
+    const data = join(root, 'data');
+    try {
+      chmodSync(root, 0o755);
+      mkdirSync(data);
+      const run = () =>
+        spawnSync(
+          process.execPath,
+          [
+            '--input-type=module',
+            '-e',
+            `import { becomeContainerUser } from './scripts/container-user.ts';
+         import { readFileSync } from 'node:fs';
+         becomeContainerUser({uid:12345,gid:12346}, {dataDir:process.env.DATA_DIR, production:true}, true);
+         console.log(JSON.stringify({uid:process.getuid(),gid:process.getgid(),caps:readFileSync('/proc/self/status','utf8').match(/CapEff:\\s*(\\w+)/)[1]}));`,
+          ],
+          { encoding: 'utf8', env: { ...process.env, DATA_DIR: data } },
+        );
+      expect(run().status).toBe(1);
+      expect(lstatSync(data).uid).toBe(0);
+      chownSync(data, 12345, 12346);
+      // A full walk would refuse this deliberately unsafe child. Maintenance must
+      // not traverse or mutate it; the domain tool still validates paths it opens.
+      symlinkSync('/outside/not-read', join(data, 'not-followed'));
+      writeFileSync(join(data, 'untouched'), 'private');
+      chmodSync(join(data, 'untouched'), 0o640);
+      const result = run();
+      expect(result.status, result.stderr).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({
+        uid: 12345,
+        gid: 12346,
+        caps: '0000000000000000',
+      });
+      expect(lstatSync(join(data, 'untouched')).uid).toBe(0);
+      expect(lstatSync(join(data, 'untouched')).mode & 0o777).toBe(0o640);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

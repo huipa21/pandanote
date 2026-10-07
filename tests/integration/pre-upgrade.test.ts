@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { startupArgs } from '../helpers/startup.ts';
 import { randomUUID } from 'node:crypto';
 import {
   existsSync,
@@ -325,7 +326,7 @@ it('recovers first-copy interruption and rejects unsafe private upgrade paths wi
     expect(db.pragma('user_version', { simple: true })).toBe(1);
   });
 });
-it('the actual stopped-app CLI snapshots a known older schema before upgrade and refuses low space with a safe log', async () => {
+it('shared startup snapshots a known older schema before upgrade and refuses low space with a safe log', async () => {
   await fixture(async (db, storage) => {
     const trusted = loadMigrations();
     applyMigrations(db, trusted.slice(0, 1));
@@ -337,7 +338,7 @@ it('the actual stopped-app CLI snapshots a known older schema before upgrade and
     };
     let output = '';
     try {
-      execFileSync(process.execPath, ['scripts/migrate.ts'], {
+      execFileSync(process.execPath, startupArgs, {
         env,
         encoding: 'utf8',
         timeout: 30_000,
@@ -350,7 +351,7 @@ it('the actual stopped-app CLI snapshots a known older schema before upgrade and
     );
     expect(db.pragma('user_version', { simple: true })).toBe(1);
     expect(existsSync(storage.preUpgradeDirectory('current'))).toBe(false);
-    const success = execFileSync(process.execPath, ['scripts/migrate.ts'], {
+    const success = execFileSync(process.execPath, startupArgs, {
       env: { ...env, DISK_RESERVE_BYTES: '0' },
       encoding: 'utf8',
       timeout: 30_000,

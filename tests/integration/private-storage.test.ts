@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { startupArgs } from '../helpers/startup.ts';
 import {
   existsSync,
   mkdirSync,
@@ -134,12 +135,12 @@ it('durably replaces bounded validated journals, supports exclusive leases and b
     store.remove(journal.id);
   });
 });
-it('runs the real explicit migration CLI twice without demo data or rotating keys', () => {
+it('runs shared startup twice without demo data or rotating keys', () => {
   const root = mkdtempSync(join(tmpdir(), 'pandanote-cli-'));
   try {
     const env = { ...process.env, DATA_DIR: root, NODE_ENV: 'production' };
     const run = () =>
-      execFileSync(process.execPath, ['scripts/migrate.ts'], {
+      execFileSync(process.execPath, startupArgs, {
         env,
         encoding: 'utf8',
       });

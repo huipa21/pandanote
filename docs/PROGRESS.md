@@ -10,7 +10,7 @@
 - **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
 - **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
 
-## Active change: simplify setup and deployment (SS01 in progress)
+## Active change: simplify setup and deployment (SS01/SS02 gates blocked)
 
 User approved on 2026-10-06 (interview in `docs/simplify-setup/DECISIONS.md`): no setup
 token; browser setup (username, email, password ×2 → site title, language, timezone);
@@ -18,10 +18,12 @@ username login, 8–128 character passwords; automatic migrations with data step
 pre-upgrade copy; one minimal root `docker-compose.yml` + one-line `.env.example`;
 interactive `reset-password`. Greenfield: pre-release data/archives are refused, not
 migrated. Plan, acceptance, operations and its own progress log live in
-`docs/simplify-setup/`. **SS01 baseline/runner/copy implemented; full gate blocked**
-by planned SS02/SS03 startup/setup and SS05 archive integration. Current intermediate
-checkout is not deployable for fresh setup. Next planned integration: SS02; see
-`docs/simplify-setup/PROGRESS.md` (SS01 is not marked done).
+`docs/simplify-setup/`. **SS01 baseline/runner/copy and SS02 startup/proxy core
+implemented; full gates blocked** by SS03 account/setup and SS05 archive/recovery
+integration. Fresh dev/start/container initialization and Linux image/private-proxy
+behavior now pass. The intermediate checkout is still not deployable for note-taking.
+Next planned integration: **SS03**; see `docs/simplify-setup/PROGRESS.md` (neither
+SS01 nor SS02 is marked done).
 This supersedes the setup-token parts of the follow-up below.
 
 ## Active follow-up: out-of-box container startup
@@ -87,8 +89,8 @@ pandanote-version-native`. S18's outstanding VPS/device/screen-reader gates rema
 ## Next session: exact instructions
 
 **Current priority:** the approved simplify-setup change — follow
-`docs/simplify-setup/PROGRESS.md` (SS01 core implemented / gate blocked; next planned
-integration SS02). The S18 items below remain open.
+`docs/simplify-setup/PROGRESS.md` (SS01/SS02 core implemented / gates blocked;
+next planned integration **SS03**). The S18 items below remain open.
 
 1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
 2. Complete the version enhancement's blocked Linux Git/cold-build validation, then commit the enhancement (user approval; S18 itself is already committed). On a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
@@ -3290,3 +3292,48 @@ Final host close rerun: check/lint/build PASS, 119 unit PASS; full integration
 **57 fail / 136 pass / 2 Windows skips (195)**, same six old-token-dependent files.
 All new migration/core tests pass in that unfiltered run. No source edits after
 these current-baseline Linux/host validations; only handoff formatting remains.
+
+### Session 2026-10-07 — SS02 one startup path, environment and proxy trust
+
+**State: core implemented / full gate blocked.** Started clean at `65c6067`; no
+user-repository commit, dependency/lockfile change or application-data deletion.
+
+Implemented/touched: `server/initialize.ts`, `runtime.ts`, Kit `init`/hooks, auth
+policy, container entry/bootstrap/user, Vite origin handoff, package/env template,
+minimal Docker COPY update and startup/policy/command/bootstrap/readiness/core tests.
+Recovery → keys → trusted migration/pre-upgrade copy → settings now runs at startup
+for container/dev/start; requests only access an already-ready runtime. Installed
+adapter 6 awaits init before listen; build analysis skips initialization. Local
+origin/data defaults, required production ORIGIN, forced container /data and safe
+value-free legacy notices are implemented. Private-network BlockList trust accepts
+one XFF, falls back when absent, rejects invalid/chains, ignores public-peer XFF.
+Named tools skip chown walks, verify ownership and permanently drop privileges.
+Migrate/token package scripts/files are removed. `reset-password` is reserved but
+**explicitly unavailable until SS05**, not a completed recovery feature.
+
+Actual checks: host check/lint/build pass, **120 unit pass**; four new startup tests
+pass. Unfiltered host integration **54 fail / 143 pass / 3 Linux-only skips (200)**;
+normal affected auth/version Playwright **blocked at obsolete fixture initialization**,
+no tests passed. Linux Git/CA/cached-clean-ci image: check/lint/build and **120 unit
+pass**; unfiltered integration **54 fail / 146 pass (200), no exclusions/skips**;
+explicit startup/core/SQLite/Sharp/archive suite **66 pass**. All failures remain
+in five retired-token-dependent auth/archive/runtime fixture files; no assertions
+excluded or removed to claim a common gate.
+
+Normal production Dockerfile/wrapper in an isolated synthetic committed snapshot
+passes (original latest preserved; **not a release**). Actual Linux root-owned bind
+probe passes PID 1 Node, UID/GID 12345:12346, CapEff/CapPrm=0, forced /data, secret-free
+HTTP environment, migration/settings/keys, restart, root-ID/owner refusal, named
+reindex and idle SIGTERM exit 0 within 10 s. Actual Chromium + Caddy 2.11.6 minimal
+TLS site passes default spoofed-XFF replacement and real-client rate-bucket tests.
+Detailed exact commands, image IDs, failures/retries and scoped evidence:
+`docs/simplify-setup/PROGRESS.md`. Initial check/lint/test expectation issues and
+root /proc diagnostic EACCES were corrected; tooling-created NUL removed. No actual
+account setup, archive restore or live reset-password completion claimed.
+
+Next: **SS03** strict account/setup schemas, createAccount, username login, two-step
+setup/routing and genuine fixtures. Read change SPEC/PLAN/progress, shared auth/settings,
+auth service/policy, initializer/runtime/hooks and setup/login/settings/browser fixtures.
+First command: `npm run check && npm run test:integration -- startup container-bootstrap migrations pre-upgrade`.
+SS01 directory atomicity and SS05 archive integration remain open; SS06 deployment
+files and SS07 doc/full-regression work remain. S18 manual/VPS gates stay open.

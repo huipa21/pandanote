@@ -249,8 +249,9 @@ one IMMEDIATE transaction. Ledgers lacking that identity are refused as pre-rele
 there is no compatibility retrofit. SQL history is now schema v2: generated
 `0000_baseline.sql` (18 tables, required account username/email, no setup-token table)
 and custom `0001_guards_and_search.sql` (existing guards + FTS5). Version-2 data step
-backfills search for known-v1 staging. Old token setup entry points fail closed until
-SS02/SS03 remove/replace them; fresh deployment is currently not usable. Format-v2
+backfills search for known-v1 staging. Old token account setup entry points fail closed until
+SS03 replaces them; shared startup now initializes fresh deployments (SS02), but
+browser account setup is still unusable. Format-v2
 archive integration is SS05. Passing migration tests do not close the application gate.
 Live container/CLI entry paths use an async pre-upgrade wrapper: online snapshot
 including WAL, page-count-based space estimate plus reserve, fsynced private DB/
@@ -265,6 +266,35 @@ uses durable journaled rotation with a retained old copy and startup recovery be
 migration, not a single atomic exchange. Strict directory atomicity remains an
 explicit SS01 design clarification; no completion is claimed. Details/tests/handoff:
 [simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
+
+### SS02 shared startup, environment and proxy contracts (core implemented / gate blocked)
+
+- `server/initialize.ts` is the single async startup sequence: restore recovery,
+  portable keys, trusted migration/pre-upgrade copy, default settings. Container
+  calls it after privilege drop; Kit `init` calls it for dev/built start, skipping
+  build analysis through Kit 3 `$app/env`. Current schemas are a no-op upgrade.
+  `getRuntime` never initializes or migrates on requests. Native error causes stay
+  server-side; Kit's logging boundary throws only safe value-free messages.
+- Installed adapter-node 6 `handler.js` awaits `server.init` at module top level;
+  `index.js` imports that handler before `listen`. Initialization failures therefore
+  exit production without listening. Vite also awaits init before handle responses.
+- Non-production defaults: `DATA_DIR=./data`, dev origin `http://localhost:5173`,
+  built start origin `http://localhost:3000`. Production needs canonical ORIGIN
+  (HTTPS outside loopback) and an absolute private path; container forces `/data`.
+  Legacy setup-token/proxy-IP values are ignored/scrubbed with one safe notice.
+- Client rate-limit IP comes from the actual TCP peer. A Node BlockList trusts
+  loopback, RFC1918, IPv4/IPv6 link-local and IPv6 ULA, including mapped IPv4.
+  Trusted peers use exactly one valid XFF address or their peer when absent;
+  malformed/empty/chained XFF is 400. Public peers ignore XFF. Adapter forwarding
+  overrides remain forbidden; configured ORIGIN still governs CSRF/cookies.
+- Container accepts only default server or argument-free `reset-password`/`reindex`.
+  Maintenance checks mount PUID/PGID ownership and skips recursive ownership changes
+  before permanent privilege drop. Linux default-capability image verifies PID 1
+  Node with zero effective/permitted capabilities and idle shutdown within 10 s.
+- Migrate/setup-token package scripts/files are removed; stopped-app reindex remains.
+  Reset-password is a reserved fail-closed entry, not functional recovery until SS05.
+  Browser setup/auth fixtures and archive integration still block the full gate;
+  evidence/status are in [simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
 
 ### 4.4 S07 implemented note mutation contracts
 

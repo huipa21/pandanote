@@ -27,8 +27,12 @@ it('preserves Unicode password bytes and validates bounded credentials without e
     }).success,
   ).toBe(false);
 });
-it('requires a configured origin, HTTPS outside loopback and explicit proxy trust', () => {
-  expect(() => authPolicy({})).toThrow(/ORIGIN/);
+it('defaults local origins, requires production ORIGIN and retains HTTPS/forwarding protections', () => {
+  expect(authPolicy({}).origin).toBe('http://localhost:3000');
+  expect(authPolicy({}, true).origin).toBe('http://localhost:5173');
+  expect(() => authPolicy({ NODE_ENV: 'production' })).toThrow(
+    /ORIGIN must be set/,
+  );
   for (const origin of [
     'http://example.org',
     'https://a:secret@example.org',
@@ -53,24 +57,77 @@ it('requires a configured origin, HTTPS outside loopback and explicit proxy trus
     expect(() =>
       authPolicy({ ORIGIN: 'https://notes.example.org', [name]: 'spoofable' }),
     ).toThrow(/overrides/);
-  expect(() =>
-    authPolicy({ ORIGIN: 'https://notes.example.org', TRUSTED_PROXY_IPS: '*' }),
-  ).toThrow();
+  expect(
+    authPolicy({ ORIGIN: 'https://notes.example.org', TRUSTED_PROXY_IPS: '*' })
+      .origin,
+  ).toBe('https://notes.example.org');
 });
-it('ignores spoofed headers from untrusted peers and accepts only an overwritten single IP from a trusted edge', () => {
-  const policy = authPolicy({
-    ORIGIN: 'https://notes.example.org',
-    TRUSTED_PROXY_IPS: '127.0.0.1,::1',
-  });
+it('trusts exactly private peer ranges, including mapped v4, with single-IP XFF only', () => {
+  const privateIps = [
+    '127.0.0.1',
+    '127.255.255.254',
+    '10.0.0.1',
+    '10.255.255.255',
+    '172.16.0.1',
+    '172.31.255.255',
+    '192.168.0.1',
+    '169.254.0.1',
+    '::1',
+    'fc00::1',
+    'fdff::1',
+    'fe80::1',
+    'febf::1',
+    'fe80::1%eth0',
+    '::ffff:127.0.0.1',
+    '::ffff:192.168.1.1',
+    '::ffff:c0a8:101',
+  ];
+  const publicIps = [
+    '192.0.2.3',
+    '172.15.255.255',
+    '172.32.0.1',
+    '169.253.0.1',
+    '100.64.0.1',
+    '0.0.0.0',
+    '::',
+    '2001:db8::1',
+    'fec0::1',
+    'fbff::1',
+    '::ffff:192.0.2.3',
+    '::ffff:c000:203',
+    '::192.168.1.1',
+  ];
   const headers = new Headers({
     'x-forwarded-for': '198.51.100.20',
     'x-forwarded-host': 'attacker.invalid',
   });
-  expect(clientIp('192.0.2.3', headers, policy)).toBe('192.0.2.3');
-  expect(clientIp('127.0.0.1', headers, policy)).toBe('198.51.100.20');
-  headers.set('x-forwarded-for', '198.51.100.20, 192.0.2.3');
-  expect(() => clientIp('127.0.0.1', headers, policy)).toThrow(/proxy/);
-  expect(() => clientIp('127.0.0.1', new Headers(), policy)).toThrow(/proxy/);
+  for (const peer of privateIps) {
+    expect(clientIp(peer, headers), peer).toBe('198.51.100.20');
+    expect(clientIp(peer, new Headers()), peer).toBe(peer);
+    for (const invalid of [
+      '',
+      'not-an-ip',
+      '198.51.100.20, 192.0.2.3',
+      '198.51.100.20:123',
+      '[::1]',
+      '001.2.3.4',
+    ])
+      expect(
+        () => clientIp(peer, new Headers({ 'x-forwarded-for': invalid })),
+        peer,
+      ).toThrow(/proxy/);
+    expect(
+      clientIp(peer, new Headers({ 'x-forwarded-for': '2001:db8::2' })),
+    ).toBe('2001:db8::2');
+  }
+  for (const peer of publicIps) {
+    expect(clientIp(peer, headers), peer).toBe(peer);
+    expect(
+      clientIp(peer, new Headers({ 'x-forwarded-for': 'invalid, chain' })),
+    ).toBe(peer);
+  }
+  for (const peer of ['', 'invalid', '[::1]', '127.0.0.1:80'])
+    expect(() => clientIp(peer, headers)).toThrow(/client address/);
 });
 it('rejects missing/foreign/null origins and cross-site mutations, including login/setup/uploads', () => {
   const policy = authPolicy({ ORIGIN: 'https://notes.example.org' });

@@ -76,6 +76,7 @@ describe('production surface hygiene', () => {
       'HOST_HEADER',
       'PROTOCOL_HEADER',
       'PORT_HEADER',
+      'SETUP_TOKEN',
       'TRUSTED_PROXY_IPS',
     ]);
     for (const path of files('src')) {
@@ -105,7 +106,10 @@ describe('deployment artifacts', () => {
     expect(entry.indexOf('becomeContainerUser(')).toBeLessThan(
       entry.indexOf('await bootstrapContainer('),
     );
-    expect(entry).toContain('delete process.env.SETUP_TOKEN');
+    expect(entry).toContain('ignoreLegacyEnvironment(process.env)');
+    expect(read('src/lib/server/initialize.ts')).toContain(
+      'delete env.SETUP_TOKEN',
+    );
     expect(entry).toContain('process.execve(');
     const user = read('scripts/container-user.ts');
     expect(user).toContain('process.setuid(identity.uid)');

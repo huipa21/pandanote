@@ -53,7 +53,7 @@ COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY package.json ./
 COPY migrations ./migrations
-COPY scripts/migrate.ts scripts/setup-token.ts scripts/auth-recover.ts scripts/reindex.ts scripts/container-entry.ts scripts/container-bootstrap.ts scripts/container-user.ts ./scripts/
+COPY scripts/reset-password.ts scripts/reindex.ts scripts/container-entry.ts scripts/container-bootstrap.ts scripts/container-user.ts ./scripts/
 COPY src/lib ./src/lib
 # Private persistent root. A named volume inherits this owner/mode on first use.
 RUN mkdir /data && chown node:node /data && chmod 700 /data

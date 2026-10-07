@@ -1,16 +1,34 @@
-import { isIP } from 'node:net';
+import { BlockList, isIP } from 'node:net';
 import { DomainError } from '../../shared/domain.ts';
 
+export class StartupConfigurationError extends Error {}
 export interface AuthPolicy {
   origin: string;
   production: boolean;
-  trustedProxyIps: string[];
 }
-export function authPolicy(env: NodeJS.ProcessEnv): AuthPolicy {
-  if (!env.ORIGIN) throw new Error('ORIGIN must be explicitly configured');
-  const url = new URL(env.ORIGIN);
+export function authPolicy(
+  env: NodeJS.ProcessEnv,
+  development = false,
+): AuthPolicy {
+  const value =
+    env.ORIGIN ??
+    (env.NODE_ENV === 'production'
+      ? undefined
+      : `http://localhost:${development ? 5173 : 3000}`);
+  if (!value)
+    throw new StartupConfigurationError(
+      'ORIGIN must be set in production (https://your-domain, no trailing slash).',
+    );
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new StartupConfigurationError(
+      'ORIGIN must be a canonical HTTP(S) origin',
+    );
+  }
   if (
-    env.ORIGIN !== url.origin ||
+    value !== url.origin ||
     url.username ||
     url.password ||
     url.pathname !== '/' ||
@@ -18,51 +36,54 @@ export function authPolicy(env: NodeJS.ProcessEnv): AuthPolicy {
     url.hash ||
     !['https:', 'http:'].includes(url.protocol)
   )
-    throw new Error('ORIGIN must be a canonical HTTP(S) origin');
+    throw new StartupConfigurationError(
+      'ORIGIN must be a canonical HTTP(S) origin',
+    );
   if (
     url.protocol === 'http:' &&
     !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
   )
-    throw new Error(
+    throw new StartupConfigurationError(
       'HTTP is permitted only on loopback development/test origins',
     );
-  // Keep Kit's client-address source the actual peer. Proxy trust is explicit
-  // here rather than allowing attacker-controlled forwarding headers globally.
+  // Keep Kit's client-address source the actual TCP peer. Apply private-network
+  // trust here, never through adapter-wide forwarding overrides.
   if (
     env.ADDRESS_HEADER ||
     env.HOST_HEADER ||
     env.PROTOCOL_HEADER ||
     env.PORT_HEADER
   )
-    throw new Error(
-      'Adapter forwarding overrides are unsupported; configure ORIGIN and TRUSTED_PROXY_IPS',
-    );
-  const trustedProxyIps = (env.TRUSTED_PROXY_IPS ?? '')
-    .split(',')
-    .map((ip) => ip.trim())
-    .filter(Boolean);
-  if (trustedProxyIps.length > 16 || trustedProxyIps.some((ip) => !isIP(ip)))
-    throw new Error(
-      'TRUSTED_PROXY_IPS must contain at most 16 exact IP addresses',
+    throw new StartupConfigurationError(
+      'Adapter forwarding overrides are unsupported; configure ORIGIN only',
     );
   return {
     origin: url.origin,
     production: env.NODE_ENV === 'production',
-    trustedProxyIps,
   };
 }
-export function clientIp(
-  peer: string,
-  headers: Headers,
-  policy: AuthPolicy,
-): string {
-  if (!isIP(peer))
-    throw new DomainError('validation', 'Invalid client address.');
-  if (!policy.trustedProxyIps.includes(peer)) return peer;
-  // The configured edge MUST overwrite X-Forwarded-For with one address.
-  // Chains, invalid values and missing headers fail closed, not first/last guesses.
+const privatePeers = new BlockList();
+for (const [address, prefix] of [
+  ['127.0.0.0', 8],
+  ['10.0.0.0', 8],
+  ['172.16.0.0', 12],
+  ['192.168.0.0', 16],
+  ['169.254.0.0', 16],
+] as const)
+  privatePeers.addSubnet(address, prefix, 'ipv4');
+privatePeers.addAddress('::1', 'ipv6');
+privatePeers.addSubnet('fc00::', 7, 'ipv6');
+privatePeers.addSubnet('fe80::', 10, 'ipv6');
+
+export function clientIp(peer: string, headers: Headers): string {
+  const family = isIP(peer);
+  if (!family) throw new DomainError('validation', 'Invalid client address.');
+  // BlockList handles mapped IPv4 (including hex notation) against IPv4 ranges.
+  // A private peer must overwrite XFF: never guess a first/last hop from a chain.
+  if (!privatePeers.check(peer, family === 4 ? 'ipv4' : 'ipv6')) return peer;
   const forwarded = headers.get('x-forwarded-for');
-  if (!forwarded || !isIP(forwarded))
+  if (forwarded === null) return peer;
+  if (!isIP(forwarded))
     throw new DomainError('validation', 'Invalid proxy client address.');
   return forwarded;
 }

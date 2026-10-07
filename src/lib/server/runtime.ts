@@ -1,4 +1,3 @@
-import { PrivateStorage } from './storage/private-storage.ts';
 import { Persistence } from './db/connection.ts';
 import { readSettings } from './settings/repository.ts';
 import { AuthService } from './auth/service.ts';
@@ -10,7 +9,11 @@ import { authPolicy, type AuthPolicy } from './auth/policy.ts';
 import { BackupService } from './backups/service.ts';
 import { DiskBudget } from './attachments/resources.ts';
 import { RestoreService } from './backups/restore.ts';
-import { recoverRestores } from './backups/replacement.ts';
+import {
+  initializeApplication,
+  ignoreLegacyEnvironment,
+  ApplicationInitializationError,
+} from './initialize.ts';
 
 export interface Runtime {
   persistence: Persistence;
@@ -25,13 +28,16 @@ export interface Runtime {
   close: () => Promise<void>;
 }
 let current: Runtime | undefined;
-// Lazy so builds and public liveness require no database. No migrations or
-// account/key creation in requests. Failed initialization returns safe 503.
-export function getRuntime(): Runtime {
-  if (current) return current;
-  const policy = authPolicy(process.env);
-  const storage = new PrivateStorage();
-  recoverRestores(storage);
+let initializing: Promise<void> | undefined;
+// Init is called by Kit before requests, never by getRuntime/health/handle.
+export function initializeRuntime(development = false): Promise<void> {
+  return (initializing ??= openRuntime(development));
+}
+async function openRuntime(development: boolean): Promise<void> {
+  ignoreLegacyEnvironment(process.env);
+  const policy = authPolicy(process.env, development);
+  process.env.ORIGIN = policy.origin;
+  const storage = await initializeApplication();
   const persistence = new Persistence(storage);
   try {
     readSettings(persistence);
@@ -49,6 +55,7 @@ export function getRuntime(): Runtime {
         await backups.wait();
         await persistence.close();
       }));
+    await ready;
     current = {
       persistence,
       auth,
@@ -73,9 +80,15 @@ export function getRuntime(): Runtime {
     // development/tools without installing competing SIGTERM/SIGINT handlers.
     process.once('sveltekit:shutdown', onShutdown);
     process.once('beforeExit', onShutdown);
-    return current;
   } catch (error) {
-    void persistence.close();
-    throw error;
+    await persistence.close();
+    throw new ApplicationInitializationError(
+      'PandaNote runtime initialization failed. Check private data and recovery. No requests served.',
+      { cause: error },
+    );
   }
+}
+export function getRuntime(): Runtime {
+  if (!current) throw new Error('PandaNote startup is not ready');
+  return current;
 }

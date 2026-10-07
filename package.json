@@ -26,14 +26,12 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "vite build && playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts",
     "search:reindex": "node --env-file-if-exists=.env scripts/reindex.ts",
     "search:benchmark": "node scripts/search-benchmark.ts",
     "backups:benchmark": "node scripts/backups-benchmark.ts",
-    "auth:setup-token": "node --env-file-if-exists=.env scripts/setup-token.ts",
     "auth:benchmark": "node scripts/auth-benchmark.ts",
     "images:benchmark": "node scripts/images-benchmark.ts",
-    "auth:recover": "node --env-file-if-exists=.env scripts/auth-recover.ts",
+    "reset-password": "node --env-file-if-exists=.env scripts/reset-password.ts",
     "spike:browser": "vite --config tests/browser/vite.config.ts --host 127.0.0.1 --port 4174 --strictPort"
   },
   "overrides": {

@@ -11,6 +11,24 @@ import {
   type StorageOptions,
 } from '../src/lib/server/storage/private-storage.ts';
 
+export function containerCommand(
+  args: string[],
+): 'server' | 'reset-password' | 'reindex' {
+  if (
+    args.length === 0 ||
+    (args.length === 2 && args[0] === 'node' && args[1] === 'build/index.js')
+  )
+    return 'server';
+  if (
+    args.length === 1 &&
+    (args[0] === 'reset-password' || args[0] === 'reindex')
+  )
+    return args[0];
+  throw new Error(
+    'Unsupported container command. Use reset-password or reindex without arguments.',
+  );
+}
+
 export interface ContainerIdentity {
   uid: number;
   gid: number;
@@ -78,15 +96,35 @@ export function prepareContainerData(
   }
 }
 
+/** Maintenance never walks or changes a live tree. Verify only the mount root;
+ * normal server startup already prepared its private inventory. */
+export function verifyContainerDataOwner(
+  identity: ContainerIdentity,
+  options: StorageOptions = {},
+): void {
+  const root = resolvePrivateRoot(options);
+  const stat = lstatSync(root);
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    stat.uid !== identity.uid ||
+    stat.gid !== identity.gid
+  )
+    throw new Error('Private data folder must already be owned by PUID/PGID');
+}
+
 /** setuid from root permanently clears root's effective/permitted capabilities. */
 export function becomeContainerUser(
   identity: ContainerIdentity,
   options: StorageOptions = {},
+  maintenance = false,
 ): void {
   if (!process.getuid || !process.getgid || !process.setuid || !process.setgid)
     throw new Error('Container entrypoint requires Linux user APIs');
+  if (maintenance || process.getuid() !== 0)
+    verifyContainerDataOwner(identity, options);
   if (process.getuid() === 0) {
-    prepareContainerData(identity, options);
+    if (!maintenance) prepareContainerData(identity, options);
     process.setgroups!([]);
     process.setgid(identity.gid);
     process.setuid(identity.uid);

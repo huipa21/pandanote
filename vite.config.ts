@@ -37,11 +37,12 @@ function runtimeOriginAdapter(): Adapter {
           marker,
           `export const origin = (() => {
   try {
-    const value = process.env.ORIGIN;
-    if (!value || new URL(value).origin !== value) throw new Error();
+    const value = process.env.ORIGIN ?? (process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : undefined);
+    if (!value) throw new Error('ORIGIN must be set in production');
+    if (new URL(value).origin !== value) throw new Error();
     return value;
   } catch {
-    throw new Error('Configure a canonical ORIGIN before starting PandaNote');
+    throw new Error('ORIGIN must be set in production and must be a canonical HTTP(S) origin');
   }
 })();`,
         ),

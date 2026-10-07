@@ -280,7 +280,7 @@ it('one production build honors two runtime origins, keeps data private, logs ou
   });
 }, 60_000);
 
-it('public health is readiness-aware without exposing state: 503 before explicit migration, 200 after', async () => {
+it('fresh server initializes before listening; public health is ready without manual migrations', async () => {
   const root = mkdtempSync(join(tmpdir(), 'pandanote-health-'));
   const port = await unusedPort();
   const base = `http://127.0.0.1:${port}`;
@@ -312,18 +312,24 @@ it('public health is readiness-aware without exposing state: 503 before explicit
         await delay(50);
       }
     }
-    expect(before?.status).toBe(503);
-    expect(await before?.json()).toEqual({ status: 'unavailable' });
+    expect(before?.status).toBe(200);
+    expect(await before?.json()).toEqual({ status: 'ok' });
     expect(before?.headers.get('cache-control')).toBe('no-store');
-    // Operator initialization is explicit and separate from the app process.
-    const migrate = spawnSync(process.execPath, ['scripts/migrate.ts'], {
-      env,
-      encoding: 'utf8',
-    });
-    expect(migrate.status, migrate.stderr).toBe(0);
-    const after = await fetch(`${base}/health`);
-    expect(after.status).toBe(200);
-    expect(await after.json()).toEqual({ status: 'ok' });
+    // Private TCP peers accept absent XFF and reject chains, never guess a hop.
+    expect(
+      (
+        await fetch(`${base}/login`, {
+          headers: { 'x-forwarded-for': 'invalid, chain' },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await fetch(`${base}/login`, {
+          headers: { 'x-forwarded-for': '192.0.2.1' },
+        })
+      ).status,
+    ).toBe(200);
   } finally {
     child.kill('SIGTERM');
     await delay(500);
