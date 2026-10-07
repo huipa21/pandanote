@@ -10,6 +10,20 @@
 - **Open before final release:** real VPS/public-domain/Let's Encrypt deployment, physical-device/IME/screen-reader audit, Linux visual baselines for `shell.test.ts`, maximum-bound/100k stress, decision on timeline virtualization (DOM grows linearly: 3,030 cards ≈ 448k nodes/176 MiB, next-page append 739 ms), commit/tag and rerun gates on that exact commit.
 - **Runtime:** Node 24.21.0 LTS; npm 11.12.1 (Windows) / 11.19.0 (Linux). Host commands need explicit pinned executable **and PATH**, plus `NODE_TLS_REJECT_UNAUTHORIZED=1`. Podman 5.8.2 on WSL2 with `docker-compose` v2.40.3 as compose provider (validation tooling only, not a repo dependency).
 
+## Active change: simplify setup and deployment (SS01 in progress)
+
+User approved on 2026-10-06 (interview in `docs/simplify-setup/DECISIONS.md`): no setup
+token; browser setup (username, email, password ×2 → site title, language, timezone);
+username login, 8–128 character passwords; automatic migrations with data steps and a
+pre-upgrade copy; one minimal root `docker-compose.yml` + one-line `.env.example`;
+interactive `reset-password`. Greenfield: pre-release data/archives are refused, not
+migrated. Plan, acceptance, operations and its own progress log live in
+`docs/simplify-setup/`. **SS01 baseline/runner/copy implemented; full gate blocked**
+by planned SS02/SS03 startup/setup and SS05 archive integration. Current intermediate
+checkout is not deployable for fresh setup. Next planned integration: SS02; see
+`docs/simplify-setup/PROGRESS.md` (SS01 is not marked done).
+This supersedes the setup-token parts of the follow-up below.
+
 ## Active follow-up: out-of-box container startup
 
 User explicitly approved replacing first-install manual CLI tasks with automatic
@@ -71,6 +85,10 @@ and deployment guide. First validation: `podman build -f ops/Dockerfile.validati
 pandanote-version-native`. S18's outstanding VPS/device/screen-reader gates remain open.
 
 ## Next session: exact instructions
+
+**Current priority:** the approved simplify-setup change — follow
+`docs/simplify-setup/PROGRESS.md` (SS01 core implemented / gate blocked; next planned
+integration SS02). The S18 items below remain open.
 
 1. Read `AGENTS.md`, `docs/RELEASE_RESULTS.md`, `ops/DEPLOYMENT.md` and the S18 handoff at the end of this file.
 2. Complete the version enhancement's blocked Linux Git/cold-build validation, then commit the enhancement (user approval; S18 itself is already committed). On a **real Linux VPS with a real domain** follow `ops/DEPLOYMENT.md`: first install, TOTP, manual backup/download, and an independent second deployment restore (different domain). Record results in `docs/RELEASE_RESULTS.md`.
@@ -3156,3 +3174,119 @@ Remaining / next task:
    native integration suite without exclusions. Real public HTTPS/VPS/device/IME/
    screen-reader/Linux visual S18 gates remain open. New root/capability/init behavior
    is Linux-verified, not a claim of final project completion.
+
+### Session 2026-10-07 — SS01 first runner/copy slice
+
+**State: in progress.** User requested starting SS01. Baseline HEAD `1dab01f`;
+existing uncommitted approved planning documents preserved. No commit or data deletion.
+
+Implemented/touched: `server/db/{migrations,data-migrations,pre-upgrade,upgrade-version}.ts`,
+private storage known upgrade paths, exact restore ledger identity check, existing
+container/CLI migration callers and safe logging, Vite immutable startup metadata,
+new data-step/copy integration tests and build-metadata assertion. SQL/data/ledger
+commit in one IMMEDIATE transaction; fixed `now`; safe rollback errors; private
+WAL-consistent pre-upgrade copy before pending live migrations; low-space refusal;
+fsynced retained-copy rotation/recovery including four killed-process boundaries.
+
+Host validation so far (Node 24.21.0/npm CLI/PATH/TLS=1): check PASS, unit **119 PASS**,
+integration **192 PASS + 2 Linux-only skips** (31 files). Initial copy tests failed
+because SQLite's online snapshot inherited WAL mode and verification created sidecars;
+fixed by detaching to DELETE mode and bounded interrupted-temp cleanup. Targeted rerun
+17/17 passed before expansion. Initial lint formatting failure corrected; final lint
+and build PASS. `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/version.test.ts
+ tests/e2e/zzrestore.test.ts`: **5 Chromium PASS**. No full browser/cold production-image
+run in this partial step.
+
+Linux: `podman machine start` restored the socket. Ignored validation Dockerfile
+`.browser-spike/Dockerfile.ss01-tests` uses verified Linux base `96858242b7d9...`,
+installs Git 2.39.5 + CA certificates and runs clean `npm ci --offline --no-audit`
+from Linux cache, never Windows modules (no fresh audit claimed). `podman build
+-f .browser-spike/Dockerfile.ss01-tests -t pandanote-ss01-native-tests .` then `podman
+run --rm --cpus=2 --memory=4g --name pandanote-ss01-native-validation
+pandanote-ss01-native-tests`: **PASS**, check/lint/build, **119 unit + all 194
+integration without skips/exclusions**, including native Sharp/SQLite/archives,
+restore/crash/fsync/modes/root and all four previously blocked Git cases. This
+resolves the old Linux Git exclusion for this checkout, not the release/cold-image
+or VPS/manual gates. Final cleanup-regression reruns recorded below.
+
+Remaining/deviation: SS01 is **not done**. Username/email, setup-token removal and
+new two-file baseline are pending; current five-file SQL history is retained so this
+first slice stays coherent/testable. Existing ledgers without data-step identity
+are pre-release and refused, never rewritten. Portable Node cannot replace a
+nonempty directory with a single atomic rename; crash-safe journaled rotation is
+implemented, but the literal single-exchange atomicity requirement remains an explicit
+design clarification. Full details and authoritative next task:
+`docs/simplify-setup/PROGRESS.md`. S18 manual/release gates remain open.
+
+Next: read SPEC §8/PLAN SS01, schema/migration/data-step/pre-upgrade modules, old guards/
+FTS SQL and migration/search/copy tests; complete **SS01 baseline tasks 1–2**, reset
+registry/version, preserve honest auth/archive fallout until SS03/SS05. First validation:
+`npm run test:integration -- migrations pre-upgrade search-migration`.
+
+### Session 2026-10-07 — SS01 continuation: schema baseline reset
+
+User requested continuing. **State: in progress / full integration gate blocked.**
+The earlier first-slice passes are historical, not passes for this new baseline.
+
+Implemented/touched: `schema.ts` account username/email NOT NULL and setup-token
+removal; generated two-file schema-v2 baseline (18 tables) with two snapshots/journal;
+reviewed existing guards + FTS5 custom SQL; version-2 registered search backfill;
+removed old five SQL/snapshot history. Migration/search/copy fixtures now use v1→v2,
+including isolated staged migration with live state unchanged. Synthetic test/
+benchmark account fields were updated, never production credentials. AuthService's
+obsolete token implementation/import/deletion is removed; retired typed methods
+fail closed until SS02/SS03 remove/replace their callers. No compatible legacy table,
+mock success or invented production username/email. Documentation/handoff updated.
+
+Actual host checks so far: baseline/custom generation PASS after initial Drizzle
+ENOENT (empty meta directory needed removal); `db:generate -- --name=verify_no_drift`
+PASS (18 tables/no drift); check PASS; 20 targeted migration/core tests PASS before
+one extra isolated-staging test; 119 unit PASS; build PASS. Full integration **FAIL:
+57 failures / 135 passes / 2 Windows-only skips** in auth/auth-mfa/container-bootstrap/
+backups/restores/runtime-server, caused by old token setup fixtures. No assertions
+removed or excluded. Initial lint's four unused retired-signature parameters were
+fixed by explicitly discarding them; final rerun results recorded below.
+
+Before the baseline reset, final Linux image
+`7363798cf7ce93f36f6d44b0b7fe71f4dc50b9f5d7dbe1322f1f49cec34c3c70`
+passed common gates, all 194 integration (no exclusions), 119 unit and five affected
+Chromium tests. **This is not current-baseline application evidence.** Current Linux
+baseline/core verification is recorded below and in the dedicated change handoff.
+
+Remaining: actual fresh HTTP/container startup needs SS02/SS03; actual format-v2
+archive staging/restore needs SS05 (obsolete backup table/name/version assumptions
+remain). The new baseline's retired setup is deliberately unusable, not completed.
+Strict single atomic directory exchange remains the raised design clarification;
+journaled rotation is crash-safe but has a brief path-absence window. No commit or
+application-data deletion; original user planning edits preserved.
+
+Next planned coding task after acknowledging these inter-step blockers: **SS02**
+shared initializeApplication and removal of token bootstrap. Read SPEC §8–9, PLAN
+SS02, scripts/container-*, server/runtime/hooks and installed Kit init/listen ordering.
+First validation: `npm run test:integration -- migrations pre-upgrade search-migration`.
+Do not reinstate obsolete storage, claim SS01 done or hide the full-suite failures.
+
+Final continued-baseline outcomes: check/lint PASS; 119 unit PASS; build PASS;
+21 migration/core cases PASS. A Windows intermediate core run had one generic
+copy failure (20 pass); no root cause captured, not claimed fixed. Added server-only
+cause diagnostics, eight isolated first-copy repetitions and final full core rerun
+pass. Copy failure safely refuses migration; investigate if it recurs.
+Affected Playwright command **BLOCKED / exit 1** because old token fixture initialization
+cannot start the browser server; no browser pass for this baseline.
+
+Current Linux image `83b07cc1a7b7b03929bfdf74139bfc957aadcea68e0df870c9f45968e7f1e8d8`
+was built with the ignored Git/CA/cached-clean-ci harness. Current unfiltered Linux
+integration: **57 fail / 138 pass, 195 total, no exclusions/skips**; check/lint/build
+and 119 unit PASS. Explicit `npm run test:integration -- migrations pre-upgrade
+search-migration sqlite images archive`: **47 PASS**, including all 21 migration/core,
+private modes/fsync/process kills, real SQLite/Sharp and archive safety probes.
+Actual archive restore remains blocked by later integration, not passed by probes.
+All four Git cases execute/pass. Overall Linux command exits 1 due full-suite failures.
+No current cold deployment image, full browser/release/VPS pass. Exact commands/logs
+and remaining work: `docs/simplify-setup/PROGRESS.md`. Git whitespace check and host
+fixture cleanup pass; no user commit or actual application data deletion.
+
+Final host close rerun: check/lint/build PASS, 119 unit PASS; full integration
+**57 fail / 136 pass / 2 Windows skips (195)**, same six old-token-dependent files.
+All new migration/core tests pass in that unfiltered run. No source edits after
+these current-baseline Linux/host validations; only handoff formatting remains.

@@ -38,6 +38,8 @@ it('enforces single account, note statuses, paired finite location and revision/
           .insert(account)
           .values({
             id: newPrivateId(),
+            username: 'second-fixture',
+            email: 'second@example.invalid',
             passwordHash: 'synthetic',
             createdAt: 1,
           })

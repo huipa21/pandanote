@@ -18,6 +18,8 @@ export const account = sqliteTable(
   {
     id: id(),
     singleton: integer('singleton').notNull().default(1),
+    username: text('username').notNull(),
+    email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     totpSecretEncrypted: text('totp_secret_encrypted'),
     totpEnabled: integer('totp_enabled').notNull().default(0),
@@ -32,24 +34,6 @@ export const account = sqliteTable(
       'account_security_check',
       sql`${t.securityRevision} >= 1 AND ${t.totpEnabled} IN (0,1) AND (${t.totpEnabled} = 0 OR ${t.totpSecretEncrypted} IS NOT NULL) AND (${t.lastTotpStep} IS NULL OR ${t.lastTotpStep} >= 0)`,
     ),
-  ],
-);
-// Operator-issued runtime credential; exclude this table from full backups.
-export const setupTokens = sqliteTable(
-  'setup_tokens',
-  {
-    singleton: integer('singleton').primaryKey().notNull().default(1),
-    tokenHash: text('token_hash').notNull(),
-    expiresAt: integer('expires_at').notNull(),
-    createdAt: created(),
-  },
-  (t) => [
-    check('setup_singleton_check', sql`${t.singleton} = 1`),
-    check(
-      'setup_hash_check',
-      sql`length(${t.tokenHash}) = 64 AND ${t.tokenHash} NOT GLOB '*[^0-9a-f]*'`,
-    ),
-    check('setup_expiry_check', sql`${t.expiresAt} > ${t.createdAt}`),
   ],
 );
 export const sessions = sqliteTable(
@@ -390,7 +374,7 @@ export const fileCleanupJobs = sqliteTable(
   ],
 );
 // Derived fields remain separate so a phrase can never bridge unrelated fields.
-// FTS5 and its synchronization are deliberately deferred to S10.
+// FTS5 is application-owned custom SQL; its synchronization is explicit.
 export const noteSearch = sqliteTable(
   'note_search',
   {

@@ -1,5 +1,5 @@
--- Triggers are application-owned schema objects. Restore schema validation must
--- include them; arbitrary archive-supplied triggers must never be trusted.
+-- Application-owned invariant guards and derived search. Restore validation must
+-- compare these exact trusted objects before opening an uploaded DB for writes.
 CREATE TRIGGER notes_insert_guard BEFORE INSERT ON notes BEGIN
   SELECT CASE WHEN NEW.revision <> 1 OR typeof(NEW.revision) <> 'integer'
     OR typeof(NEW.timeline_at) <> 'integer' OR typeof(NEW.created_at) <> 'integer'
@@ -43,3 +43,7 @@ CREATE TRIGGER cleanup_update_guard BEFORE UPDATE OF attachment_id ON file_clean
   SELECT CASE WHEN NEW.attachment_id <> OLD.attachment_id
     THEN RAISE(ABORT, 'cleanup identity is immutable') END;
 END;
+--> statement-breakpoint
+-- Literal separate-field predicates remain authoritative. No virtual-table write
+-- triggers requiring trusted_schema=ON; synchronization uses application hooks.
+CREATE VIRTUAL TABLE note_search_fts USING fts5(note_id UNINDEXED, text, tokenize='trigram case_sensitive 1');

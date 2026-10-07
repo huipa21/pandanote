@@ -1,5 +1,6 @@
 import { authPolicy } from '../src/lib/server/auth/policy.ts';
 import { bootstrapContainer } from './container-bootstrap.ts';
+import { DatabaseUpgradeError } from '../src/lib/server/db/migrations.ts';
 import { becomeContainerUser, containerIdentity } from './container-user.ts';
 
 // Capture once, erase before recovery/initialization/subprocesses, and never log.
@@ -24,7 +25,8 @@ try {
     [process.execPath, ...command.slice(1)],
     process.env,
   );
-} catch {
+} catch (error) {
+  if (error instanceof DatabaseUpgradeError) console.error(error.message);
   console.error(
     'PandaNote startup failed. Check DATA_DIR=/data, PUID/PGID, private data permissions, restore recovery, migration compatibility, and SETUP_TOKEN (43-character base64url, first setup only). No server started.',
   );

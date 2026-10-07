@@ -7,7 +7,8 @@ import {
   connectDatabase,
   Persistence,
 } from '../src/lib/server/db/connection.ts';
-import { applyMigrations } from '../src/lib/server/db/migrations.ts';
+import { upgradeDatabase } from '../src/lib/server/db/pre-upgrade.ts';
+import { startupAppVersion } from '../src/lib/server/db/upgrade-version.ts';
 import { initializeSettings } from '../src/lib/server/settings/repository.ts';
 import { AuthService } from '../src/lib/server/auth/service.ts';
 
@@ -21,7 +22,7 @@ export async function bootstrapContainer(
   storage.initializeKeys();
   const native = connectDatabase(storage.databasePath);
   try {
-    applyMigrations(native);
+    await upgradeDatabase(native, storage, { appVersion: startupAppVersion() });
   } finally {
     native.close();
   }

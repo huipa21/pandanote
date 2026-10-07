@@ -195,6 +195,25 @@ export class PrivateStorage {
     idSchema.parse(id);
     return this.checked(join('backups', `${id}.pnb`));
   }
+  /** Known private upgrade paths; do not create a copy on fresh installations. */
+  preUpgradeDirectory(
+    kind: 'current' | 'temporary' | 'previous',
+    create = false,
+  ): string {
+    const names = {
+      current: 'pre-upgrade',
+      temporary: 'pre-upgrade.tmp',
+      previous: 'pre-upgrade.old',
+    };
+    if (!(kind in names)) throw new Error('Unknown pre-upgrade path');
+    const path = join(this.root, names[kind]);
+    rejectSymlinks(path);
+    if (create || existsSync(path)) secureDirectory(path);
+    return path;
+  }
+  preUpgradeJournalPath(): string {
+    return this.checked(join('private', 'pre-upgrade-state.json'));
+  }
   journalPath(id: string): string {
     idSchema.parse(id);
     return this.checked(join('private', 'journals', `${id}.json`));

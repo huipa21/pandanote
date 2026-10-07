@@ -3,10 +3,18 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
+import {
+  DATA_MIGRATIONS,
+  type DataMigrationRegistry,
+} from './data-migrations.ts';
 
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { rebuildSearch } from '../search/index.ts';
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 2;
+/** Only these explicitly safe messages may be printed by startup/CLI code. */
+export class DatabaseUpgradeError extends Error {}
+export const PRE_RELEASE_DATABASE_MESSAGE =
+  'This data folder was created by a pre-release PandaNote and cannot be upgraded. Move it away and start with an empty folder.';
+export const NEWER_DATABASE_MESSAGE =
+  'This data was upgraded by a newer PandaNote. Use that version, or roll back with the pre-upgrade copy (see OPERATIONS.md).';
 const journalSchema = z.object({
   dialect: z.literal('sqlite'),
   entries: z.array(
@@ -21,6 +29,10 @@ export interface Migration {
   name: string;
   hash: string;
   statements: string[];
+}
+export interface MigrationOptions {
+  dataSteps?: DataMigrationRegistry;
+  now?: number;
 }
 export function loadMigrations(folder = resolve('migrations')): Migration[] {
   const journal = journalSchema.parse(
@@ -52,6 +64,7 @@ interface AppliedMigration {
   version: number;
   name: string;
   hash: string;
+  data_step: string | null;
 }
 const ledgerExists = (db: Database.Database): boolean =>
   Boolean(
@@ -61,101 +74,169 @@ const ledgerExists = (db: Database.Database): boolean =>
       )
       .get(),
   );
-
+function validateTrustedHistory(
+  migrations: Migration[],
+  steps: DataMigrationRegistry,
+): void {
+  migrations.forEach((m, i) => {
+    if (
+      m.version !== i + 1 ||
+      !/^\d{4}_[a-z0-9_]+$/.test(m.name) ||
+      !/^[a-f0-9]{64}$/.test(m.hash)
+    )
+      throw new Error('Migration history must be contiguous and trusted');
+  });
+  for (const [version, step] of steps) {
+    if (
+      !Number.isSafeInteger(version) ||
+      version < 1 ||
+      !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(step.name) ||
+      typeof step.run !== 'function' ||
+      ['AsyncFunction', 'GeneratorFunction', 'AsyncGeneratorFunction'].includes(
+        step.run.constructor.name,
+      )
+    )
+      throw new Error('Invalid trusted data-step registry');
+  }
+}
+/** Read-only preflight used BEFORE snapshotting and repeated under IMMEDIATE.
+ * Untrusted archives must pass exact schema validation before calling this. */
+export function migrationState(
+  db: Database.Database,
+  migrations = loadMigrations(),
+  options: MigrationOptions = {},
+): {
+  existing: boolean;
+  fromVersion: number;
+  toVersion: number;
+  pending: number;
+} {
+  const steps = options.dataSteps ?? DATA_MIGRATIONS;
+  validateTrustedHistory(migrations, steps);
+  const existing = ledgerExists(db);
+  const version = db.pragma('user_version', { simple: true }) as number;
+  if (!existing) {
+    if (
+      version !== 0 ||
+      db
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' LIMIT 1",
+        )
+        .get()
+    )
+      throw new Error('Refusing to migrate an unrecognized database');
+    return {
+      existing: false,
+      fromVersion: 0,
+      toVersion: migrations.length,
+      pending: migrations.length,
+    };
+  }
+  const columns = db.pragma('table_info(__pandanote_migrations)') as {
+    name: string;
+  }[];
+  // All histories without data-step identity are pre-release. No ledger retrofit.
+  if (!columns.some((column) => column.name === 'data_step'))
+    throw new DatabaseUpgradeError(PRE_RELEASE_DATABASE_MESSAGE);
+  const applied = db
+    .prepare(
+      'SELECT version, name, hash, data_step FROM __pandanote_migrations ORDER BY version',
+    )
+    .all() as AppliedMigration[];
+  if (applied[0]?.name === '0000_foundation')
+    throw new DatabaseUpgradeError(PRE_RELEASE_DATABASE_MESSAGE);
+  if (version > migrations.length || applied.length > migrations.length)
+    throw new DatabaseUpgradeError(NEWER_DATABASE_MESSAGE);
+  if (version !== applied.length)
+    throw new Error('Database schema version and migration ledger disagree');
+  for (const [index, row] of applied.entries()) {
+    const known = migrations[index];
+    if (
+      row.version !== known.version ||
+      row.hash !== known.hash ||
+      row.name !== known.name ||
+      row.data_step !== (steps.get(known.version)?.name ?? null)
+    )
+      throw new DatabaseUpgradeError(
+        'Applied migration history does not match trusted application migrations (SQL hash or data step changed)',
+      );
+  }
+  return {
+    existing: true,
+    fromVersion: applied.length,
+    toVersion: migrations.length,
+    pending: migrations.length - applied.length,
+  };
+}
 export function assertMigrationState(
   db: Database.Database,
   migrations = loadMigrations(),
+  options: MigrationOptions = {},
 ): void {
-  if (!ledgerExists(db))
+  const state = migrationState(db, migrations, options);
+  if (!state.existing)
     throw new Error(
-      'Database is not migrated; run npm run db:migrate before serving',
+      'Database is not migrated; startup initialization required',
     );
-  const applied = db
-    .prepare(
-      'SELECT version, name, hash FROM __pandanote_migrations ORDER BY version',
-    )
-    .all() as AppliedMigration[];
-  if (
-    applied.length !== migrations.length ||
-    db.pragma('user_version', { simple: true }) !== migrations.length
-  )
+  if (state.pending)
     throw new Error(
-      'Database schema version is unsupported or requires migration',
+      'Database schema version requires migration before serving',
     );
-  for (const [index, row] of applied.entries()) {
-    const migration = migrations[index];
-    if (
-      row.version !== migration.version ||
-      row.name !== migration.name ||
-      row.hash !== migration.hash
-    )
-      throw new Error(
-        'Applied migration history does not match trusted application migrations',
-      );
-  }
 }
-
-/** Explicit, trusted application migrations only. All pending upgrades and the
- * ledger commit together; failure leaves the previous schema and data intact.
- * No down migrations. Do not call on archive-supplied DBs before schema validation.
- */
+/** Trusted, database-only runner for fresh creation and validated restore staging.
+ * Live upgrades must use upgradeDatabase() to capture the pre-upgrade copy first.
+ * All pending SQL, data steps, ledger and integrity checks commit together. */
 export function applyMigrations(
   db: Database.Database,
   migrations = loadMigrations(),
+  options: MigrationOptions = {},
 ): void {
-  migrations.forEach((m, i) => {
-    if (m.version !== i + 1)
-      throw new Error('Migration history must be contiguous');
-  });
-  db.transaction(() => {
-    const existed = ledgerExists(db);
-    const version = db.pragma('user_version', { simple: true });
-    if (
-      !existed &&
-      (version !== 0 ||
-        db
-          .prepare(
-            "SELECT 1 FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' LIMIT 1",
-          )
-          .get())
-    )
-      throw new Error('Refusing to migrate an unrecognized database');
-    db.exec(
-      'CREATE TABLE IF NOT EXISTS __pandanote_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, hash TEXT NOT NULL, applied_at INTEGER NOT NULL)',
-    );
-    const applied = db
-      .prepare(
-        'SELECT version, name, hash FROM __pandanote_migrations ORDER BY version',
-      )
-      .all() as AppliedMigration[];
-    if (version !== applied.length || applied.length > migrations.length)
-      throw new Error('Unknown or newer database schema');
-    for (const [index, row] of applied.entries()) {
-      const known = migrations[index];
-      if (
-        row.version !== known.version ||
-        row.hash !== known.hash ||
-        row.name !== known.name
-      )
-        throw new Error('Applied migrations have changed');
-    }
-    for (const migration of migrations.slice(applied.length)) {
-      for (const statement of migration.statements) db.exec(statement);
-      // Existing notes are normalized by the exact application oracle, not
-      // SQLite lower() (ASCII-only). Backfill and ledger commit atomically.
-      if (migration.name === '0003_search_trigram') rebuildSearch(drizzle(db));
-      db.prepare('INSERT INTO __pandanote_migrations VALUES (?, ?, ?, ?)').run(
-        migration.version,
-        migration.name,
-        migration.hash,
-        Date.now(),
+  const steps = options.dataSteps ?? DATA_MIGRATIONS;
+  const now = options.now ?? Date.now();
+  if (!Number.isSafeInteger(now) || now < 0)
+    throw new Error('Invalid migration timestamp');
+  migrationState(db, migrations, options);
+  let active: Migration | undefined;
+  try {
+    db.transaction(() => {
+      const state = migrationState(db, migrations, options);
+      db.exec(
+        'CREATE TABLE IF NOT EXISTS __pandanote_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, hash TEXT NOT NULL, applied_at INTEGER NOT NULL, data_step TEXT)',
       );
-    }
-    db.pragma(`user_version = ${migrations.length}`);
-    if (
-      (db.pragma('foreign_key_check') as unknown[]).length !== 0 ||
-      db.pragma('integrity_check', { simple: true }) !== 'ok'
-    )
-      throw new Error('Database integrity validation failed');
-  }).immediate();
+      for (const migration of migrations.slice(state.fromVersion)) {
+        active = migration;
+        for (const statement of migration.statements) db.exec(statement);
+        const step = steps.get(migration.version);
+        if (step) {
+          const result: unknown = step.run(db, { now });
+          if (result !== undefined)
+            throw new Error('Data steps must be synchronous and return void');
+        }
+        db.prepare(
+          'INSERT INTO __pandanote_migrations (version, name, hash, applied_at, data_step) VALUES (?, ?, ?, ?, ?)',
+        ).run(
+          migration.version,
+          migration.name,
+          migration.hash,
+          now,
+          step?.name ?? null,
+        );
+      }
+      db.pragma(`user_version = ${migrations.length}`);
+      if (
+        (db.pragma('foreign_key_check') as unknown[]).length !== 0 ||
+        db.pragma('integrity_check', { simple: true }) !== 'ok'
+      )
+        throw new Error('Database integrity validation failed');
+    }).immediate();
+  } catch {
+    // Never expose an underlying SQL/data-step error (it may contain content).
+    if (active)
+      throw new DatabaseUpgradeError(
+        `Database upgrade failed at migration ${active.version} (${active.name}); data unchanged.`,
+      );
+    throw new DatabaseUpgradeError(
+      'Database upgrade could not start; data unchanged.',
+    );
+  }
 }

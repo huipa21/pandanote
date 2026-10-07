@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "00f01c01-70d9-41c6-8e11-21918cb4588c",
+  "id": "273891e7-76de-4d47-a687-19b4a2610dbd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -21,6 +21,20 @@
           "notNull": true,
           "autoincrement": false,
           "default": 1
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         },
         "password_hash": {
           "name": "password_hash",
@@ -1210,6 +1224,61 @@
           "value": "(\"tag_changes\".\"action\" = 'remove' AND \"tag_changes\".\"target_key\" IS NULL) OR (\"tag_changes\".\"action\" IN ('rename','merge') AND \"tag_changes\".\"target_key\" IS NOT NULL)"
         }
       }
+    },
+    "tag_mutation_receipts": {
+      "name": "tag_mutation_receipts",
+      "columns": {
+        "mutation_id": {
+          "name": "mutation_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_digest": {
+          "name": "request_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "result_json": {
+          "name": "result_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "tag_mutation_receipts_account_id_account_id_fk": {
+          "name": "tag_mutation_receipts_account_id_account_id_fk",
+          "tableFrom": "tag_mutation_receipts",
+          "tableTo": "account",
+          "columnsFrom": ["account_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "tags": {
       "name": "tags",

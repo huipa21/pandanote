@@ -555,3 +555,12 @@ account/restore precedence, secret scrubbing, initialization failure, filesystem
 ownership/link safety and Linux privilege/signal handoff. Apply common gates,
 affected browser authentication tests and actual production-image Linux/native
 startup/restart/graceful-shutdown tests before declaring this enhancement done.
+
+## Approved change — Simplify setup and deployment
+
+User-approved on 2026-10-06; supersedes the setup-token and hardened-Compose parts of
+"Out-of-box container startup" above. Follow [simplify-setup/PLAN.md](simplify-setup/PLAN.md)
+in order: SS01 migration baseline/data steps/pre-upgrade copy, SS02 one startup path
+and proxy trust, SS03 accounts/setup flow/login, SS04 language and site title, SS05
+backup format v2 and `reset-password`, SS06 deployment files/image, SS07 documentation
+and full regression. Acceptance: [simplify-setup/ACCEPTANCE_TESTS.md](simplify-setup/ACCEPTANCE_TESTS.md).

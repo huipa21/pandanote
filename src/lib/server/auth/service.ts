@@ -10,7 +10,6 @@ import type { DomainTransaction, Persistence } from '../db/connection.ts';
 import {
   account,
   sessions,
-  setupTokens,
   authChallenges,
   recoveryCodes,
   appSettings,
@@ -48,10 +47,10 @@ export interface PendingMfaCredential {
 export type LoginResult = SessionCredential | PendingMfaCredential;
 const failedLogin = (): DomainError =>
   new DomainError('unauthorized', 'Unable to sign in. Check your credentials.');
-const failedSetup = (): DomainError =>
+const setupUnavailable = (): DomainError =>
   new DomainError(
-    'unauthorized',
-    'Setup is unavailable or the token is invalid or expired.',
+    'busy',
+    'Browser account setup is not implemented for this schema yet.',
   );
 
 export class AuthService {
@@ -63,112 +62,27 @@ export class AuthService {
     this.limiter = new AuthRateLimiter(persistence);
     this.clock = clock;
   }
-  // Operator-only API: do not expose issuance as a public web action. Reissue
-  // replaces the sole pending token. No account, password or demo content seed.
+  // Transitional fail-closed boundary after SS01 removes setup-token storage.
+  // SS02 removes the startup token call; SS03 replaces these retired entry points
+  // with validated browser account setup. Never seed an invented username/email.
   issueSetupToken(): string {
-    const token = newAuthToken();
-    const now = this.clock();
-    this.persistence.write((tx) => {
-      if (tx.select({ id: account.id }).from(account).get())
-        throw new DomainError('conflict', 'An account already exists.');
-      tx.insert(setupTokens)
-        .values({
-          singleton: 1,
-          tokenHash: tokenHash('setup', token),
-          createdAt: now,
-          expiresAt: now + 60 * 60_000,
-        })
-        .onConflictDoUpdate({
-          target: setupTokens.singleton,
-          set: {
-            tokenHash: tokenHash('setup', token),
-            createdAt: now,
-            expiresAt: now + 60 * 60_000,
-          },
-        })
-        .run();
-    });
-    return token;
+    throw setupUnavailable();
   }
-  /** Container-only bootstrap. Same token never renews expiry; changing the
-   * operator environment explicitly rotates an unclaimed token. An existing
-   * account always wins, including after restore; environment cannot reset it. */
-  bootstrapSetupToken(token: string | undefined): void {
-    this.persistence.write((tx) => {
-      if (tx.select({ id: account.id }).from(account).get()) return;
-      const pending = tx.select().from(setupTokens).get();
-      if (!token) {
-        if (pending) return; // Legacy operator CLI bootstrap remains supported.
-        throw new Error('SETUP_TOKEN is required for first container startup');
-      }
-      authTokenSchema.parse(token);
-      const hash = tokenHash('setup', token);
-      if (pending?.tokenHash === hash) return;
-      const now = this.clock();
-      tx.insert(setupTokens)
-        .values({
-          singleton: 1,
-          tokenHash: hash,
-          createdAt: now,
-          expiresAt: now + 60 * 60_000,
-        })
-        .onConflictDoUpdate({
-          target: setupTokens.singleton,
-          set: {
-            tokenHash: hash,
-            createdAt: now,
-            expiresAt: now + 60 * 60_000,
-          },
-        })
-        .run();
-    });
+  bootstrapSetupToken(_token: string | undefined): void {
+    void _token; // Retired credential is deliberately ignored, never persisted.
+    if (this.persistence.db.select({ id: account.id }).from(account).get())
+      return;
+    throw setupUnavailable();
   }
-  private validSetup(
-    tx: DomainTransaction,
-    token: string,
-    now: number,
-  ): boolean {
-    const pending = tx
-      .select()
-      .from(setupTokens)
-      .where(
-        and(
-          eq(setupTokens.singleton, 1),
-          eq(setupTokens.tokenHash, tokenHash('setup', token)),
-        ),
-      )
-      .get();
-    return (
-      !tx.select({ id: account.id }).from(account).get() &&
-      pending !== undefined &&
-      pending.expiresAt > now
-    );
-  }
-  async setup(
-    token: string,
-    password: unknown,
-    ip: string,
+  setup(
+    _token: string,
+    _password: unknown,
+    _ip: string,
   ): Promise<SessionCredential> {
-    this.limiter.attempt('setup', ip, this.clock());
-    if (!authTokenSchema.safeParse(token).success) throw failedSetup();
-    // Refuse unheld tokens before any expensive password work. Recheck expiry,
-    // sole-account state and token identity inside the eventual commit.
-    if (
-      !this.persistence.write((tx) => this.validSetup(tx, token, this.clock()))
-    )
-      throw failedSetup();
-    passwordSchema.parse(password);
-    return this.persistence.coordinator.writeAsync(async () => {
-      const passwordHash = await hashPassword(password);
-      return this.persistence.write((tx) => {
-        const now = this.clock();
-        if (!this.validSetup(tx, token, now)) throw failedSetup();
-        const id = newPrivateId();
-        tx.insert(account).values({ id, passwordHash, createdAt: now }).run();
-        tx.delete(setupTokens).run(); // Atomically consumed with account + session.
-        return this.createSession(tx, id, 1, now);
-      });
-    });
+    void _token;
+    void _password;
+    void _ip;
+    return Promise.reject(setupUnavailable());
   }
   async login(password: unknown, ip: string): Promise<LoginResult> {
     this.limiter.attempt('login', ip, this.clock());
@@ -720,7 +634,6 @@ export class AuthService {
           })
           .run();
         tx.delete(recoveryCodes).run();
-        tx.delete(setupTokens).run();
         this.rotateSecurity(tx, owner, false);
       });
     });

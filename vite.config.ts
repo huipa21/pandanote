@@ -9,6 +9,7 @@ import { buildInfoFromEnvironment } from './src/lib/shared/build-info.ts';
 // Adapter 6 removed runtime ORIGIN and otherwise infers HTTPS from Host. Keep
 // the domain deployment-configurable while retaining Kit's built-in form CSRF
 // check. This narrow generated handoff is pinned/checked, not a node_modules patch.
+const embeddedBuildInfo = buildInfoFromEnvironment(process.env);
 function runtimeOriginAdapter(): Adapter {
   const node = adapter();
   return {
@@ -17,6 +18,12 @@ function runtimeOriginAdapter(): Adapter {
       if (builder.config.paths.origin !== undefined)
         throw new Error('Configure ORIGIN at runtime, not kit.paths.origin');
       await node.adapt(builder);
+      // Container startup runs source tooling before the bundled server. Give it
+      // the same immutable identity without consulting runtime metadata variables.
+      writeFileSync(
+        resolve('build/build-info.json'),
+        JSON.stringify(embeddedBuildInfo),
+      );
       const path = resolve('build/adapter-node.js');
       const source = readFileSync(path, 'utf8');
       const marker = 'export const origin = undefined;';
@@ -45,7 +52,7 @@ function runtimeOriginAdapter(): Adapter {
 
 export default defineConfig({
   define: {
-    __PANDANOTE_BUILD__: JSON.stringify(buildInfoFromEnvironment(process.env)),
+    __PANDANOTE_BUILD__: JSON.stringify(embeddedBuildInfo),
   },
   plugins: [
     sveltekit({

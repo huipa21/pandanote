@@ -283,6 +283,13 @@ Development builds and rejection of missing/invalid production metadata.
   no default CPU/memory limits. No second app may share the data folder. Upgrades
   still require a user-created/downloaded pre-upgrade backup; none is automatic.
 
+## Simplify setup (approved change, planned)
+
+Cases SET-_, ACC-_, LANG-_, MIG-_, BAK-_, OPS-_, DEP-* and DOC-* in
+[simplify-setup/ACCEPTANCE_TESTS.md](simplify-setup/ACCEPTANCE_TESTS.md) replace AUTH-01's
+setup-token expectations and the setup-token/capability bullets of the container
+startup section above once implemented.
+
 ## 13. Final verification record
 
 At S18, record in PROGRESS or a linked results file:

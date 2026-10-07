@@ -58,6 +58,23 @@ it('migrates a fresh real DB, uses durable pragmas, repeats safely and seeds no 
       expect(
         inspector.prepare('SELECT count(*) AS n FROM notes').get(),
       ).toEqual({ n: 0 });
+      const accountColumns = inspector.pragma('table_info(account)') as {
+        name: string;
+        notnull: number;
+      }[];
+      for (const name of ['username', 'email'])
+        expect(
+          accountColumns.find((column) => column.name === name)?.notnull,
+        ).toBe(1);
+      expect(
+        inspector
+          .prepare("SELECT name FROM sqlite_schema WHERE name='setup_tokens'")
+          .get(),
+      ).toBeUndefined();
+      expect(loadMigrations().map((migration) => migration.name)).toEqual([
+        '0000_baseline',
+        '0001_guards_and_search',
+      ]);
       expect(
         (inspector.pragma('table_info(notes)') as { name: string }[]).map(
           (v) => v.name,

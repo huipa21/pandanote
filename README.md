@@ -69,6 +69,11 @@ deployment use the container/HTTPS setup below, not `npm run dev`.
 
 ## Production deployment (S18)
 
+> **Planned change:** setup and deployment are being simplified (no setup token, one
+> `docker-compose.yml`, `.env` with only `ORIGIN`, setup in the browser). See
+> [`docs/simplify-setup/`](docs/simplify-setup/README.md). The instructions below describe
+> the current build until that change is implemented.
+
 One app container behind a Caddy HTTPS proxy, private persistent data and automatic
 startup initialization (restore recovery, keys, migrations, settings and first-account
 environment token). Operator CLI commands remain available for maintenance. Full guide: **[`ops/DEPLOYMENT.md`](ops/DEPLOYMENT.md)**.

@@ -43,6 +43,8 @@ export function seedAccount(p: Persistence): string {
       .insert(account)
       .values({
         id,
+        username: 'fixture',
+        email: 'fixture@example.invalid',
         passwordHash: 'synthetic-test-only-not-a-password-hash',
         createdAt: Date.now(),
       })

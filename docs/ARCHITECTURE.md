@@ -11,6 +11,11 @@ This is the proposed implementation architecture for the agreed product. Names a
 - Browser drafts are device-local recovery storage, not offline synchronization.
 - Keep server-only modules in SvelteKit's server directory; never bundle database/filesystem/secret code into the client.
 
+> **Approved change, planned:** [docs/simplify-setup/](simplify-setup/README.md) changes
+> setup/authentication (no setup token, username + email), migrations (new baseline,
+> data steps, pre-upgrade copy), proxy trust (private-network peers) and deployment
+> files. Sections 4, 12, 13 and 16 are rewritten when that change is implemented (SS07).
+
 ## 2. Dependency and directory baseline
 
 Use maintained, stable, mutually compatible versions, pin via package lock, and record versions during S00. Prefer supported Node LTS at implementation time; verify native modules in the Linux container.
@@ -235,6 +240,31 @@ Use a read-only test inspection connection to assert these invariants; mocks alo
   persistence (test child processes disable inherited Vitest/Kit test mode).
   The operator CLI uses Node 24 native TS stripping; its import graph must use
   erasable syntax and explicit relative `.ts` imports.
+
+### SS01 migration baseline and runner (in progress / integration gate blocked)
+
+The runner now records nullable `data_step` identity from a synchronous version-keyed
+registry, using one fixed timestamp for all pending SQL/data/ledger operations in
+one IMMEDIATE transaction. Ledgers lacking that identity are refused as pre-release;
+there is no compatibility retrofit. SQL history is now schema v2: generated
+`0000_baseline.sql` (18 tables, required account username/email, no setup-token table)
+and custom `0001_guards_and_search.sql` (existing guards + FTS5). Version-2 data step
+backfills search for known-v1 staging. Old token setup entry points fail closed until
+SS02/SS03 remove/replace them; fresh deployment is currently not usable. Format-v2
+archive integration is SS05. Passing migration tests do not close the application gate.
+Live container/CLI entry paths use an async pre-upgrade wrapper: online snapshot
+including WAL, page-count-based space estimate plus reserve, fsynced private DB/
+manifest with from/to schema, immutable build version and time, then migration.
+Fresh/current databases skip capture. Restore staging uses the same DB-only runner
+without changing the live copy. Archive schema trust compares data-step identities.
+The adapter emits `build/build-info.json` alongside bundled metadata so source
+startup tools use the same identity without runtime environment overrides.
+
+Portable Node cannot atomically rename over a nonempty directory. The first slice
+uses durable journaled rotation with a retained old copy and startup recovery before
+migration, not a single atomic exchange. Strict directory atomicity remains an
+explicit SS01 design clarification; no completion is claimed. Details/tests/handoff:
+[simplify-setup/PROGRESS.md](simplify-setup/PROGRESS.md).
 
 ### 4.4 S07 implemented note mutation contracts
 

@@ -3,7 +3,9 @@ import {
   connectDatabase,
   Persistence,
 } from '../src/lib/server/db/connection.ts';
-import { applyMigrations } from '../src/lib/server/db/migrations.ts';
+import { upgradeDatabase } from '../src/lib/server/db/pre-upgrade.ts';
+import { startupAppVersion } from '../src/lib/server/db/upgrade-version.ts';
+import { DatabaseUpgradeError } from '../src/lib/server/db/migrations.ts';
 import { initializeSettings } from '../src/lib/server/settings/repository.ts';
 import { JournalStore } from '../src/lib/server/maintenance/journal.ts';
 import { WriteCoordinator } from '../src/lib/server/maintenance/coordinator.ts';
@@ -17,7 +19,7 @@ try {
   storage.initializeKeys();
   const native = connectDatabase(storage.databasePath);
   try {
-    applyMigrations(native);
+    await upgradeDatabase(native, storage, { appVersion: startupAppVersion() });
   } finally {
     native.close();
   }
@@ -30,7 +32,8 @@ try {
   console.info(
     'Private storage, migrations and settings are ready. No account was created.',
   );
-} catch {
+} catch (error) {
+  if (error instanceof DatabaseUpgradeError) console.error(error.message);
   console.error(
     'Storage initialization failed. Check DATA_DIR, permissions, key material and trusted migration history. Stop the app before migrating.',
   );

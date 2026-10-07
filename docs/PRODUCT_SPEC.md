@@ -370,6 +370,14 @@ Concurrent edit handling:
 
 ## 13. Authentication and configuration
 
+> **Approved change, planned (not implemented):** [Simplify setup](simplify-setup/SPEC.md)
+> replaces the setup token with an in-browser two-step setup (username, email,
+> password; then site title, language, timezone), adds username login with 8–128
+> character passwords, automatic migrations with data steps and a pre-upgrade copy,
+> and a minimal single `docker-compose.yml`. Until it is implemented, the bullets below
+> describe the current behavior; [simplify-setup/SPEC.md §10](simplify-setup/SPEC.md#10-superseded-requirements)
+> lists what will be superseded.
+
 - One account, no public registration. Approved deployment simplification: the container initializes private storage, recovers interrupted restores, applies trusted migrations and registers an operator-provided environment setup token before starting HTTP. No manual first-install CLI steps are required. SETUP_TOKEN must be cryptographically random (32 bytes as 43 base64url characters), is stored only as a hash, expires after one hour, and is consumed atomically. Restarts never renew the same token; changing it explicitly rotates unclaimed access. Existing/restored accounts ignore it. Remove it from the environment after setup; never log it.
 - Existing-Caddy deployment is a single app service on an external network, with environment-configurable image, domain, trusted proxy, non-root UID/GID, host bind folder and graceful shutdown window. No CPU/memory limits are imposed by default. A brief root initializer prepares only private storage and drops privileges permanently before database access/server execution.
 - Domain/origin configurable through deployment environment.

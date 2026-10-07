@@ -60,6 +60,8 @@ try {
     tx.insert(account)
       .values({
         id,
+        username: 'benchmark',
+        email: 'benchmark@example.invalid',
         passwordHash: 'synthetic-not-a-credential',
         createdAt: now,
       })

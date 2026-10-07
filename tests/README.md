@@ -18,6 +18,25 @@ production credential is committed.
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
 
+## SS01 migration baseline/core (in progress / full gate blocked)
+
+- `integration/data-migrations.test.ts`: real SQL-before-data registry execution,
+  fixed timestamp/ledger identity, repeat no-op, changed step/hash/downgrade/
+  pre-release refusal, all-pending SQL/data/FK rollback and no cause/content leaks.
+- `integration/pre-upgrade.test.ts`: fresh/no-op skip, WAL-consistent old-schema
+  snapshot, manifest/replacement/key preservation, injected low-space budget,
+  actual stopped-app CLI upgrade/low-space safe log, Linux modes, malformed/unsafe
+  staging refusal, four actual process kills across durable rotation boundaries.
+- `integration/build-metadata.test.ts`: actual adapter-generated immutable startup
+  identity agrees with embedded SSR identity. `integration/search-migration.test.ts`
+  verifies baseline v1→v2 SQL/data backfill and isolated staging with live state intact.
+  Fixtures use the generated two-file baseline; username/email are required and the
+  setup-token table is absent.
+- MIG-01–07 are **not all completed**: final startup/archive integration remains
+  pending. Old token auth/bootstrap and format-v1 archive fixtures currently fail;
+  assertions are not skipped or weakened to hide planned SS02/SS03/SS05 dependencies. Directory replacement is recoverable rotation, not
+  a portable single atomic exchange; see `docs/simplify-setup/PROGRESS.md`.
+
 ## Commit-derived versioning coverage (VER-01–08)
 
 - `unit/build-info.test.ts`: strict public metadata, UTC date, positive daily sequence,

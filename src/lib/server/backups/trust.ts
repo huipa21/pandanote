@@ -42,7 +42,7 @@ let db;
   db.pragma('trusted_schema=OFF'); db.pragma('query_only=ON'); db.pragma('cache_size=-8192');
   const objects = db.prepare('SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name').all();
   if (JSON.stringify(objects) !== JSON.stringify(schema)) throw Error('schema');
-  if (db.pragma('user_version', {simple:true}) !== version || JSON.stringify(db.prepare('SELECT version,name,hash FROM __pandanote_migrations ORDER BY version').all()) !== JSON.stringify(ledger)) throw Error('ledger');
+  if (db.pragma('user_version', {simple:true}) !== version || JSON.stringify(db.prepare('SELECT version,name,hash,data_step FROM __pandanote_migrations ORDER BY version').all()) !== JSON.stringify(ledger)) throw Error('ledger');
   // Bound every text/blob cell before transferring rows into the parent. Limits
   // are above valid domain values; note body has its separate exact byte bound.
   if(!integrityOnly) for (const object of objects.filter(x => x.type==='table' && !x.name.startsWith('sqlite_') && x.name!=='note_search_fts')) {
@@ -95,7 +95,7 @@ async function inspect(
       .all();
     ledger = trusted
       .prepare(
-        'SELECT version,name,hash FROM __pandanote_migrations ORDER BY version',
+        'SELECT version,name,hash,data_step FROM __pandanote_migrations ORDER BY version',
       )
       .all();
   } finally {

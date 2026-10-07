@@ -3,6 +3,7 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -10,6 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
+import { startupAppVersion } from '../../src/lib/server/db/upgrade-version.ts';
 
 const metadata = {
   PANDANOTE_VERSION: '261006-12',
@@ -84,6 +86,16 @@ it('real adapter build embeds metadata in SSR and cannot be changed by runtime e
       },
     );
     expect(built.status, built.stdout + built.stderr).toBe(0);
+    // Source startup tooling receives exactly the identity embedded by the same
+    // adapter build; no runtime PANDANOTE_* value is consulted by this reader.
+    const manifestPath = join(root, 'build/build-info.json');
+    expect(JSON.parse(readFileSync(manifestPath, 'utf8'))).toEqual({
+      kind: 'release',
+      version: metadata.PANDANOTE_VERSION,
+      commit: metadata.PANDANOTE_COMMIT,
+      committedAt: metadata.PANDANOTE_COMMITTED_AT,
+    });
+    expect(startupAppVersion(manifestPath)).toBe(metadata.PANDANOTE_VERSION);
     // PORT=0 asks the OS to choose an unused port. Adapter logs its actual bound address.
     child = spawn(process.execPath, ['build/index.js'], {
       cwd: root,
