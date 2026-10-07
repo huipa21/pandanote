@@ -1,5 +1,12 @@
 # PandaNote production deployment (single VPS)
 
+> **Superseded deployment instructions:** SS06 now ships only the root
+> `docker-compose.yml` and `.env.example`. Follow
+> [the current minimal operations guide](../docs/simplify-setup/OPERATIONS.md),
+> including the Podman archive retag step. The historical text below is retained
+> only until SS07's documentation replacement; its removed files/commands must not
+> be used. Caddy drill files are now test-only under `tests/release/`.
+
 One PandaNote app instance behind one HTTPS reverse proxy (Caddy), with one
 persistent private data volume. PandaNote is a single-user app: do not run two
 app containers, do not point two instances at the same data, and do not put the

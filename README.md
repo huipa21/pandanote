@@ -1,11 +1,12 @@
 # PandaNote
 
-> **Current checkout:** simplify-setup SS01–SS03 core is implemented. Startup is
-> automatic; setup is username/email/password → preferences; login uses username.
-> Authentication/setup tests pass on Windows and Linux, but **backup/restore is
-> currently broken pending SS05**. Do not deploy this intermediate checkout as a
-> release. Older S00–S18 deployment/recovery sections below are historical until
-> SS06/SS07 updates; follow [current progress](docs/simplify-setup/PROGRESS.md).
+> **Current checkout:** simplify-setup SS01–SS05 core, format-v2 backup/restore,
+> live-safe interactive password reset and SS06 minimal deployment files are
+> implemented. Use the root `docker-compose.yml` and `.env.example`, following
+> [the current operations guide](docs/simplify-setup/OPERATIONS.md) (including the
+> Podman archive retag step). Older deployment/recovery sections below remain
+> historical until SS07's full rewrite; their removed files/commands must not be
+> used. Validation and remaining gates: [current progress](docs/simplify-setup/PROGRESS.md).
 
 A single-user, responsive, Markdown-first personal notes application.
 **Notes, drafts, search/calendar, tags, location, Settings, manual full backups, uploaded restore/rollback and a reproducible single-VPS container deployment are implemented. The release gate (S18) is verified on Linux containers and a two-domain restore drill; real-VPS/physical-device/screen-reader audits are still operator checks — see [Release status](#release-status).**

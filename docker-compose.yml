@@ -1,0 +1,14 @@
+services:
+  pandanote:
+    image: ${PANDANOTE_IMAGE:-pandanote:latest}
+    container_name: pandanote
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ${DATA_PATH:-./data}:/data
+    networks:
+      - proxynet
+
+networks:
+  proxynet:
+    external: true # the Docker network your Caddy container is on

@@ -1705,6 +1705,36 @@ and the tag-autocomplete textarea referenced a non-existent listbox through
 `aria-controls` (now set only while the listbox exists). Reflow at 200%/400% zoom,
 reduced motion, visible focus and dialog focus containment/restoration are asserted.
 
+### 16.1 SS06 current deployment artifacts (supersedes historical topology above)
+
+The only production Compose is root `docker-compose.yml`: one `pandanote` service,
+image `${PANDANOTE_IMAGE:-pandanote:latest}`, `.env`, private `${DATA_PATH:-./data}:/data`,
+and the existing external `proxynet`. No bundled proxy, ports, static IPs, ops
+services, resource limits or Compose hardening overrides. `.env.example` requires
+only ORIGIN; UID/GID default to 1000. The unchanged production Dockerfile retains
+its pinned native install stages, immutable labels, 64G transport default,
+HEALTHCHECK and named reset/reindex tools. Entry drops privileges permanently and
+execs PID 1 Node with no permitted/effective capabilities before serving; startup
+uses the SS02 initializer and SS03 browser setup. Private peers trust one XFF;
+a minimal existing Caddy `reverse_proxy pandanote:3000` needs no header/body/timeout
+options. Default idle shutdown is within 10 seconds; interrupted backups fail on
+restart and journaled restores recover.
+
+`tests/release/compose.drill.yaml` and `tests/release/Caddyfile` are synthetic
+HTTPS test tooling only, with dynamic networks and local CA certificates. Release
+drill/benchmark scripts explicitly select that file and use real two-step browser
+setup; no operator initialization step. `tests/release/deployment.test.ts` tests a
+copied root Compose on Linux, private modes, restarts, UID/capabilities, spoofed XFF,
+
+> 1 GiB archive TLS restore, interrupted backup and synthetic SQL/data upgrade plus
+> pre-upgrade-copy rollback. Cross-engine transfer preserves labels: Docker save/load
+> uses `pandanote:latest`; Podman exports `localhost/pandanote:latest` as docker-archive,
+> then Docker loads and explicitly retags it to `pandanote:latest`. See the current
+> [operations guide](simplify-setup/OPERATIONS.md),
+> [test harness](../tests/release/README.md) and actual evidence in
+> [simplify-setup progress](simplify-setup/PROGRESS.md). SS07 owns the full historical
+> section/document reconciliation, not a claim that the final release gate is closed.
+
 ## 17. Commit-derived release metadata (approved enhancement)
 
 See [VERSIONING_PLAN.md](VERSIONING_PLAN.md) for the ordered implementation and acceptance contract.

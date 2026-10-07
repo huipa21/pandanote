@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -12,8 +12,7 @@ const read = (path: string) => readFileSync(path, 'utf8');
 const posix = (path: string) => relative('.', path).split(sep).join('/');
 const lines = (text: string) => text.split(/\r?\n/);
 
-// Every shipped HTTP surface is listed deliberately. A debug/dev/fixture route can
-// only appear after a conscious update to this security review list.
+// Every shipped HTTP surface needs a conscious update to this security review.
 const EXPECTED_ROUTES = [
   'api/attachments/[attachmentId]/[variant]',
   'api/auth/fresh',
@@ -71,6 +70,7 @@ describe('production surface hygiene', () => {
   });
 
   it('application source has no dev credentials, test imports, debug logging or unreviewed environment', () => {
+    // Legacy values are read only to scrub/ignore them, never as configuration.
     const allowedEnv = new Set([
       'DATA_DIR',
       'DISK_RESERVE_BYTES',
@@ -96,8 +96,7 @@ describe('production surface hygiene', () => {
 
 describe('deployment artifacts', () => {
   const docker = read('ops/Dockerfile');
-  const compose = read('compose.yaml');
-  const caddy = read('ops/Caddyfile');
+  const compose = read('docker-compose.yml');
   const ignore = lines(read('.dockerignore'));
 
   it('image is pinned, drops bootstrap root privileges and omits tests/docs/dev dependencies/secrets', () => {
@@ -128,6 +127,9 @@ describe('deployment artifacts', () => {
     for (const forbidden of ['tests', 'docs', '.env', 'ops/', 'playwright'])
       for (const line of copies) expect(line).not.toContain(forbidden);
     expect(runtime).toMatch(/DATA_DIR=\/data/);
+    expect(runtime).toContain('BODY_SIZE_LIMIT=64G');
+    expect(runtime).toContain('HEALTHCHECK');
+    expect(runtime).toContain('scripts/reset-password.ts scripts/reindex.ts');
     expect(runtime).not.toMatch(/apt-get|python3|g\+\+/);
     for (const stage of ['build', 'production-deps']) {
       const install = docker.split(`AS ${stage}\n`)[1].split('\nFROM ')[0];
@@ -140,50 +142,77 @@ describe('deployment artifacts', () => {
     }
     for (const secret of ['.env', 'data/', '*.pnb', '*.sqlite', 'backups/'])
       expect(ignore, secret).not.toContain(`!${secret}`);
-    expect(ignore[1]).toBe('**'); // allowlist, not denylist
+    expect(ignore[1]).toBe('**');
+    expect(ignore).toContain('!docker-compose.yml');
+    expect(lines(read('.gitignore'))).toContain('/data/');
   });
 
-  it('compose has one app writer, no published app port, private persistent data and configurable domain', () => {
-    expect(compose).toMatch(/ORIGIN: \$\{ORIGIN:\?/);
-    expect(compose).toMatch(/DOMAIN: \$\{DOMAIN:\?/);
-    expect(compose).not.toMatch(/(ORIGIN|DOMAIN): ['"]?https?:/);
-    const app = compose.slice(
-      compose.indexOf('\n  app:'),
-      compose.indexOf('\n  # One-shot'),
+  it('ships exactly one minimal Compose and one env template with only ORIGIN required', () => {
+    expect(compose.trim()).toBe(`services:
+  pandanote:
+    image: \${PANDANOTE_IMAGE:-pandanote:latest}
+    container_name: pandanote
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - \${DATA_PATH:-./data}:/data
+    networks:
+      - proxynet
+
+networks:
+  proxynet:
+    external: true # the Docker network your Caddy container is on`);
+    expect(compose).not.toMatch(
+      /read_only|tmpfs|cap_drop|cap_add|security_opt|init:|stop_grace_period|healthcheck|logging|ipv4_address|ports:|profiles:|build:/,
     );
-    expect(app).not.toMatch(/^\s+ports:/m);
-    expect(app).toMatch(/restart: unless-stopped/);
-    expect(app).toMatch(/stop_grace_period/);
-    expect(compose).toMatch(/read_only: true/);
-    expect(compose).toMatch(/cap_drop: \[ALL\]/);
-    expect(compose).toMatch(
-      /cap_add: \[CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL\]/,
+    const root = readdirSync('.');
+    expect(root.filter((p) => /compose.*\.ya?ml$/.test(p))).toEqual([
+      'docker-compose.yml',
+    ]);
+    expect(root.filter((p) => /env\.example$/.test(p))).toEqual([
+      '.env.example',
+    ]);
+    const ops = files('ops').map(posix);
+    expect(
+      ops.filter((p) => /compose.*\.ya?ml$|env\.example$|Caddyfile$/.test(p)),
+    ).toEqual([]);
+    for (const removed of [
+      'compose.yaml',
+      'ops/compose.external.yaml',
+      'ops/external.env.example',
+      'ops/production.env.example',
+      'ops/Caddyfile',
+    ])
+      expect(existsSync(removed), removed).toBe(false);
+    const env = read('.env.example');
+    expect(lines(env).filter((l) => /^[A-Z_]+=/.test(l))).toEqual([
+      'ORIGIN=https://notes.example.com',
+    ]);
+    for (const path of [
+      'docker-compose.yml',
+      '.env.example',
+      'ops/Dockerfile',
+      'ops/release-drill.sh',
+      'ops/release-benchmark.sh',
+    ])
+      expect(read(path), path).not.toMatch(/SETUP_TOKEN|TRUSTED_PROXY_IPS/);
+  });
+
+  it('Caddy and two-domain deployments are test-only and exercise default forwarding/body limits', () => {
+    const drill = read('tests/release/compose.drill.yaml');
+    expect(drill).toContain('docker.io/library/caddy:2.11.6-alpine');
+    expect(drill).not.toMatch(
+      /ipv4_address|subnet:|profiles:|SETUP_TOKEN|TRUSTED_PROXY_IPS/,
     );
-    expect(compose).not.toMatch(/mem_limit|APP_MEM_LIMIT|APP_CPUS/);
-    const external = read('ops/compose.external.yaml');
-    expect(external).toContain('${DATA_PATH:-./app-data}:/data');
-    expect(external).toContain('external: true');
-    expect(external).not.toMatch(/mem_limit|cpus:|ports:|profiles:/);
-    expect(compose).toMatch(/no-new-privileges/);
-    expect(compose).not.toMatch(/replicas|scale:/);
-    // Operator tasks never start with the public stack and have no network.
-    for (const task of ['migrate', 'setup-token', 'recover-auth', 'reindex']) {
-      const start = compose.indexOf(`\n  ${task}:`);
-      expect(start, task).toBeGreaterThan(0);
-      const block = compose.slice(start + 1).split(/\n {2}\S/)[0];
-      expect(block).toContain('profiles: [ops]');
-      expect(block).toContain('network_mode: none');
+    expect(read('tests/release/Caddyfile')).toContain(
+      'reverse_proxy pandanote:3000',
+    );
+    expect(read('tests/release/Caddyfile')).not.toMatch(
+      /header_up|request_body|request_buffers|health_uri|timeout|tls_insecure_skip_verify/,
+    );
+    for (const script of ['ops/release-drill.sh', 'ops/release-benchmark.sh']) {
+      expect(read(script)).toContain('-f tests/release/compose.drill.yaml');
+      expect(read(script)).not.toMatch(/setup-token|scripts\/migrate|\.token/);
     }
-  });
-
-  it('reverse proxy overwrites the forwarded address, streams bodies and uses HTTPS defaults', () => {
-    expect(caddy).toMatch(/header_up X-Forwarded-For \{remote_host\}/);
-    expect(caddy).toMatch(/flush_interval -1/);
-    expect(caddy).toMatch(/request_body/);
-    expect(caddy).not.toMatch(
-      /request_buffers|tls_insecure_skip_verify|http:\/\//,
-    );
-    expect(caddy).toMatch(/^\{\$DOMAIN\}/m);
-    expect(caddy).toMatch(/Strict-Transport-Security/);
   });
 });

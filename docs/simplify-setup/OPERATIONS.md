@@ -1,8 +1,9 @@
 # PandaNote — operations guide (target)
 
-Status: **target guide for the simplify-setup change; not yet implemented.**
-After implementation it replaces `ops/DEPLOYMENT.md` (PLAN SS07), adjusted to what
-was actually built. Until then, follow the current `ops/DEPLOYMENT.md`.
+Status: **SS06 deployment artifacts implemented; validation status in [PROGRESS.md](PROGRESS.md).**
+Use this guide for the new minimal deployment. SS07 will replace the historical
+`ops/DEPLOYMENT.md` and reconcile the remaining documentation. Public VPS and
+final release verification are not claimed.
 
 You need: a Linux server with Docker (Compose v2), an existing Caddy container on a
 Docker network (here `proxynet`), and a DNS name pointing at the server.
@@ -14,7 +15,8 @@ From a clean, committed checkout with Node 24 and Docker or Podman:
 ```sh
 npm run image:build -- --platform linux/amd64     # or linux/arm64
 docker image save -o pandanote-image.tar pandanote:latest
-# Podman: podman save --format docker-archive -o pandanote-image.tar pandanote:latest
+# Podman records its local namespace in the archive. Export it explicitly:
+# podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest
 scp pandanote-image.tar docker-compose.yml .env.example user@server:~/pandanote/
 ```
 
@@ -23,6 +25,8 @@ scp pandanote-image.tar docker-compose.yml .env.example user@server:~/pandanote/
 ```sh
 cd ~/pandanote
 docker image load -i pandanote-image.tar
+# ONLY for a Podman-built archive (loaded as localhost/pandanote:latest):
+# docker tag localhost/pandanote:latest pandanote:latest
 cp .env.example .env
 nano .env                      # set ORIGIN=https://notes.example.com
 docker compose up -d
@@ -97,8 +101,8 @@ again after the restart.
 1. Download a fresh backup (Settings).
 2. Keep the current image for rollback:
    `docker tag pandanote:latest pandanote:previous`
-3. Load the new image (`docker image load -i pandanote-image.tar`), then
-   `docker compose up -d`.
+3. Load the new image (`docker image load -i pandanote-image.tar`), retag a
+   Podman-built archive as in section 2, then `docker compose up -d`.
 
 On start, PandaNote saves a copy of the database in `data/pre-upgrade/` and then
 applies any database changes. If anything fails, nothing is changed and the error is

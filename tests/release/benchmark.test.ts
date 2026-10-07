@@ -10,7 +10,7 @@ import {
   type BrowserContext,
   type Page,
 } from '@playwright/test';
-import { DIR, api, signIn } from './support.ts';
+import { DIR, api, setup, signIn } from './support.ts';
 
 // S18 measured workloads against ONE running production deployment (compose
 // project "pnc", see ops/release-benchmark.sh). Everything is synthetic. Results
@@ -19,7 +19,7 @@ import { DIR, api, signIn } from './support.ts';
 const run = promisify(execFile);
 const C = process.env.BENCH_URL ?? 'https://c.localtest.me:7443';
 const DOCKER = process.env.DOCKER ?? 'docker';
-const CONTAINER = process.env.BENCH_APP ?? 'pnc-app-1';
+const CONTAINER = process.env.BENCH_APP ?? 'pnc-pandanote-1';
 const PASSWORD = 'benchmark-only-password 密碼 1';
 const NOTES = Number(process.env.BENCH_NOTES ?? 10_000);
 const results: Record<string, unknown> = {};
@@ -313,12 +313,7 @@ test('setup and seed the realistic 10k dataset through the real API', async () =
     await ensureDiagramNote();
     return;
   }
-  const token = readFileSync(`${DIR}/c.token`, 'utf8').trim();
-  await page.goto(`${C}/setup`);
-  await page.getByLabel('One-time setup token').fill(token);
-  await page.getByLabel('Choose a password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL(`${C}/`, { timeout: 30_000 });
+  await setup(page, C, PASSWORD);
   const cookie = (await context.cookies()).find(
     (c) => c.name === 'pandanote_session',
   )!;

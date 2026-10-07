@@ -7,6 +7,7 @@ import {
   DIR,
   PASSWORD,
   TEMP_PASSWORD,
+  USERNAME,
   sha,
   freshCode,
   usedCodes,
@@ -31,12 +32,11 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data, local draft
 }) => {
   const context = await signedInContext(browser);
   const page = await context.newPage();
-  // Edge behavior: HSTS and protected headers through the real proxy.
+  // HTTPS and application security headers through Caddy's minimal site.
   const health = await api(page, A, 'get', '/health');
   expect(await health.json()).toEqual({ status: 'ok' });
-  expect(health.headers()['strict-transport-security']).toContain('max-age=');
   expect(health.headers()['x-content-type-options']).toBe('nosniff');
-  await setup(page, A, readFileSync(`${DIR}/a.token`, 'utf8').trim(), PASSWORD);
+  await setup(page, A, PASSWORD);
   const cookie = (await context.cookies()).find(
     (c) => c.name === 'pandanote_session',
   )!;
@@ -45,15 +45,17 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data, local draft
     httpOnly: true,
     sameSite: 'Strict',
   });
-  // The same setup token is single-use.
+  // A completed singleton cannot be claimed again.
   expect(
     (
-      await api(page, A, 'post', '/api/auth/setup', {
-        token: readFileSync(`${DIR}/a.token`, 'utf8').trim(),
+      await api(page, A, 'post', '/api/setup/account', {
+        username: 'another.owner',
+        email: 'another@example.invalid',
         password: 'another-password-attempt 1',
+        passwordConfirm: 'another-password-attempt 1',
       })
     ).status(),
-  ).not.toBe(200);
+  ).toBe(409);
 
   // Enroll TOTP through Settings.
   await page.goto(`${A}/settings`);
@@ -279,7 +281,7 @@ test('deployed private surface: anonymous probes cannot reach data, files, backu
       '/build/index.js',
       '/src/hooks.server.ts',
       '/package.json',
-      '/migrations/0000_foundation.sql',
+      '/migrations/0000_baseline.sql',
       '/_app/../../etc/passwd',
       '/__spikes/mermaid',
       '/debug',
@@ -287,7 +289,8 @@ test('deployed private surface: anonymous probes cannot reach data, files, backu
     ];
     for (const path of paths) {
       const response = await anonymous.get(`${origin}${path}`);
-      expect([301, 303, 308, 401, 403, 404], `${origin}${path}`).toContain(
+      // B is still unclaimed: documented setup_required (409) also denies data.
+      expect([301, 303, 308, 401, 403, 404, 409], `${origin}${path}`).toContain(
         response.status(),
       );
       const body = (await response.body()).toString('latin1');
@@ -296,7 +299,9 @@ test('deployed private surface: anonymous probes cannot reach data, files, backu
       expect(body, path).not.toContain('"scripts"');
     }
     // Public pages carry no private data and no inline-script allowance.
-    const login = await anonymous.get(`${origin}/login`);
+    const login = await anonymous.get(
+      `${origin}${origin === B ? '/setup' : '/login'}`,
+    );
     expect(login.status()).toBe(200);
     expect(login.headers()['content-security-policy']).toContain(
       "script-src 'self'",
@@ -316,12 +321,7 @@ test('independent deployment B (different domain): temporary setup, uploaded web
   const context = await signedInContext(browser);
   const page = await context.newPage();
   expect(new URL(A).host).not.toBe(new URL(B).host);
-  await setup(
-    page,
-    B,
-    readFileSync(`${DIR}/b.token`, 'utf8').trim(),
-    TEMP_PASSWORD,
-  );
+  await setup(page, B, TEMP_PASSWORD);
   // Empty destination: no source data, no local drafts from A.
   const empty = (await (await api(page, B, 'get', '/api/notes')).json()).data;
   expect(empty.items).toHaveLength(0);
@@ -375,9 +375,12 @@ test('independent deployment B (different domain): temporary setup, uploaded web
   expect((await api(page, B, 'get', '/api/notes')).status()).toBe(401);
   await context.clearCookies();
   await page.goto(`${B}/login`);
+  await page.getByLabel('Username', { exact: true }).fill(USERNAME);
   await page.getByLabel('Password', { exact: true }).fill(TEMP_PASSWORD);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Unable to sign in');
+  await expect(page.getByRole('alert')).toContainText(
+    'Invalid username or password.',
+  );
   // Archived account: password then TOTP.
   await signIn(page, B, PASSWORD, await freshCode(seed.secret, usedCodes));
 

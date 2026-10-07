@@ -1,0 +1,35 @@
+# Test-only HTTPS stack. NOT a deployment example. Project directory is the repo root.
+# Each project has its own dynamic network, private data bind and Caddy CA.
+services:
+  pandanote:
+    image: ${PANDANOTE_IMAGE:?Set the image under test}
+    restart: unless-stopped
+    environment:
+      ORIGIN: ${ORIGIN:?Set the test origin}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    volumes:
+      - ${DATA_PATH:?Set an isolated test data folder}:/data
+    networks:
+      - edge
+
+  proxy:
+    image: docker.io/library/caddy:2.11.6-alpine
+    environment:
+      DRILL_HOST: ${DRILL_HOST:?Set the test hostname}
+    ports:
+      - '${DRILL_HTTP_PORT:?Set the test HTTP port}:80'
+      - '${DRILL_HTTPS_PORT:?Set the test HTTPS port}:443'
+    volumes:
+      - ./tests/release/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+
+networks:
+  edge:
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -375,7 +375,7 @@ Concurrent edit handling:
 > (username, email, password; then title, language, timezone), username login with
 > 8–128-character passwords and fresh-auth account editing. SS04 translations/title
 > and SS05 format-v2 archives/interactive live-safe password reset are implemented;
-> SS06 deployment files and SS07 rewrite remain. The setup-token bullets below are
+> SS06 minimal deployment files/image gates are implemented; SS07 rewrite remains. The setup-token bullets below are
 > historical pending SS07; the linked SPEC is authoritative for the new behavior.
 > Common host/Linux gates now pass; the overall change/release remains partial;
 > [progress](simplify-setup/PROGRESS.md) records actual evidence.

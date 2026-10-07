@@ -1,0 +1,5 @@
+# Test-only certificates. The production site needs ONLY reverse_proxy.
+{$DRILL_HOST} {
+	tls internal
+	reverse_proxy pandanote:3000
+}

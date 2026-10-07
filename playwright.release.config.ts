@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // S18 release drill and measurements against already running deployments
-// (see ops/DEPLOYMENT.md "Release drill"). It starts nothing and owns no data:
-// the operator supplies URLs/tokens through the environment.
+// (ops/release-drill.sh, tests/release/compose.drill.yaml). Tests run against
+// isolated synthetic deployments; no production data or setup secrets are used.
 export default defineConfig({
   testDir: './tests/release',
   fullyParallel: false,
@@ -11,6 +11,7 @@ export default defineConfig({
   retries: 0,
   timeout: 300_000,
   reporter: 'list',
+  outputDir: 'test-results/release',
   use: {
     ignoreHTTPSErrors: true, // Local drill uses Caddy's internal CA only.
     trace: 'retain-on-failure',

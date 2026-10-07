@@ -2,34 +2,35 @@
 
 ## Current state
 
-- **Status:** **SS05 done; former archive/common-gate blocker cleared.** Schema-v2
-  startup/setup/account/language/title behavior now integrates with format-v2
-  backup/restore and interactive, no-echo, live-safe `reset-password`. Windows
-  check/lint/build, 130 unit, 204 integration + 7 explicit Linux-only skips and
-  all 97 Chromium tests pass. Linux check/lint/build, 130 unit, all 211 integration
-  (no skips/exclusions) and 9 affected Chromium tests pass. Normal production image
-  plus genuine named-command PTY/live-HTTP probe pass (synthetic, not a release).
+- **Status:** **SS06 done.** Minimal root Compose
+  and the single env template replace the historical deployment artifacts. Linux
+  copied-folder DEP-01–08 pass, including a 1,208,340,206-byte TLS archive restore,
+  backup interruption and synthetic SQL/data upgrade/copy rollback. Actual Docker
+  and Podman production builds/save/load/default-reference/native probes pass
+  (DEP-09). Windows/Linux common gates, 130 unit / 211 integration (7 host-only
+  Linux skips, none on Linux), 9 affected Chromium on each, the 4-case two-domain
+  drill and 100-note benchmark setup smoke pass. Full suite/doc rewrite is SS07;
+  no release/user commit created.
 - **Steps:** SS01 in progress (directory-exchange clarification remains) ·
-  SS02–SS04 implemented / common gates now pass · SS05 done · SS06 not started ·
-  SS07 not started. Deployment artifacts and full doc rewrite remain later steps;
+  SS02–SS04 implemented / common gates pass · SS05 done · SS06 done ·
+  SS07 not started. The full documentation rewrite/regression remains next;
   this does not close S18's real-VPS/device/accessibility/release gates.
-- **Session baseline:** HEAD `e300e51` (SS04 committed); clean tree before SS05.
+- **Session baseline:** HEAD `7114997` (SS05 committed); clean tree before SS06.
   No user-repository commit created by this agent; dependencies/lockfile unchanged.
 
 ## Next session: exact task
 
-1. Read `AGENTS.md`, SPEC §9, PLAN **SS06**, acceptance DEP-01–09, target OPERATIONS
-   and the SS05 handoff below; inspect current `compose.yaml`, `ops/compose.external.yaml`,
-   env examples, `ops/Dockerfile`, image-build script, release drill/benchmark and hygiene.
-2. Implement **SS06** minimal root `docker-compose.yml`/single env template, remove
-   superseded deployment artifacts, move Caddy/drill stack into test-only release
-   files, validate image name/save/load and actual Linux deployment gates. Keep
-   named reset/reindex and private/non-root/same-origin/restore protections intact.
-   SS01 directory exchange remains an open clarification, not an SS05 defect.
-3. First validation: `npm run check && npm run test:integration -- release-hygiene
-container-bootstrap startup reset-password`. Host PTY skips are explicit; rerun
-   Linux image for all native/PTY/deployment gates. Never rerun after timeout with
-   stale `.e2e-data/run-*` fixtures; stop owned processes and clean only test data.
+1. Read `AGENTS.md`, SPEC/PLAN **SS07**, OPERATIONS, the SS06 handoff below,
+   root Compose/env, `tests/release/README.md` and the current docs/runbooks.
+2. Implement **SS07**: replace the historical deployment guide with OPERATIONS,
+   reconcile superseded product/architecture/acceptance/README/versioning/migration
+   docs and pin the documentation hygiene gate, then full host/Linux/browser/drill
+   regression. Keep the Podman-to-Docker retag instruction. SS01 directory exchange
+   remains an explicit separate clarification; S18 manual/public-VPS gates stay open.
+3. First validation: `npm run check && npm run test:integration -- release-hygiene`.
+   Run release Playwright gates sequentially (shared output tree); after interruption
+   clean only owned synthetic fixtures/processes. Normal e2e and release outputs are
+   separated, but two release runs still share `test-results/release/`.
 
 ## Step tracker
 
@@ -40,7 +41,7 @@ container-bootstrap startup reset-password`. Host PTY skips are explicit; rerun
 | SS03 | Accounts, setup flow, login                      | implemented / common gates pass | SET/ACC + host/Linux regressions pass                                           |
 | SS04 | Language registry, site title, Settings General  | implemented / common gates pass | LANG/SET + host/Linux affected browser/common gates pass                        |
 | SS05 | Backup/restore format v2, maintenance commands   | done                            | BAK/OPS/MIG-07; 211 Linux integration + genuine production-image PTY/live reset |
-| SS06 | Deployment files and image                       | not started                     | —                                                                               |
+| SS06 | Deployment files and image                       | done                            | DEP-01–09 Linux image/cross-engine + common/affected/drill gates pass           |
 | SS07 | Documentation and full regression                | not started                     | —                                                                               |
 
 ## Known risks to watch
@@ -49,10 +50,12 @@ container-bootstrap startup reset-password`. Host PTY skips are explicit; rerun
   Kit 3's environment module is `$app/env`; build analysis must skip initialization.
 - AuthService live reset is verified in SS05: DB-backed credential/revision state,
   immediate session rejection, journal/replacement checks, atomic rollback; preserve it.
-- Podman-built image name after `docker image load` (`localhost/` prefix) (SS06.3).
-- Caddy defaults for body size, response-header timeout and `X-Forwarded-For`
-  replacement must be confirmed on the pinned Caddy version (DEP-05, DEP-08).
-- Removing `stop_grace_period`: confirm idle shutdown within 10 s (DEP-06).
+- Podman archive namespace is explicit: export `localhost/pandanote:latest`,
+  Docker load, then `docker tag localhost/pandanote:latest pandanote:latest`.
+  Both engine builds/load paths are verified; do not omit the retag in SS07 docs.
+- Caddy 2.11.6 defaults are verified for XFF replacement and >1 GiB TLS restore;
+  no header/body/timeout override is required. Default idle shutdown and interrupted
+  backup cleanup are verified on the production image, not just host tests.
 
 ## Handoff history
 
@@ -637,3 +640,157 @@ Documentation-only close: Prettier on changed Markdown, `npm run lint`,
 application/test code changed after the full host/Linux/image gates. Podman SSH
 recreated a `NUL` known-hosts artifact; removed only that generated file and
 rechecked `.e2e-data`/NUL absence. No unrelated processes/data were touched.
+
+### Session 2026-10-07/08 — SS06 deployment files and image
+
+**State: done.** Started clean at `7114997`.
+No user-repository commit, dependency/lockfile change or actual user-data deletion.
+SS01 directory exchange and S18 public-VPS/device/AT/release gates stay open.
+
+Implemented/touched:
+
+- Root `docker-compose.yml` exactly matches SPEC §9.1; `.env.example` matches §9.2
+  (already had that content). Removed root `compose.yaml`, external Compose,
+  both ops env templates and ops Caddyfile. `.dockerignore` includes the new root
+  file and `.gitignore` for Linux hygiene tests; `/data/` was already ignored.
+  Production Dockerfile already shipped the new named tools, native modules,
+  immutable labels, default 64G limit and image HEALTHCHECK; no gratuitous change.
+- Test-only `tests/release/{compose.drill.yaml,Caddyfile}` with dynamic networks,
+  pinned Caddy 2.11.6 and ONLY reverse_proxy (internal CA for tests); updated
+  `ops/release-{drill,benchmark}.sh` and release support/specs for real two-step
+  username setup/login, no CLI initialization. Optional isolated DRILL_DIR is
+  constrained under ignored .drill; Windows Bash volume-path conversion is handled.
+  Release output moved to `test-results/release`, separate from normal e2e.
+- Hygiene pins exact minimal production Compose, one env template/ORIGIN-only,
+  absent legacy artifacts/config values, unchanged privilege/image/privacy
+  invariants and default Caddy behavior. Legacy environment names remain only in
+  intentional ignore/scrub code and historical docs, not deployment configuration;
+  SS07 owns full documentation reconciliation.
+- New `tests/release/deployment.test.ts`, typed bounded-stream `large-restore.ts`
+  and test README: copied real Compose + ORIGIN-only env on a fresh Linux folder,
+  browser setup through real TLS Caddy, private modes, PID1/default + non-default
+  UID/GID/zero CapEff+CapPrm, restart/recreation, spoofed-XFF buckets, default idle
+  stop, real interrupted backup/startup cleanup, synthetic SQL/data migration and
+  old-copy/image rollback. Large fixture uploads three 384 MiB random ordinary files
+  through real APIs, manually backs up/downloads a >1 GiB archive, verifies bytes,
+  uploads/validates/confirms through minimal TLS Caddy and checks restored file hashes.
+- OPERATIONS documents explicit Podman docker-archive namespace plus one-line Docker
+  retag to match root Compose. README/old deployment guide direct readers to it;
+  architecture §16.1 records current topology without erasing the SS07 rewrite task.
+
+Validation (pinned Windows Node 24.21.0 + PATH/npm CLI, TLS verification 1;
+Linux Node 24.21.0/npm 11.19.0/Git 2.39.5, 2-CPU/4-GiB native test container):
+
+- Initial `npm run check && npm run test:integration -- release-hygiene
+container-bootstrap startup reset-password`: PASS, 0 diagnostics,
+  **13 pass + 7 Linux-only host skips**. Final common outcomes follow below.
+- First host common run: check/lint/build and **130 unit pass**; integration
+  **1 fail / 203 pass / 7 skips**, Windows EPERM renaming generated Sharp output.
+  Server-only cause captured the path/errno; local input retained, no data overwrite.
+  No related source change or proven root cause: unfiltered repeat **204 pass + 7
+  skips / 211**. Record the transient, do not claim a deployment edit fixed it.
+- `npm run test:e2e -- tests/e2e/auth.test.ts tests/e2e/backups.test.ts
+tests/e2e/zzrestore.test.ts tests/e2e/language.test.ts`: **9 Chromium PASS**.
+  Full normal browser suite is SS07 (SS05's 97-pass history is not a new SS06 run).
+- Linux cached-clean-ci validation image: first full integration **210 pass/1 fail**,
+  hygiene could not read .gitignore because the Docker context omitted it. Added
+  that harmless tooling file to the allowlist, rebuilt: check/lint/build PASS,
+  **130 unit + all 211 integration PASS (zero skips/exclusions)**,
+  **9 affected Chromium PASS**. Final rerun follows below; native SQLite/Sharp,
+  PTY/live reset, archive restore/fsync/fault/kill and Git cases execute on Linux.
+- Actual unchanged production Dockerfile from isolated synthetic committed clone,
+  real clean-source wrapper, **Podman build PASS** (cached dependency layers);
+  base `13243cf115d9470df20be3189f0563aff29791220b4f7879dcf11d801a2c5e49`,
+  version `261011-1`, synthetic commit `b844b899d490b4654bdbbfa833a922cdacbfc6e9`.
+  Extra-migration image `406aee1d52af5dc8b78d81d40f733a2ce347909979fcf798fd338e1db5eaf65c`,
+  version `261011-2`, synthetic commit `aebb611fd6d650d7b98a5ed1cefdc97cd9530d9b`.
+  Neither is a release; only throwaway clones were committed.
+- `DEP_ENGINE=podman DEP_REMOTE=podman-machine DEP_IMAGE=localhost/pandanote-ss06-verification:latest
+DEP_UPGRADE_IMAGE=localhost/pandanote-ss06-upgrade:latest
+DEP_COMPOSE_BINARY=.browser-spike/docker-compose-linux npm exec -- playwright test
+--config playwright.release.config.ts tests/release/deployment.test.ts`:
+  **all 5 PASS (DEP-01–08)**. Linux Compose v2.40.3 binary verified against upstream
+  SHA-256 `dba9d98e1ba5bfe11d88c99b9bd32fc4a0624a30fafe68eea34d61a3e42fd372`.
+  **1,208,340,206-byte** archive download/upload/validate/confirm/hash round trip;
+  idle stop exits 0 in <10 s measured on Linux, no SSH-latency inflation;
+  interrupted real backup becomes failed/no partial .pnb; actual schema2→3 SQL +
+  data-step upgrade writes private schema2 pre-copy and rollback restores schema2/note.
+- Actual **Docker 29.8.2** engine in a disposable privileged dind test container:
+  same clean-source snapshot + unchanged production Dockerfile build PASS, fresh
+  apt/npm/native downloads (existing **2 low** KaTeX/Mermaid advisories, no force fix).
+  Docker save/load + ORIGIN-only root Compose, default bind/UID/zero capabilities,
+  loaded-reference identity, native Sharp WebP/SQLite trigram/Argon2, exit0 PASS.
+  Podman `save --format docker-archive ... localhost/pandanote:latest` → Docker
+  load → `docker tag localhost/pandanote:latest pandanote:latest` → same root
+  Compose/native/label checks **PASS (DEP-09)**. Dind is isolated validation tooling,
+  not a production topology, app dependency or requirement to use privileged mode.
+- Two-domain release drill/final common checks/benchmark smoke outcomes follow below.
+
+Resolved intermediate failures (not counted as passes): Prettier cannot parse .env
+(explicit formatting list corrected); initial test helper JS had implicit types
+(converted to typed .ts); first copied-folder helper needed mkdir before Linux bind;
+idle timing originally included ~22 s SSH latency (now measured at the Linux engine);
+large-limit fixture needed the full existing settings payload (400), then backup
+create correctly returned 202 (helper now accepts 2xx). Parallel release/normal
+Playwright runs raced trace output; outputs separated and release gates run serially.
+Windows Bash converted /test-data into a Git install path (explicit engine path
+handling fixed). Generated NUL from Podman SSH is removed, never committed.
+Cross-transfer probe initially confused the default image with a container name;
+changed test-only collision lookup to container inspect. No auth/limits/TLS policy
+was weakened and no failed/blocked gate was silently passed.
+
+Next: **SS07** docs/full regression; exact reads/task/first command are above.
+Preserve full history, the explicit cross-engine retag step, current SS01 clarification
+and S18 manual/public-VPS gates. Final commands, image IDs and cleanup follow below.
+
+Final outcome/close:
+
+- Final pinned host `npm run check`, `npm run test:unit` (**130**),
+  `npm run test:integration` (**204 + 7 explicit Linux-only skips / 211**) and
+  `npm run build`: **PASS**. The runner's lint failed only changed Markdown
+  formatting; `npm exec -- prettier --write <touched docs>` then `npm run lint`
+  and `npm run check`: **PASS**, zero diagnostics. No source/lockfile change.
+- `podman build -f .browser-spike/Dockerfile.ss06-tests -t pandanote-ss06-native-tests .`
+  then `podman run --rm --cpus=2 --memory=4g --name pandanote-ss06-native-validation
+pandanote-ss06-native-tests`: final **PASS**, check/lint/build, **130 unit/all
+  211 integration (no skips/exclusions)/9 affected Chromium**. Clean offline npm ci
+  from verified Linux cache (no fresh audit claim), Git/CA/native/PTY present.
+  Final image `2ea407f5e78b3dd97963b5894e2dcea672fbf036ae5434db3744e855a842ba03`.
+- `COMPOSE=docker-compose DOCKER=podman
+DOCKER_HOST=npipe:////./pipe/podman-machine-default DRILL_DIR=.drill/ss06
+PANDANOTE_IMAGE=localhost/pandanote-ss06-verification:latest
+PLAYWRIGHT='<pinned Node> node_modules/@playwright/test/cli.js'
+bash ops/release-drill.sh`: **PASS** — 3 two-domain setup/MFA/private-surface/
+  downloaded web-restore cases + 1 post-SIGTERM restart/session/local-draft case.
+  Both app stops exit 0. Initial parallel release run lost traces (ENOENT), not
+  counted as a pass; final serial run passes all 4 with default Caddy behavior.
+- Same engine/image with `DRILL_DIR=.drill/ss06-bench BENCH_NOTES=100` and an
+  ignored Playwright wrapper selecting only `--grep 'setup and seed'`,
+  `bash ops/release-benchmark.sh`: **PASS**, 1 real HTTPS setup/100-note seed case.
+  This is artifact/startup smoke, **NOT a new full 10k performance-budget pass**.
+- Cross-engine test-only scripts `verify-ss06-image.mjs`, `build-ss06-docker.mjs`
+  and `probe-ss06-transfer.mjs docker|podman`: **PASS** with actual Docker engine,
+  save/load, Podman archive transfer/retag and production root Compose/native checks.
+  Docker-built immutable manifest list `c109542cf2654a7a647bf4d6d74e861ae8cbe6b1da89cbe80aeb753822ac378e`;
+  Podman-built loaded Docker image `d9ffdafc5641a3244e1f85da45407d56eef53efde5a9ee0a71356fd034400685`.
+  Build provenance labels agree; image IDs need not agree across engines.
+- `bash -n ops/release-drill.sh ops/release-benchmark.sh`, `git diff --check`,
+  unchanged package-lock and host .e2e-data absence: **PASS**. Owned deployment
+  folders/helper/proxy/network and test-only Docker daemon removed; pna/pnb/pnc
+  stacks and their CA volumes removed. Synthetic logs/results stay only in ignored
+  `.browser-spike/` and new `.drill/ss06*`, not the old drill results. Generated NUL
+  and transfer tar removed. Original `localhost/pandanote:latest` remains
+  `05a2848ebd8e2c7ea6882c584694ec6e55df135fb93a5513d5cb54da40e53f14`.
+
+No known unfinished SS06 gate. Full DOC-01–03/full normal browser/performance/VPS
+release gates were not silently included: **SS07 is next**, with the exact command
+and file reads in the summary. Strict SS01 atomic directory exchange remains open.
+Final handoff formatting/lint/check/whitespace close is documentation-only.
+
+Final deployment rerun after making cleanup failures explicit:
+`npm exec -- playwright test --config playwright.release.config.ts
+ tests/release/deployment.test.ts` with the same DEP_* environment: **5/5 PASS
+(4.5 min)** on the final test source, including **1,208,340,311-byte** streamed
+archive restore. No owned container remains; original latest still matches the
+recorded ID. Final pinned check/lint and targeted release-hygiene **5/5 PASS**;
+whitespace/lockfile/fixture/NUL checks pass. No code changed after these gates.

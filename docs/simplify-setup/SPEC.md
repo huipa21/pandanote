@@ -1,6 +1,6 @@
 # Simplify setup — specification
 
-Status: **approved, partially implemented (SS01–SS04 core; SS05 backup/restore and maintenance done; common gates pass).** SS01 directory-exchange clarification, SS06 deployment and SS07 documentation/regression remain.
+Status: **approved, partially implemented (SS01–SS04 core; SS05 backup/restore/maintenance and SS06 deployment/image done; common gates pass).** SS01 directory-exchange clarification and SS07 documentation/full regression remain.
 Actual status: [PROGRESS.md](PROGRESS.md). Decisions and rationale: [DECISIONS.md](DECISIONS.md).
 
 ## 1. Principles

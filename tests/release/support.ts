@@ -8,6 +8,7 @@ import { expect, type BrowserContext, type Page } from '@playwright/test';
 export const A = process.env.DRILL_A ?? 'https://a.localtest.me:8443';
 export const B = process.env.DRILL_B ?? 'https://b.localtest.me:9443';
 export const DIR = process.env.DRILL_DIR ?? '.drill';
+export const USERNAME = 'drill.owner';
 export const PASSWORD = 'drill-source-password 密碼 ✓ 1';
 export const TEMP_PASSWORD = 'drill-temporary-destination-pw 1';
 export const sha = (bytes: Buffer | Uint8Array) =>
@@ -92,16 +93,17 @@ export async function action(
   );
   expect(response.status(), name).toBe(200);
 }
-export async function setup(
-  page: Page,
-  origin: string,
-  token: string,
-  pw: string,
-) {
+export async function setup(page: Page, origin: string, pw: string) {
   await page.goto(`${origin}/setup`);
-  await page.getByLabel('One-time setup token').fill(token);
-  await page.getByLabel('Choose a password').fill(pw);
-  await page.getByRole('button', { name: 'Create account' }).click();
+  await page.getByLabel('Username', { exact: true }).fill(USERNAME);
+  await page.getByLabel('Email', { exact: true }).fill('drill@example.invalid');
+  await page.getByLabel('Password', { exact: true }).fill(pw);
+  await page.getByLabel('Re-enter password', { exact: true }).fill(pw);
+  await page
+    .getByRole('button', { name: 'Create account', exact: true })
+    .click();
+  await expect(page).toHaveURL(`${origin}/setup/preferences`);
+  await page.getByRole('button', { name: 'Finish setup', exact: true }).click();
   await expect(page).toHaveURL(`${origin}/`, { timeout: 30_000 });
 }
 export async function signIn(
@@ -111,6 +113,7 @@ export async function signIn(
   code?: string,
 ): Promise<void> {
   await page.goto(`${origin}/login`);
+  await page.getByLabel('Username', { exact: true }).fill(USERNAME);
   await page.getByLabel('Password', { exact: true }).fill(pw);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   if (code) {
