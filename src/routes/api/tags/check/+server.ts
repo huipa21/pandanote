@@ -25,7 +25,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   } catch (error) {
     return noteErrorResponse(
       error,
-      'Tag history could not be checked. Local draft retained; retry.',
+      'Tag history could not be checked. Editor retained; retry.',
     );
   }
 };

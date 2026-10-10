@@ -7,9 +7,9 @@
     snapshot,
   } from '$app/navigation';
   import {
-    DRAFT_WORKSPACE,
-    type DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
   import {
     CALENDAR,
     type CalendarState,
@@ -63,7 +63,7 @@
     NoteSnapshot,
   } from '#lib/shared/domain.ts';
   let { data } = $props();
-  const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+  const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const calendar = getContext<CalendarState>(CALENDAR);
   const reading = getContext<ReadingState>(READING);
   function queryKey(value: TimelineFilters) {
@@ -380,7 +380,7 @@
     expanded = value ? [...expanded, id] : expanded.filter((n) => n !== id);
   }
   // Back can restore a pre-mutation history snapshot. Reconcile known newer
-  // published revisions as well as filtering known draft/Trash/deleted IDs.
+  // published revisions as well as filtering known Trash/deleted IDs.
   $effect(() => {
     if (!mounted) return;
     const recent = workspace.recentMutations;

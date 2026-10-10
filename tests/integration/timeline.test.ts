@@ -163,7 +163,7 @@ describe('published timeline with actual SQLite', () => {
         b = create('#Work draft'),
         c = create('#Work trash');
       service.mutate(identity, {
-        action: 'move-to-draft',
+        action: 'trash',
         mutationId: randomUUID(),
         noteId: b.noteId,
         expectedRevision: 1,

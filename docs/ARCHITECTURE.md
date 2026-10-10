@@ -1,5 +1,34 @@
 # PandaNote — Architecture and technical contracts
 
+## Current override — in-memory editor and yearly heatmaps
+
+The approved no-drafts contract in PRODUCT_SPEC supersedes historical S05/S08/S13
+browser-draft implementation descriptions below. `client/editor/model.ts` and
+`workspace.svelte.ts` hold one tab-local session and blob map, with no browser
+content storage, draft records, autosave, recovery or Web Lock dependency. Frozen
+attempts remain in memory for receipt-first upload/commit retries; forked attempts
+remap local IDs and parsed image destinations (server references remain reusable).
+Conflict load explicitly discards losing edits; copy/replace use fresh identities
+and observed revision/snapshot digest. No automatic merge or forced revision.
+
+`Composer`/private layout share Post/Save changes–Discard–Cancel confirmation for
+navigation, mobile closure, replacement edits and signout. Browser unload warns
+without posting. Desktop focus close preserves the session. Empty/unchanged edits
+need no prompt. In-flight/frozen saves are protected; discard cannot undo a commit.
+Lifecycle retries remain content-free, independent of removed draft storage.
+
+Fresh baseline and metadata snapshots constrain notes to published (internal name
+for ordinary saved notes) or trash; Trash remembers only published. No upgrade
+migration/importer is supplied (explicit no-production-data user decision); existing
+hash-mismatched DBs and archives fail closed. No automatic data wipe. Tag counts and
+archive summary/scope no longer have draft fields. Portable auth recovery is unchanged.
+
+Private `/api/calendar?year=YYYY` returns twelve month/count arrays, timezone,
+weekStart and today from one authorized read snapshot, bounded to 1969–9998. Daily
+UTC intervals follow Temporal/IANA including DST; no content or coordinates leave
+SQL. `MonthPicker` renders twelve whole-tile links in 4 × 3 with miniature heatmaps;
+async requests have cancellation, deadlines/stale suppression and visible retry.
+
 ## 1. Status and design rules
 
 This records implemented technical contracts. PRODUCT_SPEC remains authoritative;

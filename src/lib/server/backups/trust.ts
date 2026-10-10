@@ -332,7 +332,6 @@ export async function trustSnapshot(
     }
     let count = 0,
       published = 0,
-      drafts = 0,
       trash = 0;
     for await (const row of asRows(db, 'notes', signal)) {
       if (count % 32 === 0) await yieldToRequests();
@@ -385,7 +384,6 @@ export async function trustSnapshot(
         throw new Error('Tag references');
       count++;
       if (row.status === 'published') published++;
-      else if (row.status === 'draft') drafts++;
       else trash++;
     }
     if (count !== manifest.counts.notes) throw new Error('Note counts');
@@ -417,7 +415,6 @@ export async function trustSnapshot(
       schemaVersion: manifest.schemaVersion,
       notes: count,
       published,
-      drafts,
       trash,
       attachments: attachmentCount,
       mfaEnabled: owner.totp_enabled === 1,

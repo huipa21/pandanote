@@ -1,11 +1,9 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
-  import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
-  let { workspace }: { workspace: DraftWorkspace } = $props();
+  import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
+  let { workspace }: { workspace: EditorWorkspace } = $props();
   let open = $derived(
-    workspace.staleTagChoices.length > 0 &&
-      workspace.active?.localDraftId === workspace.staleTagDraftId &&
-      !workspace.posting,
+    workspace.staleTagChoices.length > 0 && !workspace.posting,
   );
   async function choose(choice: 'history' | 'remove' | 'recreate') {
     if (
@@ -31,9 +29,7 @@
       </li>{/each}
   </ul>
   {#if workspace.frozen}<p>
-      This save is frozen. A resolution creates an editable local copy with its
-      files; the original retry stays in Drafts. It might already have saved, so
-      inspect it before posting a copy.
+      This save is frozen. A resolution creates an editable copy.
     </p>{/if}
   <button disabled={workspace.busy} onclick={() => choose('history')}
     >Apply rename/removal history locally</button

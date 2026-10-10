@@ -9,9 +9,9 @@ export const revisionSchema = z
   .min(1)
   .max(Number.MAX_SAFE_INTEGER);
 export const digestSchema = z.string().regex(/^[0-9a-f]{64}$/);
-export const noteStatusSchema = z.enum(['published', 'draft', 'trash']);
+export const noteStatusSchema = z.enum(['published', 'trash']);
 export type NoteStatus = z.infer<typeof noteStatusSchema>;
-export type RestorableStatus = Exclude<NoteStatus, 'trash'>;
+export type RestorableStatus = 'published';
 
 export const locationSchema = z.strictObject({
   latitude: z.number().finite().min(-90).max(90),
@@ -25,7 +25,7 @@ export const noteMetadataSchema = z
   .strictObject({
     id: idSchema,
     status: noteStatusSchema,
-    priorStatus: z.enum(['published', 'draft']).nullable(),
+    priorStatus: z.enum(['published']).nullable(),
     timelineAt: instantSchema,
     createdAt: instantSchema,
     updatedAt: instantSchema,
@@ -50,8 +50,8 @@ export type NoteMetadata = z.infer<typeof noteMetadataSchema>;
 export interface NoteSnapshot extends NoteMetadata {
   bodyMarkdown: string;
   attachmentIds: string[];
-  // Optional for older recovery snapshots; current server reads include safe,
-  // ordered descriptors so processed media and download rows use detected kind.
+  // Full server reads include safe ordered descriptors. Bounded timeline payloads
+  // may omit them; the editor verifies complete metadata before accepting a base.
   attachments?: import('./attachments.ts').ReadyAttachment[];
   tags: string[];
 }
@@ -114,7 +114,7 @@ export function assertRevision(actual: number, expected: number): void {
     );
 }
 
-export type NoteAction = 'move-to-draft' | 'publish' | 'trash' | 'restore';
+export type NoteAction = 'trash' | 'restore';
 export function transitionNote(
   status: NoteStatus,
   priorStatus: RestorableStatus | null,
@@ -126,10 +126,6 @@ export function transitionNote(
     return { status: 'trash', priorStatus: status };
   if (action === 'restore' && status === 'trash' && priorStatus)
     return { status: priorStatus, priorStatus: null };
-  if (action === 'move-to-draft' && status === 'published')
-    return { status: 'draft', priorStatus: null };
-  if (action === 'publish' && status === 'draft')
-    return { status: 'published', priorStatus: null };
   throw new DomainError('validation', 'This note cannot make that transition.');
 }
 

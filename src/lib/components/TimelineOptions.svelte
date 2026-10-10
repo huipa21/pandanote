@@ -1,13 +1,13 @@
 <script lang="ts">
   import Modal from './Modal.svelte';
   import { timelineInput, timelineInstant } from '#lib/client/uploads/date.ts';
-  import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
+  import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   let {
     workspace,
     open = $bindable(false),
     showTrigger = true,
   }: {
-    workspace: DraftWorkspace;
+    workspace: EditorWorkspace;
     open?: boolean;
     showTrigger?: boolean;
   } = $props();

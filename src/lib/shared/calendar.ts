@@ -13,6 +13,11 @@ export interface MonthActivity extends CalendarPreferences {
   counts: number[];
   today: string;
 }
+export interface YearActivity extends CalendarPreferences {
+  year: number;
+  months: { month: string; counts: number[] }[];
+  today: string;
+}
 // Bounded four-digit Gregorian dates make URLs/pickers unambiguous. Midnight is
 // resolved by Temporal's start-of-day operation (including midnight DST changes).
 export function calendarDate(value: string): Temporal.PlainDate {

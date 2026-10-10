@@ -32,10 +32,10 @@ export const backupManifestSchema = z
       attachments: z.number().int().nonnegative(),
     }),
     included: z.literal(
-      'notes,drafts,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys',
+      'notes,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys',
     ),
     excluded: z.literal(
-      'local-drafts,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment',
+      'unsaved-editors,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment',
     ),
     entries: z
       .array(backupEntrySchema)

@@ -36,7 +36,7 @@ function archiveFile(id: string) {
   const dir = readdirSync('.e2e-data').find((name) => name.startsWith('run-'))!;
   return join('.e2e-data', dir, 'backups', `${id}.pnb`);
 }
-test('manual full create, protected native download and confirmed delete work in Settings with private warnings and retained local drafts', async ({
+test('manual full create, protected native download and confirmed delete work in Settings with private warnings', async ({
   page,
   context,
 }) => {
@@ -55,14 +55,6 @@ test('manual full create, protected native download and confirmed delete work in
     },
   });
   expect(note.status()).toBe(200);
-  await page.goto('/drafts');
-  await page.getByRole('button', { name: 'Create another draft' }).click();
-  await page
-    .getByRole('textbox', { name: 'Note text', exact: true })
-    .fill('Local-only excluded backup draft');
-  await expect(page.getByTestId('composer').getByRole('status')).toHaveText(
-    'Saved on this device.',
-  );
   await settings(page);
   const section = page.getByTestId('backup-settings');
   await expect(section).toContainText('unencrypted');
@@ -119,13 +111,6 @@ test('manual full create, protected native download and confirmed delete work in
     readFileSync(archiveFile(id)),
   );
   for (const popup of context.pages()) if (popup !== page) await popup.close();
-  expect(
-    await page.evaluate(() =>
-      Object.values(localStorage).some((value) =>
-        value.includes('Local-only excluded backup draft'),
-      ),
-    ),
-  ).toBe(true);
   await row.getByRole('button', { name: 'Delete backup' }).click();
   await expect(page.getByRole('dialog')).toContainText('Permanently delete');
   await confirm(page, 'delete');

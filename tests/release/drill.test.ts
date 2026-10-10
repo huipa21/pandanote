@@ -27,7 +27,7 @@ import {
 test.describe.configure({ mode: 'serial' });
 let seed: Seed;
 
-test('deployment A: HTTPS edge, setup, TOTP, realistic private data, local draft, manual backup/download', async ({
+test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual backup/download', async ({
   browser,
 }) => {
   const context = await signedInContext(browser);
@@ -92,9 +92,8 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data, local draft
     },
   });
   notes.located = 'Drill located #Place';
-  const draft = await mutate(page, A, 'Drill server draft #DraftTag');
-  await action(page, A, draft.noteId, draft.revision, 'move-to-draft');
-  notes.draft = 'Drill server draft #DraftTag';
+  await mutate(page, A, 'Drill unfinished posted note #Unfinished');
+  notes.unfinished = 'Drill unfinished posted note #Unfinished';
   const trashed = await mutate(page, A, 'Drill trashed note #TrashTag');
   await action(page, A, trashed.noteId, trashed.revision, 'trash');
   notes.trash = 'Drill trashed note #TrashTag';
@@ -175,16 +174,6 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data, local draft
   );
   const fileDownload = await bytes(`/api/attachments/${file.id}/file`);
   expect(fileDownload.equals(fileBytes)).toBe(true);
-
-  // Browser-local work (not part of any backup).
-  await page.goto(`${A}/drafts`);
-  await page.getByRole('button', { name: 'Create another draft' }).click();
-  await page
-    .getByRole('textbox', { name: 'Note text', exact: true })
-    .fill('Browser-local draft that must never enter a backup');
-  await expect(page.getByTestId('composer').getByRole('status')).toHaveText(
-    'Saved on this device.',
-  );
 
   // Manual full backup + protected download.
   await page.goto(`${A}/settings`);
@@ -322,10 +311,10 @@ test('independent deployment B (different domain): temporary setup, uploaded web
   const page = await context.newPage();
   expect(new URL(A).host).not.toBe(new URL(B).host);
   await setup(page, B, TEMP_PASSWORD);
-  // Empty destination: no source data, no local drafts from A.
+  // Empty destination: no source data or unsaved editor content from A.
   const empty = (await (await api(page, B, 'get', '/api/notes')).json()).data;
   expect(empty.items).toHaveLength(0);
-  await page.goto(`${B}/drafts`);
+  await page.goto(`${B}/`);
   expect(
     await page.evaluate(() =>
       Object.values(localStorage).some((v) => v.includes('Browser-local')),
@@ -395,7 +384,7 @@ test('independent deployment B (different domain): temporary setup, uploaded web
   const bodies = timeline.map((n) => n.bodyMarkdown).join('\n---\n');
   for (const key of ['published', 'located', 'code', 'image'])
     expect(bodies, key).toContain(seed.notes[key]);
-  expect(bodies).not.toContain(seed.notes.draft);
+  expect(bodies).toContain(seed.notes.unfinished);
   expect(bodies).not.toContain(seed.notes.trash);
   const published = timeline.find((n) =>
     n.bodyMarkdown.includes('Drill published'),
@@ -405,10 +394,7 @@ test('independent deployment B (different domain): temporary setup, uploaded web
   expect(
     timeline.find((n) => n.bodyMarkdown.includes('Drill located'))!.location,
   ).toMatchObject({ label: 'Drill label 九龍' });
-  for (const [status, key] of [
-    ['draft', 'draft'],
-    ['trash', 'trash'],
-  ] as const) {
+  for (const [status, key] of [['trash', 'trash']] as const) {
     const list = await (
       await api(page, B, 'get', `/api/notes/status?status=${status}`)
     ).text();

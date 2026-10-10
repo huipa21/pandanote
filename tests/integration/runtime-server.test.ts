@@ -226,8 +226,6 @@ it('one production build honors two runtime origins, keeps data private, logs ou
         });
         let revision = 2;
         for (const name of [
-          'move-to-draft',
-          'publish',
           'trash',
           'restore',
           'trash',
@@ -238,7 +236,6 @@ it('one production build honors two runtime origins, keeps data private, logs ou
             noteId: current.noteId,
             mutationId: randomUUID(),
             expectedRevision: revision,
-            ...(name === 'publish' ? { content } : {}),
             ...(name === 'permanent-delete' ? { confirmed: true } : {}),
           };
           const transition = await noteRequest(`${path}/actions`, value);

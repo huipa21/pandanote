@@ -3,13 +3,13 @@
   import Modal from './Modal.svelte';
   import { manualLocation } from '#lib/shared/location.ts';
   import { locationSchema } from '#lib/shared/domain.ts';
-  import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
+  import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   let {
     workspace,
     open = $bindable(false),
     showTrigger = true,
   }: {
-    workspace: DraftWorkspace;
+    workspace: EditorWorkspace;
     open?: boolean;
     showTrigger?: boolean;
   } = $props();
@@ -21,7 +21,7 @@
   let saving = $state(false);
   let error = $state('');
   let generation = 0;
-  let draftId: string | null = null;
+  let sessionId: string | null = null;
   const id = $props.id();
   let locked = $derived(
     !workspace.ready ||
@@ -37,7 +37,7 @@
     } else
       untrack(() => {
         const location = workspace.active?.location;
-        draftId = workspace.active?.localDraftId ?? null;
+        sessionId = workspace.active?.localId ?? null;
         latitude = location ? String(location.latitude) : '';
         longitude = location ? String(location.longitude) : '';
         label = location?.label ?? '';
@@ -62,7 +62,7 @@
           if (
             !open ||
             request !== generation ||
-            draftId !== (workspace.active?.localDraftId ?? null)
+            sessionId !== (workspace.active?.localId ?? null)
           )
             return;
           requesting = false;
@@ -106,9 +106,8 @@
   }
   async function save(remove = false) {
     if (locked || saving) return;
-    if (draftId !== (workspace.active?.localDraftId ?? null)) {
-      error =
-        'The active draft changed. Close and reopen location for that draft.';
+    if (sessionId !== (workspace.active?.localId ?? null)) {
+      error = 'The active note changed. Close and reopen location.';
       return;
     }
     error = '';
@@ -123,10 +122,7 @@
         timelineAt: workspace.active?.timelineAt ?? Date.now(),
         location,
       });
-      if (await workspace.flush()) open = false;
-      else
-        error =
-          'Location remains in the editor, but could not be saved on this device. Resolve the draft storage warning and retry.';
+      open = false;
     } catch (failure) {
       error =
         failure instanceof Error

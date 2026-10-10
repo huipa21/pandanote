@@ -71,7 +71,7 @@ function edit(
   noteId: string,
   expectedRevision: number,
   body: NoteContent,
-  action: 'update' | 'publish' = 'update',
+  action: 'update' = 'update',
 ): NoteMutation {
   return {
     action,
@@ -84,7 +84,7 @@ function edit(
 function action(
   noteId: string,
   expectedRevision: number,
-  name: 'move-to-draft' | 'trash' | 'restore' | 'permanent-delete',
+  name: 'trash' | 'restore' | 'permanent-delete',
 ): NoteMutation {
   return name === 'permanent-delete'
     ? {
@@ -209,13 +209,13 @@ describe('S07 real atomic note lifecycle', () => {
           { ...update, expectedRevision: 2 },
           { ...update, noteId: randomUUID() },
           { ...update, action: 'trash' },
-          { ...update, action: 'publish' },
+          { ...update, action: 'restore' },
         ]) {
           // status-only actions are strict and cannot contain a content field.
           const input =
-            mismatch.action === 'trash'
+            mismatch.action === 'trash' || mismatch.action === 'restore'
               ? {
-                  action: 'trash',
+                  action: mismatch.action,
                   noteId: update.noteId,
                   mutationId: update.mutationId,
                   expectedRevision: 1,
@@ -247,53 +247,41 @@ describe('S07 real atomic note lifecycle', () => {
       const original = service.get(owner, first.noteId);
       const same = service.mutate(owner, edit(first.noteId, 1, body));
       expect(service.get(owner, first.noteId).contentEditedAt).toBeNull();
-      service.mutate(
-        owner,
-        action(first.noteId, same.revision, 'move-to-draft'),
-      );
-      service.mutate(owner, action(first.noteId, 3, 'trash'));
+      service.mutate(owner, action(first.noteId, same.revision, 'trash'));
       expect(service.get(owner, first.noteId)).toMatchObject({
         status: 'trash',
-        priorStatus: 'draft',
+        priorStatus: 'published',
         timelineAt: original.timelineAt,
         location: body.location,
         createdAt: original.createdAt,
         contentEditedAt: null,
       });
-      service.mutate(owner, action(first.noteId, 4, 'restore'));
-      expect(service.get(owner, first.noteId).status).toBe('draft');
-      expect(() => service.mutate(owner, edit(first.noteId, 5, body))).toThrow(
-        /server drafts must be posted/,
-      );
+      service.mutate(owner, action(first.noteId, 3, 'restore'));
+      expect(service.get(owner, first.noteId).status).toBe('published');
       service.mutate(
         owner,
-        edit(
-          first.noteId,
-          5,
-          { ...body, bodyMarkdown: 'Republished #Work' },
-          'publish',
-        ),
+        edit(first.noteId, 4, { ...body, bodyMarkdown: 'Republished #Work' }),
       );
       const published = service.get(owner, first.noteId);
       expect(published).toMatchObject({
         timelineAt: original.timelineAt,
         createdAt: original.createdAt,
-        revision: 6,
+        revision: 5,
       });
       expect(published.contentEditedAt).not.toBeNull();
-      service.mutate(owner, action(first.noteId, 6, 'trash'));
+      service.mutate(owner, action(first.noteId, 5, 'trash'));
       expect(service.get(owner, first.noteId).priorStatus).toBe('published');
-      service.mutate(owner, action(first.noteId, 7, 'restore'));
+      service.mutate(owner, action(first.noteId, 6, 'restore'));
       expect(service.get(owner, first.noteId)).toMatchObject({
         status: 'published',
         contentEditedAt: published.contentEditedAt,
       });
-      expect(p.db.select().from(noteSearch).get()?.sourceRevision).toBe(8);
+      expect(p.db.select().from(noteSearch).get()?.sourceRevision).toBe(7);
       expect(() =>
-        service.mutate(owner, action(first.noteId, 8, 'permanent-delete')),
+        service.mutate(owner, action(first.noteId, 7, 'permanent-delete')),
       ).toThrow(/Trash/);
       expect(() =>
-        service.mutate(owner, action(first.noteId, 8, 'restore')),
+        service.mutate(owner, action(first.noteId, 7, 'restore')),
       ).toThrow(/transition/);
     }));
 
@@ -373,12 +361,7 @@ describe('S07 real atomic note lifecycle', () => {
             },
           },
         });
-        for (const name of [
-          'move-to-draft',
-          'trash',
-          'restore',
-          'permanent-delete',
-        ] as const)
+        for (const name of ['trash', 'restore', 'permanent-delete'] as const)
           expect(() =>
             service.mutate(owner, action(first.noteId, 1, name)),
           ).toThrow(NoteConflictError);
@@ -614,9 +597,7 @@ describe('S07 real atomic note lifecycle', () => {
           .set({ valueJson: JSON.stringify(DEFAULT_SETTINGS) })
           .run(),
       );
-      service.mutate(owner, action(result.noteId, 1, 'move-to-draft'));
-      expect(service.get(owner, result.noteId).attachmentIds).toEqual(ids);
-      service.mutate(owner, action(result.noteId, 2, 'trash'));
+      service.mutate(owner, action(result.noteId, 1, 'trash'));
       expect(count(p, 'file_cleanup_jobs')).toBe(0);
       expect(service.get(owner, result.noteId).attachmentIds).toEqual(ids);
       const nextId = randomUUID(),

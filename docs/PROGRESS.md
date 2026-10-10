@@ -2,20 +2,37 @@
 
 ## Current state
 
+- **Active user change: year miniature heatmaps / remove drafts — done / locally
+  verified.** `client/editor` replaces all browser draft
+  storage/recovery; no Drafts UI/status/actions; memory-only text/files, explicit
+  Post/Save, internal/mobile/signout confirmation and browser Leave/Stay. Fresh
+  schema/metadata snapshots, tags/Trash/archive scope updated without migration
+  (user confirms no deployed/production data); no development data wiped.
+  Check/lint134 unit pass; host full213 integration+7 existing Linux skips pass;
+  actual final Alpine check/lint/build134 unit/all220 integration pass (zero skips).
+  Host final concurrent integration211 pass/2 fail+7 skips at runtime-build tests;
+  sequential runtime2 rerun passes (build/ was mutated by concurrent browser build).
+  Final full `npm run test:e2e`: **68/68 Chromium PASS** (4.6min), including
+  real uploaded restore and accessibility. Prior snapshot/pointer-test failures
+  remain recorded below. Final sequential host integration **213PASS+7 existing
+  Linux-only skips**251.63s. Follow-up wording/CSS cleanup check/lint134unit/build
+  pass; initial close integration212pass/1Windows EPERM rename failure+7skips
+  rolled back safely, isolated restores24PASS; final sequential full rerun
+  **213PASS+7 existing Linux skips**252.17s and full browser **68PASS**5.4min.
+  No security bypass or skipped failing test. See
+  [change handoff](editor-simplification/PROGRESS.md). Historical calendar/editor
+  draft statements below are superseded. No commit/deployment/release claim.
+
 - **Phase:** S00–S17 done; S18 locally verified but **NOT final release** (real VPS,
   public certificates, physical-device/IME/screen-reader/Linux visual/exact-commit gates open).
-- **Repository:** calendar-picker session started clean at `54858f5` (concise editor
-  committed by the user). No agent-created commit/deployment/real-data deletion;
-  current uncommitted changes are calendar/picker/modal CSS, tests and docs.
-- **Requested calendar heatmap/year picker: implemented / affected host gate passes;
-  full regression blocked.** Bold heading, compact date heat tiles, 4 × 3 month
-  picker, one-year arrows, scrollable quick years/direct jump. Check/lint/build,
-  **147 unit**, **212 integration + 7 existing Linux-only skips**, **15 affected
-  calendar/accessibility Chromium PASS**. Full browser runs: **101 PASS / 1 FAIL**
-  at downloaded-archive restore validation, including rerun with longer timeout.
-  Isolated restore **2 PASS**, captured synthetic archive passes source trust;
-  cause of full-suite-only refusal remains unresolved. No security bypass/restore
-  source change or Linux/release pass claimed; see latest handoff.
+- **Repository:** user HEAD `6619a94` (calendar UI change). Current uncommitted
+  work is the approved miniature year heatmaps/no-drafts change and tests/docs;
+  no agent-created commit, deployment or development-data deletion.
+- **Calendar:** bold heading/date heat tiles/year quick navigation retained;
+  month-name choices replaced by 12 miniature monthly heatmaps in 4 × 3.
+  Full current browser gate passes including archive restore; the earlier
+  calendar-only full-suite refusal is historical, not a current reproduced blocker.
+  Its historical root cause was not proven; no trust bypass or final release claim.
 - **Concise editor: done / host verified.** One surface with bottom-left +
   (Tags/Files/Date/Location), Preview switch and top-right expand/X focus mode.
   Recovery/posting protocols unchanged. Final check/lint/build, **146 unit**,
@@ -86,15 +103,15 @@ or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
 
-**Calendar UI is implemented; full regression blocker needs diagnosis:** read
-`Calendar.svelte`, `MonthPicker.svelte`, `Modal.svelte`, `tests/e2e/calendar.test.ts`,
-`tests/e2e/zzrestore.test.ts`, server archive/trust/restore and latest handoff.
-First affected validation: `npm run check && npm run lint && npm run test:e2e --
-tests/e2e/calendar.test.ts tests/e2e/zzzaccessibility.test.ts`. Reproduce the full
-suite-only archive refusal with `npm run test:e2e -- --timeout=120000`, capture
-only synthetic evidence and trace its server-only cause without logging secrets or
-weakening validation. Isolated restore success is not a full-suite pass. No commit
-or deployment without approval; SS01/S18/manual/Linux-release limits remain open.
+**Approved no-drafts/year-miniature-heatmaps change is locally verified.**
+Next is user visual review; commit/deploy/build an exact clean release only with
+explicit approval. Read `docs/editor-simplification/PROGRESS.md`, editor model/
+workspace, Composer/MonthPicker and editor-session/calendar browser tests.
+First safe recheck: `npm run check && npm run lint && npm run test:unit` on
+Node24.21.0 executable AND PATH/TLS1. Never overlap host build-mutating integration
+with Playwright/build. Current full browser/native archive gates pass; historical
+calendar-only archive failure is not currently reproduced. SS01/S18/physical-device/
+Linux visual/ARM64/exact-release limitations remain independent.
 
 **Concise editor is locally done:** review
 `Composer.svelte`, `EditorOptions.svelte`, `Modal.svelte`, `TimelineOptions.svelte`,
@@ -4111,3 +4128,130 @@ Known issues / decisions / exact next task:
 - Physical devices/other browser engines/IME/screen-reader/Linux visual/exact-release
   checks not performed. SS01 literal exchange/S18 real-VPS/manual gates remain open.
   Commit/deploy only with approval; no migration required for this UI change.
+
+### Session 2026-10-10 — Year miniature heatmaps and no-drafts implementation
+
+**State: done / host and actual Linux common verified, full Chromium68PASS.** Continued partial
+uncommitted changes from this session chain at user HEAD6619a94. No commit,
+deployment, production data, implicit development-data deletion or migration.
+User confirms fresh install/no deployed data; baseline/snapshots intentionally
+change and prior development DB/archives fail hash trust rather than being wiped.
+
+Implemented/touched:
+
+- `client/editor/{model,workspace.svelte,lifecycle.svelte}.ts`, EditorFeedback,
+  Composer/private layout/NoteDetail/ConflictDialog/options/settings. Removed all
+  `client/drafts` storage/blob/model/recovery modules and `/drafts`, sidebar nav and
+  move/publish lifecycle commands. Memory-only text/metadata/blob map, dirty base,
+  Post/Save–Discard–Cancel/internal/mobile/replacement/signout guard, native browser
+  Leave/Stay; desktop focus X returns to same editor. No no-op storage facades remain.
+- Receipt-first retry retained in memory. New editable/copy/replace attempts remap
+  upload IDs and real Markdown spans. Ordered ready server descriptors/full base
+  digest/revisions required; losing text/files retained in mounted editor, explicit
+  server load discards, new replace race conflicts. Attachment selection atomic and
+  local-only; preview blob URLs revoked. Content-free lifecycle retry storage is
+  independent and still safely persistent, not a draft feature.
+- MonthPicker/shared calendar/server activity/private calendar route: twelve
+  miniature monthly heatmaps in4×3, whole-tile links, year arrows/quick scroll/direct
+  entry, real timezone/weekStart/count data, cancellation/deadline/errors/retry.
+- Schema/baseline/meta snapshots, shared note/status/tag/archive DTOs/services,
+  Trash/restores scope and UI remove draft fields/status/actions. SQL CHECK retains
+  explicit nonnull prior-status guard (SQLite NULL otherwise passes CHECK).
+- Updated unit/integration/e2e/release fixtures. Replaced obsolete recovery browser
+  tests with actual unsaved/editor/media/conflict tests, removed draft unit/e2e
+  storage tests rather than skipping requirements. Shell uses real deterministic
+  current notes+first-six tags; three changed Win32 baselines opened/reviewed,
+  no extra masking. Product/architecture/plan/acceptance/README/tests docs updated.
+
+Exact validation (Node24.21.0 copied executable in `/tmp/pandanote-node24` on PATH;
+`node 'C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js'` wraps npm, TLS1):
+
+- `npm run check`, `npm run lint`: PASS zero diagnostics. `npm run test:unit`:
+  134 PASS. Format targeted files with `npm exec -- prettier --write ...` PASS.
+- `npm run test:integration -- notes calendar tag-management timeline search backups
+domain-persistence`: initial48pass/2fail (nullable-check + strict action fixture),
+  fixed. Affected notes/calendar/domain rerun PASS. Full host `npm run
+test:integration`: **213 PASS+7 existing Linux-only skips** (249.24s).
+- Later full host common rerun concurrent with browser build:211pass/2runtime-build
+  fail+7skips (324.17s). This failed invocation is not a pass. `npm run
+test:integration -- runtime-server` sequential: **2 PASS**20.56s. Do not overlap
+  build-mutating host integration with Playwright/build. Standalone `npm run build`
+  passes (unchanged large lazy chunk warning).
+- `npm run test:e2e -- editor-session editor posting detail`: initially3pass/9fail
+  from missing real Secure cookie headers and hidden attachment-details assertions;
+  corrected without auth bypass. Direct affected11pass/1CDP-refresh issue; true
+  script-triggered native Leave/Stay fixes it. Calendar+editor-session **11 PASS**.
+- Full direct browser attempt combined with integration hit540s outer timeout after
+  host integration passed; not a full browser pass. Later full **65pass/3fail**
+  (snapshot context, stale bounded30-card count assertion, concurrent-output artifact).
+  Next full **66pass/2fail** (snapshot tags, a11y Post pointer after scan produced no
+  request). Final stable real current-note/six-tag fixture snapshot targeted1PASS;
+  accessibility test explicit keyboard Post1PASS. Latest standalone `npm run
+test:e2e` currently running in `/tmp/pandanote-final-all-browser.log`; no pass yet.
+  Restore download/upload test passes in these full contexts, but historical root
+  cause not proven; no trust bypass or untrusted validation weakened.
+- `podman build -f ops/Dockerfile.alpine-validation -t
+localhost/pandanote-editor-validation .`: fresh real musl build PASS. First
+  image36912f... unit134/all220 integration PASS (no skips). Rebuilt final16fd08...
+  `podman run --rm --name pandanote-editor-final-check --cpus=2 --memory=4g
+localhost/pandanote-editor-validation`: complete **check/lint134unit/all220
+  integration/build PASS**,282.27s integration. Actual Sharp/SQLite/archive/malicious
+  restore/crash/PTY and production server gates run. Not a clean release/deployment.
+- `git diff --check`: PASS, only autocrlf notices. No dependencies/lock/env/Compose
+  changes, no broad cleanup. A prematurely started second Playwright was refused
+  for4175alreadyused; later direct attempts after concurrent builds temporarily
+  removed build/index.js fail, corrected by sequential build. These are recorded
+  failures, not excluded tests or relaxed assertions.
+
+Final close: standalone `npm run test:e2e` **68/68PASS4.6min**, including restored
+archive validation and full accessibility. Final sequential host `npm run
+test:integration`: **213PASS+7 existing Linux-only skips**251.63s. Final
+check/lint/unit/build passed; final Alpine common all220 no skips. Owned validation
+images cleaned only, no broad prune/shared latest/data changes. Miniature year
+screenshots and intentional Win32 baselines opened/reviewed.
+
+Next task: user visual review; commit/build exact clean release only with approval.
+No pending requested functionality or known blocker from these final local gates. Read
+change PROGRESS/editor/MonthPicker/calendar+shell+a11y tests. Do not overlap host
+build suites or regenerate screenshots from varying fixtures. Clean only owned
+validation image/temporary traces after evidence; preserve data/shared aliases.
+SS01 exchange/S18 VPS/device/screen-reader/Linux visuals/ARM64/exact-user-release
+remain independent open gates. No commit/deploy without explicit approval.
+
+### Session 2026-10-10 — No-drafts/year-picker final handoff close
+
+**State: done / locally verified.** Continued only this session's uncommitted
+change at user HEAD6619a94; no commit/deploy/data deletion. Reconciled stale current
+summary/next-session instructions and change handoff with completed gates. Removed
+last draft CSS class names and misleading local-recovery error wording from
+EditorFeedback, private note loader and NoteService. Updated explanatory comments
+and test titles only; no editor state/schema/backup/auth/restore behavior change.
+
+Commands on Node24.21.0 executable AND `/tmp/pandanote-node24` PATH, TLS1:
+
+- `npm exec -- prettier --write <touched files>`, `npm run check`, `npm run lint`:
+  PASS, zero diagnostics. `npm run test:unit`:134PASS.
+- First `npm run test:integration`:212PASS/1FAIL+7 existingLinux skips278.88s.
+  Crash-test subprocess before expected checkpoint encountered Windows EPERM
+  renaming staged DB directory to live DB. Restore rolled back safely. No timeout
+  increase/retry bypass/test skip/product restore change. `npm run test:integration
+-- restores`:24PASS70.66s; final sequential full `npm run test:integration`:
+  **213PASS+7 existingLinux-only skips**252.17s, all36files pass.
+- `npm run build`:PASS adapter-node. Then standalone `npm run test:e2e`:
+  **68/68 ChromiumPASS5.4min** normal snapshots, real upload/download/restore and
+  WCAG light/dark/phone/desktop. No overlapping build suites and no exclusions.
+- `git diff --check`:PASS; package/lock/ops/Compose unchanged; no .e2e-data/NUL
+  leftovers. Required doc/history retained; obsolete draft fixtures removed in
+  earlier handoff rather than marked skipped.
+- `podman ps --filter name=pandanote-editor`:socket unavailable this close, no Linux
+  rerun or new Linux pass claimed. Earlier actual final Alpine16fd08... common
+  check/lint134unit/all220integration/buildPASS remains evidence for unchanged
+  native/restore behavior. Owned validation images already cleaned, no broad prune.
+
+Exact next task: user visual review, then commit/exact clean release only with
+approval. Read current PRODUCT_SPEC override/editor-simplification handoff, editor
+model/workspace, Composer/MonthPicker and editor-session/calendar tests. First
+validation `npm run check && npm run lint && npm run test:unit`; keep integration,
+build and Playwright sequential. No unfinished requested functionality. Independent
+SS01 atomic exchange/S18 realVPS/publicHTTPS/physicaldevice/IME/screenreader/Linux
+visual/ARM64/exactrelease limits stay open; overall release not declared.

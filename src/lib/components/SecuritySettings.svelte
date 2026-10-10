@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount, getContext } from 'svelte';
   import {
-    DRAFT_WORKSPACE,
-    type DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
-  const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
+  const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
   import type { FreshAuthScope } from '#lib/shared/auth.ts';
   type Action =
     'enroll' | 'disable' | 'regenerate' | 'password' | 'revoke' | 'lifetime';
@@ -75,11 +75,17 @@
       ['disable', 'regenerate', 'revoke'].includes(action) &&
       !window.confirm(
         action === 'revoke'
-          ? 'Sign out all devices, including this one? Local drafts remain on this device.'
+          ? 'Sign out all devices, including this one?'
           : action === 'disable'
             ? 'Disable MFA and invalidate all recovery codes?'
             : 'Invalidate every old recovery code and generate ten new ones?',
       )
+    )
+      return;
+    if (
+      action === 'revoke' &&
+      workspace &&
+      !(await workspace.promptUnsavedChanges())
     )
       return;
     busy = true;
@@ -87,10 +93,6 @@
     message = '';
     codes = [];
     try {
-      if (action === 'revoke' && workspace && !(await workspace.flush()))
-        throw new Error(
-          'Local edits are not safely saved. Keep another copy or resolve the draft warning before signing out. Drafts remain on this device.',
-        );
       const fresh = await request('/api/auth/fresh', {
         scope: scopes[action],
         password,
@@ -315,9 +317,8 @@
     <h3>Save your ten recovery codes now</h3>
     <p>
       Shown only at generation. Each works once with your password. Regeneration
-      invalidates the old set. These codes and browser-local drafts do not
-      protect a compromised browser; downloaded backups are also sensitive and
-      unencrypted.
+      invalidates the old set. These codes do not protect a compromised browser;
+      downloaded backups are also sensitive and unencrypted.
     </p>
     <ol>
       {#each codes as value (value)}<li><code>{value}</code></li>{/each}

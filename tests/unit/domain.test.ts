@@ -34,20 +34,13 @@ it('validates complete nullable location, finite ranges and bounded labels', () 
     expect(locationSchema.safeParse(bad).success).toBe(false);
 });
 it('makes Trash prior state explicit and rejects impossible transitions', () => {
-  for (const status of ['published', 'draft'] as const) {
-    const trashed = transitionNote(status, null, 'trash');
-    expect(trashed).toEqual({ status: 'trash', priorStatus: status });
-    expect(
-      transitionNote(trashed.status, trashed.priorStatus, 'restore'),
-    ).toEqual({ status, priorStatus: null });
-  }
-  expect(transitionNote('published', null, 'move-to-draft').status).toBe(
-    'draft',
-  );
-  expect(transitionNote('draft', null, 'publish').status).toBe('published');
+  const trashed = transitionNote('published', null, 'trash');
+  expect(trashed).toEqual({ status: 'trash', priorStatus: 'published' });
+  expect(
+    transitionNote(trashed.status, trashed.priorStatus, 'restore'),
+  ).toEqual({ status: 'published', priorStatus: null });
   expect(() => transitionNote('trash', null, 'restore')).toThrow();
-  expect(() => transitionNote('published', null, 'publish')).toThrow();
-  expect(() => transitionNote('trash', 'draft', 'publish')).toThrow();
+  expect(() => transitionNote('published', null, 'restore')).toThrow();
 });
 it('uses UTC integer instants, explicit expected revisions and UUIDv4 IDs', () => {
   expect(validateTimelineAt(1_700_000_000_000, 1_700_000_000_001)).toBe(

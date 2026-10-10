@@ -38,7 +38,7 @@ export function assertCurrentTags(
   if (staleTags(keys, tagHistory(tx), acknowledged).length)
     throw new DomainError(
       'validation',
-      'This note contains a retired tag. Review tag changes before posting. Your local draft is unchanged.',
+      'This note contains a retired tag. Review tag changes before posting. Your editor is unchanged.',
     );
 }
 export class TagService {
@@ -52,7 +52,7 @@ export class TagService {
     return this.p.db.transaction((tx) => {
       assertSessionIdentity(tx, identity);
       return tx.all<ManagedTag>(sql`select t.normalized_key as key, t.display,
-        coalesce(sum(n.status='published'),0) as published, coalesce(sum(n.status='draft'),0) as draft,
+        coalesce(sum(n.status='published'),0) as published,
         coalesce(sum(n.status='trash'),0) as trash from tags t left join note_tags nt on nt.tag_id=t.id
         left join notes n on n.id=nt.note_id where instr(t.normalized_key,${tagKey(query)})>0
         group by t.id order by t.normalized_key limit 100`);
@@ -287,7 +287,7 @@ export class TagService {
       .map((r) => r.note);
     const targetDisplay =
       operation.action === 'merge' ? target!.display : operation.target;
-    const counts = { published: 0, draft: 0, trash: 0 };
+    const counts = { published: 0, trash: 0 };
     for (const row of rows) counts[row.status]++;
     const history = tagHistory(tx);
     const preview: TagPreview = {

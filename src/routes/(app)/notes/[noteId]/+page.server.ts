@@ -15,10 +15,7 @@ export const load: PageServerLoad = async ({ locals, params, depends }) => {
     };
   } catch (failure) {
     if (failure instanceof DomainError && failure.code === 'not-found')
-      error(404, 'Note not found. Your local recovery is kept.');
-    error(
-      503,
-      'This note could not be loaded. Retry in a moment; local recovery is kept.',
-    );
+      error(404, 'Note not found.');
+    error(503, 'This note could not be loaded. Retry in a moment.');
   }
 };

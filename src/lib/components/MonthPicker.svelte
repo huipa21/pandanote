@@ -1,7 +1,14 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import Modal from './Modal.svelte';
-  import { calendarYears, monthLabel } from '#lib/shared/calendar.ts';
+  import {
+    activityLevel,
+    calendarYears,
+    monthCells,
+    monthLabel,
+    type YearActivity,
+  } from '#lib/shared/calendar.ts';
+  import type { ApiResult } from '#lib/shared/domain.ts';
 
   let {
     open = $bindable(false),
@@ -24,6 +31,10 @@
   let yearList = $state<HTMLDivElement>(null!);
   const years = $derived(calendarYears(year));
 
+  let yearActivityData = $state<YearActivity | null>(null);
+  let loading = $state(false);
+  let activityError = $state('');
+  let retry = $state(0);
   $effect(() => {
     if (open) {
       year = Number(month.slice(0, 4));
@@ -31,6 +42,44 @@
       error = '';
     }
   });
+  $effect(() => {
+    const targetYear = year;
+    void retry;
+    if (!open || choosingYear) return;
+    const controller = new AbortController();
+    let live = true;
+    const timer = setTimeout(() => controller.abort(), 15_000);
+    loading = true;
+    activityError = '';
+    yearActivityData = null;
+    void fetch(`/api/calendar?year=${targetYear}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const result = (await response.json()) as ApiResult<YearActivity>;
+        if (!live) return;
+        if (!response.ok || !result.ok)
+          throw new Error(
+            result.ok ? 'Activity unavailable.' : result.error.message,
+          );
+        if (result.data.year !== targetYear)
+          throw new Error('Unexpected calendar year.');
+        yearActivityData = result.data;
+      })
+      .catch(() => {
+        if (live) activityError = 'Year activity could not be loaded. Retry.';
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        if (live) loading = false;
+      });
+    return () => {
+      live = false;
+      controller.abort();
+      clearTimeout(timer);
+    };
+  });
+
   async function showYears() {
     yearInput = year;
     choosingYear = true;
@@ -43,6 +92,7 @@
     selected?.scrollIntoView({ block: 'center' });
     selected?.focus({ preventScroll: true });
   }
+
   async function chooseYear(value: number | undefined) {
     if (
       typeof value !== 'number' ||
@@ -58,6 +108,12 @@
     error = '';
     await tick();
     if (open) yearHeading?.focus();
+  }
+
+  function monthCounts(targetMonth: string): number[] | undefined {
+    if (!yearActivityData || yearActivityData.year !== year) return undefined;
+    const found = yearActivityData.months.find((m) => m.month === targetMonth);
+    return found?.counts;
   }
 </script>
 
@@ -82,14 +138,18 @@
         aria-label={choosingYear ? 'Previous 20 years' : 'Previous year'}
         disabled={choosingYear ? years[0] === 1969 : year === 1969}
         onclick={() => {
-          year = Math.max(1969, year - (choosingYear ? 20 : 1));
+          const next = Math.max(1969, year - (choosingYear ? 20 : 1));
+          if (choosingYear) year = next;
+          else void chooseYear(next);
         }}>‹</button
       >
       <button
         aria-label={choosingYear ? 'Next 20 years' : 'Next year'}
         disabled={choosingYear ? years.at(-1) === 9998 : year === 9998}
         onclick={() => {
-          year = Math.min(9998, year + (choosingYear ? 20 : 1));
+          const next = Math.min(9998, year + (choosingYear ? 20 : 1));
+          if (choosingYear) year = next;
+          else void chooseYear(next);
         }}>›</button
       >
       <button
@@ -139,21 +199,47 @@
     class="month-grid"
     hidden={choosingYear}
     aria-label={`Months in ${year}`}
+    aria-busy={loading}
   >
     {#each months as value (value)}
       {@const key = `${year}-${String(value).padStart(2, '0')}`}
+      {@const counts = monthCounts(key)}
+      {@const cells = monthCells(key, yearActivityData?.weekStart ?? 1)}
       <a
         href={href(key)}
         aria-label={monthLabel(key)}
         aria-current={key === month ? 'date' : undefined}
+        class="month-card"
         class:current={key === month}
         onclick={() => {
           open = false;
           onNavigate();
-        }}>{monthLabel(key).split(' ')[0]}</a
+        }}
       >
+        <div class="month-title">{monthLabel(key).split(' ')[0]}</div>
+        <div class="mini-heatmap" aria-hidden="true">
+          {#each cells as date, idx (`${key}-${idx}`)}
+            {#if date}
+              {@const dayNum = Number(date.slice(8))}
+              {@const count = counts ? counts[dayNum - 1] : 0}
+              <span
+                class="mini-cell"
+                data-date={date}
+                data-level={counts === undefined ? 0 : activityLevel(count)}
+              ></span>
+            {:else}
+              <span class="mini-cell empty"></span>
+            {/if}
+          {/each}
+        </div>
+      </a>
     {/each}
   </div>
+  {#if !choosingYear}
+    {#if loading}<p role="status">Loading year activity…</p>{/if}
+    {#if activityError}<p role="alert">{activityError}</p>
+      <button onclick={() => retry++}>Retry year activity</button>{/if}
+  {/if}
 </Modal>
 
 <style>
@@ -193,10 +279,11 @@
   [hidden] {
     display: none;
   }
-  .month-grid a,
+  .month-card,
   .year-list button {
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     min-height: var(--target);
     min-width: 0;
     padding: var(--space-2) var(--space-1);
@@ -205,21 +292,58 @@
     background: var(--page);
     color: var(--text);
     text-decoration: none;
+    box-sizing: border-box;
   }
-  .month-grid a {
-    min-height: 4rem;
-    font-size: 0.875rem;
+  .month-card {
+    min-height: 5.5rem;
+    font-size: 0.8125rem;
     overflow-wrap: anywhere;
+    gap: 4px;
+    justify-content: flex-start;
   }
-  .month-grid a:hover,
+  .month-title {
+    font-weight: 600;
+  }
+  .mini-heatmap {
+    display: grid;
+    grid-template-columns: repeat(7, 6px);
+    gap: 2px;
+    justify-content: center;
+    margin-top: 2px;
+  }
+  .mini-cell {
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    background: var(--border);
+  }
+  .mini-cell.empty {
+    visibility: hidden;
+  }
+  .mini-cell[data-level='1'] {
+    background: var(--heat-1);
+  }
+  .mini-cell[data-level='2'] {
+    background: var(--heat-2);
+  }
+  .mini-cell[data-level='3'] {
+    background: var(--heat-3);
+  }
+  .mini-cell[data-level='4'] {
+    background: var(--accent);
+  }
+  .month-card:hover,
   .year-list button:hover,
-  .month-grid a.current,
+  .month-card.current,
   .year-list button.current {
     background: var(--accent-soft);
   }
-  .month-grid a.current,
+  .month-card.current,
   .year-list button.current {
     border-color: var(--accent);
+  }
+  .month-card.current .month-title {
+    color: var(--accent);
     font-weight: 700;
   }
   .year-list {
@@ -239,10 +363,22 @@
   .year-jump button {
     flex: none;
   }
-  @media (max-width: 399px) {
+  @media (max-width: 480px) {
     .month-grid,
     .year-list {
       gap: var(--space-1);
+    }
+    .month-card {
+      padding: var(--space-1);
+      min-height: 4.5rem;
+    }
+    .mini-heatmap {
+      grid-template-columns: repeat(7, 4px);
+      gap: 1.5px;
+    }
+    .mini-cell {
+      width: 4px;
+      height: 4px;
     }
   }
 </style>

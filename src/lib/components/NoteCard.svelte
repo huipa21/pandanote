@@ -12,7 +12,7 @@
   import {
     LIFECYCLE,
     type LifecycleState,
-  } from '#lib/client/drafts/lifecycle.svelte.ts';
+  } from '#lib/client/editor/lifecycle.svelte.ts';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   import {
     cardImages,
@@ -191,7 +191,7 @@
       feedback = 'Copy failed. Use Show more and select the text to copy.';
     }
   }
-  function choose(value: 'trash' | 'move-to-draft') {
+  function choose(value: 'trash') {
     menuOpen = false;
     lifecycle.choose(note, value);
   }
@@ -316,7 +316,6 @@
 </article>
 <Modal bind:open={menuOpen} title="Note actions">
   <button onclick={copy}>Copy Markdown</button>
-  <button onclick={() => choose('move-to-draft')}>Move to Drafts</button>
   <button class="danger" onclick={() => choose('trash')}>Move to Trash</button>
 </Modal>
 

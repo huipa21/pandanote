@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
+  import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
   import LocationOptions from './LocationOptions.svelte';
 
@@ -9,7 +9,7 @@
     onTag,
     onFiles,
   }: {
-    workspace: DraftWorkspace | undefined;
+    workspace: EditorWorkspace | undefined;
     onTag: () => void;
     onFiles: () => void;
   } = $props();

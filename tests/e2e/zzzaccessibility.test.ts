@@ -91,16 +91,6 @@ async function seed(page: Page) {
   const published = await create(
     'Accessibility sample #a11y\n\n```ts\nconst n: number = 1;\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n> quote\n\n- [x] done',
   );
-  const draft = await create('Accessibility draft #a11ydraft');
-  await page.request.post(`/api/notes/${draft.noteId}/actions`, {
-    headers: h,
-    data: {
-      action: 'move-to-draft',
-      noteId: draft.noteId,
-      mutationId: crypto.randomUUID(),
-      expectedRevision: draft.revision,
-    },
-  });
   const trash = await create('Accessibility trash #a11ytrash');
   await page.request.post(`/api/notes/${trash.noteId}/actions`, {
     headers: h,
@@ -122,7 +112,7 @@ async function theme(page: Page, value: 'light' | 'dark') {
   expect(response.status()).toBe(200);
 }
 
-const SCREENS = ['/', '/drafts', '/trash', '/tags', '/settings'];
+const SCREENS = ['/', '/trash', '/tags', '/settings'];
 const SIZES = [
   { name: 'phone', width: 360, height: 800 },
   { name: 'desktop', width: 1440, height: 900 },
@@ -203,14 +193,17 @@ test.describe('axe WCAG 2.x AA scans', () => {
         .getByText('Attachments (1)', { exact: true }),
     ).toBeVisible();
     await scan(page, 'composer with attachment');
-    const before = await page.getByTestId('posted-note').count();
-    await page
+    const post = page
       .getByTestId('composer')
-      .getByRole('button', { name: 'Post', exact: true })
-      .click();
-    await expect(page.getByTestId('posted-note')).toHaveCount(before + 1, {
-      timeout: 30_000,
-    });
+      .getByRole('button', { name: 'Post', exact: true });
+    await post.focus();
+    await post.press('Enter');
+    // The SSR page is bounded to 30; saving may replace its last card, not grow it.
+    await expect(
+      page
+        .getByTestId('posted-note')
+        .filter({ hasText: 'Accessible image post' }),
+    ).toBeVisible({ timeout: 30_000 });
     await scan(page, 'timeline with image card');
     await page.getByRole('button', { name: /image/i }).first().click();
     await expect(page.getByRole('dialog').first()).toBeVisible();

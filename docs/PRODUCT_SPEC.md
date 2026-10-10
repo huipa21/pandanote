@@ -1,5 +1,37 @@
 # PandaNote — Product specification
 
+## Approved change — miniature year heatmaps and no drafts
+
+This user-approved contract supersedes all older draft/recovery references below.
+The app has no Drafts screen/status, autosave, multiple-draft manager or local recovery.
+One editor per tab holds unsaved text/metadata/files in memory only, never localStorage
+or IndexedDB. Post creates an ordinary private note (including unfinished writing);
+Save changes edits a saved note without reordering it. Nothing uploads before those
+explicit actions. Failure retains the mounted editor and receipt-first retry identity.
+Accepted tab exit/refresh/crash loses unsaved work; no background save or unload post.
+
+Internal navigation, mobile editor closure, replacing an editor and signing out ask
+Post/Save changes, Discard, or Cancel. Empty/unchanged editors do not prompt. Only
+confirmed save permits proceeding; failure/conflict stays. Discard abandons unsaved
+text/files, never deletes an existing note or undoes a possibly committed uncertain
+save. Desktop focus X returns to the same compact editor. Actual tab close/refresh
+uses the standard browser Leave/Stay warning.
+
+The bold month/year heading opens twelve **miniature monthly heatmaps in 4 columns
+× 3 rows**, not month-name buttons. Each entire month tile is one navigation link;
+miniature days are noninteractive. Counts use the configured timezone/week start,
+include all ordinary notes independent of filters, and exclude Trash. Year arrows,
+quick-year scrolling/direct entry remain. Browsing alone does not change filters;
+month selection clears day and retains search/tags. Loading/error/retry is visible.
+
+Trash restores to ordinary notes. Tags and full archives cover notes/Trash only;
+unsaved editors are never backed up. Authorization, attachment staging, optimistic
+revisions, no silent overwrite and idempotent retries remain mandatory.
+
+User confirms no deployment/production data: update the fresh-install baseline,
+without a migration/importer or deleting development data. Earlier development
+DB/archives are incompatible and refused. This does not waive Linux/release gates.
+
 ## 1. Status and priorities
 
 This document consolidates the user's final choices. It is intended to carry the project across sessions and agents without reopening settled decisions.
@@ -24,7 +56,7 @@ Included in the first complete release:
 - Two-step browser setup (account, then site title/language/timezone); automatic
   startup initialization and SQL/data migrations with a latest pre-upgrade DB copy.
 - Markdown notes without separate titles.
-- Local drafts and server draft status; browser recovery of unpublished work.
+- In-memory unsaved editor with explicit Post/Save changes, no draft status or recovery.
 - Timeline cards; tags; literal multilingual search; month activity calendar.
 - Backdating; optional geolocation; image and file attachments.
 - Markdown preview, Mermaid, highlighted code with copy buttons.
@@ -40,7 +72,7 @@ Not included:
 - Rich-text/block editor, nested tags, folders, embedded maps, reverse geocoding.
 - Automatic backups, separate backup password, original-image retention.
 - Full-text extraction from PDF/Office/files.
-- Automatic conflict merging or automatic publication of drafts.
+- Automatic conflict merging or automatic posting/saving.
 - PWA/offline sync infrastructure. It can be reconsidered after the agreed app works.
 
 ## 3. Visual language
@@ -93,7 +125,7 @@ Fixed-height application shell; only the notes pane is the main scrolling surfac
 Left sidebar:
 
 1. App identity and search field.
-2. All notes / Drafts navigation.
+2. All notes navigation.
 3. Month activity calendar.
 4. Tags, with management access.
 5. Trash and Settings at the bottom.
@@ -124,7 +156,7 @@ Large tag collections use a Show all/searchable panel. On unusually short screen
 
 There is **no separate title field**. This supersedes the earlier optional-title choice. Markdown headings remain ordinary note content.
 
-Draft/list labels use a safe content excerpt, or “Image note” / “File attachment” when text is absent. Do not persist a generated title as a product field.
+List labels use a safe content excerpt, or “Image note” / “File attachment” when text is absent. Do not persist a generated title as a product field.
 
 ### 4.2 Writing and preview
 
@@ -134,7 +166,7 @@ Draft/list labels use a safe content excerpt, or “Image note” / “File atta
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
 - A bottom-left + opens secondary Tags, Files, Date and Location options; do not display those buttons permanently.
 - One Preview switch toggles rendered Markdown and raw text without losing content.
-- A top-right expand icon enters focus mode; the same corner shows an X to leave it. Closing focus mode retains the draft and returns focus to its opener.
+- A top-right expand icon enters focus mode; the same corner shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
 - Mobile uses the same integrated controls in its full-screen editor.
 - Preview updates are debounced, particularly Mermaid.
 - Image paste, drag/drop, and file picker supported.
@@ -146,56 +178,27 @@ Draft/list labels use a safe content excerpt, or “Image note” / “File atta
 ### 4.3 Post and save feedback
 
 - Show upload progress and posting state; prevent double submission.
-- Keep the draft until the server confirms the complete note save.
+- Keep in-memory text/files until the server confirms the complete note save.
 - On failure, show an actionable message and retain recoverable text/files.
 - Retry must not create duplicate notes/files.
 - On successful normal posting, insert the note without a full page reload. Position follows timeline date; a backdated note must not misleadingly become newest.
-- Editing a published note uses Save changes, not Post. Drafts use Post.
+- Editing a saved note uses Save changes, not Post. New notes use Post.
 
-## 5. Draft model and lifecycle
+## 5. Unsaved editor lifecycle
 
-### 5.1 New local drafts
+The approved change above replaces the former draft lifecycle completely.
 
-- Multiple unfinished drafts per browser are supported.
-- Draft text and metadata persist in browser localStorage.
-- New file/image blobs persist in browser IndexedDB.
-- Before Post, no new-note content or attachment is uploaded to the server.
-- Local drafts can be recovered after reload/browser restart on that browser/device.
-- Other devices do not see them.
-- Local drafts appear in the Drafts screen and are explicitly labeled local/device-only.
-- Discard requires confirmation if content exists and removes associated local blobs.
-- Clearing browser data, private browsing, quota eviction, or losing the device can remove them. The UI must not describe this as backup.
-- Request persistent browser storage where supported and display storage errors. Failure to persist a blob must not look like success.
-
-### 5.2 Server drafts
-
-A published note may be moved to Drafts from its action menu:
-
-- Database status changes to draft; contents, tags, location, and files remain.
-- It disappears from published timeline, normal search, and calendar counts.
-- It is available from Drafts on other devices.
-- Editing it creates/updates a local recovery copy. **No Save draft button and no background server saving of edits.** This supersedes the earlier recommendation for explicit server draft saving.
-- Existing server attachments remain referenced. Newly added files stay local until Post.
-- Clicking Post saves edits and republishes it.
-- Republishing keeps its original timeline date unless deliberately changed by the user.
-- Recovered local edits on one device may be newer than the server draft; label that distinction.
-
-### 5.3 Drafts screen
-
-Separate sections for:
-
-- Local drafts available on this browser, including local recovery edits where appropriate.
-- Server drafts accessible from any authenticated device.
-
-Avoid showing two indistinguishable copies of an edited server draft. Indicate a local recovery copy and use it when reopening on that device.
-
-### 5.4 Published edits
-
-- Opening the editor does not unpublish the note.
-- Unsaved changes are kept locally until Save changes.
-- Saving does not move the note to the top merely because it was edited.
-- Show an edited indicator when content was changed.
-- No automatic merge on conflicts; see section 12.
+- One memory-only editor session per tab, with text, metadata and new file blobs.
+- Post creates a note; Save changes updates a note. Post unfinished writing to keep it.
+- No Drafts page/status, autosave, localStorage/IndexedDB content or reload recovery.
+- Post/Save changes–Discard–Cancel guards internal navigation, mobile closure,
+  replacement edits and signout. Empty/unchanged sessions do not prompt.
+- Standard browser Leave/Stay protects actual close/refresh. Accepted exit/crash
+  loses unsaved work. Desktop focus X returns to the same compact editor.
+- Failure keeps mounted work for receipt-first retry. Discard never deletes an
+  existing server note or undoes an uncertain commit. Conflict resolution stays
+  explicit and revision-checked; no automatic merge or forced overwrite.
+- Editing preserves creation/timeline date, does not reorder, and marks content edits.
 
 ## 6. Timeline dates and Trash
 
@@ -212,8 +215,8 @@ Implementation default: future scheduling is out of scope. Initially restrict an
 Trash:
 
 - Delete is soft deletion into Trash.
-- Preserve whether the note was published or draft before deletion.
-- Restore returns it to the prior status, preserving dates/files.
+- Preserve note contents, dates and files.
+- Restore returns it to ordinary notes, preserving dates/files.
 - Permanent delete requires explicit confirmation.
 - No automatic Trash emptying.
 - Trash is excluded from normal search/calendar/timeline.
@@ -238,9 +241,9 @@ Manage tags includes:
 - Remove tag from notes without deleting those notes.
 - Published-note usage counts.
 
-Management edits actual hashtag spans in affected server-stored note bodies, not merely registry labels. Preserve all unrelated text/formatting; code is untouched. Server drafts and Trash also require consistent rewrites. Increment affected note versions for conflict detection.
+Management edits actual hashtag spans in affected server-stored note bodies, not merely registry labels. Preserve all unrelated text/formatting; code is untouched. Trash also requires consistent rewrites. Increment affected note versions for conflict detection.
 
-Local drafts are not silently rewritten. Before posting, check tags against known rename/merge/removal history and offer an explicit resolution if needed. Do not reintroduce a retired tag accidentally without warning.
+Unsaved editors are not silently rewritten. Before posting, check tags against known rename/merge/removal history and offer an explicit resolution if needed. Do not reintroduce a retired tag accidentally without warning.
 
 ## 8. Exact multilingual search
 
@@ -276,7 +279,7 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 - Counts include all published notes, regardless of current tags/search.
 - Three-letter weekday labels (Mon, Tue, Wed, Thu, Fri, Sat, Sun).
 - Bold month/year heading on the left with no obvious border; previous/next month arrows grouped on the right.
-- Clicking the heading opens a year view of 12 month choices in **4 columns × 3 rows**. Clicking a month jumps immediately and clears the selected day while retaining search/tags.
+- Clicking the heading opens a year view of 12 miniature monthly heatmaps in **4 columns × 3 rows**. Clicking a month jumps immediately and clears the selected day while retaining search/tags.
 - The picker's bold top year opens a scrollable quick-year selector with direct year entry. Top-right previous/next arrows move one year in month view (20-year windows in quick-year view). Browsing the picker alone never changes timeline filters.
 - Today returns to current month and clears the selected-day filter; retain search/tags unless Clear all is chosen.
 - Week-start preference can be placed in Settings; initial default Monday.
@@ -318,7 +321,7 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 
 - Static images only. Reject animation with a clear error; do not silently discard frames.
 - Uploaded originals exist only temporarily for processing and are not retained after successful posting.
-- Local unposted drafts may temporarily retain their selected original image blobs.
+- Unposted editors retain selected original image blobs in memory only.
 - Correct orientation; strip EXIF/GPS metadata.
 - Generate WebP display image and WebP thumbnail.
 - Initial configurable defaults: display max long edge 2560 px / quality ~85; thumbnail max long edge 480 px / quality ~75. Never upscale.
@@ -341,8 +344,8 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 - Implementation safety default: unused-upload cleanup explicitly abandons whole
   posting attempts only after 24 hours without server activity. Resume/upload
   renews protection; cleanup rechecks active uploads and all note references.
-  Nothing expires automatically. Local drafts/files remain, but an abandoned
-  frozen attempt needs a separate editable copy before posting again.
+  Nothing expires automatically. A still-open editor retains files, but an abandoned
+  frozen attempt needs a new editable attempt before posting again.
 
 ## 11. Optional location
 
@@ -372,7 +375,7 @@ Concurrent edit handling:
 - Every server note has a revision/version.
 - Update requires expected revision, including status changes, tag management, date edits, and deletion.
 - Conflict never silently overwrites the newer server version.
-- Keep local edits and new file blobs.
+- Keep current in-memory edits and new file blobs until explicit choice or accepted exit.
 - Offer Load server version, Save local version as a separate note, or Explicitly replace current version after confirmation.
 - Explicit replace still checks the newly observed revision; another race must produce another conflict.
 
@@ -463,8 +466,8 @@ Settings sections:
 - Format-v2 archive contains private application/authentication data, including
   username/email and completed title/language/timezone settings. Explain protected
   handling in the UI. Format-1 pre-release archives are explicitly refused.
-- Include notes, server drafts, Trash, tags, files, settings, authentication/MFA configuration and needed portable key material, schema/version manifest.
-- Exclude local drafts, old backup archives, temporary/uncommitted uploads, active
+- Include notes, Trash, tags, files, settings, authentication/MFA configuration and needed portable key material, schema/version manifest.
+- Exclude unsaved editors, old backup archives, temporary/uncommitted uploads, active
   sessions, runtime caches, pre-upgrade DB copies, OS, DNS, TLS certificates and binaries.
 - Search index can be rebuilt.
 - Never stream a half-created backup as if complete.

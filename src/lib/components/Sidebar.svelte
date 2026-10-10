@@ -34,10 +34,7 @@
   const t = i18n.t;
   let showTags = $state(false);
   let tagQuery = $state('');
-  const nav = $derived([
-    { href: '/', label: t('shell.allNotes') },
-    { href: '/drafts', label: t('shell.drafts') },
-  ]);
+  const nav = $derived([{ href: '/', label: t('shell.allNotes') }]);
   const filteredTags = $derived(
     tags.filter((tag) =>
       tag.label.toLocaleLowerCase().includes(tagQuery.toLocaleLowerCase()),

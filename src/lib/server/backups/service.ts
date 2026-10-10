@@ -398,9 +398,9 @@ export class BackupService {
         createdAt: capturedAt,
         counts: { notes: counts.notes, attachments: counts.attachments },
         included:
-          'notes,drafts,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys',
+          'notes,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys',
         excluded:
-          'local-drafts,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment',
+          'unsaved-editors,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment',
         entries,
       });
       await this.update(id, 'archiving', 50);

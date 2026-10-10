@@ -194,7 +194,8 @@ it('uses actual trigram candidates plus a separate-field literal oracle with det
           .values({
             id,
             bodyMarkdown: body,
-            status: n % 11 === 0 ? 'draft' : 'published',
+            status: n % 11 === 0 ? 'trash' : 'published',
+            priorStatus: n % 11 === 0 ? 'published' : null,
             timelineAt: 100,
             createdAt: 100,
             updatedAt: 100,
@@ -318,16 +319,11 @@ it('combines search, all tags, UTC day and tied-date cursors; source changes/sta
         mutationId: randomUUID(),
         ...(action === 'permanent-delete' ? { confirmed: true } : {}),
       });
-    action('move-to-draft', 2);
+    action('trash', 2);
     expect(
       (await timelinePage(p, identity, params('fresh図書館'))).items,
     ).toEqual([]);
-    service.mutate(identity, {
-      ...command('fresh図書館 #New'),
-      action: 'publish',
-      noteId: target.noteId,
-      expectedRevision: 3,
-    });
+    action('restore', 3);
     action('trash', 4);
     action('restore', 5);
     expect(

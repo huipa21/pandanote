@@ -42,7 +42,7 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     await expect(page.getByText('翻译进行中')).toBeVisible();
     await expect(page).toHaveTitle('设置 · PandaNote');
     const side = page.getByRole('complementary', { name: '侧边栏' });
-    for (const name of ['全部笔记', '草稿', '回收站', '设置'])
+    for (const name of ['全部笔记', '回收站', '设置'])
       await expect(side.getByRole('link', { name, exact: true })).toBeVisible();
     await expect(side.getByLabel('搜索笔记')).toBeVisible();
     await expect(

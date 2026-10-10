@@ -1,4 +1,7 @@
-import { browserSession } from '../helpers/browser-session.ts';
+import {
+  browserSession,
+  authenticatedHeaders,
+} from '../helpers/browser-session.ts';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -144,6 +147,24 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
   context,
 }, testInfo) => {
   await signIn(page, context);
+  // Real current-month notes make screenshot scroller height independent of other specs.
+  const headers = await authenticatedHeaders(page);
+  for (let n = 0; n < 34; n++) {
+    const response = await page.request.post('/api/notes', {
+      headers,
+      data: {
+        action: 'create',
+        mutationId: crypto.randomUUID(),
+        content: {
+          bodyMarkdown: `Synthetic shell reading ${n} #000shell1 #000shell2 #000shell3 #000shell4 #000shell5 #000shell6`,
+          timelineAt: Date.now() - n * 1000,
+          location: null,
+          attachmentIds: [],
+        },
+      },
+    });
+    expect(response.status()).toBe(200);
+  }
   for (const [width, height] of [
     [360, 800],
     [390, 844],
@@ -187,8 +208,8 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
   await expect(drawer).not.toBeVisible();
   await expect(menu).toBeFocused();
   await menu.click();
-  await drawer.getByRole('link', { name: 'Drafts', exact: true }).click();
-  await expect(page).toHaveURL(/\/drafts$/);
+  await drawer.getByRole('link', { name: 'Trash', exact: true }).click();
+  await expect(page).toHaveURL(/\/trash$/);
   await expect(drawer).not.toBeVisible();
   const compose = page.getByRole('button', { name: 'Compose a note' });
   await compose.click();
@@ -211,12 +232,14 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
   ).toBeInViewport();
   await noOverflow(page);
   await page.keyboard.press('Escape');
-  await expect(
-    page.getByRole('button', { name: 'Continue writing' }),
-  ).toBeFocused();
-  await page.getByRole('button', { name: 'Continue writing' }).click();
+  const prompt = page.getByRole('dialog', {
+    name: 'Unsaved changes',
+    exact: true,
+  });
+  await prompt.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(text).toHaveValue(/Unsaved synthetic thought 香港/);
   await page.keyboard.press('Escape');
+  await prompt.getByRole('button', { name: 'Discard', exact: true }).click();
   // Acknowledge a genuine beforeunload prompt if the final local flush is pending.
   page.on('dialog', (dialog) => dialog.accept());
   await page.goto('/');
@@ -500,7 +523,6 @@ test('touch-only private navigation and safe-area/keyboard-shrink scenarios expo
     );
     await noOverflow(page);
     for (const [label, path] of [
-      ['Drafts', '/drafts'],
       ['Manage', '/tags'],
       ['Trash', '/trash'],
       ['Settings', '/settings'],
@@ -584,7 +606,10 @@ test('touch-only private navigation and safe-area/keyboard-shrink scenarios expo
       contentType: 'image/png',
     });
     await editor.getByRole('button', { name: 'Close Write a note' }).tap();
-    await page.getByRole('button', { name: 'Continue writing' }).tap();
+    await page
+      .getByRole('dialog', { name: 'Unsaved changes', exact: true })
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .tap();
     await expect(text).toHaveValue('Safe area and keyboard scenario 香港');
     await text.fill('');
   } finally {

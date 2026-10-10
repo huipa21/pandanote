@@ -1,5 +1,20 @@
 # Verification coverage (S00–S18, simplify setup and image optimization)
 
+## Current editor/year-calendar change
+
+Old draft/recovery cases described later are superseded. Browser draft storage
+modules and their tests are removed, not skipped. `unit/editor-session.test.ts`
+covers session fingerprints, full snapshot checks and AST image remove/remapping.
+Posting protocol retains only memory-held frozen attempts and receipt-first retries.
+Calendar integration verifies full year/month equivalence, leap/DST, bounds/revocation.
+
+`e2e/editor-session`, `posting`, `detail`, `location-storage`, `status-notes`,
+`tag-management` exercise memory-only writing, browser Leave/Stay, Post/Discard/Cancel,
+lost responses, remapped retries, optimistic races, media/date/location and Trash.
+`calendar` covers 12 miniature monthly heatmaps in 4 × 3 with whole-tile navigation.
+Shell screenshots seed real current-month notes for dataset-independent geometry;
+no extra masks/relaxed assertions. SS01/S18/manual/exact-release limits stay open.
+
 Current contracts: browser two-step setup, username login, partial zh-CN/title,
 automatic startup SQL/data migrations and private pre-upgrade DB copy, format-v2
 archives and live-safe interactive reset. [Change progress](../docs/simplify-setup/PROGRESS.md)

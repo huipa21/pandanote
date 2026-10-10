@@ -58,7 +58,7 @@ function rowFor(db: Reader, id: string): NoteRow {
   if (!row)
     throw new DomainError(
       'not-found',
-      'Note not found. Keep your local recovery copy.',
+      'Note not found. Keep your unsaved editor open if you need its text or files.',
     );
   return row;
 }
@@ -184,13 +184,10 @@ export class NoteService {
       const previousIds = old ? linkedIds(tx, old.id) : [];
       let status = old?.status ?? 'published';
       if ('content' in value) {
-        if (
-          (value.action === 'update' && old?.status !== 'published') ||
-          (value.action === 'publish' && old?.status !== 'draft')
-        )
+        if (value.action === 'update' && old?.status !== 'published')
           throw new DomainError(
             'validation',
-            'Published notes use Save changes; server drafts must be posted, and Trash must be restored first.',
+            'Published notes use Save changes; Trash must be restored first.',
           );
         const content = value.content;
         if (value.action !== 'create' && content.timelineAt === null)

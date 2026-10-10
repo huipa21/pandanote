@@ -13,7 +13,6 @@ export const zhCN: Partial<Catalog> = {
   'shell.notebook': '笔记本',
   'shell.utilities': '工具',
   'shell.allNotes': '全部笔记',
-  'shell.drafts': '草稿',
   'shell.trash': '回收站',
   'shell.settings': '设置',
   'shell.calendarAndTags': '日历与标签',

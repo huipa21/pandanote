@@ -90,7 +90,7 @@ try {
             '今日食咗點心 香港 数据库 図書館 TypeScript coffee shop. '.repeat(
               25,
             ),
-          status: n % 10 === 0 ? 'draft' : n % 10 === 1 ? 'trash' : 'published',
+          status: n % 10 === 1 ? 'trash' : 'published',
           priorStatus: n % 10 === 1 ? 'published' : null,
           timelineAt: now - n * 3600_000,
           createdAt: now,

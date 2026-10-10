@@ -17,7 +17,7 @@ export const GET: RequestHandler = ({ locals, url }) => {
   } catch (error) {
     return noteErrorResponse(
       error,
-      'Drafts or Trash could not be loaded. Retry in a moment.',
+      'Trash could not be loaded. Retry in a moment.',
     );
   }
 };

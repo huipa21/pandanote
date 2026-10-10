@@ -177,7 +177,7 @@ test('private resumable uploads, processed variants, safe active-file download a
       await route.continue();
     });
     try {
-      await page.goto('/drafts', { waitUntil: 'commit' });
+      await page.goto('/', { waitUntil: 'commit' });
       await expect(
         page.getByRole('button', { name: 'Write a note…' }),
       ).toBeDisabled();
@@ -186,7 +186,7 @@ test('private resumable uploads, processed variants, safe active-file download a
       resumeModules();
       await page.unrouteAll({ behavior: 'wait' });
     }
-    await page.getByRole('button', { name: 'Create another draft' }).click();
+    await page.getByRole('button', { name: 'Write a note…' }).click();
     const downloadEvent = page.waitForEvent('download');
     await page.evaluate((path) => {
       const a = document.createElement('a');
@@ -206,7 +206,7 @@ test('private resumable uploads, processed variants, safe active-file download a
             .__attachmentExecuted,
       ),
     ).toBeUndefined();
-    // Local draft selection remains device-only even though upload routes now exist.
+    // File selection stays in memory; only explicit Post starts an upload.
     const premature: string[] = [];
     page.on('request', (r) => {
       if (/\/api\/uploads|\/api\/notes/.test(r.url())) premature.push(r.url());

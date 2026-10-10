@@ -8,7 +8,10 @@ import type { SessionIdentity } from '../../src/lib/server/auth/service.ts';
 import { sessions, notes } from '../../src/lib/server/db/schema.ts';
 import { NoteService } from '../../src/lib/server/notes/service.ts';
 import { timelinePage } from '../../src/lib/server/notes/timeline.ts';
-import { monthActivity } from '../../src/lib/server/calendar/activity.ts';
+import {
+  monthActivity,
+  yearActivity,
+} from '../../src/lib/server/calendar/activity.ts';
 import {
   readSettings,
   updateCalendar,
@@ -57,6 +60,46 @@ function create(
 const query = (value: string) => new URLSearchParams(value);
 
 describe('global calendar and timeline anchors on real SQLite', () => {
+  it('year heatmaps equal all twelve month counts, honor DST/leap years, bounds and revoked sessions', async () => {
+    await withPersistence((p) => {
+      const identity = owner(p),
+        service = new NoteService(p);
+      updateCalendar(p, identity, {
+        timezone: 'America/New_York',
+        weekStart: 0,
+      });
+      create(service, identity, '2024-02-29T12:00Z');
+      create(service, identity, '2024-03-10T05:00Z');
+      create(service, identity, '2025-01-01T04:59:59Z');
+      const trashed = create(service, identity, '2024-06-01T12:00Z');
+      service.mutate(identity, {
+        action: 'trash',
+        noteId: trashed.noteId,
+        expectedRevision: 1,
+        mutationId: randomUUID(),
+      });
+      const year = yearActivity(p, identity, 2024);
+      expect(year.months).toHaveLength(12);
+      expect(year.months[1].counts).toHaveLength(29);
+      expect(
+        year.months.flatMap((m) => m.counts).reduce((a, b) => a + b, 0),
+      ).toBe(3);
+      for (const month of year.months)
+        expect(month.counts).toEqual(
+          monthActivity(p, identity, month.month).counts,
+        );
+      expect(JSON.stringify(year).length).toBeLessThan(2500);
+      expect(yearActivity(p, identity, 9998).months).toHaveLength(12);
+      expect(() => yearActivity(p, identity, 1968)).toThrow();
+      p.write((tx) =>
+        tx
+          .delete(sessions)
+          .where(eq(sessions.tokenHash, identity.sessionHash))
+          .run(),
+      );
+      expect(() => yearActivity(p, identity, 2024)).toThrow('Sign in');
+    });
+  });
   it('bounds a dense 10k-note month to counts only and measures warm indexed aggregation', async () => {
     await withPersistence(async (p) => {
       const identity = owner(p);
@@ -111,23 +154,17 @@ describe('global calendar and timeline anchors on real SQLite', () => {
           .items,
       ).toHaveLength(1);
       service.mutate(identity, {
-        action: 'move-to-draft',
+        action: 'trash',
         mutationId: randomUUID(),
         noteId: b.noteId,
         expectedRevision: 1,
       });
       expect(monthActivity(p, identity, '2024-02').counts[28]).toBe(1);
       service.mutate(identity, {
-        action: 'publish',
+        action: 'restore',
         mutationId: randomUUID(),
         noteId: b.noteId,
         expectedRevision: 2,
-        content: {
-          bodyMarkdown: 'republished',
-          timelineAt: Date.parse('2024-02-28T16:00Z'),
-          attachmentIds: [],
-          location: null,
-        },
       });
       expect(monthActivity(p, identity, '2024-02').counts[28]).toBe(2);
       service.mutate(identity, {

@@ -58,7 +58,6 @@ describe('production surface hygiene', () => {
     expect(named('/+server.ts')).toEqual([...EXPECTED_ROUTES].sort());
     expect(named('/+page.svelte')).toEqual([
       '(app)',
-      '(app)/drafts',
       '(app)/notes/[noteId]',
       '(app)/settings',
       '(app)/tags',

@@ -41,7 +41,7 @@ describe('note boundary contracts', () => {
       }),
     ).toBe(canonical);
     for (const changed of [
-      { ...value, action: 'publish' as const },
+      { ...value, action: 'trash' as const },
       { ...value, expectedRevision: 2 },
       { ...value, noteId: randomUUID() },
       { ...value, content: { ...content, bodyMarkdown: 'different' } },

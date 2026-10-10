@@ -1,11 +1,9 @@
 <script lang="ts">
-  import Modal from './Modal.svelte';
-  import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
-  let { workspace }: { workspace: DraftWorkspace } = $props();
-  let confirmLoad = $state(false);
+  import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
+  let { workspace }: { workspace: EditorWorkspace } = $props();
 </script>
 
-<div class="draft-feedback">
+<div class="editor-feedback">
   {#if workspace.postProgress}
     <div class="posting-progress" role="status" aria-live="polite">
       <span
@@ -22,30 +20,30 @@
     </div>
   {/if}
   {#if workspace.postError}
-    <p class="draft-error" role="alert">
+    <p class="editor-error" role="alert">
       {workspace.postError}
       {#if workspace.postRequiresLogin}<a href="/login"
-          >Sign in again — this draft stays on this device</a
+          >Sign in again to save this note</a
         >{/if}
     </p>
   {/if}
   {#if workspace.frozen && !workspace.posting}
-    <div class="draft-error">
+    <div class="editor-error">
       <p>
-        This save is frozen for safe retry. Editing a separate copy does not
-        cancel it; it may already be saved on the server. Retry first to check.
+        This save is frozen for safe retry. It may already have committed. Retry
+        first; starting a new attempt does not cancel or undo the original.
       </p>
       <button
         disabled={workspace.busy || workspace.conflict}
         onclick={() => workspace.post()}>Check and retry save</button
       >
       <button disabled={workspace.busy} onclick={() => workspace.keepSeparate()}
-        >Edit a separate copy</button
+        >Edit as new note</button
       >
     </div>
   {/if}
   {#if workspace.postConflict}
-    <div class="draft-error">
+    <div class="editor-error">
       <button
         onclick={() => {
           workspace.postConflict = { ...workspace.postConflict! };
@@ -54,29 +52,13 @@
           .revision})</button
       >
       <p>
-        Your local version is retained. Resolve the conflict or keep the
-        recovery for later.
+        Your current text is retained. Resolve the conflict or keep editing.
       </p>
     </div>
   {/if}
   {#if workspace.error}
-    <div class="draft-error" role="alert">
+    <div class="editor-error" role="alert">
       <p>{workspace.error}</p>
-      {#if workspace.conflict}
-        <button onclick={() => workspace.keepSeparate()}
-          >Save my version as another draft</button
-        >
-        <button
-          onclick={() => {
-            confirmLoad = true;
-          }}>Load saved version</button
-        >
-      {:else}
-        <button onclick={() => workspace.flush()}>Retry saving locally</button>
-        <button onclick={() => workspace.loadFiles()}
-          >Check local files again</button
-        >
-      {/if}
     </div>
   {/if}
   {#if workspace.active?.attachments.length}
@@ -93,7 +75,7 @@
             <span
               >{item.filename} · {item.kind} · {item.size} bytes · {item.source ===
               'local'
-                ? 'device-only'
+                ? 'attached'
                 : 'server reference'}</span
             >
             {#if workspace.missing.includes(item.id)}
@@ -141,20 +123,9 @@
     </details>
   {/if}
 </div>
-<Modal bind:open={confirmLoad} title="Replace this editor's version?">
-  <p>
-    Your current in-memory version will be replaced. Save it as another draft
-    first if you want to keep it.
-  </p>
-  <button
-    onclick={async () => {
-      if (await workspace.loadSaved()) confirmLoad = false;
-    }}>Confirm load saved version</button
-  >
-</Modal>
 
 <style>
-  .draft-feedback {
+  .editor-feedback {
     flex: none;
     max-height: min(10rem, 30dvh);
     overflow: auto;
@@ -167,14 +138,14 @@
     display: block;
     max-width: 100%;
   }
-  .draft-error,
+  .editor-error,
   .attachments {
     flex: none;
     max-height: 8rem;
     overflow: auto;
     font-size: 0.875rem;
   }
-  .draft-error p {
+  .editor-error p {
     margin-block: var(--space-1);
   }
   summary {

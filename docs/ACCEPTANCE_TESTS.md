@@ -1,5 +1,31 @@
 # PandaNote — Acceptance and verification matrix
 
+## Current change acceptance (supersedes DRAFT-01–05)
+
+- EDITOR-01: no Drafts UI/status/actions or browser note/blob persistence; ordinary
+  Post preserves unfinished writing as a note. Reload/crash has no recovery.
+- EDITOR-02: internal navigation, mobile close, replacement edit and signout offer
+  Post/Save changes, Discard, Cancel; empty/unchanged editor does not prompt.
+  Cancel retains all work, Discard never changes an existing server note.
+- EDITOR-03: actual browser unload Leave/Stay works; Stay retains memory, accepted
+  reload loses unsaved text/files with no hidden upload or auto-post.
+- EDITOR-04: failed/mid-upload/lost-commit responses retain mounted text/files and
+  exact retry identity. Repeated save yields one note/file. New editable attempts
+  remap IDs already bound to old batches; discard cannot undo an uncertain commit.
+- EDITOR-05: complete server snapshots seed edits, same-revision restore identity
+  checked, conflicts keep losing bytes; copy and newly observed replace remain
+  revision-checked. Fresh schema rejects drafts, tag/Trash/archive contracts agree;
+  no legacy migration/import or automatic development-data deletion.
+- YEAR-01: 12 miniature monthly heatmaps, 4 × 3, whole tile navigates to month;
+  real all-note timezone/week-start daily counts, leap/DST and 1969/9998 bounds.
+  Year arrows/quick scrolling/direct entry, stale response cancellation, visible
+  error/retry, keyboard/mobile/AA labels; selection retains search/tags and clears day.
+
+Covered by editor-session/model/posting unit, calendar/notes/status/tags/archive
+integration, editor-session/posting/detail/calendar browser tests. Common/full
+browser and actual Linux native/archive gates remain required. Historical draft
+acceptance cases below are superseded, not missing current functionality.
+
 ## 1. Verification rules
 
 These are expected tests, not claims that tests already exist or pass. Add cases alongside implementation; keep a mapping from these IDs to actual test files in PROGRESS or the test README.

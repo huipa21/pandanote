@@ -1,22 +1,22 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { goto, invalidate } from '$app/navigation';
+  import { goto, invalidate, beforeNavigate } from '$app/navigation';
   import { onMount, setContext, untrack } from 'svelte';
   import {
     CALENDAR,
     CalendarState,
   } from '#lib/client/timeline/calendar.svelte.ts';
   import {
-    DRAFT_WORKSPACE,
-    DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
+    EDITOR_WORKSPACE,
+    EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
   import AppShell from '#lib/components/AppShell.svelte';
   import NoteDetail from '#lib/components/NoteDetail.svelte';
   import LifecycleDialog from '#lib/components/LifecycleDialog.svelte';
   import {
     LIFECYCLE,
     LifecycleState,
-  } from '#lib/client/drafts/lifecycle.svelte.ts';
+  } from '#lib/client/editor/lifecycle.svelte.ts';
   import ConflictDialog from '#lib/components/ConflictDialog.svelte';
   import StaleTagDialog from '#lib/components/StaleTagDialog.svelte';
   import {
@@ -25,11 +25,34 @@
   } from '#lib/client/timeline/reading.svelte.ts';
   import type { ApiResult, NoteSnapshot } from '#lib/shared/domain.ts';
   let { children, data } = $props();
-  const workspace = new DraftWorkspace(
+  const workspace = new EditorWorkspace(
     untrack(() => data.account.id),
     untrack(() => data.timezone),
   );
-  setContext(DRAFT_WORKSPACE, workspace);
+  setContext(EDITOR_WORKSPACE, workspace);
+  let resumingNavigation = false;
+  beforeNavigate((navigation) => {
+    if (
+      resumingNavigation ||
+      navigation.willUnload ||
+      !navigation.to?.url ||
+      (!workspace.dirty && !workspace.busy && !workspace.frozen)
+    )
+      return;
+    navigation.cancel();
+    // Repeated navigation clicks cannot queue competing destinations on one dialog.
+    if (workspace.confirmModalOpen) return;
+    const target = navigation.to.url;
+    void workspace.promptUnsavedChanges().then(async (proceed) => {
+      if (!proceed) return;
+      resumingNavigation = true;
+      try {
+        await goto(target, { reset: false });
+      } finally {
+        resumingNavigation = false;
+      }
+    });
+  });
   const lifecycle = new LifecycleState(workspace.accountId, (result) =>
     workspace.recordMutation(result),
   );

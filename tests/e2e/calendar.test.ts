@@ -251,6 +251,18 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
   );
   await heading.click();
   await expect(picker.getByRole('link')).toHaveCount(12);
+  await expect(picker.locator('.mini-heatmap')).toHaveCount(12);
+  for (const [day, level] of [
+    [27, 0],
+    [28, 1],
+    [29, 2],
+    [30, 3],
+    [31, 4],
+  ]) {
+    await expect(
+      picker.locator(`.mini-cell[data-date="2025-01-${day}"]`),
+    ).toHaveAttribute('data-level', String(level));
+  }
   const boxes = await picker.getByRole('link').evaluateAll((links) =>
     links.map((link) => {
       const r = link.getBoundingClientRect();
@@ -502,18 +514,10 @@ test('scrolling composer and Back to Top retain unpublished text, filters and lo
   expect(page.url()).toBe(url);
   expect(await page.evaluate(() => history.length)).toBe(historyLength);
   await expect(page.locator('#notes-pane')).toBeFocused();
-  // Flush local storage before test-owned navigation; nothing was posted.
   page.on('dialog', (dialog) => dialog.accept());
   await page.reload();
-  await page
-    .getByRole('complementary')
-    .getByRole('link', { name: 'Drafts', exact: true })
-    .click();
-  await expect(
-    page
-      .getByTestId('local-draft')
-      .filter({ hasText: 'Unpublished scrolling draft 香港' }),
-  ).toHaveCount(1);
+  await composer.getByRole('button', { name: 'Write a note…' }).click();
+  await expect(text).toHaveValue('');
 });
 
 test('timezone detection is an explicit proposal; settings errors retain choices and saved zone drives dates across browser zones', async ({
@@ -651,7 +655,7 @@ test('calendar count errors retry safely and lifecycle actions refresh all-publi
   );
 });
 
-test('posting from Drafts invalidates calendar counts and a delayed image preserves the top-visible month and reading anchor', async ({
+test('posting from the composer invalidates calendar counts and a delayed image preserves the top-visible month and reading anchor', async ({
   page,
 }, testInfo) => {
   const { side, headers } = await start(page);
@@ -660,9 +664,10 @@ test('posting from Drafts invalidates calendar counts and a delayed image preser
     'aria-label',
     /0 published notes/,
   );
-  await side.getByRole('link', { name: 'Drafts', exact: true }).click();
-  await expect(page).toHaveURL('/drafts');
-  await page.getByRole('button', { name: 'Create another draft' }).click();
+  await page
+    .getByTestId('composer')
+    .getByRole('button', { name: 'Write a note…' })
+    .click();
   await page
     .getByRole('textbox', { name: 'Note text' })
     .fill('S11 delayed image #S11image');

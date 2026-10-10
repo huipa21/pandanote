@@ -10,7 +10,6 @@ export const en = {
   'shell.notebook': 'Notebook',
   'shell.utilities': 'Utilities',
   'shell.allNotes': 'All notes',
-  'shell.drafts': 'Drafts',
   'shell.trash': 'Trash',
   'shell.settings': 'Settings',
   'shell.calendarAndTags': 'Calendar and tags',

@@ -1,10 +1,9 @@
 import { expect, it } from 'vitest';
 import {
-  newDraft,
-  commandForDraft,
-  draftSchema,
+  newSession,
+  commandForSession,
   remapImageReferences,
-} from '../../src/lib/client/drafts/model.ts';
+} from '../../src/lib/client/editor/model.ts';
 import {
   postingAttemptSchema,
   commandDigest,
@@ -21,7 +20,6 @@ import {
   timelineInstant,
 } from '../../src/lib/client/uploads/date.ts';
 import type { ReadyAttachment } from '../../src/lib/shared/attachments.ts';
-const account = '11111111-1111-4111-8111-111111111111';
 const result = {
   noteId: crypto.randomUUID(),
   revision: 1,
@@ -30,8 +28,21 @@ const result = {
 };
 async function fixture() {
   const id = crypto.randomUUID();
-  const command = commandForDraft(
-    { ...newDraft(account), bodyMarkdown: '香港', attachments: [{ id }] },
+  const command = commandForSession(
+    {
+      ...newSession(),
+      bodyMarkdown: '香港',
+      attachments: [
+        {
+          id,
+          source: 'local',
+          kind: 'file',
+          filename: 'quiet.txt',
+          mime: 'text/plain',
+          size: 5,
+        },
+      ],
+    },
     crypto.randomUUID(),
   );
   const blob = new Blob(['exact']);
@@ -252,47 +263,24 @@ it('surfaces server validation/stale-tag/conflict messages without changing froz
   ).rejects.toThrow(/Retired tag/);
   expect(f.saved.command).toEqual(f.attempt.command);
 });
-it('commands choose create/update/publish with original explicit dates and revisions; old draft records remain valid', async () => {
-  const draft = { ...newDraft(account, 1234), bodyMarkdown: 'quiet' };
-  expect(draftSchema.parse(draft)).toEqual(draft);
-  for (const kind of ['edit-published', 'edit-server-draft'] as const) {
-    const recovery = {
-      ...draft,
-      kind,
-      serverBase: {
-        noteId: crypto.randomUUID(),
-        revision: 7,
-        snapshotDigest: '0'.repeat(64),
-      },
-    };
-    const command = commandForDraft(recovery, crypto.randomUUID());
-    expect(command.action).toBe(
-      kind === 'edit-published' ? 'update' : 'publish',
-    );
-    const attempt = {
-      command,
-      manifest: {
-        mutationId: command.mutationId,
-        requestDigest: await commandDigest(command),
-        items: [],
-      },
-      phase: 'frozen',
-      batchId: null,
-      readyIds: [],
-      result: null,
-    };
-    expect(
-      draftSchema.safeParse({ ...recovery, postingAttempt: attempt }).success,
-    ).toBe(true);
-    expect(
-      draftSchema.safeParse({
-        ...recovery,
-        postingAttempt: attempt,
-        bodyMarkdown: 'changed',
-      }).success,
-    ).toBe(false);
-    expect('content' in command && command.content.timelineAt).toBe(1234);
-  }
+it('commands choose create/update with original explicit dates and revisions', () => {
+  const session = { ...newSession(1234), bodyMarkdown: 'quiet' };
+  expect(commandForSession(session, crypto.randomUUID()).action).toBe('create');
+  const base = {
+    noteId: crypto.randomUUID(),
+    revision: 7,
+    snapshotDigest: '0'.repeat(64),
+  };
+  const command = commandForSession(
+    { ...session, kind: 'edit', serverBase: base },
+    crypto.randomUUID(),
+  );
+  expect(command).toMatchObject({
+    action: 'update',
+    noteId: base.noteId,
+    expectedRevision: 7,
+    content: { timelineAt: 1234 },
+  });
 });
 it('copies remap only real Markdown image nodes/definitions and date entry rejects DST ambiguity/future times', () => {
   const id = crypto.randomUUID();

@@ -5,6 +5,13 @@ const cache = '.e2e-data/browser-session.json';
 /** Reuse only real server-issued synthetic credentials across Playwright workers.
  * This private test file is ignored and removed with the owned E2E fixture. It
  * avoids spending a login per suite; production limits/auth checks stay intact. */
+export async function authenticatedHeaders(page: Page) {
+  const cookies = await browserSession(page);
+  return {
+    origin,
+    cookie: `pandanote_session=${cookies.find((cookie) => cookie.name === 'pandanote_session')!.value}`,
+  };
+}
 export async function browserSession(page: Page): Promise<Cookie[]> {
   if (existsSync(cache)) {
     const cookies = JSON.parse(readFileSync(cache, 'utf8')) as Cookie[];

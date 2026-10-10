@@ -52,19 +52,18 @@ export interface ManagedTag {
   key: string;
   display: string;
   published: number;
-  draft: number;
   trash: number;
 }
 export interface TagPreview {
   operation: TagAction;
   previewToken: string;
-  counts: { published: number; draft: number; trash: number };
+  counts: { published: number; trash: number };
   targetExists: boolean;
   targetRetired: boolean;
   samples: {
     id: string;
     revision: number;
-    status: 'published' | 'draft' | 'trash';
+    status: 'published' | 'trash';
     before: string;
     after: string;
   }[];

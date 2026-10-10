@@ -97,14 +97,14 @@ it('enforces single account, note statuses, paired finite location and revision/
     const first = p.write((tx) =>
       tx
         .update(notes)
-        .set({ status: 'draft', revision: 3 })
+        .set({ status: 'trash', priorStatus: 'published', revision: 3 })
         .where(and(eq(notes.id, id), eq(notes.revision, 2)))
         .run(),
     );
     const stale = p.write((tx) =>
       tx
         .update(notes)
-        .set({ status: 'trash', priorStatus: 'published', revision: 3 })
+        .set({ status: 'published', priorStatus: null, revision: 3 })
         .where(and(eq(notes.id, id), eq(notes.revision, 2)))
         .run(),
     );
@@ -118,7 +118,7 @@ it('enforces single account, note statuses, paired finite location and revision/
             'SELECT revision, status, content_edited_at FROM notes WHERE id = ?',
           )
           .get(id),
-      ).toEqual({ revision: 3, status: 'draft', content_edited_at: null });
+      ).toEqual({ revision: 3, status: 'trash', content_edited_at: null });
       expect(inspector.pragma('foreign_key_check')).toEqual([]);
     } finally {
       inspector.close();

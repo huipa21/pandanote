@@ -16,10 +16,10 @@ import {
 
 // S18 drill phase 2: runs after BOTH app containers were gracefully stopped and
 // started again (ops/release-drill.sh). Data, files, settings and sessions live in
-// the persistent volume; browser-local drafts live only in the browser.
+// the persistent volume; unsaved editor sessions are memory-only and not recovered.
 const seed = JSON.parse(readFileSync(`${DIR}/seed.json`, 'utf8')) as Seed;
 
-test('restarted source keeps its session and the browser-local draft; restarted restored deployment keeps archived data, files and settings', async ({
+test('restarted source keeps its session with an empty editor; restarted restored deployment keeps archived data, files and settings', async ({
   browser,
 }) => {
   const source = await browser.newContext({
@@ -27,21 +27,12 @@ test('restarted source keeps its session and the browser-local draft; restarted 
     storageState: `${DIR}/a-storage.json`,
   });
   const sourcePage = await source.newPage();
-  await sourcePage.goto(`${A}/drafts`);
-  await expect(sourcePage).toHaveURL(`${A}/drafts`);
-  const draft = 'Browser-local draft that must never enter a backup';
-  expect(
-    await sourcePage.evaluate(
-      (text) => Object.values(localStorage).some((v) => v.includes(text)),
-      draft,
-    ),
-  ).toBe(true);
-  await expect(sourcePage.locator('main')).toContainText(
-    'Browser-local draft',
-    {
-      timeout: 30_000,
-    },
-  );
+  await sourcePage.goto(`${A}/`);
+  await expect(sourcePage).toHaveURL(`${A}/`);
+  await sourcePage.getByRole('button', { name: 'Write a note…' }).click();
+  await expect(
+    sourcePage.getByRole('textbox', { name: 'Note text' }),
+  ).toHaveValue('');
   expect(
     await (await api(sourcePage, A, 'get', '/api/notes')).text(),
   ).toContain(seed.notes.image);

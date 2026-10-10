@@ -77,20 +77,13 @@ describe('S14 real coordinated tag transactions', () => {
         b = create(n, id, body),
         c = create(n, id, body);
       n.mutate(id, {
-        action: 'move-to-draft',
-        noteId: b.noteId,
-        expectedRevision: 1,
-        mutationId: randomUUID(),
-      });
-      n.mutate(id, {
         action: 'trash',
         noteId: c.noteId,
         expectedRevision: 1,
         mutationId: randomUUID(),
       });
       expect(t.list(id).find((r) => r.key === 'work')).toMatchObject({
-        published: 1,
-        draft: 1,
+        published: 2,
         trash: 1,
       });
       const before = [a, b, c].map((r) => n.get(id, r.noteId));
@@ -100,7 +93,7 @@ describe('S14 real coordinated tag transactions', () => {
         target: '仕事',
       };
       const preview = t.preview(id, operation);
-      expect(preview.counts).toEqual({ published: 1, draft: 1, trash: 1 });
+      expect(preview.counts).toEqual({ published: 2, trash: 1 });
       expect(preview.samples).toHaveLength(3);
       execute(t, id, operation);
       for (const old of before) {
@@ -133,7 +126,7 @@ describe('S14 real coordinated tag transactions', () => {
         (await timelinePage(p, id, new URLSearchParams('tag=仕事'))).items.map(
           (r) => r.id,
         ),
-      ).toEqual([a.noteId]);
+      ).toEqual([a.noteId, b.noteId].sort().reverse());
       expect(() =>
         t.preview(id, { source: '仕事', action: 'rename', target: '香港' }),
       ).toThrow(/Merge/);
@@ -318,7 +311,7 @@ describe('S14 real coordinated tag transactions', () => {
       );
       expect(t.list(id)).toHaveLength(100);
       expect(t.list(id, 'inventory109')).toMatchObject([
-        { key: 'inventory109', published: 1, draft: 0, trash: 0 },
+        { key: 'inventory109', published: 1, trash: 0 },
       ]);
       expect(() => t.list(id, 'x'.repeat(257))).toThrow(/too long/);
       const a = create(n, id, 'a'.repeat(1_048_568) + ' #x');

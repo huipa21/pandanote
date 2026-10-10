@@ -25,6 +25,25 @@ For user-facing steps also run affected Playwright tests. At milestones run `npm
 
 Every completed step must record changed files, tests actually run, blockers/known issues, and the precise next task in PROGRESS. Commit-sized units are preferable; only commit if the user's/session's repository workflow permits it.
 
+## Active approved change — yearly heatmaps and remove drafts
+
+1. Replace month-name choices with twelve miniature month heatmaps in 4 × 3,
+   private year aggregation, quick years/arrows, loading/error/retry and accessible
+   whole-tile navigation preserving search/tags while clearing day.
+2. Remove browser draft repositories/blobs/recovery, Drafts screen/navigation and
+   server draft/publish actions. Use one memory-only editor, explicit Post/Save
+   changes, protected attachments/retries and optimistic server conflicts.
+3. Add internal/mobile-close/editor-replacement/signout Post/Save–Discard–Cancel;
+   native browser Leave/Stay for unload. Empty/unchanged editors do not prompt;
+   failed/uncertain saves never discard or force overwrite.
+4. Update fresh baseline/snapshots/API/tag/archive contracts without migration or
+   implicit development-data deletion (user confirms no deployment/production data).
+5. Update synthetic fixtures/tests/docs; common/full-browser and actual Linux
+   SQLite/archive gates, no legacy-draft compatibility or security bypass.
+
+Historical S05/S13 draft tasks below describe superseded delivered behavior, not
+current requirements. Current acceptance is EDITOR-01–05/YEAR-01 below in the matrix.
+
 ## S00 — Bootstrap and validate technical assumptions
 
 **Depends on:** planning documents only.

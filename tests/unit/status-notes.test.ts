@@ -4,20 +4,21 @@ import {
   statusExcerpt,
 } from '../../src/lib/shared/status-notes.ts';
 describe('S13 status-list boundary', () => {
-  it('requires explicit draft/Trash selection and bounds/uniqueness', () => {
-    expect(parseStatusQuery(new URLSearchParams('status=draft'))).toEqual({
-      status: 'draft',
+  it('requires explicit Trash selection and bounds/uniqueness', () => {
+    expect(parseStatusQuery(new URLSearchParams('status=trash'))).toEqual({
+      status: 'trash',
       limit: 30,
       cursor: null,
     });
     for (const input of [
       '',
       'status=published',
-      'status=draft&limit=0',
-      'status=draft&limit=1000',
-      'status=draft&limit=01',
-      'status=draft&cursor=',
-      'status=draft&status=trash',
+      'status=draft',
+      'status=trash&limit=0',
+      'status=trash&limit=1000',
+      'status=trash&limit=01',
+      'status=trash&cursor=',
+      'status=trash&status=draft',
       'status=trash&q=secret',
       'status=trash&limit=1&limit=2',
     ])

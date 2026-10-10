@@ -143,8 +143,8 @@
       message = data.remainingJobs
         ? 'Some byte deletion is still queued. Refresh storage and retry queued cleanup; operator inspection may be needed.'
         : selected
-          ? 'Unused attempt cleaned. Local drafts and referenced note files were not removed.'
-          : 'Queued cleanup finished. Local drafts and referenced note files were not removed.';
+          ? 'Unused attempt cleaned. Referenced note files were not removed.'
+          : 'Queued cleanup finished. Referenced note files were not removed.';
       await refresh();
     } catch (failure) {
       error =
@@ -162,9 +162,9 @@
 <section class="surface">
   <h2>Storage</h2>
   <p class="help">
-    Private server storage, including Trash. Browser-local drafts are not
-    included or backed up. The disk is shared with the OS and other
-    applications; free space is not all available for uploads.
+    Private server storage, including Trash. Unsaved editors are not included or
+    backed up. The disk is shared with the OS and other applications; free space
+    is not all available for uploads.
   </p>
   <button disabled={!ready || loading || cleaning} onclick={refresh}
     >{loading ? 'Measuring storage…' : 'Refresh storage'}</button
@@ -175,7 +175,7 @@
       Measured {date(usage.measuredAt)} ({timezone}). Refresh for current usage.
     </p>
     <dl>
-      <dt>Published & server-draft attachments</dt>
+      <dt>Note attachments</dt>
       <dd>{size(usage.referencedBytes)}</dd>
       <dt>Attachments only in Trash</dt>
       <dd>{size(usage.trashOnlyBytes)}</dd>
@@ -293,16 +293,15 @@
       checked again before removal.
     </p>{/if}
   <p>
-    Referenced published, server-draft and Trash files are never selected. The
-    server rechecks references. This cannot be undone.
+    Referenced note and Trash files are never selected. The server rechecks
+    references. This cannot be undone.
   </p>
   {#if selected}<p>
-      Local drafts/blobs remain, but this frozen retry will no longer work; keep
-      original local files and make a separate editable copy before posting
-      again.
+      A frozen retry for this batch will no longer work. Keep original files and
+      start a new editable attempt before posting again.
     </p>{:else}<p>
       Only already-queued files are considered; no additional posting attempts
-      are abandoned. Local drafts are not removed.
+      are abandoned.
     </p>{/if}
   <button class="danger" disabled={cleaning} onclick={cleanup}
     >{cleaning ? 'Cleaning…' : 'Confirm cleanup'}</button

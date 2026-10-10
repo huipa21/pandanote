@@ -139,7 +139,7 @@
           grant: fresh.grant,
           confirmed: true,
         });
-        // Full navigation drops old private state; browser recovery storage stays.
+        // Full navigation drops old private state.
         window.location.assign('/login');
       }
     } catch (e) {
@@ -177,10 +177,9 @@
     Destination domain and unrelated server backups are kept.
   </p>
   <p class="help">
-    Browser-local drafts remain untouched and must be checked against restored
-    server versions. Restart discards unconfirmed uploads. If restore fails, the
-    previous state is rolled back; see the operator restore runbook if startup
-    requires recovery.
+    Unsaved editor content is not backed up or restored. Restart discards
+    unconfirmed uploads. If restore fails, the previous state is rolled back;
+    see the operator restore runbook if startup requires recovery.
   </p>
   <label for="restore-archive">PandaNote backup archive</label>
   <input
@@ -215,8 +214,8 @@
         · {summary.bytes.toLocaleString()} archive bytes
       </p>
       <p>
-        {summary.notes} notes: {summary.published} published, {summary.drafts} server
-        drafts, {summary.trash} Trash. {summary.attachments} attachments.
+        {summary.notes} notes: {summary.published} notes, {summary.trash} Trash. {summary.attachments}
+        attachments.
       </p>
       <p>
         Restored account MFA: {summary.mfaEnabled ? 'enabled' : 'disabled'}. Use

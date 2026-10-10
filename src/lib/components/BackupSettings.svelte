@@ -175,8 +175,8 @@
   </p>
   <p class="help">
     Only manual full backups are created. A server-local copy does not protect
-    against losing the VPS: download it and keep it safely elsewhere.
-    Browser-local drafts and files are not included. Uploaded restores replace
+    against losing the VPS: download it and keep it safely elsewhere. Unsaved
+    editor text and files are not included. Uploaded restores replace
     application data only after validation and explicit fresh-auth confirmation.
   </p>
   <div class="actions">

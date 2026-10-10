@@ -1,7 +1,7 @@
 # PandaNote
 
 A single-user, responsive, Markdown-first personal notebook. Notes have no separate
-title field. The app includes browser-local drafts, a chronological timeline,
+title field. The app includes a memory-only editor, a chronological timeline,
 multilingual literal search, tags, a month calendar, private attachments, optional
 location, conflict detection, Trash, optional TOTP, and manual full backup/restore.
 
@@ -205,13 +205,14 @@ Re-enable MFA afterwards. There is no public reset endpoint. See the
 
 - Textarea Markdown editor, Write/Preview and expanded/mobile editing. **Only Post**
   publishes; Enter and Ctrl/Cmd+Enter never publish. Published edits use Save changes.
-- Multiple browser-local drafts: text/metadata in localStorage, original unposted
-  blobs in IndexedDB. Selection, autosave and preview upload nothing. Quota/missing
-  files/cross-tab conflicts remain visible; local work is retained until confirmed
-  complete save. Frozen receipt-first retries reuse ready uploads and avoid duplicates.
-- Local drafts are **device-only, plaintext, evictable and not backup**. Signout
-  retains them. Server drafts originate from published notes moved to Drafts; edits
-  and new files remain local until Post, with no server autosave or Save draft.
+- One unsaved editor per tab holds text/metadata/files **in memory only**. No drafts,
+  localStorage/IndexedDB content, autosave or recovery after reload/crash. To keep
+  unfinished writing, Post it as a note and edit later. Selection/preview upload
+  nothing; files remain until confirmed save or explicit discard.
+- Internal navigation, mobile close, editor replacement and signout ask Post/Save
+  changes, Discard, Cancel. Browser close/refresh uses Leave/Stay. Failed saves
+  retain the mounted editor; receipt-first retries avoid duplicate notes/files.
+  Discard does not cancel an uncertain server commit. Desktop focus X keeps writing.
 - Chronological SSR timeline with bounded cursor pages, all-selected-tags AND,
   collapse/density, stable private detail URLs, history/scroll/focus restoration,
   revision-checked edits and conflict copy/load/explicit replace. No silent merging.
@@ -219,12 +220,12 @@ Re-enable MFA afterwards. There is no public reset endpoint. See the
   phrase, code and filenames included, file contents excluded. No fuzzy/readings/
   Han conversion. SQLite trigram acceleration plus one/two-character fallback;
   safe highlighted snippets. Search/tags cover all months unless a day is selected.
-- Month calendar uses saved app timezone, global published counts, month/year
-  picker/Today, top-visible-note tracking, day-locked filtering and explicit empty
+- Month calendar uses saved app timezone, global note counts, a 4 × 3 miniature
+  monthly-heatmap year picker/Today, top-visible-note tracking, day-locked filtering and explicit empty
   months. Editing/backdating does not artificially move notes to the top.
 - Flat Unicode hashtags and local autocomplete. Management renames/merges/removes
-  exact source spans across published/draft/Trash, preserves code/prose, increments
-  revisions and warns before stale local tags are posted. Local drafts are not
+  exact source spans across notes/Trash, preserves code/prose, increments
+  revisions and warns before stale unsaved tags are posted. Editor source is not
   silently rewritten.
 - Safe Markdown/GFM, highlighted original-code copy, visible-only lazy sanitized
   Mermaid. No raw active HTML, diagram callbacks or remote image fetching.
@@ -260,13 +261,13 @@ changes no source notes/revisions/files/receipts. Synthetic benchmark scripts:
 ## Manual full backup and uploaded restore
 
 Settings → Backup & Restore creates, lists, downloads and explicitly deletes full
-private `.pnb` archives. They are **unencrypted and sensitive**: notes/server drafts/
+private `.pnb` archives. They are **unencrypted and sensitive**: notes/
 Trash, files, tags/history/receipts, settings, account/password/MFA/recovery state and
 portable keys. Download to protected storage elsewhere; a server-only copy does not
 survive losing the VPS. No scheduler or separate backup password.
 
 Format **2**, regular USTAR tar.gz, uses consistent online SQLite snapshot + immutable
-files and bounded streaming/checksums. Excludes local drafts/blobs, sessions/challenges,
+files and bounded streaming/checksums. Excludes unsaved editor text/files, sessions/challenges,
 rate limits, pending/unreferenced uploads, old archives, staging, derived search,
 pre-upgrade copies, deployment origin/TLS and binaries. Only verified archives are
 listed complete. Checksums detect corruption, not authenticity or encryption.
@@ -277,7 +278,7 @@ through trusted SQL/data steps on isolated staging to schema 2; format-1 pre-rel
 unknown/newer/altered schemas, unsafe paths/links/checksums/files fail before replacement.
 Journaled swaps retain complete old state until durable validation and recover before
 startup DB/key reads. All sessions are invalidated; sign in with archived credentials.
-Destination origin/unrelated archives/local browser drafts/pre-upgrade copy remain.
+Destination origin/unrelated archives/pre-upgrade copy remain. Unsaved editor content is not restored.
 
 On a new VPS: deploy → complete temporary browser setup → upload/restore → archived
 username/password/MFA login. Full bounds, failure and recovery procedure:

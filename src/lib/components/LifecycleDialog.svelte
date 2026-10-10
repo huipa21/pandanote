@@ -4,23 +4,21 @@
   import {
     LIFECYCLE,
     type LifecycleState,
-  } from '#lib/client/drafts/lifecycle.svelte.ts';
+  } from '#lib/client/editor/lifecycle.svelte.ts';
   import Modal from './Modal.svelte';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   import {
-    DRAFT_WORKSPACE,
-    type DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
-  const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
+  const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   let open = $derived(Boolean(lifecycle.selected));
   const title = $derived(
     lifecycle.selected?.action === 'permanent-delete'
       ? 'Permanently delete note?'
       : lifecycle.selected?.action === 'restore'
         ? 'Restore note?'
-        : lifecycle.selected?.action === 'trash'
-          ? 'Move to Trash?'
-          : 'Move to Drafts?',
+        : 'Move to Trash?',
   );
 </script>
 
@@ -35,12 +33,10 @@
   {#if lifecycle.selected}
     <p>
       {lifecycle.selected.action === 'permanent-delete'
-        ? 'Permanently remove this note and any files no other note references. This cannot be undone. Browser recovery copies are not removed.'
+        ? 'Permanently remove this note and any files no other note references. This cannot be undone.'
         : lifecycle.selected.action === 'restore'
-          ? `Return this note to ${lifecycle.selected.target.priorStatus ?? 'its prior status'}, preserving dates and files.`
-          : lifecycle.selected.action === 'trash'
-            ? 'Keep this note and files in Trash. It disappears from published notes, search and calendar. Local recovery edits are kept.'
-            : 'Keep the saved content, dates and files as a server draft, available on other devices. Unfinished local changes stay only on this browser.'}
+          ? 'Return this note to notes, preserving dates and files.'
+          : 'Keep this note and files in Trash. It disappears from notes, search and calendar.'}
     </p>
     {#if lifecycle.error}<p role="alert">{lifecycle.error}</p>{/if}
     {#if lifecycle.observed}<p>

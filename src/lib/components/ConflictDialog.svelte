@@ -2,9 +2,9 @@
   import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import Modal from './Modal.svelte';
-  import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
+  import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import type { NoteSnapshot } from '#lib/shared/domain.ts';
-  let { workspace }: { workspace: DraftWorkspace } = $props();
+  let { workspace }: { workspace: EditorWorkspace } = $props();
   let open = $state(false);
   let confirm = $state(false);
   let observed = $state<NoteSnapshot | null>(null);
@@ -32,9 +32,7 @@
     confirm = false;
     open = false;
     if (choice === 'load' && version.status === 'trash') {
-      // Trash is view-only until restored (S13). Keep losing recovery intact.
-      if (await workspace.flush())
-        await goto(`/notes/${version.id}`, { reset: false });
+      await goto(`/notes/${version.id}`, { reset: false });
       return;
     }
     await workspace.resolveServerConflict(choice, version);
@@ -108,12 +106,12 @@
       : choice === 'copy'
         ? 'Publish your local version as a separate note? Existing server attachments can be shared safely.'
         : observed?.status === 'trash'
-          ? 'View the current server version in Trash? Your losing version and files will remain in local Drafts.'
-          : 'Load the current server version into the editor? Your losing version and files will remain in local Drafts.'}
+          ? 'View the current server version in Trash?'
+          : 'Load the current server version into the editor?'}
   </p>
   <p>
-    The original recovery is kept, including its retry identity. It is not
-    automatically canceled or posted.
+    Loading the server version discards the losing edits. An uncertain previous
+    save is not canceled. Keep editing or copy the text first if needed.
   </p>
   <button disabled={workspace.busy} onclick={resolve}
     >Confirm {choice === 'replace'

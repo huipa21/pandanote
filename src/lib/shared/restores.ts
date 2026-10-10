@@ -12,7 +12,6 @@ export interface RestoreSummary {
   bytes: number;
   notes: number;
   published: number;
-  drafts: number;
   trash: number;
   attachments: number;
   mfaEnabled: boolean;

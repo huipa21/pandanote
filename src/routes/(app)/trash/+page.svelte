@@ -13,9 +13,8 @@
     storage.
   </p>
   <p class="help">
-    Restore returns each note to its prior published or draft status, preserving
-    dates and files. Permanent deletion never removes device-only recovery
-    copies.
+    Restore returns each note to your notes, preserving dates and files.
+    Permanent deletion cannot be undone.
   </p>
 </section>
 {#key data.tagGeneration}<StatusNoteList

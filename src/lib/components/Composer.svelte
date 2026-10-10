@@ -1,16 +1,16 @@
 <script lang="ts">
   import { tick, getContext, onMount, untrack } from 'svelte';
   import {
-    DRAFT_WORKSPACE,
-    type DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
-  import DraftFeedback from './DraftFeedback.svelte';
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
+  import EditorFeedback from './EditorFeedback.svelte';
   import TagAutocomplete from './TagAutocomplete.svelte';
   import EditorOptions from './EditorOptions.svelte';
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
 
-  const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
+  const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
   let preview = $state(false);
   let memoryText = $state('');
   let text = $derived(
@@ -72,6 +72,20 @@
     // Uses the existing local-only, AST-aware tag suggestions.
     input?.dispatchEvent(new Event('input', { bubbles: true }));
   }
+
+  async function handleCloseEditor(focus: boolean) {
+    if (!workspace) {
+      editorOpen = !focus;
+      return;
+    }
+    if (!focus) {
+      editorOpen = true;
+      return;
+    }
+    // Desktop X leaves focus mode; mobile X closes the only visible editor.
+    if (desktop || (await workspace.promptUnsavedChanges())) editorOpen = false;
+  }
+
   $effect(() => {
     if (!workspace?.openEditor) return;
     expanded = true;
@@ -126,7 +140,7 @@
       ? 'Saving…'
       : workspace?.frozen
         ? 'Retry save'
-        : workspace?.active?.kind === 'edit-published'
+        : workspace?.active?.kind === 'edit'
           ? 'Save changes'
           : 'Post'}
   </button>
@@ -140,7 +154,7 @@
       aria-label={focus ? 'Close Write a note' : 'Enter focus mode'}
       title={focus ? 'Close focus mode' : 'Focus mode'}
       onclick={() => {
-        editorOpen = !focus;
+        void handleCloseEditor(focus);
       }}
     >
       {#if focus}<svg viewBox="0 0 24 24" aria-hidden="true"
@@ -190,7 +204,6 @@
         onclick={rememberCursor}
         onblur={(event) => {
           rememberCursor(event);
-          void workspace?.flush();
         }}
         onpaste={paste}
         ondrop={drop}
@@ -207,11 +220,13 @@
           {workspace}
         />{/if}
     {/if}
-    {#if workspace}<DraftFeedback {workspace} />{/if}
+    {#if workspace}<EditorFeedback {workspace} />{/if}
     <p class="help" id={focus ? 'expanded-help' : 'composer-help'}>
       {#if workspace}<span role="status"
           >{workspace.status ||
-            'Device-only draft · publish only with Post.'}</span
+            (workspace.active?.kind === 'edit'
+              ? 'Editing note · save with Save changes.'
+              : 'New note · publish with Post.')}</span
         >
       {:else}Not saved yet. Keep a copy before leaving.{/if}
     </p>
@@ -255,7 +270,7 @@
   />
 {/if}
 {#if workspace?.error && !editorOpen && (!desktop || !expanded)}
-  <p role="alert">{workspace.error} Open the editor for recovery actions.</p>
+  <p role="alert">{workspace.error}</p>
 {/if}
 <div
   class="desktop-composer surface"
@@ -282,9 +297,65 @@
 >
   {text ? 'Continue writing' : 'Compose a note'}
 </button>
-<Modal bind:open={editorOpen} title="Write a note" kind="editor" customHeader>
+<Modal
+  bind:open={editorOpen}
+  title="Write a note"
+  kind="editor"
+  customHeader
+  dismissible={!workspace?.posting && !workspace?.busy}
+  onDismiss={() => {
+    if (!desktop && workspace) {
+      editorOpen = true;
+      void workspace.promptUnsavedChanges().then((proceed) => {
+        if (proceed) editorOpen = false;
+      });
+    }
+  }}
+>
   {#if editorOpen}{@render editor(true)}{/if}
 </Modal>
+
+{#if workspace}
+  <Modal
+    bind:open={workspace.confirmModalOpen}
+    title="Unsaved changes"
+    onDismiss={() => workspace.cancelConfirm()}
+    dismissible={!workspace.posting}
+  >
+    <p>
+      You have unsaved changes. Do you want to post/save your changes, discard
+      them, or cancel?
+    </p>
+    {#if workspace.frozen}<p>
+        This save may already have succeeded. Discard only abandons this editor;
+        it does not undo a server save.
+      </p>{/if}
+    {#if workspace.postError}<p role="alert">{workspace.postError}</p>{/if}
+    <div class="confirm-actions">
+      <button
+        class="primary"
+        disabled={!workspace.canPost}
+        onclick={() => void workspace.confirmSaveAndProceed()}
+      >
+        {workspace.active?.kind === 'edit' ? 'Save changes' : 'Post'}
+      </button>
+      <button
+        class="danger"
+        disabled={workspace.busy || workspace.posting}
+        onclick={() => workspace.confirmDiscard()}
+      >
+        Discard
+      </button>
+      <button
+        type="button"
+        disabled={workspace.posting}
+        onclick={() => workspace.cancelConfirm()}
+      >
+        Cancel
+      </button>
+    </div>
+  </Modal>
+{/if}
 
 <style>
   .desktop-composer {
@@ -413,6 +484,12 @@
   }
   .mobile-compose {
     display: none;
+  }
+  .confirm-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    justify-content: flex-end;
   }
   @media (max-width: 899px) {
     .desktop-composer {

@@ -1,11 +1,29 @@
 import type { RequestHandler } from './$types';
 import { DomainError } from '#lib/shared/domain.ts';
-import { monthActivity } from '#lib/server/calendar/activity.ts';
+import { monthActivity, yearActivity } from '#lib/server/calendar/activity.ts';
 import { noteErrorResponse } from '#lib/server/notes/http.ts';
 export const GET: RequestHandler = ({ locals, url }) => {
   try {
     if (!locals.identity)
       throw new DomainError('unauthorized', 'Sign in to continue.');
+    if (url.searchParams.has('year')) {
+      if (
+        url.searchParams.toString().length > 100 ||
+        url.searchParams.getAll('year').length !== 1 ||
+        [...url.searchParams.keys()].some((k) => k !== 'year')
+      )
+        throw new DomainError('validation', 'Choose one calendar year.');
+      const year = Number(url.searchParams.get('year'));
+      if (!Number.isInteger(year) || year < 1969 || year > 9998)
+        throw new DomainError(
+          'validation',
+          'Choose a year between 1969 and 9998.',
+        );
+      return Response.json({
+        ok: true,
+        data: yearActivity(locals.runtime!.persistence, locals.identity, year),
+      });
+    }
     if (
       url.searchParams.toString().length > 100 ||
       url.searchParams.getAll('month').length !== 1 ||

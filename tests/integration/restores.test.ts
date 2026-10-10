@@ -160,12 +160,6 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       b = note(source, f, 'draft #Work'),
       c = note(source, f, 'trash #Work');
     notes.mutate(f.identity, {
-      action: 'move-to-draft',
-      mutationId: randomUUID(),
-      noteId: b.noteId,
-      expectedRevision: 1,
-    });
-    notes.mutate(f.identity, {
       action: 'trash',
       mutationId: randomUUID(),
       noteId: c.noteId,
@@ -251,8 +245,7 @@ it('restores an independent initialized instance: all statuses/date/location/tag
         summary = await upload(s, d, archive);
       expect(summary).toMatchObject({
         notes: 4,
-        published: 2,
-        drafts: 1,
+        published: 3,
         trash: 1,
         attachments: 2,
         mfaEnabled: true,

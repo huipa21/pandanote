@@ -54,7 +54,7 @@ export function seedAccount(p: Persistence): string {
 }
 export function seedNote(
   p: Persistence,
-  status: 'published' | 'draft' | 'trash' = 'published',
+  status: 'published' | 'trash' = 'published',
 ): string {
   const id = newPrivateId();
   const now = Date.now();
@@ -65,7 +65,7 @@ export function seedNote(
         id,
         bodyMarkdown: 'synthetic 香港 #Work',
         status,
-        priorStatus: status === 'trash' ? 'draft' : null,
+        priorStatus: status === 'trash' ? 'published' : null,
         timelineAt: now,
         createdAt: now,
         updatedAt: now,

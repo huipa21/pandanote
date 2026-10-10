@@ -46,7 +46,7 @@ export const browserPostingTransport: PostingTransport = {
   },
   upload(batchId, id, blob, progress) {
     // XHR exposes actual request-byte progress; processing is a separate visible
-    // state after all bytes are sent. Inputs remain in IndexedDB on every error.
+    // state after all bytes are sent. Inputs remain in the in-memory editor on every error.
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', `/api/uploads/${batchId}/${id}`);
@@ -97,8 +97,8 @@ export interface PostingProgress {
   loaded: number;
   bytes: number;
 }
-/** Receipt-first on EVERY retry, including confirmed-but-not-cleaned recovery.
- * Persistence precedes the first network request and every phase transition. */
+/** Receipt-first on EVERY retry. Record the frozen identity and phase transitions
+ * in the mounted editor before networking; no browser recovery storage. */
 export async function runPosting(
   initial: PostingAttempt,
   blobFor: (id: string) => Promise<Blob | undefined>,
@@ -112,7 +112,7 @@ export async function runPosting(
     throw new PostingError({
       code: 'mutation-mismatch',
       message:
-        'Frozen payload is damaged. Keep this draft and edit a separate copy.',
+        'Frozen payload is damaged. Keep this editor and start a new editable attempt.',
     });
   const show = (stage: string, completed = 0, loaded = 0, bytes = 0) =>
     progress({
@@ -133,7 +133,7 @@ export async function runPosting(
     throw new PostingError({
       code: 'conflict',
       message:
-        'The server no longer recognizes this confirmed save (possibly after restore). Local recovery was kept. Check the server before posting a copy.',
+        'The server no longer recognizes this confirmed save (possibly after restore). The current editor was kept. Check the server before posting a copy.',
     });
   await beforeUpload();
   const batch = initialized.batch;

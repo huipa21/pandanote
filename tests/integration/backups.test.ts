@@ -126,7 +126,7 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
     };
     await upload(p, f, bytes, command);
     const note = new NoteService(p).mutate(f.identity, command);
-    seedNote(p, 'draft');
+    seedNote(p, 'published');
     seedNote(p, 'trash');
     const pending = await upload(p, f, Buffer.from('pending excluded'));
     p.write((tx) => {
@@ -810,9 +810,9 @@ it('production archive verifier rejects checksum changes, truncation, unexpected
       createdAt: Date.now(),
       counts: { notes: 0, attachments: 0 },
       included:
-        'notes,drafts,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys' as const,
+        'notes,trash,tags,receipts,files,settings,account,mfa,recovery-codes,portable-keys' as const,
       excluded:
-        'local-drafts,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment' as const,
+        'unsaved-editors,sessions,challenges,rate-limits,pending-uploads,cleanup-jobs,search,backup-catalog,archives,staging,pre-upgrade,deployment' as const,
       entries: [
         { path: 'snapshot/pandanote.sqlite', size: db.length, sha256: sha(db) },
         {

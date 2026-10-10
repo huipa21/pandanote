@@ -48,12 +48,6 @@ export const noteMutationSchema = z.discriminatedUnion('action', [
     action: z.literal('update'),
     content: noteContentSchema,
   }),
-  z.strictObject({
-    ...existing,
-    action: z.literal('publish'),
-    content: noteContentSchema,
-  }),
-  z.strictObject({ ...existing, action: z.literal('move-to-draft') }),
   z.strictObject({ ...existing, action: z.literal('trash') }),
   z.strictObject({ ...existing, action: z.literal('restore') }),
   z.strictObject({

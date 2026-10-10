@@ -1010,11 +1010,11 @@
       "checkConstraints": {
         "note_status_check": {
           "name": "note_status_check",
-          "value": "\"notes\".\"status\" IN ('published','draft','trash')"
+          "value": "\"notes\".\"status\" IN ('published','trash')"
         },
         "note_trash_check": {
           "name": "note_trash_check",
-          "value": "(\"notes\".\"status\" = 'trash' AND \"notes\".\"prior_status\" IS NOT NULL AND \"notes\".\"prior_status\" IN ('published','draft')) OR (\"notes\".\"status\" <> 'trash' AND \"notes\".\"prior_status\" IS NULL)"
+          "value": "(\"notes\".\"status\" = 'trash' AND \"notes\".\"prior_status\" IS NOT NULL AND \"notes\".\"prior_status\" = 'published') OR (\"notes\".\"status\" <> 'trash' AND \"notes\".\"prior_status\" IS NULL)"
         },
         "note_revision_check": {
           "name": "note_revision_check",

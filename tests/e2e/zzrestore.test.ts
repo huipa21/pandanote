@@ -29,14 +29,6 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
   });
   expect(created.status()).toBe(200);
   const saved = (await created.json()).data;
-  await page.goto('/drafts');
-  await page.getByRole('button', { name: 'Create another draft' }).click();
-  await page
-    .getByRole('textbox', { name: 'Note text', exact: true })
-    .fill('Browser-local restore survivor');
-  await expect(page.getByTestId('composer').getByRole('status')).toHaveText(
-    'Saved on this device.',
-  );
   // Include non-default public identity/language settings in the downloaded archive.
   expect(
     (
@@ -167,13 +159,6 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
   expect((await page.request.get('/api/notes', { headers })).status()).toBe(
     401,
   );
-  expect(
-    await page.evaluate(() =>
-      Object.values(localStorage).some((v) =>
-        v.includes('Browser-local restore survivor'),
-      ),
-    ),
-  ).toBe(true);
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     'Archived 香港 notebook',

@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { DomainError, idSchema, instantSchema } from './domain.ts';
 
-export const listStatusSchema = z.enum(['draft', 'trash']);
+export const listStatusSchema = z.enum(['trash']);
 export type ListStatus = z.infer<typeof listStatusSchema>;
 /** A bounded label, not a full editor/recovery snapshot or a stored title. */
 export interface StatusNote {
   id: string;
   status: ListStatus;
-  priorStatus: 'published' | 'draft' | null;
+  priorStatus: 'published' | null;
   revision: number;
   timelineAt: number;
   updatedAt: number;
@@ -34,7 +34,7 @@ export function parseStatusQuery(params: URLSearchParams) {
     ) ||
     ['status', 'cursor', 'limit'].some((key) => params.getAll(key).length > 1)
   )
-    throw new DomainError('validation', 'Invalid Drafts or Trash query.');
+    throw new DomainError('validation', 'Invalid Trash query.');
   const status = listStatusSchema.safeParse(params.get('status'));
   const rawLimit = params.get('limit') ?? '30';
   const cursor = params.get('cursor');
@@ -46,7 +46,7 @@ export function parseStatusQuery(params: URLSearchParams) {
   )
     throw new DomainError(
       'validation',
-      'Choose Drafts or Trash and a page size from 1 to 100.',
+      'Choose Trash and a page size from 1 to 100.',
     );
   return { status: status.data, limit: Number(rawLimit), cursor };
 }

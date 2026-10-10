@@ -1,11 +1,11 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
+  import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import { tagKey, tagSpans } from '#lib/shared/markdown/tags.ts';
   let {
     textarea,
     workspace,
-  }: { textarea: HTMLTextAreaElement | undefined; workspace: DraftWorkspace } =
+  }: { textarea: HTMLTextAreaElement | undefined; workspace: EditorWorkspace } =
     $props();
   const id = $props.id();
   let choices = $state<{ key: string; display: string }[]>([]),

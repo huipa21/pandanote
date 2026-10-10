@@ -329,10 +329,7 @@ test('setup and seed the realistic 10k dataset through the real API', async () =
     (c) => c.name === 'pandanote_session',
   )!;
   const headers = { origin: C, cookie: `pandanote_session=${cookie.value}` };
-  const drafts = new Set<number>();
   const trash = new Set<number>();
-  for (let i = 0; i < Math.round(NOTES * 0.03); i++)
-    drafts.add(Math.floor(rnd() * NOTES));
   for (let i = 0; i < Math.round(NOTES * 0.02); i++)
     trash.add(Math.floor(rnd() * NOTES));
   const now = Date.now();
@@ -378,11 +375,7 @@ test('setup and seed the realistic 10k dataset through the real API', async () =
         revision: number;
       };
       if (index >= 40 && index < 52) noteWithDiagram ||= data.noteId;
-      if (drafts.has(index) || trash.has(index))
-        created.push({
-          ...data,
-          kind: drafts.has(index) ? 'move-to-draft' : 'trash',
-        });
+      if (trash.has(index)) created.push({ ...data, kind: 'trash' });
     }
   }
   await Promise.all(Array.from({ length: 6 }, worker));
@@ -404,7 +397,6 @@ test('setup and seed the realistic 10k dataset through the real API', async () =
   const seconds = (performance.now() - started) / 1000;
   results.seed = {
     notes: NOTES,
-    drafts: drafts.size,
     trash: trash.size,
     seconds: +seconds.toFixed(1),
     notesPerSecond: +(NOTES / seconds).toFixed(1),
@@ -433,7 +425,7 @@ test('API latency (through the real HTTPS proxy, warm p50/p95) for list, tag, ca
     ['two-tag filter', '/api/notes?tag=topic3&tag=topic9'],
     ['calendar month activity', '/api/calendar?month=2024-06'],
     ['month filter timeline', '/api/notes?month=2024-06'],
-    ['drafts list', '/api/notes/status?status=draft'],
+    ['calendar year activity', '/api/calendar?year=2024'],
     ['trash list', '/api/notes/status?status=trash'],
     ['single note detail', `/api/notes/${list.items[0].id}`],
     ['search English (trigram) "coffee"', '/api/notes?q=coffee'],

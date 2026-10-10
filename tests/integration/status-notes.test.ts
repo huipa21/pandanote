@@ -70,23 +70,23 @@ describe('S13 bounded private status lists with real SQLite/files', () => {
           create('香港\0 <script> #Work ' + '漢'.repeat(10000)),
         );
         service.mutate(identity, {
-          action: 'move-to-draft',
+          action: 'trash',
           mutationId: randomUUID(),
           noteId: note.noteId,
           expectedRevision: 1,
         });
         ids.push(note.noteId);
       }
-      const first = statusPage(p, identity, query('draft'));
+      const first = statusPage(p, identity, query('trash'));
       const second = statusPage(
         p,
         identity,
-        query('draft', { cursor: first.nextCursor! }),
+        query('trash', { cursor: first.nextCursor! }),
       );
       const third = statusPage(
         p,
         identity,
-        query('draft', { cursor: second.nextCursor! }),
+        query('trash', { cursor: second.nextCursor! }),
       );
       expect(
         [...first.items, ...second.items, ...third.items].map((n) => n.id),
@@ -101,8 +101,8 @@ describe('S13 bounded private status lists with real SQLite/files', () => {
       expect(first.items[0]).not.toHaveProperty('bodyMarkdown');
       expect(first.items[0]).not.toHaveProperty('location');
       expect(() =>
-        statusPage(p, identity, query('trash', { cursor: first.nextCursor! })),
-      ).toThrow('different status');
+        statusPage(p, identity, query('draft', { cursor: first.nextCursor! })),
+      ).toThrow();
       for (const params of [
         query('published'),
         query('draft', { cursor: 'bad' }),
@@ -117,7 +117,7 @@ describe('S13 bounded private status lists with real SQLite/files', () => {
           .where(eq(sessions.tokenHash, identity.sessionHash))
           .run(),
       );
-      expect(() => statusPage(p, identity, query('draft'))).toThrow('Sign in');
+      expect(() => statusPage(p, identity, query('trash'))).toThrow('Sign in');
     }));
   it('lists image/file-only labels, preserves prior status/date/native files through restore, and excludes both statuses from normal queries', async () =>
     withPersistence(async (p) => {
@@ -161,24 +161,12 @@ describe('S13 bounded private status lists with real SQLite/files', () => {
         const result = service.mutate(identity, command);
         bases.push(service.get(identity, result.noteId));
         service.mutate(identity, {
-          action: 'move-to-draft',
+          action: 'trash',
           mutationId: randomUUID(),
           noteId: result.noteId,
           expectedRevision: 1,
         });
       }
-      const drafts = statusPage(p, identity, query('draft'));
-      expect(drafts.items.map((n) => n.excerpt).sort()).toEqual([
-        'File attachment',
-        'Image note',
-      ]);
-      for (const note of drafts.items)
-        service.mutate(identity, {
-          action: 'trash',
-          mutationId: randomUUID(),
-          noteId: note.id,
-          expectedRevision: note.revision,
-        });
       const published = service.mutate(
         identity,
         create('#Work published to trash'),
@@ -190,12 +178,12 @@ describe('S13 bounded private status lists with real SQLite/files', () => {
         expectedRevision: 1,
       });
       const trash = statusPage(p, identity, query('trash'));
-      expect(trash.items.filter((n) => n.priorStatus === 'draft')).toHaveLength(
-        2,
-      );
       expect(
         trash.items.filter((n) => n.priorStatus === 'published'),
-      ).toHaveLength(1);
+      ).toHaveLength(3);
+      expect(trash.items.map((n) => n.excerpt)).toEqual(
+        expect.arrayContaining(['Image note', 'File attachment']),
+      );
       expect(
         (await timelinePage(p, identity, new URLSearchParams('q=Work'))).items,
       ).toHaveLength(0);
@@ -214,14 +202,13 @@ describe('S13 bounded private status lists with real SQLite/files', () => {
         });
       for (const base of bases)
         expect(service.get(identity, base.id)).toMatchObject({
-          status: 'draft',
+          status: 'published',
           timelineAt: base.timelineAt,
           attachmentIds: base.attachmentIds,
           attachments: base.attachments,
           createdAt: base.createdAt,
         });
       expect(statusPage(p, identity, query('trash')).items).toHaveLength(0);
-      expect(statusPage(p, identity, query('draft')).items).toHaveLength(2);
       expect(
         (await timelinePage(p, identity, new URLSearchParams('q=Work'))).items,
       ).toHaveLength(1);

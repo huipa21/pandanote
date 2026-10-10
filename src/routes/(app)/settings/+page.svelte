@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack, onMount, getContext } from 'svelte';
   import {
-    DRAFT_WORKSPACE,
-    type DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
-  const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
+  const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   import GeneralSettings from '#lib/components/GeneralSettings.svelte';
   import PageTitle from '#lib/components/PageTitle.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
@@ -67,11 +67,7 @@
   }
   async function signOut() {
     if (signingOut) return;
-    if (!(await workspace.flush())) {
-      error =
-        'Local edits are not safely saved. Keep another copy or resolve the draft warning before signing out.';
-      return;
-    }
+    if (!(await workspace.promptUnsavedChanges())) return;
     signingOut = true;
     error = '';
     try {
@@ -140,10 +136,6 @@
   <button onclick={signOut} disabled={signingOut || !ready}
     >{signingOut ? 'Signing out…' : 'Sign out'}</button
   >
-  <p class="help">
-    Signing out leaves local drafts on this device. Anyone controlling this
-    browser can read them; discard drafts explicitly if needed.
-  </p>
 </section>
 <StorageSettings initial={data.storageLimits} timezone={data.timezone} />
 <BackupSettings />

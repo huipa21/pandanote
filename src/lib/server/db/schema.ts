@@ -121,8 +121,8 @@ export const notes = sqliteTable(
   {
     id: id(),
     bodyMarkdown: text('body_markdown').notNull(),
-    status: text('status', { enum: ['published', 'draft', 'trash'] }).notNull(),
-    priorStatus: text('prior_status', { enum: ['published', 'draft'] }),
+    status: text('status', { enum: ['published', 'trash'] }).notNull(),
+    priorStatus: text('prior_status', { enum: ['published'] }),
     timelineAt: integer('timeline_at').notNull(),
     createdAt: created(),
     updatedAt: integer('updated_at').notNull(),
@@ -139,13 +139,10 @@ export const notes = sqliteTable(
       sql`${t.timelineAt} DESC`,
       sql`${t.id} DESC`,
     ),
-    check(
-      'note_status_check',
-      sql`${t.status} IN ('published','draft','trash')`,
-    ),
+    check('note_status_check', sql`${t.status} IN ('published','trash')`),
     check(
       'note_trash_check',
-      sql`(${t.status} = 'trash' AND ${t.priorStatus} IS NOT NULL AND ${t.priorStatus} IN ('published','draft')) OR (${t.status} <> 'trash' AND ${t.priorStatus} IS NULL)`,
+      sql`(${t.status} = 'trash' AND ${t.priorStatus} IS NOT NULL AND ${t.priorStatus} = 'published') OR (${t.status} <> 'trash' AND ${t.priorStatus} IS NULL)`,
     ),
     check(
       'note_revision_check',

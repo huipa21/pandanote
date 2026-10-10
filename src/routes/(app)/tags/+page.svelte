@@ -3,9 +3,9 @@
   import { getContext, onMount } from 'svelte';
   import { invalidate } from '$app/navigation';
   import {
-    DRAFT_WORKSPACE,
-    type DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
   import type { ApiResult } from '#lib/shared/domain.ts';
   import {
     tagExecuteSchema,
@@ -17,7 +17,7 @@
   } from '#lib/shared/tags.ts';
   import Modal from '#lib/components/Modal.svelte';
   let { data } = $props();
-  const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+  const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   let source = $state<ManagedTag | null>(null),
     action = $state<TagAction['action']>('rename'),
     target = $state('');
@@ -105,7 +105,7 @@
       open = false;
       preview = null;
       source = null;
-      status = `Updated ${result.affected} server notes. Browser drafts were not changed.`;
+      status = `Updated ${result.affected} notes.`;
       workspace.tagsChanged++;
       await invalidate('pandanote:tags');
     } catch (e) {
@@ -123,9 +123,8 @@
 <section class="surface">
   <h1>Manage tags</h1>
   <p class="help">
-    Rename, merge or remove actual hashtags in published notes, server drafts
-    and Trash. Code, URLs and unrelated formatting stay untouched. Browser
-    drafts are checked when you post.
+    Rename, merge or remove actual hashtags in notes and Trash. Code, URLs and
+    unrelated formatting stay untouched.
   </p>
   <form method="GET">
     <label>Find tags <input name="q" maxlength="256" /></label><button
@@ -133,8 +132,7 @@
     >
   </form>
   <p class="help">
-    Up to 100 tags shown. Search to find more. Published counts exclude Drafts
-    and Trash.
+    Up to 100 tags shown. Search to find more. Published counts exclude Trash.
   </p>
   {#if error}<p role="alert">{error}</p>{/if}
   {#if status}<p role="status">{status}</p>{/if}
@@ -174,9 +172,7 @@
             preview = null;
             error = '';
           }}>#{tag.display}</button
-        ><span
-          >{tag.published} published · {tag.draft} server drafts · {tag.trash} Trash</span
-        >
+        ><span>{tag.published} notes · {tag.trash} Trash</span>
       </li>{/each}
   </ul>
   {#if !data.managedTags.length}<p>No matching tags.</p>{/if}
@@ -220,9 +216,8 @@
         : ''}
     </p>
     <p>
-      {preview.counts.published} published · {preview.counts.draft} server drafts
-      · {preview.counts.trash} Trash notes will receive new revisions. In-progress
-      server editors will conflict.
+      {preview.counts.published} notes · {preview.counts.trash} Trash notes will receive
+      new revisions. In-progress editors will conflict.
     </p>
     {#if preview.operation.action === 'merge'}<p>
         The existing target spelling is retained; duplicate note joins are

@@ -7,12 +7,7 @@ import {
   type NoteSnapshot,
 } from '#lib/shared/domain.ts';
 import type { ListStatus } from '#lib/shared/status-notes.ts';
-const actionSchema = z.enum([
-  'move-to-draft',
-  'trash',
-  'restore',
-  'permanent-delete',
-]);
+const actionSchema = z.enum(['trash', 'restore', 'permanent-delete']);
 const attemptSchema = z.strictObject({
   mutationId: idSchema,
   noteId: idSchema,
@@ -25,7 +20,7 @@ export type LifecycleTarget = {
   id: string;
   revision: number;
   status: ListStatus | 'published';
-  priorStatus: 'published' | 'draft' | null;
+  priorStatus: 'published' | null;
 };
 export const LIFECYCLE = Symbol('note lifecycle');
 /** Content-free durable retries. A timeout/navigation never changes command identity. */

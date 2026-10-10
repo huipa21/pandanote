@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getContext, onMount, untrack, tick } from 'svelte';
   import {
-    DRAFT_WORKSPACE,
-    type DraftWorkspace,
-  } from '#lib/client/drafts/workspace.svelte.ts';
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
   import type { NoteSnapshot } from '#lib/shared/domain.ts';
   import type { RenderedMarkdown } from '#lib/shared/markdown/render.ts';
   import { cardImages } from '#lib/shared/timeline.ts';
@@ -28,11 +28,11 @@
     initialImage?: string;
     direct?: boolean;
   } = $props();
-  const workspace = getContext<DraftWorkspace>(DRAFT_WORKSPACE);
+  const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   import {
     LIFECYCLE,
     type LifecycleState,
-  } from '#lib/client/drafts/lifecycle.svelte.ts';
+  } from '#lib/client/editor/lifecycle.svelte.ts';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   let open = $state(true);
   let ready = $state(false);
@@ -69,7 +69,7 @@
   async function edit() {
     if (!note || editing) return;
     editing = true;
-    // Persist recovery before closing the detail so storage failures stay visible.
+    // Prepare a complete in-memory editor before closing detail.
     if (await workspace.editNote(note, false)) {
       const conflict = workspace.postConflict;
       workspace.postConflict = null;
@@ -81,7 +81,7 @@
     } else
       editError =
         workspace.error ||
-        'Could not open local recovery. Keep your current draft and retry.';
+        'Could not open the editor. Keep your current text and retry.';
     editing = false;
   }
 </script>
@@ -112,8 +112,7 @@
             workspace.busy ||
             note.status === 'trash' ||
             editing}
-          onclick={edit}
-          >{note.status === 'draft' ? 'Edit server draft' : 'Edit note'}</button
+          onclick={edit}>Edit note</button
         >
         <a href={`/notes/${note.id}`}>Private permalink</a>
         {#if note.status === 'trash'}
@@ -128,11 +127,6 @@
             >Permanently delete</button
           >
         {:else}
-          {#if note.status === 'published'}<button
-              disabled={!ready || !lifecycle.ready || lifecycle.busy}
-              onclick={() => lifecycle.choose(note!, 'move-to-draft')}
-              >Move to Drafts</button
-            >{/if}
           <button
             disabled={!ready || !lifecycle.ready || lifecycle.busy}
             onclick={() => lifecycle.choose(note!, 'trash')}
