@@ -1,4 +1,4 @@
-# Verification coverage (S00–S18 and simplify setup)
+# Verification coverage (S00–S18, simplify setup and image optimization)
 
 Current contracts: browser two-step setup, username login, partial zh-CN/title,
 automatic startup SQL/data migrations and private pre-upgrade DB copy, format-v2
@@ -22,6 +22,38 @@ production credential is committed.
 | `integration/shiki.test.ts`   | Lazy highlighter/resource disposal and escaped code (MD-01 foundation)                                                                                                               |
 | `e2e/smoke.test.ts`           | Built adapter-node application, health, mobile overflow, no shipped probe route                                                                                                      |
 | `e2e/mermaid.test.ts`         | Actual Chromium SVG, lazy import, flow/sequence/syntax errors, malicious click/SVG suppression and no external fetch under CSP (MD-02 foundation)                                    |
+
+## Image packaging coverage (IMG-SIZE/DEP/NATIVE/PKG/RUN/UI/DATA/XFER)
+
+- `integration/image-size.test.ts`: read-only streaming Docker tar/gzip, alias
+  deduplication and explicit multi-image/overlap accounting, bounded metadata,
+  checksum/truncation/unsupported-format/corrupt-gzip refusal, exclusive report
+  output. Docker containerd gzip/zstd layer blobs are distinguished from decoded
+  tar payload; actual engine exports are also measured in the image handoff.
+- `unit/runtime-dependencies.test.ts`: exact allowed roots/versions/reasons, explicit
+  Svelte runtime peer, absent scripts/dev/workspaces, engine/override/integrity and
+  stale-lock rejection. `runtime:check` is read-only and a build prerequisite.
+- `ops/Dockerfile.native-probe` + `release/native-probe.ts`: fresh minimized musl
+  install and genuine SQLite source rebuild; WAL/FULL/FK/transaction/trigram/CJK/
+  backup, configured Argon2, static Sharp formats/orientation/animation/limit/deferred
+  subprocesses, shared-library resolution, CA/DST, real privilege drop/native TS/execve.
+- `ops/Dockerfile.alpine-validation`: complete common/native/Git/PTY/fsync/archive/
+  process-kill suite without platform exclusions. Debian browser-validation remains
+  supported nonvisual coverage, not musl-native proof or approved Linux snapshots.
+- `release/image.test.ts` + `image-probe.ts`: externally supplied final production
+  inventory/native/worker/deferred grammar/ESM/licenses/WASM/precompression/identity,
+  missing-module negative control, live PTY session/MFA reset and stopped reindex.
+- `release/content.test.ts`: built Alpine SSR/browser initially unloaded grammar,
+  lazy Mermaid and hostile-policy isolation after the two-domain TLS drill.
+- Existing `release/deployment.test.ts`/`large-restore.ts`/drill/benchmark cover real
+  default/non-default IDs/private modes/zero capabilities/readiness/shutdown/XFF,
+  SQL/data migration/copy/rollback, interruption, two-domain archived auth/private
+  files and >1 GiB TLS restore under unchanged root Compose/minimal Caddy.
+- Actual two-engine build/save/gzip/fresh-Docker-load/namespace retag/native/default
+  Compose/corrupt safety is required in addition to unit tests. Matched sizes and
+  exact commands/results/remaining manual/ARM64/release limits:
+  [image progress](../docs/image-optimization/PROGRESS.md). Runbook and external-image
+  command details: [release README](release/README.md).
 
 ## SS01 migration baseline/core (common gates pass / directory clarification open)
 

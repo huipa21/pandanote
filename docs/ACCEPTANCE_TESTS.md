@@ -307,6 +307,21 @@ SET-_, ACC-_, LANG-_, MIG-_, BAK-_, OPS-_, DEP-* and DOC-* in
 extended gates. Actual evidence/blockers are in the linked change PROGRESS; no pass
 is implied by this expected matrix or by the historical S18 measurement record.
 
+## Image optimization acceptance mapping
+
+IMG-SIZE/DEP/NATIVE/PKG/SEC/RUN/UI/DATA/XFER/PERF/DOC in
+[image-optimization/ACCEPTANCE_TESTS.md](image-optimization/ACCEPTANCE_TESTS.md)
+require actual Alpine production/native/worker/source-CLI/PTY/grammar/private-data/
+upgrade/rollback/large-TLS restore plus Docker and Podman build/compressed transfer
+and corrupt-load safety. The read-only reporter separates aliases, stored blobs,
+decoded layer tar and overlapping package/maps; compare the same platform/source/
+format/gzip level, not Docker containerd raw tar to legacy Podman tar. Runtime lock
+roots/versions/peers/overrides and installed inventory must be verified, with maps
+removed before COPY and browser precompression retained. Expected reduction defaults
+25% raw/20% gzip, no feature/security/production-config loss. Actual counts/results
+and unresolved manual/ARM64/exact-user-commit limits are in its PROGRESS; no overall
+release or SS01 atomic-exchange approval is implied.
+
 ## 13. Final verification record
 
 At S18, record in PROGRESS or a linked results file:

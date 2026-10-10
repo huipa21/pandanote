@@ -16,7 +16,18 @@ import { DIR, api, setup, signIn } from './support.ts';
 // project "pnc", see ops/release-benchmark.sh). Everything is synthetic. Results
 // are printed and written to .drill/benchmark-results.json; nothing is asserted
 // beyond functional correctness and the documented budgets that must hold.
-const run = promisify(execFile);
+const execute = promisify(execFile);
+// Optional isolated Docker daemon transport; measurements still execute inside
+// the real production container, never on the driver or a mock engine.
+const run = (file: string, args: string[]) =>
+  process.env.BENCH_DOCKER_CONTAINER
+    ? execute('podman', [
+        'exec',
+        process.env.BENCH_DOCKER_CONTAINER,
+        'docker',
+        ...args,
+      ])
+    : execute(file, args);
 const C = process.env.BENCH_URL ?? 'https://c.localtest.me:7443';
 const DOCKER = process.env.DOCKER ?? 'docker';
 const CONTAINER = process.env.BENCH_APP ?? 'pnc-pandanote-1';
@@ -288,7 +299,7 @@ test.beforeAll(async ({ browser, playwright }) => {
       cpuModel: cpus()[0]?.model,
       logicalCpus: cpus().length,
       ramGiB: +(totalmem() / 2 ** 30).toFixed(1),
-      note: 'browser/driver host (Windows); container below',
+      note: `browser/driver host (${process.platform}); container below`,
     },
     container: (
       await run(DOCKER, [
@@ -407,6 +418,9 @@ test('setup and seed the realistic 10k dataset through the real API', async () =
 });
 
 test('API latency (through the real HTTPS proxy, warm p50/p95) for list, tag, calendar, search and detail', async () => {
+  // Setup already authenticated this context; /login now correctly redirects it.
+  // Clear only the synthetic driver's cookies to exercise a genuine new login.
+  await context.clearCookies();
   await signIn(page, C, PASSWORD);
   const list = (await (await api(page, C, 'get', '/api/notes')).json())
     .data as { items: { id: string }[]; nextCursor: string | null };
@@ -475,11 +489,18 @@ async function measureRender(
     const session = await context.newCDPSession(view);
     await session.send('Network.enable');
     await session.send('Network.clearBrowserCache');
-    await session.send('Network.emulateNetworkConditions', {
-      offline: false,
-      latency: 40,
-      downloadThroughput: (10 * 1024 * 1024) / 8,
-      uploadThroughput: (5 * 1024 * 1024) / 8,
+    await session.send('Network.setCacheDisabled', { cacheDisabled: true });
+    // Current Chromium API: the legacy global emulator can stall cached CSS.
+    // Keep the same measured bandwidth/latency and cold-cache workload.
+    await session.send('Network.emulateNetworkConditionsByRule', {
+      matchedNetworkConditions: [
+        {
+          urlPattern: '',
+          latency: 40,
+          downloadThroughput: (10 * 1024 * 1024) / 8,
+          uploadThroughput: (5 * 1024 * 1024) / 8,
+        },
+      ],
     });
   }
   const seen: string[] = [];

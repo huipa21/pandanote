@@ -4,8 +4,10 @@
 
 - **Phase:** S00–S17 done; S18 locally verified but **NOT final release** (real VPS,
   public certificates, physical-device/IME/screen-reader/Linux visual/exact-commit gates open).
-- **Repository:** SS07 session starts at clean `44cde28` (SS06). No agent-created
-  user-repository commit, dependency/lockfile change or actual application-data deletion.
+- **Repository:** image-optimization session baseline/user HEAD remains
+  `287d4bef540dff761c129cdc7fcb001bac92de96`; preexisting planning edits retained.
+  No agent-created user commit/deployment/real-data deletion. New runtime lock is a
+  reviewed uncommitted change; main dependency versions/lock remain unchanged.
 - **Current behavior:** browser username/email/password → title/language/timezone
   setup in a 60-minute first-visitor window; partial zh-CN/title/Account/General;
   shared startup SQL/data migrations/pre-upgrade DB copy; format-v2 backup/restore;
@@ -26,6 +28,25 @@
   topology/audit/count claims. Existing 2 low advisories remain, no forced update.
 - **Runtime:** Node 24.21.0/npm 11; host must pin executable **and PATH**, TLS=1.
   Linux Podman/Compose validation tooling only, not a deployment dependency.
+- **Image optimization:** **IO00–IO07 locally done**, not final PandaNote release.
+  Actual Alpine/native/fallback/minimized graph/pre-COPY pruning/production/PTY/
+  upgrade/large-TLS restore/cross-engine/full gates pass. Raw584.36→267.18MiB
+  (**54.28%**), canonical gzip6 172.98→88.14MiB (**49.04%**); actual GNU transfer
+  170.74→86.62MiB. Final142unit/all219Alpine integration/98host+92Linux nonvisual
+  browsers, final production2+5+3+1+1/full10k9 PASS. Owned resources cleaned, supplied
+  archive/shared latest unchanged. [Measured results](image-optimization/RESULTS.md)
+  and [exact failures/commands/handoff](image-optimization/PROGRESS.md).
+  ARM64/Windows throttling/exact-user-commit/manual SS01/S18 limits stay open.
+
+## Completed local change: smaller production image
+
+The user-authorized long IO00–IO07 implementation is locally verified, not merely
+planned. See [image optimization](image-optimization/README.md), its
+[measured results](image-optimization/RESULTS.md) and append-only
+[handoff](image-optimization/PROGRESS.md). Packaging/source provenance/security/
+features/minimal deployment preserved; actual musl and data-safety gates pass.
+No user release commit, deployment, SS01 approval or S18 manual closure implied.
+Review/commit only with approval, then rerun the exact clean release gates.
 
 ## Active change: simplify setup and deployment
 
@@ -45,8 +66,17 @@ or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
 
-**Current priority:** resolve the sole open simplify-setup SS01 atomicity requirement
-with the user; do not silently accept a specification deviation.
+**Image optimization local implementation is done:** review its PROGRESS/RESULTS
+and the uncommitted files. With user approval only, commit and build the exact clean
+AMD64 image (`npm run image:build -- --platform linux/amd64`), inspect OCI/private UI
+identity and rerun production/transfer/native gates. Synthetic clones/images are
+not user releases; they have been cleaned. First safe command on supported Node/
+PATH/TLS1: `npm run runtime:check && npm run check && npm run test:integration --
+image-size release-hygiene`. Do not deploy without an explicit request.
+
+**Separate simplify-setup priority:** resolve the sole open SS01 atomicity requirement
+with the user; do not silently accept a specification deviation. The earlier workflow
+below remains pending independently of image optimization.
 
 1. Read AGENTS, simplify-setup SPEC §8/PROGRESS latest SS07, ARCHITECTURE §4.3,
    pre-upgrade.ts and its integration tests. Approve durable rotation with its
@@ -3577,3 +3607,197 @@ Final doc-close Prettier, npm run check/lint, npm run test:integration --
 release-hygiene (7 cases), git diff --check and fixture/NUL/package/lock/Compose/env
 checks **PASS**. Only this handoff result was added afterwards; no source behavior
 changed after the full passing gates.
+
+### Session 2026-10-09 — user-requested production image optimization planning
+
+**State: planning done; IO00–IO07 implementation not started.** User explicitly
+permitted Alpine and requested a detailed docs-folder plan plus a prompt for another
+agent to implement all steps in one long session. The repository was clean at
+`287d4bef540dff761c129cdc7fcb001bac92de96` before documentation changes.
+
+Created `docs/image-optimization/{README,SPEC,DECISIONS,PLAN,ACCEPTANCE_TESTS,
+OPERATIONS,PROGRESS,IMPLEMENTATION_PROMPT}.md`, following simplify-setup's structure.
+The plan covers matched measurements/read-only reporting, exact locked runtime
+roots/peer handling/drift checks, verified Alpine/musl install/linkage/fallback,
+pre-COPY source-map pruning, production/native/browser/PTY/worker/migration/restore/
+large-upload/cross-engine gates, compressed transfer and final regression/handoff.
+Main PROGRESS links the directed work without erasing SS01/S18 blockers or history.
+
+No app/Dockerfile/package/lockfile/image/data change or user-repository commit.
+Historical archive analysis is 612,746,240 bytes raw / 181,377,850 bytes gzip-6;
+no optimized artifact or Alpine compatibility result is claimed. Documentation
+validation/results are recorded in `docs/image-optimization/PROGRESS.md`.
+
+Next agent: read AGENTS/main guidance, current simplify-setup handoff and all new
+change documents; execute IO00 then IO01–IO07 with the saved long-session prompt.
+First commands `git status --short` and `node --version`; select supported Node/npm
+PATH before `npm run test:integration -- release-hygiene`. Proposed new scripts do
+not exist yet. Keep the supplied archive, prior aliases and real data intact.
+
+Documentation checks actually run with the S00 executable/PATH setup (Node
+24.21.0/npm 11.12.1, TLS=1): Prettier write/check for new documents/main PROGRESS,
+`npm run test:integration -- release-hygiene` **7/7 PASS**, `npm run lint` **PASS**,
+`git diff --check` **PASS**. Exact commands are in the dedicated handoff. Full
+check/unit/integration/e2e/build/Alpine/image-transfer gates were not run for this
+planning-only change; there is no optimized artifact or native compatibility claim.
+
+### Session 2026-10-09 — IO00 image baseline and reporter
+
+IO00 **done**, IO01 next. See image-optimization/PROGRESS.md for exact commands,
+failures and identities. New image-size streaming CLI/tests preserve supplied archive,
+whose revision matches current HEAD/application: 612,746,240 raw / 181,377,850 gzip-6
+bytes, SHA-256 c4cd2bfc…; no after-size claim. Verified actual supported Alpine
+24.21.0 index/platform/Node/npm; production remains Debian until native proof.
+Isolated Podman graph root + Docker29.8.2 daemon, synthetic resources only; existing
+latest/images/data untouched. Host explicit Node24.21.0/PATH/npm11.12.1/TLS1 final
+check/lint/build PASS, 130 unit and 209 integration + 7 explicit Linux-only skips.
+Initial MSYS path/type/secondary stream error failures resolved and recorded, not
+counted as passes. Next runtime dependency audit/lock/drift verifier; first next
+validation after implementation `npm run runtime:check`. SS01/S18 remain open.
+
+### Session 2026-10-09 — IO01 minimal runtime graph
+
+IO01 **done**, IO02 next; exact commands/identity in dedicated IO handoff. Added
+ops/runtime manifest/lock (18 exact roots), typed drift/reason contract/CLI/build
+prerequisite and 12 unit tests; zero transitive version drift from main lock.
+Actual cold Debian peer-omitted install loads all roots, excludes browser/tool roots,
+retains optional platform assets. Common host check/lint/build PASS, 142 unit /
+209 integration + 7 explicit Linux skips; affected Markdown/Mermaid e2e **6 PASS**.
+No root versions/lock or app feature change. Next actual Alpine native proof and
+forced source compilation before production switch. No user commit/real data or
+unrelated aliases touched; SS01/S18 remain open.
+
+### Session 2026-10-09 — IO02 verified Alpine natives
+
+IO02 **done**, IO03 production packaging next. Actual pinned Alpine cold minimized
+ci/native/worker/linkage probes PASS; forced SQLite CC/CXX source compilation PASS.
+Minimal CA/libstdc++ runtime (no compiler/Python/Git/shim) passes both default user
+and real positive-ID privilege-drop/execve native probes, CA/DST included. Reusable
+ops/Dockerfile.native-probe + tests/release/native-probe.ts added. Host common
+check/lint/build PASS, 142 unit / 209 integration + 7 explicit Linux-only skips.
+Exact commands/versions/warnings and probe scope: dedicated IO handoff. Full Alpine
+common/production/browser/data-safety gates still pending, ARM64 not executed;
+SS01/S18/user-release remain open. No real data/user commit/unrelated alias change.
+
+### Session 2026-10-09 — IO03 optimized production image
+
+IO03 **done**, IO04 next. Alpine3.23.6 pinned Node24.21.0 in all stages, dedicated
+runtime install and pre-COPY dependency-map deletion implemented; final ESM/source
+CLI/workers/metadata/client precompression/health/privileges/Compose unchanged.
+Common host gates PASS (142 unit/209 integration +7 Linux-only skips). Actual supported
+clean full-history synthetic clone build PASS (not user release), production native/
+readiness/PID1 UID1000 zero caps/exit0/pristine inventory PASS. Preliminary candidate
+raw280,161,280 / gzip6 92,421,561 bytes versus612,746,240 /181,377,850 baseline;
+final measurements/gates still pending. Tooling NUL refusal/cleanup/retry recorded
+in dedicated IO handoff; original shared engine/latest preserved. Next full tracked
+Alpine common image and production probe; unrelated SS01/S18 gates remain open.
+
+### Session 2026-10-09 — IO04 Alpine regression and production probes
+
+IO04 **done**, IO05 next. Tracked Alpine common image passes full check/lint/build,
+142 unit/all216 integration with **zero skips/exclusions** (real musl native/PTY/Git/
+private modes/fsync/archive/fault/process-kill). Host common also PASS, 142 unit/
+209 integration +7 explicit host Linux skips. Typed external production-image gate
+**2 PASS**: pristine installed inventory/deferred highlighting/native workers/labels,
+missing-module negative, actual live no-echo PTY MFA/session reset + stopped reindex
+and unchanged multilingual notes/keys/search. First unsupported-Rust/DTO test
+assumptions corrected and fully rerun; recorded in IO handoff, no app behavior change.
+Next full browser/copied-root/upgrade/large TLS restore/drill/performance gates;
+no user commit/real-data/unrelated-image changes. SS01/S18 remain open.
+
+### Session 2026-10-09/10 — IO05 production regression and matched performance
+
+IO05 **done**, IO06 next. Full host98, Linux nonvisual92, actual Alpine two-domain
+TLS drill3+1 and new built-content/sanitization/deferred grammar1 PASS. Copied-root
+ORIGIN-only production gate5 PASS on disposable Docker, including positive IDs/
+private modes/zero caps, startup/recreation/idle stop, interrupted backup, synthetic
+SQL/data/pre-copy rollback and **1,208,340,194-byte TLS restore with hashes intact**.
+Actual Linux matched fresh10k full benchmarks9 baseline +9 Alpine PASS at2CPUs/3GiB
+(app),2CPUs/4GiB supported Debian browser driver. Candidate final idle289.1MiB,
+restore peak403.6MiB; list/short-CJK budgets pass. Single-run web backup/validation
+slower (8→11.8s/23.2→30s) documented; repeated native backups show median hardlink
+2070→2017ms/copy1965→2092ms, not sustained47% native slowdown. No target relaxed.
+
+All failures/workarounds/commands in dedicated IO handoff: isolated Podman health
+scheduler wrong storage→actual Docker (no health bypass), nested test-port tunnels,
+BigInt timing syntax, already-authenticated benchmark login and Windows CDP
+throttling stalls. Windows throttled case remains unpassed; identical full Linux
+benchmark passes. Test-only transports/current-CDP/cookie fixes; app/Compose/security
+unchanged. Host closing common gates142 unit/209 integration+7 Linux skips and
+check/lint/build PASS. No user commit/real data/unrelated aliases touched; owned
+synthetic stacks retained for transfer/final gates. SS01/S18/ARM64/exact release open.
+
+### Session 2026-10-10 — IO06 compressed transfer and documentation
+
+IO06 **done**, IO07 final gates next. Actual clean-clone Docker + Podman builds,
+raw/gzip6 exports/checksums/fresh-Docker compressed load/default root Compose/native/
+identity/private UID1000 zero caps/exit0 pass; Podman namespace explicitly retagged.
+Both corrupt gzip integrity AND real load fail safely with prior running image/data
+unchanged; Podman compressed load also passes. Read-only reporter now handles Docker
+containerd compressed layer blobs, with bounded stored-vs-decoded accounting and
+codec tests (initial unsupported-compressed-layer failure recorded, not hidden).
+Do not compare Docker already-compressed raw tar to Podman legacy raw size.
+
+Canonical README/ops/tests/main architecture/plan/acceptance/change docs updated
+for Alpine/runtime lock/gzip/checksum/raw alternative, no app/Compose/env change.
+Host common PASS:142 unit/211 integration+7 Linux-only skips/zero diagnostics/build.
+Exact commands/source/engine/load IDs/times/failures: IO handoff. Final matched sizes/
+full gates/owned cleanup pending. Supplied archive/original aliases/real data/user
+repository commits untouched; independent SS01/S18/ARM64/exact release remain open.
+
+### Session 2026-10-10 — IO07 image optimization locally complete
+
+**IO00–IO07 locally done**, not overall release. Exact source/engine/platform/commands,
+all intermediate failures/retries and acceptance mapping:
+[IO handoff](image-optimization/PROGRESS.md); component/performance measurements:
+[RESULTS](image-optimization/RESULTS.md). Final reviewed packaging code built only
+in full-history synthetic3fd5b7df… (version261009-1); user HEAD still287d4bef… and
+no user commit/deployment/real-data change. Later identity assertions/docs do not
+alter runtime. Main lock/versions/src/Compose/env untouched.
+
+Final matched raw612,746,240→280,161,280B (**54.28%**); canonical gzip6
+181,377,850→92,421,571B (**49.04%**); actual GNU gzip6
+179,033,507→90,823,530B (**49.27%**). Dependency payload324.11→74.91MiB; maps97.80→0
+in every runtime layer. Built app/client gzip+Brotli retained. Docker29 compressed
+blobs/engine accounting measured separately, not conflated with raw legacy tar/RSS.
+
+Final host check/lint/build142unit/211integration+7 explicit Linux-only skips and
+**98full Chromium PASS**, no snapshots changed. Final fresh Alpine complete common
+**142unit/all218integration, zero skips/exclusions PASS**, rebuilt after last test
+identity addition and passed again. Fresh supported Debian **92nonvisual PASS**.
+Final actual image native/inventory/livePTY/reindex2, copied-root/default IDs/private
+modes/zero caps/stop/interruption/upgrade/rollback/**1,208,340,295-byte TLS restore**5,
+two-domain archive/MFA/restart3+1, lazy/sanitized/deferred-grammar/source+restored
+SSR/mobile/no-JS identity1, exact candidate fresh10k full benchmark9 PASS. Both actual
+engine builds and fresh compressed Docker loads/retag/native/root Compose/corrupt
+safety PASS; loaded-image/data unaffected. Runtime audit0/root2low, no force repair.
+Dirty user-tree build expectedly refuses before engine, not a release pass.
+
+Owned synthetic stacks/CA volumes/networks, drivers/Docker daemons, isolated Podman
+storage/socket, tunnels, drill data/binds and clones removed. Ignored logs/reports/
+archives/source patch retained; synthetic credential/archive/browser drill data
+removed. Supplied archive SHA c4cd2bfc… and shared latest e7a173be… unchanged, user
+HEAD unchanged; no e2e/NUL leftovers. Shared prerequisite Node/Docker base pulls
+retained as cache; new unrelated other-session images untouched. No broad prune.
+Final doc-format/hygiene/link/whitespace close follows in the dedicated history.
+
+Open separately: literal SS01 exchange, real-VPS/public certs/independent host,
+physical device/IME/pinch/screen-reader/Linux visuals/S18 exact-user-commit and
+ARM64 native testing. Windows CDP throttling remains unpassed; full same Linux
+workload passes. Bulk single-run speed differences/repeated-native investigation
+are disclosed, not hidden or used to relax targets. Next: user review/approval for
+commit, exact clean image gates; SS01 clarification and S18 manual acceptance.
+First safe validation: `npm run runtime:check && npm run check && npm run
+test:integration -- image-size release-hygiene` with supported Node/PATH/TLS1.
+
+Final close after security review: size reporter's malformed-JSON errors now redact
+V8 input fragments; synthetic private-marker regression added (tooling-only, never
+shipped in runtime). Full host common rerun **142unit/212integration+7 Linux skips,
+check/lint/build PASS**; fresh isolated Alpine common **142unit/all219integration,
+zero skips/exclusions/check/lint/build PASS**, owned close engine removed. Earlier
+218 counts remain history. All runtime/browser/transfer evidence and measured sizes
+unchanged by error redaction; final doc/link/runtime/check/size6+hygiene7/whitespace
+PASS. Shared latest/archive/user HEAD preserved, no e2e/NUL/owned stack leftovers.
+Final doc-close runtime:check/check/lint, image-size6+hygiene7 (**13 PASS**), whitespace/
+links/artifact review PASS; cold stage and cached-build/load timings recorded in IO
+RESULTS. Only reviewed uncommitted changes remain, no user commit or deployment.

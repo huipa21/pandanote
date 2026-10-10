@@ -567,3 +567,16 @@ in order: SS01 migration baseline/data steps/pre-upgrade copy, SS02 one startup 
 and proxy trust, SS03 accounts/setup flow/login, SS04 language and site title, SS05
 backup format v2 and `reset-password`, SS06 deployment files/image, SS07 documentation
 and full regression. Acceptance: [simplify-setup/ACCEPTANCE_TESTS.md](simplify-setup/ACCEPTANCE_TESTS.md).
+
+## Approved change — Image optimization
+
+User permits Alpine and a long sequential IO00–IO07 session. The implemented
+packaging preserves application/schema/security/provenance/root-Compose behavior:
+verified Node24.21.0 Alpine stages, dedicated runtime lock with drift/peer control,
+optional musl natives and conservative dependency-map pruning before COPY, streaming
+size reports and gzip/checksum transfer with raw alternative. Follow the per-step
+[IO plan](image-optimization/PLAN.md), [acceptance](image-optimization/ACCEPTANCE_TESTS.md)
+and [actual evidence](image-optimization/PROGRESS.md). Common/full browser, actual
+musl/native/fallback/production/PTY/upgrade/restore/large-TLS/cross-engine gates are
+required; host/Debian-native passes cannot substitute. SS01 literal exchange and
+S18 manual/VPS/ARM64/exact-user-release limitations remain independent.

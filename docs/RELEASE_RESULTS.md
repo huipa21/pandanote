@@ -177,3 +177,14 @@ usable throughout image processing, backup and restore preparation.
    unencrypted (settled product decisions).
 7. Nothing was committed by this session; a release commit/tag and a rerun of the full
    suites on that exact commit are still required before declaring release.
+
+## New packaging verification (2026-10-09/10, separate from historical S18)
+
+The Alpine/runtime-lock/pre-COPY pruning/compressed-transfer change is implemented
+and locally tested. See [image measurements](image-optimization/RESULTS.md) and
+[exact commands/progress](image-optimization/PROGRESS.md), not the historical figures
+above: matched raw584.36→267.18MiB, canonical gzip6 172.98→88.14MiB; final musl
+142 unit/all219 integration, full host98/nonvisual Linux92 and actual production
+PTY/large-TLS restore/upgrade/drill/cross-engine gates. No user release commit,
+public VPS/device/Linux visual/ARM64 validation or SS01 atomicity approval is implied.
+Historical measurements and limitations above have not been overwritten.

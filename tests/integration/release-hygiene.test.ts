@@ -177,7 +177,9 @@ describe('deployment artifacts', () => {
   const ignore = lines(read('.dockerignore'));
 
   it('image is pinned, drops bootstrap root privileges and omits tests/docs/dev dependencies/secrets', () => {
-    expect(docker).toMatch(/node:24\.21\.0-bookworm-slim@sha256:[0-9a-f]{64}/);
+    expect(docker).toContain(
+      'node:24.21.0-alpine3.23@sha256:9ec4a2e289874ed0d722e1772ec2de45d2801541db8612f3638b26f128c69ac2',
+    );
     expect(docker).toMatch(/^USER root$/m);
     expect(docker).toContain(
       'ENTRYPOINT ["node", "scripts/container-entry.ts"]',
@@ -194,7 +196,17 @@ describe('deployment artifacts', () => {
     const user = read('scripts/container-user.ts');
     expect(user).toContain('process.setuid(identity.uid)');
     expect(user).toContain('process.setgroups!([])');
-    expect(docker).toMatch(/npm ci --omit=dev/);
+    expect(docker).toContain('npm ci --omit=dev --omit=peer');
+    expect(docker).not.toContain('--omit=optional');
+    expect(docker).toContain(
+      'COPY ops/runtime/package.json ops/runtime/package-lock.json .npmrc ./',
+    );
+    expect(
+      docker.indexOf("find node_modules -type f -name '*.map' -delete"),
+    ).toBeLessThan(docker.indexOf('AS runtime'));
+    expect(JSON.parse(read('package.json')).scripts.build).toContain(
+      'verify-runtime-dependencies.ts',
+    );
     expect(docker).not.toMatch(/NODE_TLS_REJECT_UNAUTHORIZED|strict-ssl/i);
     const runtime = docker.slice(docker.indexOf('AS runtime'));
     const copies = lines(runtime).filter(
@@ -207,13 +219,16 @@ describe('deployment artifacts', () => {
     expect(runtime).toContain('BODY_SIZE_LIMIT=64G');
     expect(runtime).toContain('HEALTHCHECK');
     expect(runtime).toContain('scripts/reset-password.ts scripts/reindex.ts');
-    expect(runtime).not.toMatch(/apt-get|python3|g\+\+/);
+    expect(runtime).not.toMatch(
+      /apt-get|python3|g\+\+|apk add.*(?:make|git|gcompat)/,
+    );
+    expect(runtime).toContain('apk add --no-cache ca-certificates libstdc++');
     for (const stage of ['build', 'production-deps']) {
       const install = docker.split(`AS ${stage}\n`)[1].split('\nFROM ')[0];
-      expect(install).toMatch(
-        /apt-get install .*ca-certificates python3 make g\+\+/,
+      expect(install).toContain(
+        'apk add --no-cache ca-certificates python3 make g++',
       );
-      expect(install.indexOf('apt-get install')).toBeLessThan(
+      expect(install.indexOf('apk add')).toBeLessThan(
         install.indexOf('npm ci'),
       );
     }

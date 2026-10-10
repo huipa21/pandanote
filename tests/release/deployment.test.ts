@@ -14,6 +14,20 @@ const image = process.env.DEP_IMAGE;
 const upgrade = process.env.DEP_UPGRADE_IMAGE;
 const binary = process.env.DEP_COMPOSE_BINARY;
 const remote = process.env.DEP_REMOTE === 'podman-machine';
+const dockerContainer = process.env.DEP_DOCKER_CONTAINER;
+const spawnEngine = (
+  args: string[],
+  options: { encoding?: 'utf8'; timeout?: number; maxBuffer?: number } = {},
+) =>
+  spawnSync(
+    engine,
+    dockerContainer ? ['exec', dockerContainer, 'docker', ...args] : args,
+    { ...options, encoding: 'utf8' },
+  );
+// Test-only alternate socket for a separate storage/daemon; never a production input.
+const socket =
+  process.env.DEP_ENGINE_SOCKET ??
+  (remote ? '/run/user/0/podman/podman.sock' : '/var/run/docker.sock');
 const root = `/var/tmp/pandanote-dep-${randomUUID()}`;
 const helper = `pandanote-dep-${randomUUID()}`;
 const edge = `${helper}-edge`;
@@ -24,7 +38,31 @@ let original: string | undefined;
 let owned = false;
 const q = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 function cli(args: string[], expected = 0, timeout = 180_000): string {
-  const result = spawnSync(engine, args, {
+  // Optional disposable Docker-in-Podman backend. Bridge client-side files only;
+  // Docker still performs the real Compose/start/health/stop/load operations.
+  if (dockerContainer && args[0] === 'cp') {
+    const transfer = `/tmp/pn-dep-transfer-${randomUUID()}`;
+    const fromDriver = !args[1].includes(':/');
+    const bridge = spawnSync(
+      engine,
+      fromDriver
+        ? ['cp', args[1], `${dockerContainer}:${transfer}`]
+        : ['exec', dockerContainer, 'docker', 'cp', args[1], transfer],
+      { encoding: 'utf8', timeout },
+    );
+    expect(bridge.status, 'Docker test transport copy').toBe(0);
+    const result = spawnSync(
+      engine,
+      fromDriver
+        ? ['exec', dockerContainer, 'docker', 'cp', transfer, args[2]]
+        : ['cp', `${dockerContainer}:${transfer}`, args[2]],
+      { encoding: 'utf8', timeout },
+    );
+    spawnSync(engine, ['exec', dockerContainer, 'rm', '-f', transfer]);
+    expect(result.status, 'Docker test transport copy').toBe(expected);
+    return result.stdout.trim();
+  }
+  const result = spawnEngine(args, {
     encoding: 'utf8',
     timeout,
     maxBuffer: 8 * 1024 * 1024,
@@ -35,6 +73,15 @@ function cli(args: string[], expected = 0, timeout = 180_000): string {
   return result.stdout.trim();
 }
 function shell(command: string, timeout = 180_000): string {
+  if (dockerContainer) {
+    const result = spawnSync(
+      engine,
+      ['exec', dockerContainer, 'sh', '-c', command],
+      { encoding: 'utf8', timeout },
+    );
+    expect(result.status, 'Docker test host shell').toBe(0);
+    return result.stdout.trim();
+  }
   if (remote) return cli(['machine', 'ssh', command], 0, timeout);
   const result = spawnSync('sh', ['-c', command], {
     encoding: 'utf8',
@@ -52,7 +99,7 @@ const compose = (args: string, timed = false) =>
     helper,
     'sh',
     '-c',
-    `${timed ? 'start=$(date +%s%N); ' : ''}cd ${q(root)} && ./compose ${args}${timed ? '; code=$?; printf "DEP_MS=%s\\n" "$(( ($(date +%s%N) - start) / 1000000 ))"; exit "$code"' : ''}`,
+    `${timed ? 'start=$(node -p "process.hrtime.bigint().toString()"); ' : ''}cd ${q(root)} && ./compose ${args}${timed ? '; code=$?; end=$(node -p "process.hrtime.bigint().toString()"); printf "DEP_MS=%s\\n" "$(( (end - start) / 1000000 ))"; exit "$code"' : ''}`,
   ]);
 function copy(text: string, destination: string) {
   const file = join(temporary, randomUUID());
@@ -77,8 +124,7 @@ async function ready() {
   await expect
     .poll(
       () => {
-        const result = spawnSync(
-          engine,
+        const result = spawnEngine(
           [
             'exec',
             'pandanote',
@@ -102,14 +148,13 @@ test.beforeAll(() => {
       'DEP_IMAGE, DEP_UPGRADE_IMAGE and DEP_COMPOSE_BINARY are required (Linux engine/Compose); missing prerequisites are a blocker.',
     );
   if (
-    spawnSync(engine, ['container', 'inspect', 'pandanote']).status === 0 ||
-    spawnSync(engine, ['network', 'inspect', 'proxynet']).status === 0
+    spawnEngine(['container', 'inspect', 'pandanote']).status === 0 ||
+    spawnEngine(['network', 'inspect', 'proxynet']).status === 0
   )
     throw new Error(
       'Refusing deployment gate: pandanote/proxynet already exists. Use an isolated test engine.',
     );
-  const old = spawnSync(
-    engine,
+  const old = spawnEngine(
     ['image', 'inspect', 'pandanote:latest', '--format', '{{.Id}}'],
     { encoding: 'utf8' },
   );
@@ -130,7 +175,7 @@ test.beforeAll(() => {
     '-v',
     `${root}:${root}`,
     '-v',
-    `${remote ? '/run/user/0/podman/podman.sock' : '/var/run/docker.sock'}:/test-engine.sock`,
+    `${socket}:/test-engine.sock`,
     image,
     'infinity',
   ]);
@@ -163,12 +208,13 @@ test.beforeAll(() => {
 test.afterAll(() => {
   if (owned) {
     // Remove only resources allocated after the collision check, never user data.
-    spawnSync(engine, ['rm', '-f', edge, 'pandanote', helper], {
+    spawnEngine(['rm', '-f', edge, 'pandanote', helper], {
       timeout: 60_000,
     });
-    spawnSync(engine, ['network', 'rm', 'proxynet'], { timeout: 60_000 });
-    if (original) spawnSync(engine, ['tag', original, 'pandanote:latest']);
-    else spawnSync(engine, ['untag', image!, 'pandanote:latest']);
+    spawnEngine(['network', 'rm', 'proxynet'], { timeout: 60_000 });
+    if (original) spawnEngine(['tag', original, 'pandanote:latest']);
+    else if (dockerContainer) spawnEngine(['image', 'rm', 'pandanote:latest']);
+    else spawnEngine(['untag', image!, 'pandanote:latest']);
     shell(`rm -rf ${q(root)}`);
   }
   rmSync(temporary, { recursive: true, force: true });

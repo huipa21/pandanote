@@ -65,20 +65,69 @@ all filesystem/Compose operations run on Linux. Tests preserve privilege checks
 (PID 1 Node, UID/GID, zero permitted/effective capabilities), private modes, default
 10 s idle shutdown, restarts/recreation, spoofed XFF, interrupted backup and rollback.
 
-## Cross-engine archive transfer (DEP-09)
+## Alpine/common and external production-image gates
+
+Production is pinned Alpine/musl; the browser driver may stay Debian or a supported
+host. Debian-native/Windows results do not prove musl compatibility.
+
+```sh
+docker build -f ops/Dockerfile.alpine-validation -t pandanote-alpine-tests .
+docker run --rm --cpus=2 --memory=4g pandanote-alpine-tests
+docker build -f ops/Dockerfile.native-probe -t pandanote-native-proof .
+docker run --rm pandanote-native-proof
+IMAGE_ENGINE=docker IMAGE_UNDER_TEST=pandanote:<version> npx playwright test --config playwright.release.config.ts tests/release/image.test.ts
+```
+
+The native-proof image genuinely rebuilds SQLite from source, then probes the minimal
+musl install after real privilege drop/execve. All tools/fixtures are test-only.
+The external-image gate verifies pristine inventory before copying temporary probes
+into an owned container; actual source workers/deferred grammar/native formats,
+ESM/labels/private modes, no-echo live PTY reset/revocation and stopped reindex run
+without build dependencies. Requires Linux `python3` for the driver PTY.
+For a Windows Podman driver use IMAGE_REMOTE=podman-machine and, when needed,
+IMAGE_PTY_CLIENT_JSON containing the explicit Linux engine argv (isolated storage).
+A missing image/PTY is a blocker, not an implicit skip. Temporary resources are owned
+anonymous volumes; no fixed production alias or real data is used.
+
+Run `content.test.ts` after the two-domain drill with the same DRILL_DIR and
+IMAGE_EXPECTED_LABELS captured from that image's `image inspect --format
+'{{json .Config.Labels}}'`. It verifies source/restarted and restored-destination
+SSR/sidebar/mobile/no-JavaScript About identity as well as actual built Alpine
+SSR/preview highlighting, lazy Mermaid and hostile-policy isolation.
+The full ordinary e2e suite remains separate. Use ops/Dockerfile.browser-validation
+for supported Linux nonvisual coverage; never auto-update OS visual baselines.
+
+For isolated validation daemons only, deployment.test.ts accepts DEP_ENGINE_SOCKET
+and DEP_DOCKER_CONTAINER (Docker inside an owned Podman container), and benchmark
+accepts BENCH_DOCKER_CONTAINER. These transport switches run the real engine/Compose,
+not mocks, and do not change root production Compose/env/Caddy. Some Podman custom
+--root services schedule health timers against default storage; use a correctly
+isolated Docker daemon rather than bypass readiness/health assertions. Current
+Chromium per-rule network emulation is used; Windows throttling can stall, so record
+that failure and measure the complete unchanged workload on the supported Linux driver.
+
+## Cross-engine archive transfer (DEP-09 / IMG-XFER)
 
 Verify on a disposable Docker server with both engine builds available:
 
 ```sh
 # Docker-built image:
 docker image save -o docker-image.tar pandanote:latest
-docker image load -i docker-image.tar
+gzip -6 -c docker-image.tar > docker-image.tar.gz
+gzip -t docker-image.tar.gz
+sha256sum docker-image.tar.gz > docker-image.tar.gz.sha256
+sha256sum -c docker-image.tar.gz.sha256
+docker image load -i docker-image.tar.gz
 docker image inspect pandanote:latest
 
 # Podman-built image (namespace is intentionally explicit):
 podman save --format docker-archive -o podman-image.tar localhost/pandanote:latest
 # Transfer the archive to the disposable Docker server:
-docker image load -i podman-image.tar
+gzip -6 -c podman-image.tar > podman-image.tar.gz
+gzip -t podman-image.tar.gz
+sha256sum podman-image.tar.gz > podman-image.tar.gz.sha256
+sha256sum -c podman-image.tar.gz.sha256
+docker image load -i podman-image.tar.gz
 docker tag localhost/pandanote:latest pandanote:latest
 docker image inspect pandanote:latest
 ```
@@ -87,4 +136,11 @@ Check immutable version/revision/created labels and native modules in each loade
 image; compare the ID against the running root-Compose container. Never infer a
 Docker transfer pass from Podman alone. Keep tar files out of Git. A temporary
 privileged Docker-in-Docker daemon is test tooling only, not an app dependency or
-recommended deployment topology.
+recommended deployment topology. Raw save/load remains a supported alternative.
+Use unused filenames; preserve the raw file. On a disposable engine also reject a
+truncated gzip with `gzip -t` and actual Docker load, then verify the prior running
+image/reference/private data are unchanged. Actual Docker/Podman builds and fresh
+Docker compressed-load/native/default-root-Compose probes are required; checksum
+or Podman-only success is not equivalent. Podman compressed load is also locally
+tested. Results and the engine-dependent compressed-layer accounting are recorded
+in [image progress](../../docs/image-optimization/PROGRESS.md).

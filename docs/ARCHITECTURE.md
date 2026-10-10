@@ -73,8 +73,12 @@ Do not add a generic repository/service abstraction for every table. Organize by
 The runtime baseline is Node **24.21.0 LTS**, npm **11.x**. Direct dependencies
 are exact-pinned in `package.json`; all resolutions are in `package-lock.json`.
 See PROGRESS for the selected version inventory and actual host/Linux results.
-`ops/Dockerfile.validation` pins a Debian bookworm/glibc Linux image by digest;
-it runs common/native/PTY regression, not production deployment.
+Production now pins verified Node24.21.0 Alpine3.23/musl; full native compatibility,
+source rebuild and runtime behavior are measured in [image progress](image-optimization/PROGRESS.md).
+`ops/Dockerfile.alpine-validation` runs full common/native/Git/PTY regression;
+Debian `ops/Dockerfile.validation` remains additional glibc coverage and
+`ops/Dockerfile.browser-validation` is the supported browser driver, neither
+substituting for actual musl execution.
 
 - **SvelteKit 3:** configuration is passed directly to `sveltekit({...})` in
   `vite.config.ts`, not `svelte.config.js`. `tsconfig.json` extends `$app/tsconfig`
@@ -1610,12 +1614,23 @@ Existing Caddy needs only `reverse_proxy pandanote:3000`; default XFF replacemen
 streaming and no body ceiling support large archives without custom options.
 Private peer trust is defined in sections 4/12; forwarding overrides remain forbidden.
 
-**Image.** Digest-pinned Node 24.21.0 bookworm/glibc, three stages: full npm ci/build,
-production npm ci --omit=dev with prepare removed, runtime. Both install stages add
-CA/Python/make/g++ for native fallback; runtime has no added compilers/Git/tests/
-docs/dev dependencies/fixtures/secrets. It includes build/production modules/trusted
-migrations/src/lib, reset/reindex/metadata tools and container entry/bootstrap/user.
-HEALTHCHECK remains; transport BODY_SIZE_LIMIT=64G, smaller domain limits authoritative.
+**Image.** Digest-pinned Node24.21.0 Alpine3.23/musl in all three stages, verified
+index `sha256:9ec4a2e289874ed0d722e1772ec2de45d2801541db8612f3638b26f128c69ac2`.
+Full root npm ci/build; dedicated ops/runtime manifest/lock npm ci --omit=dev --omit=peer;
+minimal runtime. Eighteen exact roots match main pins (typed drift/build guard);
+Svelte explicit, Kit/Shiki/native/source tools retained. Browser Mermaid/DOMPurify
+are bundled but not installed runtime roots; build-only peers are absent. Optional
+Sharp musl/bundled libvips remain. Both install stages add CA/Python/make/g++ before
+npm; genuine SQLite source fallback is tested. Runtime only adds CA/libstdc++, base
+libgcc resolves linked natives; no glibc shim/system vips/SQLite/compiler/Git/tests/
+docs/fixtures/secrets or network installer. Dependency maps are deleted before COPY,
+not in a later layer; executable/grammar/WASM/license/metadata assets and browser
+.gz/.br survive. Final main package retains ESM/#lib mappings/native TS stripping.
+Build-info/build/trusted migrations/src/lib/reset/reindex/entry/bootstrap/user are
+preserved. HEALTHCHECK/BODY_SIZE_LIMIT=64G/private data/privilege contracts unchanged.
+IANA/DST uses tested Node ICU without added tzdata. AMD64 validated; ARM64 option/
+manifest preserved but unvalidated. Runtime-lock workflow/size distinctions and
+compressed/raw transfer: ops/DEPLOYMENT §14; actual gates: image-optimization PROGRESS.
 
 **Privilege/startup.** Brief root inventory/ownership walk confined to /data, reject
 links/special entries/nested filesystems/external hardlinks, allow internal snapshot
@@ -1645,8 +1660,11 @@ that file; normal installation does not deploy it. Copied-root-Compose Linux gat
 verify default bind/private modes, UID/capabilities/PID1, spoofed XFF/restarts,
 
 > 1 GiB TLS restore, interrupted backup, synthetic SQL/data upgrade/copy rollback.
-> Cross-engine transfer: Docker save/load uses pandanote:latest; Podman exports
-> localhost/pandanote:latest as docker-archive, Docker loads and explicitly retags.
+> Cross-engine transfer: Docker save/gzip/checksum/load uses pandanote:latest; Podman
+> exports localhost/pandanote:latest as docker-archive, Docker loads gzip and explicitly
+> retags. Raw alternative remains. Actual corrupt gzip/load safety preserves prior
+> running image/data. Docker containerd stored compressed blobs are not uncompressed
+> layer tar; the streaming reporter separates both, engine size and cumulative payload.
 
 Two-domain drill validates setup/MFA/private surfaces/download/upload/restore and
 restart; 10k benchmark measures API/SSR/bundle/Mermaid/DOM/heap/image/backup/restore.

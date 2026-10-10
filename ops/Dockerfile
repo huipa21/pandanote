@@ -1,15 +1,11 @@
-# PandaNote production image (S18). One Node instance; Linux/glibc native
-# modules (better-sqlite3, argon2, sharp) are installed here, never copied from a
-# developer machine. The pinned base is the same Node 24.21.0 bookworm digest used
-# by the validation images.
-ARG NODE_IMAGE=docker.io/library/node:24.21.0-bookworm-slim@sha256:5cbc7caba8c2c0f0bca675d1b61b9f2857e1cf1853c6164ee9dd409501a936e7
+# One Node instance; all native artifacts are installed inside Alpine/musl.
+# Verified multi-platform index, preserving the AMD64 and ARM64 build options.
+ARG NODE_IMAGE=docker.io/library/node:24.21.0-alpine3.23@sha256:9ec4a2e289874ed0d722e1772ec2de45d2801541db8612f3638b26f128c69ac2
 
 FROM ${NODE_IMAGE} AS build
 # Native addons can fall back to node-gyp when a prebuilt download is unavailable.
 # Keep the compiler/Python/CA bundle in install stages only, never in runtime.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache ca-certificates python3 make g++
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
@@ -22,16 +18,17 @@ ARG PANDANOTE_COMMITTED_AT
 RUN node scripts/verify-build-metadata.ts && npm run build
 
 FROM ${NODE_IMAGE} AS production-deps
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache ca-certificates python3 make g++
 WORKDIR /app
-COPY package.json package-lock.json .npmrc ./
-# `prepare` runs svelte-kit sync (a dev dependency) and is not needed in production.
-RUN npm pkg delete scripts.prepare \
-    && npm ci --omit=dev
+# Dedicated locked runtime graph; explicit Svelte peer, optional musl Sharp kept.
+COPY ops/runtime/package.json ops/runtime/package-lock.json .npmrc ./
+RUN npm ci --omit=dev --omit=peer \
+    && find node_modules -type f -name '*.map' -delete
+# Prune BEFORE COPY: maps never enter a runtime layer. Do not remove executable,
+# native, grammar/WASM, metadata or license assets, nor client gzip/Brotli files.
 
 FROM ${NODE_IMAGE} AS runtime
+RUN apk add --no-cache ca-certificates libstdc++
 ARG PANDANOTE_VERSION
 ARG PANDANOTE_COMMIT
 ARG PANDANOTE_COMMITTED_AT

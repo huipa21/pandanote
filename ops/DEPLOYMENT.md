@@ -7,7 +7,10 @@ publish the app's port 3000. Run one PandaNote process per local-disk data folde
 
 Local Linux image/Caddy/drill gates are verified; public VPS, physical-device,
 screen-reader and exact-release-commit checks remain open. See
-[progress](../docs/simplify-setup/PROGRESS.md). AMD64 is validated, ARM64 is not yet.
+[setup progress](../docs/simplify-setup/PROGRESS.md) and
+[Alpine packaging evidence](../docs/image-optimization/PROGRESS.md).
+Linux AMD64 is validated; ARM64 manifests/build option exist but native validation
+has not been run.
 
 ## 1. Build the image (on your computer)
 
@@ -21,13 +24,26 @@ npm run image:build -- --platform linux/amd64     # or linux/arm64
 docker image save -o pandanote-image.tar pandanote:latest
 # OR Podman build machine (explicit archive namespace):
 # podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest
-scp pandanote-image.tar docker-compose.yml .env.example user@server:~/pandanote/
+gzip -6 -c pandanote-image.tar > pandanote-image.tar.gz
+gzip -t pandanote-image.tar.gz
+sha256sum pandanote-image.tar.gz > pandanote-image.tar.gz.sha256
+scp pandanote-image.tar.gz pandanote-image.tar.gz.sha256 docker-compose.yml .env.example user@server:~/pandanote/
 ```
 
 Create `~/pandanote/` on the server first if missing. No host `npm ci` is needed to
 build: the wrapper uses Node built-ins and installs native dependencies inside Linux.
 Both dependency stages include CA/Python/make/g++ for compilation fallback, not the
 runtime stage. Working package/Node-header connectivity is still necessary.
+All production stages use the same verified Node 24.21.0 Alpine index pin; native
+modules install inside musl, never from a host/Debian tree. Runtime adds only CA
+certificates/libstdc++ (libgcc is already supplied), not compilers or a glibc shim.
+Node ICU supplies verified IANA/DST behavior without an added timezone package.
+
+Choose unused archive filenames; never overwrite a retained image export. `gzip -6 -c`
+keeps the raw file. As a raw alternative, transfer `pandanote-image.tar` and load it
+with `docker image load -i pandanote-image.tar`. Gzip changes transfer/storage, not
+loaded image size or RSS. Docker's containerd store may already compress saved
+layers; don't compare its raw tar directly to legacy Podman tar sizes.
 
 The wrapper selects usable Docker then Podman (`--engine docker|podman` overrides),
 rejects dirty/shallow history, and builds a committed-source archive, never your
@@ -41,7 +57,9 @@ restores/runtime configuration cannot override them. See
 
 ```sh
 cd ~/pandanote
-docker image load -i pandanote-image.tar
+sha256sum -c pandanote-image.tar.gz.sha256
+gzip -t pandanote-image.tar.gz
+docker image load -i pandanote-image.tar.gz
 # ONLY for a Podman-built archive (loaded as localhost/pandanote:latest):
 # docker tag localhost/pandanote:latest pandanote:latest
 docker image inspect pandanote:latest --format '{{json .Config.Labels}}'
@@ -51,6 +69,12 @@ nano .env                      # set ORIGIN=https://notes.example.com
 docker compose up -d
 docker compose ps              # wait for healthy
 ```
+
+Do not load/deploy if checksum or gzip integrity fails. Loading alone does not
+replace a running container. Preserve the prior image and downloaded full backup
+before upgrades. Checksums detect accidental corruption, not authenticity if both
+files come from an untrusted source; verify trusted transfer and release labels.
+Gzip is not encryption, and image exports are not sensitive application backups.
 
 PandaNote's network must already exist and be the one Caddy uses. If its name is
 not `proxynet`, change **both** `proxynet` lines in `docker-compose.yml`. Add to your
@@ -268,4 +292,55 @@ Argument-free, stopped-app-only; changes derived search, not notes/revisions/fil
 HTTPS domains/data under ignored `.drill/`. With Node/dependencies/Chromium and an
 isolated engine, run `bash ops/release-drill.sh` and `bash ops/release-benchmark.sh`.
 It never points at a user's data folder; its Caddy stack is not bundled deployment.
-Current gates and remaining limitations: [progress](../docs/simplify-setup/PROGRESS.md).
+Current gates and remaining limitations: [setup progress](../docs/simplify-setup/PROGRESS.md)
+and [image progress](../docs/image-optimization/PROGRESS.md).
+
+## 14. Runtime lock and image measurements
+
+The full root lock builds the client/server. The separate `ops/runtime/package.json`
+and lock install only reviewed exact runtime roots with `npm ci --omit=dev --omit=peer`.
+Svelte is explicit; Kit/Shiki/native/source-tool/worker imports stay available.
+Never omit optional packages: Sharp needs platform musl/libvips artifacts. Mermaid/
+DOMPurify/adapter/Vite/TypeScript are build/client dependencies, not runtime roots.
+Final `/app/package.json` remains the main ESM/#lib metadata, not the staging manifest;
+therefore a full `npm ls` against it is not the runtime-inventory oracle.
+
+For deliberate dependency maintenance on supported Node/npm:
+
+1. Update/review main exact pins and root lock normally; no force audit repairs.
+2. Update matching exact pins in `ops/runtime/package.json`, with root/reason changes
+   reviewed in `scripts/runtime-dependency-contract.ts`. Keep runtime script/dev/
+   workspace sections absent. Copy any applicable root overrides.
+3. Regenerate explicitly (ordinary check/build never mutates the lock):
+
+   ```sh
+   npm --prefix ops/runtime install --package-lock-only --ignore-scripts --omit=dev --omit=peer
+   npm run runtime:check
+   ```
+
+4. Review transitive versions/integrities against the main lock, not only direct pins.
+   The initial runtime lock preserves all main-lock transitive versions. Peer-only
+   lock entries may exist but must not enter the actual installed runtime tree.
+5. Include both manifests/locks in the reviewed source change. Run common/full browser,
+   Alpine common/native/fallback and actual production inventory/worker/PTY/restore
+   gates before building the clean committed release. No runtime npm/network repair.
+
+Read-only reporting (with dev dependencies, new ignored output path):
+
+```sh
+mkdir -p .browser-spike
+npm run image:inspect -- --archive pandanote-image.tar.gz --gzip-level 6 --output .browser-spike/image-size.json
+docker image inspect pandanote:latest --format '{{.Size}}'
+```
+
+The output is created privately/exclusively; an existing path is refused. Docker-format
+manifests are required (standalone OCI archives refused). Multiple images and layer
+aliases are explicit. Stored gzip/zstd layer blobs are distinguished from decoded
+layer tar bytes. Regular-file payload is cumulative across layers, not merged-rootfs/
+allocated-disk accounting. Maps overlap packages/modules, compressed browser assets
+overlap build; do not add those categories. Engine accounting varies; RSS is measured
+separately. Exact matched before/after measurements: image-optimization PROGRESS.
+
+If a native/module/grammar asset is missing, rebuild inside the pinned Alpine stages
+and inspect the runtime contract/COPY, not a dev install. Never copy glibc/host binaries,
+disable TLS, delete grammars/licenses or install packages on startup to make it run.

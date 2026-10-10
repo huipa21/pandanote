@@ -25,14 +25,19 @@ npm run image:build -- --platform linux/amd64
 docker image save -o pandanote-image.tar pandanote:latest
 # OR Podman build machine:
 # podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest
-scp pandanote-image.tar docker-compose.yml .env.example user@server:~/pandanote/
+gzip -6 -c pandanote-image.tar > pandanote-image.tar.gz
+gzip -t pandanote-image.tar.gz
+sha256sum pandanote-image.tar.gz > pandanote-image.tar.gz.sha256
+scp pandanote-image.tar.gz pandanote-image.tar.gz.sha256 docker-compose.yml .env.example user@server:~/pandanote/
 ```
 
 On the Docker server:
 
 ```sh
 cd ~/pandanote
-docker image load -i pandanote-image.tar
+sha256sum -c pandanote-image.tar.gz.sha256
+gzip -t pandanote-image.tar.gz
+docker image load -i pandanote-image.tar.gz
 # Only for a Podman-built archive:
 # docker tag localhost/pandanote:latest pandanote:latest
 cp .env.example .env
@@ -40,6 +45,13 @@ chmod 600 .env
 nano .env                       # set ORIGIN=https://notes.example.com
 docker compose up -d
 ```
+
+These filenames must be unused; retain prior archives/images. Compression preserves
+the raw tar. Raw transfer remains supported: copy `pandanote-image.tar` and load with
+`docker image load -i pandanote-image.tar`. Checksums detect corruption, not authenticity;
+use trusted build/transfer channels. Neither gzip nor an image archive is an app backup.
+Create the destination folder before transfer. Docker's containerd image store may
+already save compressed layers, so outer gzip savings vary by engine.
 
 Add to your existing Caddyfile and reload Caddy:
 
@@ -70,7 +82,11 @@ privileges to PUID/PGID (default 1000:1000); the server is PID 1 with no capabil
 `--engine docker|podman` to override or `--platform linux/arm64` for an ARM server
 (only AMD64 is validated). The wrapper needs no host `npm ci`: both image install
 stages include native compilation tools, not the runtime stage. Builds need working
-package/Node-header connectivity.
+package/Node-header connectivity. Production uses digest-pinned Node 24.21.0 Alpine
+(musl), with a separate `ops/runtime` lock, explicit runtime peers, optional Sharp
+musl/libvips packages and dependency maps pruned before COPY. Browser Mermaid and
+DOMPurify remain in the built client; Kit/Svelte/Shiki/source maintenance stay usable.
+Measured packaging/regression evidence: [image optimization](docs/image-optimization/PROGRESS.md).
 
 The command rejects dirty/shallow checkouts, archives committed source only, and
 updates **`pandanote:latest`** plus **`pandanote:YYMMDD-N`**. The version uses the
@@ -86,6 +102,25 @@ domain, timezone, restarts and restores cannot change the embedded identity.
 Ordinary local builds say **Development**. Keep the old image before replacing
 latest; set `PANDANOTE_IMAGE=pandanote:<version>` in `.env` to pin it.
 Details: [VERSIONING_PLAN.md](docs/VERSIONING_PLAN.md).
+
+### Runtime lock and size reporting
+
+After changing dependency pins, update the reviewed runtime manifest/lock as described
+in [ops/DEPLOYMENT.md](ops/DEPLOYMENT.md#14-runtime-lock-and-image-measurements).
+`npm run runtime:check` (also a build prerequisite) rejects missing/extra/drifting roots
+and stale locks; ordinary image installs never regenerate locks or repair at startup.
+
+With development dependencies installed:
+
+```sh
+npm run image:inspect -- --archive pandanote-image.tar.gz --gzip-level 6 --output .browser-spike/image-size.json
+```
+
+Create the ignored output directory first; report creation is exclusive (no overwrite).
+The read-only streaming reporter handles Docker manifests, legacy aliases and
+compressed layer blobs; it reports archive/hash/platform/identity, stored versus
+decoded layer tar and cumulative package/map payload. Categories overlap. Engine
+image size, saved archive size, gzip transfer bytes and application RSS are different.
 
 ## Local development
 
