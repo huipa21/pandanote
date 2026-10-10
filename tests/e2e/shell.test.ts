@@ -162,7 +162,7 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
         `shell-light-${width}x${height}.png`,
         {
           mask: [
-            page.locator('#notes-pane'),
+            page.locator('#notes-pane .timeline-content'),
             page.locator('[data-calendar-month]'),
           ],
         },
@@ -235,13 +235,32 @@ test('actual shell independently scrolls synthetic notes; many tags stay reachab
     composer: await composer.boundingBox(),
   };
   await scroller.focus();
+  // Finish Chromium's animated keyboard gesture before testing a separate jump.
+  // Otherwise a pending compositor PageDown tick can run after Back to Top.
+  await scroller.evaluate((el) => {
+    (
+      el as HTMLElement & { keyboardScrollDone?: Promise<void> }
+    ).keyboardScrollDone = new Promise<void>((resolve) =>
+      el.addEventListener('scrollend', () => resolve(), { once: true }),
+    );
+  });
   await page.keyboard.press('PageDown');
   await expect
     .poll(() => scroller.evaluate((el) => el.scrollTop))
     .toBeGreaterThan(0);
+  await scroller.evaluate(
+    (el) =>
+      (el as HTMLElement & { keyboardScrollDone?: Promise<void> })
+        .keyboardScrollDone,
+  );
   expect(await page.evaluate(() => scrollY)).toBe(0);
   expect(await sidebar.boundingBox()).toEqual(before.sidebar);
+  expect((await composer.boundingBox())!.y).toBeLessThan(before.composer!.y);
+  await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await page.getByRole('button', { name: 'Back to Top ↑' }).click();
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(0);
   expect(await composer.boundingBox()).toEqual(before.composer);
+  await expect(scroller).toBeFocused();
   await noOverflow(page);
   await sidebar.getByRole('button', { name: 'Show all tags (200)' }).click();
   const panel = page.getByRole('dialog', { name: 'All tags', exact: true });
@@ -277,6 +296,50 @@ test('actual shell independently scrolls synthetic notes; many tags stay reachab
     sidebar.getByRole('link', { name: 'Settings', exact: true }),
   ).toBeInViewport();
   await noOverflow(page);
+});
+
+test('sidebar edge supports captured dragging, bounds, keyboard resizing and mobile reflow', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('http://127.0.0.1:4174/shell.html');
+  const edge = page.getByRole('separator', { name: 'Resize sidebar' });
+  await expect(edge).toHaveAttribute('aria-valuenow', '272');
+  const bounds = (await edge.boundingBox())!;
+  await page.mouse.move(bounds.x + bounds.width / 2, 200);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width / 2 + 100, 200);
+  await expect(edge).toHaveAttribute('aria-valuenow', '372');
+  await page.mouse.move(1200, 200); // pointer capture keeps resizing off the edge
+  await expect(edge).toHaveAttribute('aria-valuenow', '480');
+  await page.mouse.move(0, 200);
+  await expect(edge).toHaveAttribute('aria-valuenow', '240');
+  await page.mouse.move(1200, 200);
+  await page.mouse.up();
+  await expect(edge).toHaveAttribute('aria-valuenow', '480');
+  await page.mouse.move(100, 200);
+  await expect(edge).toHaveAttribute('aria-valuenow', '480');
+  await edge.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(edge).toHaveAttribute('aria-valuenow', '460');
+  await page.keyboard.press('Home');
+  await expect(edge).toHaveAttribute('aria-valuenow', '240');
+  await page.keyboard.press('End');
+  await page.setViewportSize({ width: 900, height: 600 });
+  await expect(edge).toHaveAttribute('aria-valuenow', '420');
+  await noOverflow(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(edge).not.toBeVisible();
+  await noOverflow(page);
+  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Notebook navigation' }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(edge).toHaveAttribute('aria-valuenow', '420');
+  await expect(
+    page.getByRole('dialog', { name: 'Notebook navigation' }),
+  ).not.toBeVisible();
 });
 
 test('desktop composer expands on focus without publishing and reduced motion uses the token policy', async ({

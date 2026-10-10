@@ -4,10 +4,16 @@
 
 - **Phase:** S00–S17 done; S18 locally verified but **NOT final release** (real VPS,
   public certificates, physical-device/IME/screen-reader/Linux visual/exact-commit gates open).
-- **Repository:** image-optimization session baseline/user HEAD remains
-  `287d4bef540dff761c129cdc7fcb001bac92de96`; preexisting planning edits retained.
-  No agent-created user commit/deployment/real-data deletion. New runtime lock is a
-  reviewed uncommitted change; main dependency versions/lock remain unchanged.
+- **Repository:** latest UI session started clean at `404ea6d` (image optimization
+  committed by the user). No agent-created commit/deployment/real-data deletion;
+  current uncommitted changes are the requested UI, tests and documentation.
+- **Requested UI adjustments: done / host verified.** Homepage composer and filters
+  scroll with cards; bottom Back to Top returns to writing without changing query
+  or loaded notes. Desktop sidebar edge supports pointer/keyboard resizing, with
+  session-local bounds. Calendar has three-letter weekdays, left borderless heading
+  and right-grouped arrows. Final check/lint/build, **146 unit**, **212 integration
+  - 7 explicit Linux-only skips**, **100 full Chromium** pass. Linux not rerun for
+    this client-only change; existing SS01/S18/native-release limits remain open.
 - **Current behavior:** browser username/email/password → title/language/timezone
   setup in a 60-minute first-visitor window; partial zh-CN/title/Account/General;
   shared startup SQL/data migrations/pre-upgrade DB copy; format-v2 backup/restore;
@@ -65,6 +71,12 @@ Read VERSIONING_PLAN and current operations guide; never promote a synthetic clo
 or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
+
+**Requested UI change is locally done:** review `AppShell.svelte`, `Calendar.svelte`,
+`client/sidebar-size.ts`, `client/timeline/scroll.ts` and the latest handoff below.
+First safe check: `npm run check && npm run lint && npm run test:unit`. User review/
+commit only with approval; no deployment performed. Native/deployment code is
+unchanged; no new Linux/native release evidence is implied.
 
 **Image optimization local implementation is done:** review its PROGRESS/RESULTS
 and the uncommitted files. With user approval only, commit and build the exact clean
@@ -127,7 +139,9 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 - Post button only; no Ctrl/Cmd+Enter publishing shortcut.
 - Continuous single-column timeline; month calendar follows top visible note; not a year heatmap or masonry.
 - Day filter locks results to that day; search/tag filters otherwise cover all dates.
-- Month/year picker; fixed desktop composer/sidebar; primary scrolling only in notes pane.
+- Month/year picker with three-letter weekdays, left borderless heading/right arrows;
+  fixed resizable desktop sidebar; homepage composer scrolls with notes and bottom
+  Back to Top returns to it. Primary scrolling only in notes pane.
 - Optional location (lat/lon/accuracy/manual label), no auto tracking/geocoding/embedded maps.
 - Static lossy WebP display + thumbnail; no retained originals after success; reject animation.
 - Warm quiet UI, muted green, system/light/dark; configurable density and long-card collapse.
@@ -3801,3 +3815,91 @@ PASS. Shared latest/archive/user HEAD preserved, no e2e/NUL/owned stack leftover
 Final doc-close runtime:check/check/lint, image-size6+hygiene7 (**13 PASS**), whitespace/
 links/artifact review PASS; cold stage and cached-build/load timings recorded in IO
 RESULTS. Only reviewed uncommitted changes remain, no user commit or deployment.
+
+### Session 2026-10-10 — Requested timeline/sidebar/calendar UI adjustments
+
+**State: done / host validated.** Started clean at `404ea6d` (user-committed
+image optimization). Explicit user request overrides the former fixed-composer
+requirement; PRODUCT_SPEC/ARCHITECTURE/plan/acceptance now agree. No user commit,
+deployment, package/lock/schema/security/server/native change or real-data deletion.
+
+Implemented / touched files:
+
+- `src/lib/components/AppShell.svelte`: homepage composer and filter region are
+  inside the existing notes scroller rather than pinned above it. Sidebar stays
+  fixed; mobile header/drawer/full-screen editor and other-page composer regions
+  remain. Bottom Back to Top instantly resets only this scroller, moves focus to
+  it and leaves URL/history/filters/loaded cards/draft text unchanged.
+- Desktop right-edge ARIA splitter uses captured Pointer Events (mouse/pen/touch),
+  cursor/focus/drag feedback, release/cancel cleanup and keyboard Left/Right/Home/
+  End. `src/lib/client/sidebar-size.ts` clamps 240–480 px (initial 272), reserving
+  at least 480 px for the main column on desktop. Width is retained in the mounted
+  shell, not a new saved setting; mobile drawer does not shrink the desktop choice.
+- `src/lib/components/Calendar.svelte`: Mon/Tue/Wed/Thu/Fri/Sat/Sun (full-name titles),
+  month/year heading left with transparent border/background, both arrows on right.
+  Existing count/day/month/year/Today/timezone behavior and mobile targets retained.
+- `src/lib/client/timeline/scroll.ts`: top=0 restoration preserves composer access
+  when expanded writing changes first-card geometry; away from top, exact card
+  ID/offset anchoring remains. Two new unit files cover clamps and restoration.
+- `tests/e2e/{shell,calendar,timeline}.test.ts`: real scroll-away/Back to Top/draft
+  retention/reload/filter/history/pagination checks; captured dragging beyond edge,
+  both bounds/release, keyboard/viewport/mobile reflow; calendar heading/weekday
+  geometry. Former fixed-composer/collapse pixel assumptions updated to the new
+  behavior without dropping ID/offset history and no-extra-page checks.
+- Two intentional light-shell PNG baselines regenerated and opened/reviewed. The
+  notes mask now targets `.timeline-content`, so composer/filter layout remains
+  visible/tested. Desktop calendar screenshot opened/reviewed. Settings dark
+  baseline unchanged. Specs, tests README and this append-only handoff updated.
+
+Commands actually run (explicit Node 24.21.0 executable + PATH, npm CLI from S00,
+`NODE_TLS_REJECT_UNAUTHORIZED=1`; logs ignored in `.browser-spike/ui-*`):
+
+- `git status --short`, `git log -1`, complete required document/source reads:
+  clean baseline, existing work preserved.
+- `npm exec -- prettier --write <touched text files>`: PASS.
+- Final `npm run check`: PASS, **zero errors/warnings**. Initial splitter warnings
+  resolved with documented focusable ARIA window-splitter exceptions (comma-separated
+  Svelte directives); actual axe/focus/keyboard regressions still execute.
+- Final `npm run lint`: PASS, ESLint/Prettier.
+- Final `npm run test:unit`: PASS, **28 files / 146 tests**.
+- Final `npm run test:integration`: PASS, **36 files / 212 tests + 7 explicit
+  Linux-only skips**. Real host SQLite/Sharp/filesystem/server/archive regressions;
+  expected synthetic low-disk refusal is printed. No exclusion/new skip introduced.
+- Final `npm run build`: PASS, standalone adapter-node output; existing large lazy
+  chunk warnings remain visible.
+- `npm run test:e2e -- tests/e2e/calendar.test.ts tests/e2e/shell.test.ts`: initially
+  **11 pass / 1 intentional screenshot mismatch** after moving mobile composer
+  inside the masked scroller. Mask narrowed to keep composer visible; targeted
+  `--update-snapshots` run **12 pass / 1 invalid new local-draft selector**. Trace
+  showed retained text; corrected to existing `getByTestId('local-draft')`.
+- First full `npm run test:e2e`: **98 pass / 2 fail** (old collapse/composer layout
+  assumptions; Chromium pending PageDown animation). Next full **99 pass / 1 fail**
+  in synthetic shell's PageDown→jump sequence; swapping focus/reset alone did not
+  resolve it. Trace showed the independent click within ~150 ms of PageDown, with
+  compositor ticks still running. Test now awaits the actual `scrollend` event
+  before beginning the separate Back to Top operation; no arbitrary sleep/retry
+  or relaxed zero-position assertion. Product focus occurs before the jump.
+- Affected `npm run test:e2e -- tests/e2e/shell.test.ts tests/e2e/timeline.test.ts
+--grep 'independently scrolls|older loading is confined'`: **2 PASS**.
+- Final standalone `npm run test:e2e`: **100/100 Chromium PASS (6.8 min)**, normal
+  screenshot comparisons; includes full posting/drafts/detail/history/search/
+  calendar/restore/mobile/axe/focus regressions. No failed run counted as a pass.
+- `podman info --format '{{.Host.Arch}}'`: **unavailable / exit 125**, stopped socket.
+  No Linux build/native/browser rerun or Linux pass claimed for this UI-only change;
+  existing Linux-only host skips remain. No deployment engine/data was modified.
+- `git diff --check`, `.e2e-data` cleanup and absent `NUL`: PASS. Main dependencies,
+  lockfiles and deployment files unchanged.
+
+Decisions / remaining / next session:
+
+- User-authorized scrolling-composer change supersedes fixed homepage composer;
+  no major stack/security/data contract changes. Sidebar width session-local and
+  bounded is an implementation default, not cross-device persistence.
+- No known unfinished requested UI feature. Physical touch/sidebar/device/IME/
+  screen-reader and new Linux visual review not performed; existing SS01 literal
+  atomic-exchange and S18 release/manual/VPS/exact-commit gates remain open. This
+  session does not close overall project release or claim deployment/native proof.
+- Next: user review of the requested behavior; commit only with approval. Read
+  PRODUCT_SPEC §3/9, ARCHITECTURE §10/11.1, AppShell/Calendar/sidebar-size/scroll,
+  and this handoff. First verification: `npm run check && npm run lint && npm run
+test:unit`; next user-facing regression `npm run test:e2e`. No schema migration.

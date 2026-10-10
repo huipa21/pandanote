@@ -159,11 +159,11 @@ Matches visibly highlighted, snippets escaped and safe. Unicode normalization ca
 
 ### CAL-01 — Month UI/navigation
 
-Correct weekday/day count/leap years, optional week-start setting. Heat shades correspond to note counts; zero/today/selection distinguishable and accessible. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
+Correct weekday/day count/leap years, optional week-start setting. Weekdays use three-letter abbreviations with full-name titles. Borderless month/year heading is left-aligned; previous/next arrows are grouped on the right. Heat shades correspond to note counts; zero/today/selection distinguishable and accessible. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
 
 ### CAL-02 — Continuous scrolling
 
-Start at current month. Lazy older loading can show two months at a boundary. Top visible note controls month. Tall cards/images/Mermaid/Show more do not cause loops/flicker. Empty matching months skipped during scroll; manually selected empty month remains visible with clear action. Only notes pane is primary page scroll; sidebar/composer stationary.
+Start at current month. Lazy older loading can show two months at a boundary. Top visible note controls month. Tall cards/images/Mermaid/Show more do not cause loops/flicker. Empty matching months skipped during scroll; manually selected empty month remains visible with clear action. Only notes pane is primary page scroll; sidebar stationary, homepage composer/filter region scrolls with cards. Back to Top below the timeline returns that pane to zero without changing filters/history, retains draft text and restores composer access.
 
 ### CAL-03 — Day mode
 
@@ -207,7 +207,7 @@ Warm quiet light theme, usable dark theme, muted-green accent. System theme defa
 
 ### UI-02 — Responsive/keyboard
 
-At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No clipped essential action/horizontal overflow. Drawer/detail/image/editor keyboard focus and return, Escape safety, screen-reader labels, reduced motion, 200% zoom and AA contrast reviewed. Mobile keyboard does not hide Post or destroy draft. Touch-only workflow works.
+At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No clipped essential action/horizontal overflow. Desktop sidebar right edge supports pointer-captured mouse/pen/touch dragging and keyboard Left/Right/Home/End, with visible focus and width bounds preserving the main column. It disappears in mobile drawer mode. Drawer/detail/image/editor keyboard focus and return, Escape safety, screen-reader labels, reduced motion, 200% zoom and AA contrast reviewed. Mobile keyboard does not hide Post or destroy draft. Touch-only workflow works.
 
 ### UI-03 — Context/error states
 

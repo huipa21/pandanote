@@ -87,6 +87,29 @@ test('month/year/day controls keep global counts, lock day pagination, retain fi
   browser,
 }, testInfo) => {
   const { side } = await start(page);
+  const weekdayLabels = await side.locator('th abbr').allTextContents();
+  expect(weekdayLabels).toEqual([
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ]);
+  const heading = side.getByRole('button', { name: 'January 2025' });
+  const previous = side.getByRole('link', {
+    name: 'Previous month',
+    exact: true,
+  });
+  const next = side.getByRole('link', { name: 'Next month', exact: true });
+  expect((await heading.boundingBox())!.x).toBeLessThan(
+    (await previous.boundingBox())!.x,
+  );
+  expect((await previous.boundingBox())!.x).toBeLessThan(
+    (await next.boundingBox())!.x,
+  );
+  await expect(heading).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
   const day = side.locator('[data-date="2025-01-31"]');
   await expect(day).toHaveAttribute('aria-label', /36 published notes/); // includes unrelated tag
   await testInfo.attach('calendar-desktop-light', {
@@ -213,7 +236,10 @@ test('top visible tall/Mermaid cards track year boundaries without scroll reset/
     'data-calendar-month',
     '2024-12',
   );
-  await page.locator('#notes-pane').evaluate((n) => (n.scrollTop = 0));
+  await page.getByRole('button', { name: 'Back to Top ↑' }).click();
+  await expect
+    .poll(() => page.locator('#notes-pane').evaluate((n) => n.scrollTop))
+    .toBe(0);
   await expect(side.locator('[data-calendar-month]')).toHaveAttribute(
     'data-calendar-month',
     '2025-01',
@@ -249,6 +275,44 @@ test('top visible tall/Mermaid cards track year boundaries without scroll reset/
   await expect
     .poll(async () => (await anchor(page)).offset)
     .toBeCloseTo(position.offset, 0);
+});
+
+test('scrolling composer and Back to Top retain unpublished text, filters and loaded notes', async ({
+  page,
+}) => {
+  await start(page);
+  const composer = page.getByTestId('composer');
+  await composer.getByRole('button', { name: 'Write a note…' }).click();
+  const text = composer.getByRole('textbox', { name: 'Note text' });
+  await text.fill('Unpublished scrolling draft 香港');
+  await expect(page.locator('#notes-pane')).toHaveJSProperty('scrollTop', 0);
+  await page
+    .locator('#notes-pane')
+    .evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await expect(page.getByTestId('posted-note')).toHaveCount(40);
+  await expect(composer).not.toBeInViewport();
+  const url = page.url();
+  const historyLength = await page.evaluate(() => history.length);
+  await page.getByRole('button', { name: 'Back to Top ↑' }).click();
+  await expect(page.locator('#notes-pane')).toHaveJSProperty('scrollTop', 0);
+  await expect(text).toHaveValue('Unpublished scrolling draft 香港');
+  await expect(composer).toBeInViewport();
+  await expect(page.getByTestId('posted-note')).toHaveCount(40);
+  expect(page.url()).toBe(url);
+  expect(await page.evaluate(() => history.length)).toBe(historyLength);
+  await expect(page.locator('#notes-pane')).toBeFocused();
+  // Flush local storage before test-owned navigation; nothing was posted.
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.reload();
+  await page
+    .getByRole('complementary')
+    .getByRole('link', { name: 'Drafts', exact: true })
+    .click();
+  await expect(
+    page
+      .getByTestId('local-draft')
+      .filter({ hasText: 'Unpublished scrolling draft 香港' }),
+  ).toHaveCount(1);
 });
 
 test('timezone detection is an explicit proposal; settings errors retain choices and saved zone drives dates across browser zones', async ({

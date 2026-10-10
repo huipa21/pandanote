@@ -393,11 +393,11 @@ Target-VPS load and real-domain deployment/certificate audits remain S18.
 
 ## S03 coverage (UI-01/02 foundations)
 
-| Suite                            | Scope                                                                                                                                                                                                                                                                                                                           |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unit/appearance.test.ts`        | Strict small appearance DTO/SSR attribute substitution; WCAG AA text and 3:1 control/focus contrast measured from actual light/dark CSS tokens                                                                                                                                                                                  |
-| `integration/appearance.test.ts` | Real SQLite updates/reopening, appearance-only merge without changing security/storage, invalid/extra-key rejection and maintenance write refusal                                                                                                                                                                               |
-| `e2e/shell.test.ts`              | Built private shell and API auth/CSRF/validation, no-JavaScript dark SSR, preference save/reload/system changes/failure retry; 360/390/768/1440 widths, short screens, drawer/editor/nested-dialog focus/Escape/return, reduced motion, explicit-only Post, editor retention, notes-only scrolling and searchable 200-tag panel |
+| Suite                            | Scope                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/appearance.test.ts`        | Strict small appearance DTO/SSR attribute substitution; WCAG AA text and 3:1 control/focus contrast measured from actual light/dark CSS tokens                                                                                                                                                                                                                                                                                  |
+| `integration/appearance.test.ts` | Real SQLite updates/reopening, appearance-only merge without changing security/storage, invalid/extra-key rejection and maintenance write refusal                                                                                                                                                                                                                                                                               |
+| `e2e/shell.test.ts`              | Built private shell and API auth/CSRF/validation, no-JavaScript dark SSR, preference save/reload/system changes/failure retry; 360/390/768/1440 widths, short screens, drawer/editor/nested-dialog focus/Escape/return, reduced motion, explicit-only Post, editor retention, homepage composer/note scrolling and bottom Back to Top, pointer-captured/keyboard sidebar resizing and viewport bounds, searchable 200-tag panel |
 
 Three reviewed Windows/Chromium screenshot baselines live in
 `e2e/shell.test.ts-snapshots/`; viewport-matrix images are also attached to each
@@ -613,6 +613,8 @@ baselines remain Windows-only. Real hardware/OS IME and target-VPS release audit
 
 ## S09 coverage (NOTE-01, TAG-02, SEARCH-03/CAL-02 foundations, UI-01–03)
 
+- `unit/sidebar-size.test.ts`, `unit/timeline-scroll.test.ts`: sidebar width bounds
+  and top-versus-card scroll restoration with the scrolling composer.
 - `unit/timeline.test.ts`: canonical/toggle/clear filters, NFKC-expanded identities,
   bounded query validation, timezone month/year/DST boundaries, UTF-8 preview
   boundaries, revision-aware deduplication and backdated ordering.

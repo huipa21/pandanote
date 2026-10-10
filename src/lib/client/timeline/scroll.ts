@@ -19,6 +19,12 @@ export function restoreAnchor(
   scroller: HTMLElement,
   anchor: ScrollAnchor,
 ): void {
+  // At the beginning, preserve access to the scrolling composer rather than
+  // anchoring the first card below it (whose position changes as writing expands).
+  if (anchor.top === 0) {
+    scroller.scrollTop = 0;
+    return;
+  }
   const card = [
     ...scroller.querySelectorAll<HTMLElement>('[data-note-id]'),
   ].find((node) => node.dataset.noteId === anchor.id);

@@ -159,9 +159,11 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
     await card.locator('.card-content').evaluate((node) => node.clientHeight),
   ).toBeGreaterThan(420);
   await card.getByRole('button', { name: 'Show less', exact: true }).click();
+  // Collapse returns to this card, not necessarily the composer above it.
   await expect
-    .poll(() => page.locator('#notes-pane').evaluate((node) => node.scrollTop))
-    .toBeLessThan(100);
+    .poll(async () => (await readingAnchor(page)).id)
+    .toBe(await card.getAttribute('data-note-id'));
+  await expect(card).toBeInViewport();
   await expect(page.getByTestId('posted-note')).toHaveCount(30);
   const composerBefore = await page.getByTestId('composer').boundingBox();
   await page.route('**/api/notes?*', (route) => route.abort('failed'), {
@@ -174,8 +176,8 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
   await page.getByRole('button', { name: 'Retry older notes' }).click();
   await expect(page.getByTestId('posted-note')).toHaveCount(60);
   expect(await page.evaluate(() => scrollY)).toBe(0);
-  expect(await page.getByTestId('composer').boundingBox()).toEqual(
-    composerBefore,
+  expect((await page.getByTestId('composer').boundingBox())!.y).toBeLessThan(
+    composerBefore!.y,
   );
   const position = await readingAnchor(page);
   const topId = await page

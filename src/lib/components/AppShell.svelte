@@ -6,6 +6,12 @@
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Composer from './Composer.svelte';
   import {
+    DEFAULT_SIDEBAR_WIDTH,
+    MIN_SIDEBAR_WIDTH,
+    clampSidebarWidth,
+    sidebarMaximum,
+  } from '#lib/client/sidebar-size.ts';
+  import {
     toggleTag,
     filterHref,
     type TimelineFilters,
@@ -30,20 +36,89 @@
   const i18n = useI18n();
   const t = i18n.t;
   let drawerOpen = $state(false);
+  let ready = $state(false);
+  let scroller: HTMLElement;
+  let sidebarWidth = $state(DEFAULT_SIDEBAR_WIDTH);
+  let maximumWidth = $state(sidebarMaximum(1440));
+  let dragging = $state(false);
+  let drag: { id: number; x: number; width: number } | undefined;
+  function startResize(event: PointerEvent) {
+    if (!event.isPrimary || event.button !== 0) return;
+    event.preventDefault();
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    drag = { id: event.pointerId, x: event.clientX, width: sidebarWidth };
+    dragging = true;
+  }
+  function resize(event: PointerEvent) {
+    if (drag?.id !== event.pointerId) return;
+    sidebarWidth = clampSidebarWidth(
+      drag.width + event.clientX - drag.x,
+      window.innerWidth,
+    );
+  }
+  function stopResize() {
+    drag = undefined;
+    dragging = false;
+  }
+  function resizeKey(event: KeyboardEvent) {
+    const widths: Record<string, number> = {
+      ArrowLeft: sidebarWidth - 20,
+      ArrowRight: sidebarWidth + 20,
+      Home: MIN_SIDEBAR_WIDTH,
+      End: maximumWidth,
+    };
+    if (!(event.key in widths)) return;
+    event.preventDefault();
+    sidebarWidth = clampSidebarWidth(widths[event.key], window.innerWidth);
+  }
   onMount(() => {
+    ready = true;
     const desktop = window.matchMedia('(min-width: 900px)');
     const resized = () => {
-      if (desktop.matches) drawerOpen = false;
+      if (desktop.matches) {
+        maximumWidth = sidebarMaximum(window.innerWidth);
+        sidebarWidth = clampSidebarWidth(sidebarWidth, window.innerWidth);
+        drawerOpen = false;
+      } else stopResize();
     };
-    desktop.addEventListener('change', resized);
-    return () => desktop.removeEventListener('change', resized);
+    resized();
+    window.addEventListener('resize', resized);
+    return () => window.removeEventListener('resize', resized);
   });
 </script>
 
 <a class="skip-link" href="#notes-pane">{t('shell.skip')}</a>
-<div class="app-shell">
-  <aside class="desktop-sidebar" aria-label={t('shell.sidebar')}>
+<div
+  class="app-shell"
+  class:resizing={dragging}
+  style:--sidebar-width={`${sidebarWidth}px`}
+>
+  <aside
+    id="desktop-sidebar"
+    class="desktop-sidebar"
+    aria-label={t('shell.sidebar')}
+  >
     <Sidebar {calendar} {active} {tags} {filters} {searchQuery} {onSearch} />
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (A focusable ARIA window splitter supports pointer and keyboard resizing.) -->
+    <div
+      class="sidebar-resizer"
+      role="separator"
+      tabindex="0"
+      aria-label="Resize sidebar"
+      aria-orientation="vertical"
+      aria-controls="desktop-sidebar"
+      aria-valuemin={MIN_SIDEBAR_WIDTH}
+      aria-valuemax={maximumWidth}
+      aria-valuenow={sidebarWidth}
+      aria-valuetext={`${sidebarWidth} pixels`}
+      title="Drag to resize sidebar; use arrow keys when focused"
+      onpointerdown={startResize}
+      onpointermove={resize}
+      onpointerup={stopResize}
+      onpointercancel={stopResize}
+      onlostpointercapture={stopResize}
+      onkeydown={resizeKey}
+    ></div>
   </aside>
   <div class="main-column">
     <header class="mobile-header">
@@ -62,53 +137,69 @@
         ></a
       >
     </header>
-    <div class="fixed-region">
-      <div class="column-inner"><Composer /></div>
-      <section
-        class="filter-region column-inner"
-        aria-label={t('shell.activeFilters')}
-      >
-        {#if active === '/' && (filters.tags.length || filters.query || filters.day)}
-          <div class="filter-chips">
-            {#if filters.query}<a
-                class="filter-chip"
-                href={filterHref({ ...filters, query: '' })}
-                aria-label="Remove search filter">Search: {filters.query} ×</a
-              >{/if}
-            {#if filters.day}<a
-                class="filter-chip"
-                href={filterHref({
-                  ...filters,
-                  day: undefined,
-                  date: undefined,
-                })}
-                aria-label="Remove day filter"
-                >{filters.date ?? 'Selected day'} ×</a
-              >{/if}
-            {#each filters.tags as tag (tag)}
-              <a
-                class="filter-chip"
-                href={toggleTag(filters, tag)}
-                aria-label={`Remove tag filter ${tag}`}>#{tag} ×</a
-              >
-            {/each}
-          </div>
-          <a href="/">{t('shell.clearAll')}</a>
-        {:else}<span class="muted"
-            >{active === '/'
-              ? t('shell.noFilters')
-              : t('shell.yourNotebook')}</span
-          >{/if}
-      </section>
-    </div>
+    {#snippet composerRegion()}
+      <div class="composer-region">
+        <div class="column-inner"><Composer /></div>
+        <section
+          class="filter-region column-inner"
+          aria-label={t('shell.activeFilters')}
+        >
+          {#if active === '/' && (filters.tags.length || filters.query || filters.day)}
+            <div class="filter-chips">
+              {#if filters.query}<a
+                  class="filter-chip"
+                  href={filterHref({ ...filters, query: '' })}
+                  aria-label="Remove search filter">Search: {filters.query} ×</a
+                >{/if}
+              {#if filters.day}<a
+                  class="filter-chip"
+                  href={filterHref({
+                    ...filters,
+                    day: undefined,
+                    date: undefined,
+                  })}
+                  aria-label="Remove day filter"
+                  >{filters.date ?? 'Selected day'} ×</a
+                >{/if}
+              {#each filters.tags as tag (tag)}
+                <a
+                  class="filter-chip"
+                  href={toggleTag(filters, tag)}
+                  aria-label={`Remove tag filter ${tag}`}>#{tag} ×</a
+                >
+              {/each}
+            </div>
+            <a href="/">{t('shell.clearAll')}</a>
+          {:else}<span class="muted"
+              >{active === '/'
+                ? t('shell.noFilters')
+                : t('shell.yourNotebook')}</span
+            >{/if}
+        </section>
+      </div>
+    {/snippet}
+    {#if active !== '/'}{@render composerRegion()}{/if}
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (The primary scroll surface must be keyboard-scrollable.) -->
     <main
       id="notes-pane"
       class="notes-scroller"
       tabindex="0"
       aria-label="Notes pane"
+      bind:this={scroller}
     >
+      {#if active === '/'}{@render composerRegion()}{/if}
       <div class="column-inner timeline-content">{@render children()}</div>
+      {#if active === '/'}
+        <footer class="back-to-top column-inner">
+          <button
+            disabled={!ready}
+            onclick={() => {
+              scroller.focus({ preventScroll: true });
+              scroller.scrollTo({ top: 0, behavior: 'instant' });
+            }}>Back to Top ↑</button
+          >
+        </footer>
+      {/if}
     </main>
   </div>
 </div>
@@ -134,11 +225,35 @@
     overflow: hidden;
   }
   .desktop-sidebar {
+    position: relative;
+    min-width: 0;
     background: var(--surface);
     border-right: 1px solid var(--border);
     min-height: 0;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+  .sidebar-resizer {
+    position: absolute;
+    z-index: 1;
+    inset-block: 0;
+    right: -5px;
+    width: 10px;
+    cursor: col-resize;
+    touch-action: none;
+  }
+  .sidebar-resizer:hover,
+  .sidebar-resizer:focus-visible,
+  .resizing .sidebar-resizer {
+    background: var(--accent-soft);
+    border-inline: 1px solid var(--accent);
+  }
+  .sidebar-resizer:focus-visible {
+    outline-offset: -3px;
+  }
+  .resizing {
+    cursor: col-resize;
+    user-select: none;
   }
   .main-column {
     display: flex;
@@ -146,9 +261,17 @@
     min-width: 0;
     min-height: 0;
   }
-  .fixed-region {
+  .composer-region {
     flex: none;
     padding: var(--outer-gap) var(--outer-gap) 0;
+  }
+  .notes-scroller > .composer-region {
+    padding: calc(var(--outer-gap) - var(--space-1)) 0 0;
+  }
+  .back-to-top {
+    padding-block: var(--space-5);
+    text-align: center;
+    overflow-anchor: none;
   }
   .column-inner {
     width: 100%;
@@ -220,12 +343,13 @@
       display: flex;
       align-items: center;
     }
-    .fixed-region {
+    .composer-region,
+    .notes-scroller > .composer-region {
       padding-top: var(--space-3);
     }
   }
   @media (max-height: 340px) {
-    .fixed-region {
+    .main-column > .composer-region {
       max-height: 55dvh;
       overflow: auto;
     }

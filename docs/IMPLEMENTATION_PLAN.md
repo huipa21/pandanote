@@ -124,7 +124,7 @@ Every completed step must record changed files, tests actually run, blockers/kno
 
 1. Implement warm off-white/white light theme, dark theme, muted-green accent, typography, borders, spacing, focus states; centralize CSS tokens.
 2. Implement Light/Dark/System, comfortable/compact density and collapse preference plumbing without theme flash.
-3. Build fixed desktop sidebar, fixed expandable composer region, filter region, and independent notes scroller. Use placeholders only where a later step explicitly owns functionality.
+3. Build a fixed desktop sidebar with a draggable/keyboard-resizable right edge, expandable composer/filter region inside the homepage notes scroller, and bottom Back to Top control. Use placeholders only where a later step explicitly owns functionality.
 4. Mobile: header, drawer, compose action/full-screen editor shell, safe areas/dynamic viewport handling.
 5. Navigation for All notes, Drafts, Tags/manage, Trash, Settings; accessible drawer/dialog primitives.
 6. Establish screenshot/viewports and keyboard tests. Test constrained height, many tags, 200% zoom and virtual-keyboard scenarios.
@@ -297,7 +297,7 @@ Every completed step must record changed files, tests actually run, blockers/kno
 - Equal timestamps paginate without duplicates/skips in an unchanged dataset.
 - Filter changes invalidate stale cursors/results; clear/removal predictable.
 - Long content/code/images do not overflow or shift scroll unexpectedly.
-- Fixed composer/sidebar remain stationary; tags actually narrow by all selected tags.
+- Sidebar remains stationary; homepage composer scrolls with notes, and Back to Top returns to it. Tags actually narrow by all selected tags.
 
 **Next hint:** S10 supplies exact multilingual search on the same list contract, not a parallel result system.
 

@@ -60,7 +60,7 @@ Not included:
 
 Use these as an initial design baseline and check them visually:
 
-- Desktop sidebar about 272 px, note column maximum about 760 px.
+- Desktop sidebar initially about 272 px, adjustable by dragging its right edge; note column maximum about 760 px.
 - Body text 16 px, line-height around 1.6; code smaller only if still readable.
 - Cards about 10 px corner radius; subtle 1 px borders; little or no shadow.
 - Comfortable card padding around 20 px; compact around 12–14 px.
@@ -100,10 +100,11 @@ Left sidebar:
 
 Main area:
 
-- Compact composer fixed above the timeline; expands on focus.
+- Compact composer above the timeline within the notes scroller; expands on focus and scrolls away with the notes.
+- Back to Top button below the timeline returns the notes pane to the composer.
 - Visible active filters and Clear all.
 - Single-column chronological cards. Not masonry, despite the conversational use of “waterfall.” Reading order must be unambiguous.
-- Sidebar, calendar, search, and composer do not scroll away with notes.
+- Sidebar, calendar, and search do not scroll away with notes. Drag the sidebar's right edge to adjust its desktop width; keyboard resizing is also available.
 
 Large tag collections use a Show all/searchable panel. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
 
@@ -271,7 +272,8 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 - Zero-count days neutral; today marker distinct from selected-day outline.
 - Counts use editable timeline date in the configured timezone.
 - Counts include all published notes, regardless of current tags/search.
-- Previous/next month arrows.
+- Three-letter weekday labels (Mon, Tue, Wed, Thu, Fri, Sat, Sun).
+- Month/year heading on the left with no obvious border; previous/next month arrows grouped on the right.
 - Clickable heading opens a quick year/month picker.
 - Today returns to current month and clears the selected-day filter; retain search/tags unless Clear all is chosen.
 - Week-start preference can be placed in Settings; initial default Monday.

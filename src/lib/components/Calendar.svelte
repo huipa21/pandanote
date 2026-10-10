@@ -70,14 +70,6 @@
 
 <div class="calendar" data-calendar-month={calendar.month}>
   <div class="calendar-heading">
-    <a
-      aria-label="Previous month"
-      aria-disabled={calendar.month === '1969-01'}
-      href={calendar.month === '1969-01'
-        ? undefined
-        : jump(shiftMonth(calendar.month, -1))}
-      onclick={onNavigate}>‹</a
-    >
     <button
       disabled={!ready}
       aria-haspopup="dialog"
@@ -87,14 +79,24 @@
         picker = true;
       }}>{monthLabel(calendar.month)}</button
     >
-    <a
-      aria-label="Next month"
-      aria-disabled={calendar.month === '9998-12'}
-      href={calendar.month === '9998-12'
-        ? undefined
-        : jump(shiftMonth(calendar.month, 1))}
-      onclick={onNavigate}>›</a
-    >
+    <div class="month-arrows">
+      <a
+        aria-label="Previous month"
+        aria-disabled={calendar.month === '1969-01'}
+        href={calendar.month === '1969-01'
+          ? undefined
+          : jump(shiftMonth(calendar.month, -1))}
+        onclick={onNavigate}>‹</a
+      >
+      <a
+        aria-label="Next month"
+        aria-disabled={calendar.month === '9998-12'}
+        href={calendar.month === '9998-12'
+          ? undefined
+          : jump(shiftMonth(calendar.month, 1))}
+        onclick={onNavigate}>›</a
+      >
+    </div>
   </div>
   <table
     aria-label={`Activity in ${monthLabel(calendar.month)}`}
@@ -103,7 +105,7 @@
     <thead
       ><tr
         >{#each weekdays as day (day)}<th scope="col"
-            ><abbr title={day}>{day.slice(0, 1)}</abbr></th
+            ><abbr title={day}>{day.slice(0, 3)}</abbr></th
           >{/each}</tr
       ></thead
     >
@@ -182,10 +184,17 @@
   }
   .calendar-heading button {
     padding: 4px;
-    flex: 1;
+    min-width: 0;
+    text-align: left;
     font-size: 0.875rem;
+    border-color: transparent;
+    background: transparent;
   }
-  .calendar-heading > a {
+  .month-arrows {
+    display: flex;
+    flex: none;
+  }
+  .month-arrows a {
     display: grid;
     place-items: center;
     width: 32px;
@@ -272,7 +281,7 @@
     td a {
       min-height: var(--target);
     }
-    .calendar-heading > a {
+    .month-arrows a {
       width: var(--target);
     }
   }

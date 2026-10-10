@@ -929,7 +929,9 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   range, never prepending newer/backdated notes outside that view.
 - Calendar numerals pass AA at all five neutral/green levels in both themes.
   Today dot and selected outline are independent, with readable count/date labels,
-  weekday headers, native picker focus/Escape, keyboard links and mobile touch-height
+  three-letter weekday headers (full names in abbreviation titles), a borderless
+  left-aligned month/year picker heading and right-grouped navigation arrows,
+  native picker focus/Escape, keyboard links and mobile touch-height
   cells. Desktop cells are 32px high to fit seven columns in the settled sidebar;
   mobile cells use the normal 44px target. Short sidebars retain independent scrolling.
   CAL-01–04/SEARCH-03 browser/native evidence and dense-month timings are in PROGRESS.
@@ -951,7 +953,16 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
 
 - `styles/tokens.css` centralizes both palettes, control/focus contrast, system/CJK
   fonts, spacing, density, safe-area layout sizes and reduced-motion policy.
-  Desktop sidebar is 272 px, content maximum 760 px, breakpoint 900 CSS px.
+  Desktop sidebar starts at 272 px, content maximum 760 px, breakpoint 900 CSS px.
+  Its right-edge ARIA splitter uses Pointer Events/capture for mouse/pen/touch and
+  Left/Right (20 px), Home/End keyboard resizing. Width is session-local in the
+  mounted shell, clamped to 240–480 px and at least 480 px reserved for the main
+  column; viewport shrink reclamps it. No new persisted preference/schema.
+  On the homepage, composer/filter controls live inside the notes scroller and
+  scroll with cards; a bottom Back to Top control resets only that scroller and
+  focuses it without altering filters/history. Other pages retain their existing
+  composer region and mobile full-screen editor. Scroll restoration at top=0
+  preserves composer access rather than anchoring the first card below it.
   Collapse preference sets the height token used by actual timeline cards.
 - The central hook reads validated appearance for authenticated requests and
   replaces three application-owned HTML attribute placeholders using Kit 3's
