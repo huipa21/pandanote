@@ -153,6 +153,22 @@ test.describe('axe WCAG 2.x AA scans', () => {
           await scan(page, `${path} ${mode} ${size.name}`);
         }
         await page.goto('/');
+        if (size.name === 'phone')
+          await page.getByRole('button', { name: 'Menu & search' }).click();
+        const calendar =
+          size.name === 'phone'
+            ? page.getByRole('dialog', { name: 'Notebook navigation' })
+            : page.getByRole('complementary', { name: 'Sidebar' });
+        await calendar.locator('.calendar-heading button').click();
+        const picker = page.getByRole('dialog', {
+          name: 'Choose year and month',
+        });
+        await expect(picker).toBeVisible();
+        await scan(page, `month picker ${mode} ${size.name}`);
+        await picker.getByRole('button', { name: /^Choose year,/ }).click();
+        await scan(page, `quick year selector ${mode} ${size.name}`);
+        await page.keyboard.press('Escape');
+        if (size.name === 'phone') await page.keyboard.press('Escape');
         await page.getByRole('link', { name: 'Open note' }).first().click();
         await expect(page.getByRole('dialog').first()).toBeVisible();
         await scan(page, `note dialog ${mode} ${size.name}`);

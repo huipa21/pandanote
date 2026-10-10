@@ -9,6 +9,7 @@ import {
   localDate,
   activityLevel,
   calendarPreferencesSchema,
+  calendarYears,
 } from '../../src/lib/shared/calendar.ts';
 import {
   canonicalFilters,
@@ -26,6 +27,19 @@ describe('IANA calendar boundaries and canonical navigation', () => {
     expect(monthCells('2026-03', 1)).toHaveLength(42);
     expect(shiftMonth('2025-12', 1)).toBe('2026-01');
     expect(shiftMonth('2026-01', -1)).toBe('2025-12');
+  });
+  it('bounds quick-year windows and includes the selected year at either date limit', () => {
+    expect(calendarYears(2025)).toEqual(
+      Array.from({ length: 20 }, (_, i) => 2016 + i),
+    );
+    expect(calendarYears(1969)).toEqual(
+      Array.from({ length: 20 }, (_, i) => 1969 + i),
+    );
+    expect(calendarYears(9998)).toEqual(
+      Array.from({ length: 20 }, (_, i) => 9979 + i),
+    );
+    for (const year of [1968, 9999, 2025.5, NaN, Infinity])
+      expect(() => calendarYears(year)).toThrow();
   });
   it('computes 23/25-hour DST days and UTC month boundaries without host-local dates', () => {
     const spring = dayRange('2026-03-08', 'America/New_York');

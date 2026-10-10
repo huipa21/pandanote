@@ -269,14 +269,15 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 
 ### 9.1 Calendar appearance
 
-- A conventional month calendar grid, not a year repository heatmap.
-- One color varying light-to-dark reflects daily published note count.
+- A conventional month calendar grid styled as a monthly heatmap, not a year repository heatmap.
+- Each date numeral sits on a compact square background; one color varying light-to-dark reflects daily published note count.
 - Zero-count days neutral; today marker distinct from selected-day outline.
 - Counts use editable timeline date in the configured timezone.
 - Counts include all published notes, regardless of current tags/search.
 - Three-letter weekday labels (Mon, Tue, Wed, Thu, Fri, Sat, Sun).
-- Month/year heading on the left with no obvious border; previous/next month arrows grouped on the right.
-- Clickable heading opens a quick year/month picker.
+- Bold month/year heading on the left with no obvious border; previous/next month arrows grouped on the right.
+- Clicking the heading opens a year view of 12 month choices in **4 columns × 3 rows**. Clicking a month jumps immediately and clears the selected day while retaining search/tags.
+- The picker's bold top year opens a scrollable quick-year selector with direct year entry. Top-right previous/next arrows move one year in month view (20-year windows in quick-year view). Browsing the picker alone never changes timeline filters.
 - Today returns to current month and clears the selected-day filter; retain search/tags unless Clear all is chosen.
 - Week-start preference can be placed in Settings; initial default Monday.
 

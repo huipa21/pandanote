@@ -325,7 +325,8 @@ production credential is committed.
 
 - `unit/calendar.test.ts`: leap/week/six-row grids, year shifts, literal date/month
   URL validation, IANA versus fixed offsets, DST 23/25-hour and midnight-skipped
-  boundaries, Hong Kong/Tokyo/year grouping, navigation/filter semantics.
+  boundaries, Hong Kong/Tokyo/year grouping, navigation/filter semantics and
+  bounded 20-year selector windows at 1969/9998.
 - `integration/calendar.test.ts`: real global counts/status/date/republish/restore
   updates, epoch-zero notes grouped into December 1969 in western zones, selected-day
   cursor locks, changed-zone/cross-month rejection, sparse
@@ -337,7 +338,11 @@ production credential is committed.
   scroll reset or history spam, held stale/error/retried counts, explicit timezone
   detection/save/error retention and a browser in a different zone, private/CSRF
   gates, lifecycle invalidation, posting from Drafts and delayed-image anchoring,
-  mobile drawer controls. Fixtures use actual note/upload APIs, not mock successes.
+  mobile drawer controls. Monthly date heat tiles, bold heading, 4 × 3 picker
+  geometry, one-year/window arrows, scroll/focus/direct-year limits, immediate
+  selection/filter retention and nested mobile picker layout are also verified.
+  `e2e/zzzaccessibility.test.ts` scans month/quick-year dialogs in light/dark at
+  phone/desktop sizes. Fixtures use actual note/upload APIs, not mock successes.
 - `unit/appearance.test.ts` checks actual calendar numeral/background AA contrast
   in both themes. Shell screenshots mask variable calendar dates/counts as well as
   the existing notes-pane mask; fixed-month unmasked desktop/mobile calendar images

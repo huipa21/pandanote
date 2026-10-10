@@ -338,7 +338,7 @@ Every completed step must record changed files, tests actually run, blockers/kno
 
 1. Build calendar grid, activity shades, today/selection distinctions, accessibility labels and month counts.
 2. Implement IANA timezone setting/detection and correct half-open UTC day/month boundaries.
-3. Month arrows, year/month picker, Today and manually selected empty month behavior.
+3. Month arrows, bold heading, compact date heat tiles, 4 × 3 year/month picker with year arrows/scrollable quick-year/direct entry, Today and manually selected empty month behavior.
 4. Connect top-visible card to displayed calendar month; continuous older loading skips empty matching months.
 5. Day-filter mode locks results to selected day; clicking selected day/chip clears it.
 6. Search/tags cover all dates by default; counts remain all published notes.

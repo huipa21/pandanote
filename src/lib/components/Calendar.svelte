@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Modal from './Modal.svelte';
+  import MonthPicker from './MonthPicker.svelte';
   import {
     activityLevel,
     monthCells,
@@ -18,11 +18,8 @@
     filters: TimelineFilters;
     onNavigate?: () => void;
   } = $props();
-  const id = $props.id();
   let ready = $state(false);
   let picker = $state(false);
-  let year = $state(2026);
-  let month = $state(1);
   onMount(() => {
     ready = true;
   });
@@ -74,8 +71,6 @@
       disabled={!ready}
       aria-haspopup="dialog"
       onclick={() => {
-        year = Number(calendar.month.slice(0, 4));
-        month = Number(calendar.month.slice(5));
         picker = true;
       }}>{monthLabel(calendar.month)}</button
     >
@@ -125,7 +120,7 @@
                   data-date={date}
                   aria-current={date === activity?.today ? 'date' : undefined}
                   aria-label={`${date}: ${count === undefined ? 'activity unavailable' : `${count} published ${count === 1 ? 'note' : 'notes'}`}${date === activity?.today ? ', today' : ''}${date === filters.date ? ', selected; clear day filter' : ''}`}
-                  >{Number(date.slice(8))}</a
+                  ><span class="date-number">{Number(date.slice(8))}</span></a
                 >
               {/if}
             </td>{/each}
@@ -146,34 +141,12 @@
     <button onclick={() => calendar.refresh()}>Retry activity</button>{/if}
   <p class="help legend">All published notes · darker means more</p>
 </div>
-<Modal bind:open={picker} title="Choose year and month">
-  <label for={`${id}-year`}>Year</label><input
-    id={`${id}-year`}
-    type="number"
-    min="1969"
-    max="9998"
-    bind:value={year}
-    data-initial-focus
-  />
-  <label for={`${id}-month`}>Month</label><select
-    id={`${id}-month`}
-    bind:value={month}
-    >{#each Array.from({ length: 12 }, (_, i) => i + 1) as m (m)}<option
-        value={m}
-        >{monthLabel(`2026-${String(m).padStart(2, '0')}`).split(
-          ' ',
-        )[0]}</option
-      >{/each}</select
-  >
-  {#if Number.isInteger(year) && year >= 1969 && year <= 9998}<a
-      class="picker-go"
-      href={jump(`${year}-${String(month).padStart(2, '0')}`)}
-      onclick={() => {
-        picker = false;
-        onNavigate();
-      }}>Go to month</a
-    >{:else}<p role="alert">Choose a year between 1969 and 9998.</p>{/if}
-</Modal>
+<MonthPicker
+  bind:open={picker}
+  month={calendar.month}
+  href={jump}
+  {onNavigate}
+/>
 
 <style>
   .calendar-heading {
@@ -187,6 +160,7 @@
     min-width: 0;
     text-align: left;
     font-size: 0.875rem;
+    font-weight: 700;
     border-color: transparent;
     background: transparent;
   }
@@ -226,21 +200,29 @@
     border-radius: 5px;
     text-decoration: none;
     color: var(--text);
-    background: var(--surface);
+    background: transparent;
     font-size: 0.8125rem;
     position: relative;
   }
-  td a[data-level='1'] {
+  .date-number {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    background: var(--page);
+  }
+  td a[data-level='1'] .date-number {
     background: var(--heat-1);
   }
-  td a[data-level='2'] {
+  td a[data-level='2'] .date-number {
     background: var(--heat-2);
   }
-  td a[data-level='3'] {
+  td a[data-level='3'] .date-number {
     background: var(--heat-3);
     color: var(--on-accent);
   }
-  td a[data-level='4'] {
+  td a[data-level='4'] .date-number {
     background: var(--accent);
     color: var(--on-accent);
   }
@@ -251,7 +233,7 @@
   td a.today::after {
     content: '';
     position: absolute;
-    bottom: 3px;
+    bottom: 0;
     width: 4px;
     height: 4px;
     border-radius: 50%;
@@ -263,8 +245,7 @@
     justify-content: space-between;
     gap: 4px;
   }
-  .calendar-footer a,
-  .picker-go {
+  .calendar-footer a {
     display: inline-flex;
     align-items: center;
     min-height: var(--target);
@@ -280,6 +261,10 @@
   @media (max-width: 899px) {
     td a {
       min-height: var(--target);
+    }
+    .date-number {
+      width: 32px;
+      height: 32px;
     }
     .month-arrows a {
       width: var(--target);

@@ -110,6 +110,7 @@ test('month/year/day controls keep global counts, lock day pagination, retain fi
     (await next.boundingBox())!.x,
   );
   await expect(heading).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+  await expect(heading).toHaveCSS('font-weight', '700');
   const day = side.locator('[data-date="2025-01-31"]');
   await expect(day).toHaveAttribute('aria-label', /36 published notes/); // includes unrelated tag
   await testInfo.attach('calendar-desktop-light', {
@@ -159,9 +160,12 @@ test('month/year/day controls keep global counts, lock day pagination, retain fi
   await expect(page.getByTestId('posted-note')).toHaveCount(30);
   await side.getByRole('button', { name: 'January 2025' }).click();
   const picker = page.getByRole('dialog', { name: 'Choose year and month' });
-  await picker.getByLabel('Year', { exact: true }).fill('2024');
-  await picker.getByLabel('Month', { exact: true }).selectOption('2');
-  await picker.getByRole('link', { name: 'Go to month' }).click();
+  await picker
+    .getByRole('button', { name: 'Previous year', exact: true })
+    .click();
+  await picker
+    .getByRole('link', { name: 'February 2024', exact: true })
+    .click();
   await expect(page).toHaveURL('/?tag=s11calendar&month=2024-02');
   await expect(page.getByTestId('posted-note')).toHaveCount(1);
   await page.goBack();
@@ -187,6 +191,203 @@ test('month/year/day controls keep global counts, lock day pagination, retain fi
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, keyboard focus and mobile selection', async ({
+  page,
+}, testInfo) => {
+  const { side, headers } = await start(page);
+  for (const [day, count] of [
+    [28, 1],
+    [29, 2],
+    [30, 4],
+  ]) {
+    for (let i = 0; i < count; i++)
+      expect(
+        (
+          await page.request.post('/api/notes', {
+            headers,
+            data: {
+              action: 'create',
+              mutationId: randomUUID(),
+              content: {
+                bodyMarkdown: `Heat tile ${day}/${i} #S11heat`,
+                timelineAt: Date.parse(`2025-01-${day}T12:00Z`) + i,
+                location: null,
+                attachmentIds: [],
+              },
+            },
+          })
+        ).status(),
+      ).toBe(200);
+  }
+  await page.goto(
+    '/?tag=s11calendar&q=%22%E9%A6%99%E6%B8%AF%22&date=2025-01-31',
+  );
+  const url = page.url();
+  const heading = side.getByRole('button', { name: 'January 2025' });
+  const picker = page.getByRole('dialog', { name: 'Choose year and month' });
+  const colors = new Set<string>();
+  for (const [day, level] of [
+    [27, 0],
+    [28, 1],
+    [29, 2],
+    [30, 3],
+    [31, 4],
+  ]) {
+    const date = side.locator(`[data-date="2025-01-${day}"]`);
+    await expect(date).toHaveAttribute('data-level', String(level));
+    await expect(date).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    const tile = date.locator('.date-number');
+    await expect(tile).toHaveCSS('width', '26px');
+    const color = await tile.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    colors.add(color);
+  }
+  expect(colors.size).toBe(5);
+  await expect(side.locator('[data-date="2025-01-31"]')).toHaveClass(
+    /selected/,
+  );
+  await heading.click();
+  await expect(picker.getByRole('link')).toHaveCount(12);
+  const boxes = await picker.getByRole('link').evaluateAll((links) =>
+    links.map((link) => {
+      const r = link.getBoundingClientRect();
+      return { x: r.x, y: r.y };
+    }),
+  );
+  expect(new Set(boxes.map((box) => box.x)).size).toBe(4);
+  expect(new Set(boxes.map((box) => box.y)).size).toBe(3);
+  await expect(
+    picker.getByRole('link', { name: 'January 2025' }),
+  ).toHaveAttribute('aria-current', 'date');
+  await expect(
+    picker.getByRole('button', { name: 'Choose year, 2025' }),
+  ).toBeFocused();
+  await picker.getByRole('button', { name: 'Next year', exact: true }).click();
+  await expect(
+    picker.getByRole('link', { name: 'January 2026' }),
+  ).toBeVisible();
+  expect(page.url()).toBe(url); // Browsing the picker does not filter or load notes.
+  await picker
+    .getByRole('button', { name: 'Previous year', exact: true })
+    .click();
+  await testInfo.attach('month-picker-desktop', {
+    body: await page.screenshot({
+      path: testInfo.outputPath('month-picker-desktop.png'),
+    }),
+    contentType: 'image/png',
+  });
+  await picker.getByRole('button', { name: 'Choose year, 2025' }).click();
+  await expect(picker.locator('[data-year="2025"]')).toBeFocused();
+  await expect(picker.getByRole('link')).toHaveCount(0);
+  expect(
+    await picker
+      .locator('.year-list')
+      .evaluate((el) => el.scrollHeight > el.clientHeight && el.scrollTop > 0),
+  ).toBe(true);
+  await picker
+    .getByRole('button', { name: 'Previous 20 years', exact: true })
+    .click();
+  await expect(picker.locator('[data-year="2005"]')).toBeVisible();
+  await picker
+    .getByRole('button', { name: 'Next 20 years', exact: true })
+    .click();
+  await picker.getByLabel('Jump to year', { exact: true }).fill('1968');
+  await picker
+    .getByRole('button', { name: 'Show months', exact: true })
+    .click();
+  expect(
+    await picker
+      .getByLabel('Jump to year')
+      .evaluate((el) => (el as HTMLInputElement).validity.rangeUnderflow),
+  ).toBe(true);
+  await picker.getByLabel('Jump to year').fill('1969');
+  await picker
+    .getByRole('button', { name: 'Show months', exact: true })
+    .click();
+  await expect(
+    picker.getByRole('button', { name: 'Previous year', exact: true }),
+  ).toBeDisabled();
+  await expect(
+    picker.getByRole('button', { name: 'Choose year, 1969' }),
+  ).toBeFocused();
+  await picker.getByRole('button', { name: 'Choose year, 1969' }).click();
+  await expect(
+    picker.getByRole('button', { name: 'Previous 20 years' }),
+  ).toBeDisabled();
+  await picker.getByLabel('Jump to year').fill('9998');
+  await picker
+    .getByRole('button', { name: 'Show months', exact: true })
+    .click();
+  await expect(
+    picker.getByRole('button', { name: 'Next year', exact: true }),
+  ).toBeDisabled();
+  await picker.getByRole('button', { name: 'Choose year, 9998' }).click();
+  await expect(
+    picker.getByRole('button', { name: 'Next 20 years' }),
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(picker).not.toBeVisible();
+  await expect(heading).toBeFocused();
+  expect(page.url()).toBe(url);
+  // Reopening resets from the displayed calendar, not the last browsed year.
+  await heading.click();
+  await expect(
+    picker.getByRole('button', { name: 'Choose year, 2025' }),
+  ).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(
+    picker.getByRole('link', { name: 'December 2025' }),
+  ).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(
+    picker.getByRole('button', { name: 'Choose year, 2025' }),
+  ).toBeFocused();
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.getByRole('button', { name: 'Menu & search' }).click();
+  const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
+  await drawer.getByRole('button', { name: 'January 2025' }).click();
+  await picker.getByRole('button', { name: 'Choose year, 2025' }).click();
+  await picker.locator('[data-year="2024"]').click();
+  await testInfo.attach('month-picker-mobile', {
+    body: await page.screenshot({
+      path: testInfo.outputPath('month-picker-mobile.png'),
+    }),
+    contentType: 'image/png',
+  });
+  expect(await picker.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
+  const mobileHeading = (await picker
+    .locator('.picker-heading')
+    .boundingBox())!;
+  const mobileGrid = (await picker.locator('.month-grid').boundingBox())!;
+  expect(mobileGrid.y).toBeGreaterThanOrEqual(
+    mobileHeading.y + mobileHeading.height,
+  );
+  const mobileMonths = await picker.getByRole('link').evaluateAll((links) =>
+    links.map((link) => {
+      const box = link.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    }),
+  );
+  expect(new Set(mobileMonths.map((box) => box.x)).size).toBe(4);
+  expect(new Set(mobileMonths.map((box) => box.y)).size).toBe(3);
+  expect(mobileMonths.every((box) => box.width >= 44 && box.height >= 44)).toBe(
+    true,
+  );
+  await picker
+    .getByRole('link', { name: 'February 2024', exact: true })
+    .click();
+  await expect(picker).not.toBeVisible();
+  await expect(drawer).not.toBeVisible();
+  await expect(page).toHaveURL(
+    '/?tag=s11calendar&q=%22%E9%A6%99%E6%B8%AF%22&month=2024-02',
+  );
+  await expect(page.getByTestId('posted-note')).toHaveCount(1);
 });
 
 test('top visible tall/Mermaid cards track year boundaries without scroll reset/flicker or history spam; stale counts cannot win', async ({

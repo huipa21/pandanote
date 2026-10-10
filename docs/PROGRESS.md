@@ -4,9 +4,18 @@
 
 - **Phase:** S00–S17 done; S18 locally verified but **NOT final release** (real VPS,
   public certificates, physical-device/IME/screen-reader/Linux visual/exact-commit gates open).
-- **Repository:** concise-editor session started clean at `090b955` (previous UI
-  adjustments committed by the user). No agent-created commit/deployment/real-data
-  deletion; current uncommitted changes are the editor, tests and documentation.
+- **Repository:** calendar-picker session started clean at `54858f5` (concise editor
+  committed by the user). No agent-created commit/deployment/real-data deletion;
+  current uncommitted changes are calendar/picker/modal CSS, tests and docs.
+- **Requested calendar heatmap/year picker: implemented / affected host gate passes;
+  full regression blocked.** Bold heading, compact date heat tiles, 4 × 3 month
+  picker, one-year arrows, scrollable quick years/direct jump. Check/lint/build,
+  **147 unit**, **212 integration + 7 existing Linux-only skips**, **15 affected
+  calendar/accessibility Chromium PASS**. Full browser runs: **101 PASS / 1 FAIL**
+  at downloaded-archive restore validation, including rerun with longer timeout.
+  Isolated restore **2 PASS**, captured synthetic archive passes source trust;
+  cause of full-suite-only refusal remains unresolved. No security bypass/restore
+  source change or Linux/release pass claimed; see latest handoff.
 - **Concise editor: done / host verified.** One surface with bottom-left +
   (Tags/Files/Date/Location), Preview switch and top-right expand/X focus mode.
   Recovery/posting protocols unchanged. Final check/lint/build, **146 unit**,
@@ -76,6 +85,16 @@ Read VERSIONING_PLAN and current operations guide; never promote a synthetic clo
 or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
+
+**Calendar UI is implemented; full regression blocker needs diagnosis:** read
+`Calendar.svelte`, `MonthPicker.svelte`, `Modal.svelte`, `tests/e2e/calendar.test.ts`,
+`tests/e2e/zzrestore.test.ts`, server archive/trust/restore and latest handoff.
+First affected validation: `npm run check && npm run lint && npm run test:e2e --
+tests/e2e/calendar.test.ts tests/e2e/zzzaccessibility.test.ts`. Reproduce the full
+suite-only archive refusal with `npm run test:e2e -- --timeout=120000`, capture
+only synthetic evidence and trace its server-only cause without logging secrets or
+weakening validation. Isolated restore success is not a full-suite pass. No commit
+or deployment without approval; SS01/S18/manual/Linux-release limits remain open.
 
 **Concise editor is locally done:** review
 `Composer.svelte`, `EditorOptions.svelte`, `Modal.svelte`, `TimelineOptions.svelte`,
@@ -4008,3 +4027,87 @@ tests/e2e/shell.test.ts`: **14 PASS / 1 screenshot fixture mismatch**. Opened
   dependency/lock/deployment files and `git diff --check` verified. No commit or
   deployment. Linux/container/native tests not rerun for this client-only change;
   existing SS01/S18/manual/release limitations remain explicitly open.
+
+### Session 2026-10-10 — Requested monthly heat tiles and 4 × 3 year/month picker
+
+**State: implemented / affected host checks pass; full regression blocked.** Started
+clean at `54858f5`. User explicitly requested bold month/year, backgrounds behind date
+numerals, a 4-column × 3-row month picker, clickable top year and year arrows. No user
+commit, deployment, dependencies/lockfiles/schema/server change or real-data deletion.
+
+Implemented / touched files:
+
+- `src/lib/components/Calendar.svelte`: bold left borderless heading, compact square
+  heat backgrounds behind date numerals, neutral zero days, unchanged five-level
+  published-count data. Full clickable day targets, today dot, selected outline,
+  filter/Today/month/scroll/timezone behavior remain.
+- New `MonthPicker.svelte`: native custom-header modal, bold year + top-right year
+  arrows/close, twelve immediate month links in 4 × 3 grid. Clicking year opens a
+  scrollable 20-year window with selected-year focus/scroll, window arrows and direct
+  year entry (1969–9998). Bounds disable arrows; reopening resets from the displayed
+  calendar, browsing leaves filters/URL untouched, selection keeps search/tags and
+  clears day. Async focus checks open state. No year activity endpoint/fetch added.
+- `src/lib/shared/calendar.ts`: small validated `calendarYears` helper with lower/
+  upper bounds; unit test covers invalid years and window endpoints.
+- `Modal.svelte`: drawer body layout selector restricted to direct child. Visual
+  review found the old descendant selector applied flex layout to nested picker
+  modals, putting header beside squeezed month cells on mobile. Actual 4 × 3 mobile
+  geometry/touch targets are now regression-tested; other modal API unchanged.
+- `tests/e2e/calendar.test.ts`: updated old form-picker navigation plus new test of
+  five heat backgrounds, bold heading, desktop/mobile 4 × 3 geometry, global counts,
+  current month, year arrows/scroll/direct jump/bounds, no browsing navigation,
+  Escape/focus trap/return, reset on reopen and selected-day clearing/tag/search
+  retention. New synthetic heat notes use genuine APIs. `zzzaccessibility.test.ts`
+  scans month/year dialogs in light/dark at phone/desktop sizes.
+- PRODUCT_SPEC §9, ARCHITECTURE §10.4, IMPLEMENTATION_PLAN S11, CAL-01 acceptance,
+  tests README and current/append-only progress updated. Desktop/mobile screenshots
+  opened/reviewed; no baselines regenerated or assertions masked away.
+
+Commands actually run (explicit Node24.21.0 executable + PATH, npm CLI from S00,
+`NODE_TLS_REJECT_UNAUTHORIZED=1`; logs in host temporary directory):
+
+- `npm exec -- prettier --write <touched files>`: PASS; initial/final `npm run check`
+  and `npm run lint`: PASS, zero errors/warnings.
+- `npm run test:unit`: **147 PASS (28 files)**.
+- `npm run test:integration`: **212 PASS + 7 existing Linux-only skips (36 files,
+  219 total)**, 298.59 s; no new exclusions. Expected synthetic disk-reserve refusal
+  printed. Combined check/lint/unit/integration/build invocation hit 360 s harness
+  timeout during build after integration passed; not claimed combined pass.
+- Standalone `npm run build`: PASS after timeout; affected/e2e builds also pass.
+  Existing large lazy-library chunk warnings remain.
+- Targeted calendar `--grep 'heatmap|month/year/day'`: **2 PASS**. After nested-mobile
+  layout fix, calendar + accessibility grep `heatmap|authenticated screens`:
+  **3 PASS**. Final `npm run test:e2e -- tests/e2e/calendar.test.ts
+tests/e2e/zzzaccessibility.test.ts`: **15/15 Chromium PASS (1.7 min)**.
+- First full `npm run test:e2e`: **101 PASS / 1 FAIL**. Downloaded-archive restore
+  test reaches generic corrupt/incompatible/unsafe refusal, then times out at its
+  missing summary (30 s). Full `npm run test:e2e -- --timeout=120000`:
+  **101 PASS / 1 FAIL**, same real refusal, not merely a timeout budget problem.
+- `npm exec -- playwright test tests/e2e/zzrestore.test.ts --timeout=120000`:
+  **2 PASS** in isolation on the same build. An additional full direct Playwright
+  diagnostic run with temporary synthetic archive capture: **101 PASS / 1 FAIL**.
+  Captured archive verified/extracted and `trustSnapshot` passed in a fresh source
+  Node process. This is evidence narrowing the issue, **not proof the full built
+  server restore is safe or the failure resolved**. Temporary test instrumentation
+  reverted exactly; private synthetic archive/script removed. No restore test/source
+  diff, public logging, bypass, auth/limits/TLS changes or relaxed assertions retained.
+- Git whitespace/fixture checks: PASS; `.e2e-data` cleaned, `NUL` absent. No Linux
+  container/native/browser/deployment rerun; no Linux evidence claimed for this
+  client-only change. Existing seven host skips remain explicit.
+
+Known issues / decisions / exact next task:
+
+- Requested UI is implemented and affected gates pass; **do not call the full
+  regression gate passed**. Full-suite-only restore validation refusal is reproducible
+  this session; its exact server-only cause is unknown. No server/backup source changed,
+  but it is not proven unrelated to accumulated fixtures/application state. Previous
+  editor session's 101/101 remains historical, not current evidence.
+- Next: reproduce `npm run test:e2e -- --timeout=120000`, capture only synthetic
+  failing archive/server cause and diagnose built-server versus fresh source-trust
+  differences and accumulated state. Read `tests/e2e/zzrestore.test.ts`,
+  `server/backups/{archive,trust,restore,replacement}.ts`, browser fixture launcher,
+  new calendar fixtures and this handoff. Do not weaken untrusted-schema/image/file/
+  receipt checks to get green. Isolated restore passing is insufficient.
+- Physical devices/other browser engines/IME/screen-reader/Linux visual/exact-release
+  checks not performed. SS01 literal exchange/S18 real-VPS/manual gates remain open.
+  Commit/deploy only with approval; no migration required for this UI change.

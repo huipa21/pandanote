@@ -159,7 +159,7 @@ Matches visibly highlighted, snippets escaped and safe. Unicode normalization ca
 
 ### CAL-01 — Month UI/navigation
 
-Correct weekday/day count/leap years, optional week-start setting. Weekdays use three-letter abbreviations with full-name titles. Borderless month/year heading is left-aligned; previous/next arrows are grouped on the right. Heat shades correspond to note counts; zero/today/selection distinguishable and accessible. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
+Correct weekday/day count/leap years, optional week-start setting. Weekdays use three-letter abbreviations with full-name titles. Bold borderless month/year heading is left-aligned; previous/next arrows are grouped on the right. Compact square backgrounds behind date numerals form a monthly heatmap; heat shades correspond to note counts, with zero/today/selection distinguishable and accessible. Heading opens 12 month links in 4 columns × 3 rows; top-year click opens scrollable quick years/direct entry, and top-right arrows move years. Browsing does not change filters; month selection clears day but retains search/tags. Verify 1969/9998 bounds, keyboard focus/Escape/return, four-column mobile targets and light/dark contrast. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
 
 ### CAL-02 — Continuous scrolling
 

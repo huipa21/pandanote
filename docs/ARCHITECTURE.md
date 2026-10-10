@@ -930,9 +930,17 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
 - Calendar numerals pass AA at all five neutral/green levels in both themes.
   Today dot and selected outline are independent, with readable count/date labels,
   three-letter weekday headers (full names in abbreviation titles), a borderless
-  left-aligned month/year picker heading and right-grouped navigation arrows,
-  native picker focus/Escape, keyboard links and mobile touch-height
-  cells. Desktop cells are 32px high to fit seven columns in the settled sidebar;
+  bold left-aligned month/year picker heading and right-grouped navigation arrows.
+  Compact square backgrounds surround the date numerals, separately from the
+  full day-link targets. `MonthPicker.svelte` reuses the native modal with a
+  4-column × 3-row month grid, immediate month navigation, one-year arrows and
+  a clickable top year. Quick years use a bounded 20-year scrollable window
+  (`calendarYears`), 20-year arrows and validated direct entry (1969–9998),
+  with selected-year focus/scroll and return to months. Browsing only changes
+  local picker state; selection retains tags/search and clears the day through
+  the existing canonical jump contract. Native focus/Escape/return and mobile targets remain.
+  Drawer-body CSS uses a direct-child selector so nested picker modals do not
+  inherit the drawer's flex layout. Desktop cells are 32px high to fit seven columns in the settled sidebar;
   mobile cells use the normal 44px target. Short sidebars retain independent scrolling.
   CAL-01–04/SEARCH-03 browser/native evidence and dense-month timings are in PROGRESS.
 

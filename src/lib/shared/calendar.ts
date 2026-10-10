@@ -70,6 +70,12 @@ export function monthCells(month: string, weekStart: 0 | 1): (string | null)[] {
   while (cells.length % 7) cells.push(null);
   return cells;
 }
+// A bounded, scrollable quick-selector window; distant years use direct jump.
+export function calendarYears(year: number): number[] {
+  calendarMonth(`${year}-01`);
+  const start = Math.min(9979, Math.max(1969, year - 9));
+  return Array.from({ length: 20 }, (_, i) => start + i);
+}
 export function monthLabel(month: string): string {
   const date = calendarMonth(month);
   return new Date(Date.UTC(date.year, date.month - 1, 1)).toLocaleDateString(

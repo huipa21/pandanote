@@ -181,7 +181,7 @@
     padding-left: env(safe-area-inset-left);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .drawer .dialog-body {
+  .drawer > .dialog-body {
     padding: 0;
     flex: 1;
     display: flex;
