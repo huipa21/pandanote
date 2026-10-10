@@ -209,6 +209,17 @@ Warm quiet light theme, usable dark theme, muted-green accent. System theme defa
 
 At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No clipped essential action/horizontal overflow. Desktop sidebar right edge supports pointer-captured mouse/pen/touch dragging and keyboard Left/Right/Home/End, with visible focus and width bounds preserving the main column. It disappears in mobile drawer mode. Drawer/detail/image/editor keyboard focus and return, Escape safety, screen-reader labels, reduced motion, 200% zoom and AA contrast reviewed. Mobile keyboard does not hide Post or destroy draft. Touch-only workflow works.
 
+### UI-EDITOR — Concise integrated composer
+
+Writing, preview, feedback and Post/Save changes share one textarea-style surface.
+Only bottom-left +, Preview switch, top-right focus icon and publishing control are
+permanent editor actions. + opens Tags/Files/Date/Location with keyboard access,
+Escape/light dismissal and no premature upload. Tags inserts an inline hashtag at
+the retained cursor using existing local autocomplete. Preview toggles raw/rendered
+text without loss. Focus mode replaces the corner expand icon with X; close/Escape
+retains text/files/metadata, returns focus and does not publish. Controls and at least
+one text line remain reachable with mobile safe areas/keyboard-shrunken height.
+
 ### UI-03 — Context/error states
 
 Loading/empty/no-match/storage-full/permission-denied/upload-failed/conflict/maintenance/invalid-backup states show recovery action. No full-screen spinner for routine tag switch/post. Browser Back restores useful timeline state. A failed action never displays irreversible success.

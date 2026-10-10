@@ -634,11 +634,11 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
   update; server drafts use publish with the unchanged explicit timeline instant.
 - Local magic inspection makes renamed raster files selected through the generic
   picker insert images at the cursor without uploading. Server detection remains
-  authoritative. File references can be removed/reordered locally; Write/Preview
-  and expanded/mobile modes reuse the existing renderer. The Date secondary dialog
-  uses the saved app timezone via Temporal, preserving explicit draft dates and
-  rejecting future/ambiguous/nonexistent times. It sits in the toolbar rather than
-  consuming another permanent line on very short mobile keyboards. Feedback has
+  authoritative. File references can be removed/reordered locally; the Preview
+  switch and focus/mobile modes reuse the existing renderer. The Date secondary
+  dialog uses the saved app timezone via Temporal, preserving explicit draft dates
+  and rejecting future/ambiguous/nonexistent times. It is opened through + options,
+  rather than consuming another permanent line on very short mobile keyboards. Feedback has
   one bounded scroll area to keep primary controls reachable.
 - Safe GET/conflict snapshots now include ordered ready attachment descriptors
   (no private paths/digests/batch IDs); older typed recovery fixtures may omit them.
@@ -1023,7 +1023,12 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   Composer), accessible copy success/failure and intersection-driven diagrams.
   Observers respect clipping/scroll containers, keep theme refresh to currently
   visible diagrams, and disconnect/abort queued work on replacement or unmount.
-  Compact and expanded/mobile editors have Write/Preview controls. Rendering never
+  Compact and focus/mobile editors share one integrated surface and an ARIA Preview
+  switch. Bottom-left + opens a native, light-dismissed popover for local Tags/Files
+  and the existing Date/Location dialogs. Top-right expand/X enters/leaves the
+  native focus editor; its custom header stays visually inside the same surface.
+  The inline editor remains mounted but hidden/inert during focus mode so opener
+  return is preserved; only the visible preview renders Markdown. Rendering never
   uploads/posts; sections 6/7 handle persistence/posting with no keyboard shortcut.
 - Mermaid dynamically loads only for visible fenced `mermaid` blocks, uses strict
   security and SVG-native labels, serializes work, caches 32 sanitized outputs, and

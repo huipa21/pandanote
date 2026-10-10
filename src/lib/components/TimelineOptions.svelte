@@ -2,21 +2,31 @@
   import Modal from './Modal.svelte';
   import { timelineInput, timelineInstant } from '#lib/client/uploads/date.ts';
   import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
-  let { workspace }: { workspace: DraftWorkspace } = $props();
-  let open = $state(false);
+  let {
+    workspace,
+    open = $bindable(false),
+    showTrigger = true,
+  }: {
+    workspace: DraftWorkspace;
+    open?: boolean;
+    showTrigger?: boolean;
+  } = $props();
   let error = $state('');
+  $effect(() => {
+    if (open) error = '';
+  });
 </script>
 
-<button
-  disabled={!workspace.active ||
-    workspace.busy ||
-    workspace.frozen ||
-    workspace.conflict}
-  onclick={() => {
-    open = true;
-    error = '';
-  }}>Date</button
->
+{#if showTrigger}<button
+    disabled={!workspace.active ||
+      workspace.busy ||
+      workspace.frozen ||
+      workspace.conflict}
+    onclick={() => {
+      open = true;
+      error = '';
+    }}>Date</button
+  >{/if}
 <Modal bind:open title="Timeline date">
   <p>
     Choose now or earlier, in the configured app timezone. Ambiguous or

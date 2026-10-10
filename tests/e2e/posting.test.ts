@@ -102,7 +102,9 @@ async function attach(page: Page) {
     .poll(async () => (await records(page))[0].attachments.length)
     .toBe(3);
   await expect(
-    page.getByTestId('composer').getByRole('button', { name: 'Add files' }),
+    page
+      .getByTestId('composer')
+      .getByRole('button', { name: 'Add note options' }),
   ).toBeEnabled();
 }
 async function postButton(page: Page) {
@@ -226,6 +228,10 @@ test('explicit Post saves text/two images/file, freezes repeated clicks, retains
       expect([metadata.width, metadata.height]).toEqual([32, 64]);
   }
   await page.getByRole('textbox', { name: 'Note text' }).fill('Backdated note');
+  await page
+    .getByTestId('composer')
+    .getByRole('button', { name: 'Add note options' })
+    .click();
   await page
     .getByTestId('composer')
     .getByRole('button', { name: 'Date', exact: true })

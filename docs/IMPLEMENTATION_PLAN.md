@@ -152,7 +152,7 @@ Every completed step must record changed files, tests actually run, blockers/kno
 3. Add lazy/cached Shiki highlighting, language labels and original-code copy controls.
 4. Add Mermaid only for fenced mermaid blocks; dynamic import, strict security, safe SVG sanitization, visible-only rendering, syntax errors/size limits/debounced preview.
 5. Implement hashtag AST parser/source offsets with Unicode grammar, case normalization, deduplication and excluded contexts.
-6. Add Write/Preview tabs; expanded desktop preview can be side-by-side. No publish keyboard shortcut.
+6. Add a single Preview switch; integrate bottom-left + secondary options and top-right focus/close icons into the textarea-style container (user-approved editor simplification). No publish keyboard shortcut.
 7. Test sanitizer attack fixtures and actual browser SVG output. Do not trust library “strict” mode as the only protection.
 
 ### Acceptance gate
@@ -260,7 +260,7 @@ Every completed step must record changed files, tests actually run, blockers/kno
 1. Implement frozen post attempt state machine, progress, retry/resume and batch readiness map.
 2. Upload only after Post/Save changes; existing server attachments are references.
 3. Preserve local data until confirmed receipt; handle lost response, canceled navigation, reloaded in-progress attempt, changed payload and repeated clicks.
-4. Wire image insertion at cursor and other-file rows, remove/reorder references, Write/Preview/expanded modes.
+4. Wire image insertion at cursor and other-file rows, remove/reorder references, Preview switch/focus modes.
 5. Correctly clear only submitted draft data; prevent edits during frozen submission or retain later edits separately.
 6. Surface stale-tag validation and conflict errors without discarding work; richer conflict UI arrives in S12.
 7. Update list state without full reload and without pretending a failed save was successful.

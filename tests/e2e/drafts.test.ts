@@ -88,7 +88,7 @@ async function attach(page: Page) {
     )
     .toBe(true);
   await expect(
-    page.getByRole('button', { name: 'Add files' }).first(),
+    page.getByRole('button', { name: 'Add note options' }).first(),
   ).toBeEnabled();
 }
 
@@ -201,7 +201,7 @@ test('local selection, paste, drop, autosave and preview send no draft/upload re
     .poll(async () => (await records(page))[0].attachments.length)
     .toBe(3);
   await expect(
-    page.getByRole('button', { name: 'Add files' }).first(),
+    page.getByRole('button', { name: 'Add note options' }).first(),
   ).toBeEnabled();
   await text.evaluate((node) => {
     const data = new DataTransfer();
@@ -225,7 +225,7 @@ test('local selection, paste, drop, autosave and preview send no draft/upload re
   await text.press('Meta+Enter');
   await expect(text).toHaveValue(/\n/);
   await page
-    .getByRole('button', { name: 'Preview', exact: true })
+    .getByRole('switch', { name: 'Preview', exact: true })
     .first()
     .click();
   await expect(page.locator('.compact-preview img')).toBeVisible();
@@ -235,7 +235,7 @@ test('local selection, paste, drop, autosave and preview send no draft/upload re
       .evaluate((image) => (image as HTMLImageElement).naturalWidth),
   ).toBe(1);
   await page
-    .getByRole('button', { name: 'Write', exact: true })
+    .getByRole('switch', { name: 'Preview', exact: true })
     .first()
     .click();
   const urlState = await page.evaluate(() => ({
@@ -631,12 +631,15 @@ test('mobile local-file picker, recovery, and keyboard-shrunken editor keep save
   await editor
     .getByRole('textbox', { name: 'Note text' })
     .fill('Mobile local recovery');
+  await editor.getByRole('button', { name: 'Add note options' }).click();
   const chooser = page.waitForEvent('filechooser');
   await editor.getByRole('button', { name: 'Add files' }).click();
   await (
     await chooser
   ).setFiles([{ name: 'quiet.png', mimeType: 'image/png', buffer: png }]);
-  await expect(editor.getByRole('button', { name: 'Add files' })).toBeEnabled();
+  await expect(
+    editor.getByRole('button', { name: 'Add note options' }),
+  ).toBeEnabled();
   await expect(editor.getByRole('status')).toHaveText('Saved on this device.');
   const saved = (await records(page))[0];
   await page.setViewportSize({ width: 390, height: 260 });
@@ -644,7 +647,7 @@ test('mobile local-file picker, recovery, and keyboard-shrunken editor keep save
     .getByRole('textbox', { name: 'Note text' })
     .boundingBox();
   expect(geometry!.height).toBeGreaterThanOrEqual(24);
-  for (const name of ['Close Write a note', 'Post', 'Add files']) {
+  for (const name of ['Close Write a note', 'Post', 'Add note options']) {
     const bounds = await editor
       .getByRole('button', { name, exact: true })
       .boundingBox();
@@ -658,7 +661,7 @@ test('mobile local-file picker, recovery, and keyboard-shrunken editor keep save
   await expect(editor.getByRole('textbox', { name: 'Note text' })).toHaveValue(
     saved.bodyMarkdown,
   );
-  await editor.getByRole('button', { name: 'Preview', exact: true }).click();
+  await editor.getByRole('switch', { name: 'Preview', exact: true }).click();
   await expect(editor.locator('img')).toBeVisible();
 });
 

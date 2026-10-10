@@ -6,18 +6,25 @@
   } from '#lib/client/drafts/workspace.svelte.ts';
   import DraftFeedback from './DraftFeedback.svelte';
   import TagAutocomplete from './TagAutocomplete.svelte';
-  import TimelineOptions from './TimelineOptions.svelte';
-  import LocationOptions from './LocationOptions.svelte';
-  const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
+  import EditorOptions from './EditorOptions.svelte';
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
-  let tab = $state<'write' | 'preview'>('write');
+
+  const workspace = getContext<DraftWorkspace | undefined>(DRAFT_WORKSPACE);
+  let preview = $state(false);
   let memoryText = $state('');
   let text = $derived(
     workspace ? (workspace.active?.bodyMarkdown ?? '') : memoryText,
   );
   let fileInput = $state<HTMLInputElement>(null!);
   let cursor = { start: 0, end: 0 };
+  let expanded = $state(false);
+  let editorOpen = $state(false);
+  let textarea = $state<HTMLTextAreaElement>();
+  let expandedTextarea = $state<HTMLTextAreaElement>();
+  let desktop = $state(false);
+  let mounted = $state(false);
+
   function changed(event: Event) {
     const value = (event.currentTarget as HTMLTextAreaElement).value;
     if (workspace) workspace.change(value);
@@ -47,10 +54,28 @@
       addFiles(files);
     }
   }
+  async function addTag() {
+    if (!workspace || workspace.busy || workspace.frozen || workspace.conflict)
+      return;
+    preview = false;
+    const prefix = text.slice(0, cursor.start);
+    const marker = prefix && !/\s$/.test(prefix) ? ' #' : '#';
+    workspace.change(prefix + marker + text.slice(cursor.end));
+    cursor = {
+      start: cursor.start + marker.length,
+      end: cursor.start + marker.length,
+    };
+    await tick();
+    const input = editorOpen ? expandedTextarea : textarea;
+    input?.focus();
+    input?.setSelectionRange(cursor.start, cursor.end);
+    // Uses the existing local-only, AST-aware tag suggestions.
+    input?.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   $effect(() => {
     if (!workspace?.openEditor) return;
     expanded = true;
-    tab = 'write';
+    preview = false;
     if (matchMedia('(max-width: 899px)').matches) {
       editorOpen = true;
       void tick().then(() =>
@@ -58,12 +83,6 @@
       );
     } else void tick().then(() => textarea?.focus());
   });
-  let expanded = $state(false);
-  let editorOpen = $state(false);
-  let textarea = $state<HTMLTextAreaElement>();
-  let expandedTextarea = $state<HTMLTextAreaElement>();
-  let desktop = $state(false);
-  let mounted = $state(false);
   onMount(() => {
     mounted = true;
     const media = matchMedia('(min-width: 900px)');
@@ -78,7 +97,7 @@
     };
   });
   $effect(() => {
-    const visible = tab === 'preview' && (editorOpen || (desktop && expanded));
+    const visible = preview && (editorOpen || (desktop && expanded));
     if (workspace?.ready) untrack(() => workspace.setPreviewVisible(visible));
   });
   async function expand() {
@@ -113,6 +132,113 @@
   </button>
 {/snippet}
 
+{#snippet editor(focus: boolean)}
+  <div class="editor-container" class:focus-editor={focus}>
+    <button
+      class="focus-control"
+      type="button"
+      aria-label={focus ? 'Close Write a note' : 'Enter focus mode'}
+      title={focus ? 'Close focus mode' : 'Focus mode'}
+      onclick={() => {
+        editorOpen = !focus;
+      }}
+    >
+      {#if focus}<svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path d="m6 6 12 12M18 6 6 18" /></svg
+        >
+      {:else}<svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path
+            d="M8 3H3v5m0-5 6 6m7-6h5v5m0-5-6 6M3 16v5h5m-5 0 6-6m12 1v5h-5m5 0-6-6"
+          /></svg
+        >{/if}
+    </button>
+    {#if preview}
+      <div
+        class="preview-pane"
+        class:expanded-preview={focus}
+        class:compact-preview={!focus}
+      >
+        {#if focus || !editorOpen}<Markdown
+            source={text}
+            images={workspace?.images ?? []}
+            debounce={300}
+          />{/if}
+      </div>
+    {:else}
+      <label
+        class="sr-only"
+        for={focus ? 'expanded-note-text' : 'compact-note-text'}
+        >Note text</label
+      >
+      <textarea
+        id={focus ? 'expanded-note-text' : 'compact-note-text'}
+        bind:this={
+          () => (focus ? expandedTextarea : textarea),
+          (input) => {
+            if (focus) expandedTextarea = input;
+            else textarea = input;
+          }
+        }
+        class:expanded-text={focus}
+        value={text}
+        disabled={Boolean(
+          workspace && (!workspace.ready || workspace.busy || workspace.frozen),
+        )}
+        oninput={changed}
+        onselect={rememberCursor}
+        onkeyup={rememberCursor}
+        onclick={rememberCursor}
+        onblur={(event) => {
+          rememberCursor(event);
+          void workspace?.flush();
+        }}
+        onpaste={paste}
+        ondrop={drop}
+        ondragover={(event) => {
+          if (event.dataTransfer?.types.includes('Files'))
+            event.preventDefault();
+        }}
+        data-initial-focus={focus || undefined}
+        rows="4"
+        aria-describedby={focus ? 'expanded-help' : 'composer-help'}
+        placeholder="A thought, a small discovery…"></textarea>
+      {#if workspace}<TagAutocomplete
+          textarea={focus ? expandedTextarea : textarea}
+          {workspace}
+        />{/if}
+    {/if}
+    {#if workspace}<DraftFeedback {workspace} />{/if}
+    <p class="help" id={focus ? 'expanded-help' : 'composer-help'}>
+      {#if workspace}<span role="status"
+          >{workspace.status ||
+            'Device-only draft · publish only with Post.'}</span
+        >
+      {:else}Not saved yet. Keep a copy before leaving.{/if}
+    </p>
+    <div class="editor-footer">
+      <EditorOptions
+        {workspace}
+        onTag={addTag}
+        onFiles={() => fileInput.click()}
+      />
+      <button
+        class="preview-switch"
+        type="button"
+        role="switch"
+        aria-label="Preview"
+        aria-checked={preview}
+        onclick={() => {
+          preview = !preview;
+        }}
+        title={preview ? 'Show raw text' : 'Preview Markdown'}
+        ><span class="switch-track" aria-hidden="true"><span></span></span
+        >Preview</button
+      >
+      {@render postButton()}
+    </div>
+  </div>
+{/snippet}
+
 {#if workspace}
   <input
     class="sr-only"
@@ -131,7 +257,11 @@
 {#if workspace?.error && !editorOpen && (!desktop || !expanded)}
   <p role="alert">{workspace.error} Open the editor for recovery actions.</p>
 {/if}
-<div class="desktop-composer surface" data-testid="composer">
+<div
+  class="desktop-composer surface"
+  class:collapsed={!expanded}
+  data-testid="composer"
+>
   {#if !expanded}
     <button
       class="start-writing"
@@ -139,192 +269,28 @@
       onfocus={expand}
       onclick={expand}>Write a note…</button
     >
-  {:else}
-    <div class="editor-tabs" role="group" aria-label="Editor mode">
-      <button
-        aria-pressed={tab === 'write'}
-        onclick={() => {
-          tab = 'write';
-        }}>Write</button
-      >
-      <button
-        aria-pressed={tab === 'preview'}
-        onclick={() => {
-          tab = 'preview';
-        }}>Preview</button
-      >
-      {#if workspace}<button
-          disabled={!workspace.ready ||
-            workspace.busy ||
-            workspace.conflict ||
-            workspace.frozen}
-          onclick={() => fileInput.click()}>Add files</button
-        ><TimelineOptions {workspace} /><LocationOptions {workspace} />{/if}
-    </div>
-    {#if tab === 'preview'}
-      <div class="compact-preview preview-pane">
-        {#if !editorOpen}
-          <Markdown
-            source={text}
-            images={workspace?.images ?? []}
-            debounce={300}
-          />
-        {/if}
-      </div>
-    {:else}
-      <label class="sr-only" for="compact-note-text">Note text</label>
-      <textarea
-        id="compact-note-text"
-        bind:this={textarea}
-        value={text}
-        disabled={Boolean(
-          workspace && (!workspace.ready || workspace.busy || workspace.frozen),
-        )}
-        oninput={changed}
-        onselect={rememberCursor}
-        onkeyup={rememberCursor}
-        onclick={rememberCursor}
-        onblur={() => workspace?.flush()}
-        onpaste={paste}
-        ondrop={drop}
-        ondragover={(event) => {
-          if (event.dataTransfer?.types.includes('Files'))
-            event.preventDefault();
-        }}
-        rows="3"
-        placeholder="A thought, a small discovery…"
-        aria-describedby="composer-help"></textarea>
-      {#if workspace}<TagAutocomplete {textarea} {workspace} />{/if}
-    {/if}
-    {#if workspace}<DraftFeedback {workspace} />{/if}
-    <div class="composer-actions">
-      <button
-        onclick={() => {
-          editorOpen = true;
-        }}>Expand editor</button
-      >
-      <button
-        onclick={() => {
-          expanded = false;
-        }}
-        disabled={Boolean(text)}>Collapse editor</button
-      >
-      {@render postButton()}
-    </div>
-    <p class="help" id="composer-help">
-      {#if workspace}<span role="status"
-          >{workspace.status ||
-            'Device-only draft · publish only with Post.'}</span
-        >{:else}Text is not saved yet (S05); posting comes in S08. Keep a copy
-        before leaving.{/if}
-    </p>
-  {/if}
+  {:else}<div hidden={editorOpen} inert={editorOpen}>
+      {@render editor(false)}
+    </div>{/if}
 </div>
 <button
   class="mobile-compose primary"
   disabled={!mounted}
   onclick={() => {
     editorOpen = true;
-  }}>{text ? 'Continue writing' : 'Compose a note'}</button
+  }}
 >
-
-<Modal bind:open={editorOpen} title="Write a note" kind="editor">
-  <div class="editor-tabs" role="group" aria-label="Editor mode">
-    <button
-      aria-pressed={tab === 'write'}
-      onclick={() => {
-        tab = 'write';
-      }}>Write</button
-    >
-    <button
-      aria-pressed={tab === 'preview'}
-      onclick={() => {
-        tab = 'preview';
-      }}>Preview</button
-    >
-    {#if workspace}<button
-        disabled={!workspace.ready ||
-          workspace.busy ||
-          workspace.conflict ||
-          workspace.frozen}
-        onclick={() => fileInput.click()}>Add files</button
-      ><TimelineOptions {workspace} /><LocationOptions {workspace} />{/if}
-  </div>
-  {#if tab === 'preview'}
-    <div class="expanded-preview preview-pane">
-      <Markdown source={text} images={workspace?.images ?? []} debounce={300} />
-    </div>
-  {:else}
-    <label class="sr-only" for="expanded-note-text">Note text</label>
-    <textarea
-      id="expanded-note-text"
-      bind:this={expandedTextarea}
-      class="expanded-text"
-      value={text}
-      disabled={Boolean(
-        workspace && (!workspace.ready || workspace.busy || workspace.frozen),
-      )}
-      oninput={changed}
-      onselect={rememberCursor}
-      onkeyup={rememberCursor}
-      onclick={rememberCursor}
-      onblur={() => workspace?.flush()}
-      onpaste={paste}
-      ondrop={drop}
-      ondragover={(event) => {
-        if (event.dataTransfer?.types.includes('Files')) event.preventDefault();
-      }}
-      data-initial-focus
-      aria-describedby="expanded-help"
-      placeholder="A thought, a small discovery…"></textarea>
-    {#if workspace}<TagAutocomplete
-        textarea={expandedTextarea}
-        {workspace}
-      />{/if}
-  {/if}
-  {#if workspace}<DraftFeedback {workspace} />{/if}
-  <div class="editor-footer">
-    <p class="help" id="expanded-help">
-      {#if workspace}<span role="status"
-          >{workspace.status ||
-            'Device-only draft · publish only with Post.'}</span
-        >{:else}
-        <span class="full-help"
-          >Text stays here while navigating this shell, but is not saved on
-          reload. Draft recovery comes in S05; posting comes in S08.</span
-        >
-        <span class="short-help"
-          >Not saved yet. Draft recovery: S05; posting: S08.</span
-        >
-      {/if}
-    </p>
-    {@render postButton()}
-  </div>
+  {text ? 'Continue writing' : 'Compose a note'}
+</button>
+<Modal bind:open={editorOpen} title="Write a note" kind="editor" customHeader>
+  {#if editorOpen}{@render editor(true)}{/if}
 </Modal>
 
 <style>
-  .editor-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-  }
-  .editor-tabs [aria-pressed='true'] {
-    color: var(--accent);
-    background: var(--accent-soft);
-  }
-  .preview-pane {
-    min-height: 0;
-    overflow: auto;
-  }
-  .compact-preview {
-    max-height: 12rem;
-  }
-  .expanded-preview {
-    flex: 1;
-    height: 40dvh;
-  }
   .desktop-composer {
+    padding: 0;
+  }
+  .desktop-composer.collapsed {
     padding: var(--space-3);
   }
   .start-writing {
@@ -333,68 +299,120 @@
     color: var(--muted);
     border: 0;
   }
-  textarea {
-    width: 100%;
-    display: block;
-    resize: none;
-  }
-  .composer-actions {
+  .editor-container {
+    position: relative;
     display: flex;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-    margin-top: var(--space-2);
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: var(--radius);
   }
-  .composer-actions .primary {
-    margin-left: auto;
+  .editor-container:focus-within {
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .editor-container:has(textarea:focus-visible) {
+    outline: var(--focus-width) solid var(--accent);
+    outline-offset: calc(-1 * var(--focus-width));
+  }
+  .focus-editor {
+    flex: 1;
+  }
+  .focus-control {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    z-index: 1;
+    width: var(--target);
+    padding: 0;
+    border: 0;
+    color: var(--muted);
+  }
+  .focus-control svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: middle;
+  }
+  textarea,
+  .preview-pane {
+    padding: var(--target) var(--space-3) var(--space-2);
+    min-height: 5rem;
+    width: 100%;
+  }
+  textarea {
+    display: block;
+    border: 0;
+    border-radius: 0;
+    resize: none;
+    height: 10rem;
+  }
+  textarea:focus-visible {
+    outline: none;
+  }
+  .preview-pane {
+    overflow: auto;
+  }
+  .compact-preview {
+    height: 10rem;
+  }
+  .expanded-text,
+  .expanded-preview {
+    flex: 1;
+    height: auto;
   }
   .help {
-    margin-bottom: 0;
-  }
-  .mobile-compose {
-    display: none;
-  }
-  .expanded-text {
-    flex: 1;
-    min-height: 8rem;
-    height: 40dvh;
+    margin: 0;
+    padding: 0 var(--space-3);
+    font-size: 0.75rem;
   }
   .editor-footer {
     display: flex;
-    flex: none;
-    gap: var(--space-3);
     align-items: center;
-    padding-top: var(--space-3);
+    gap: var(--space-1);
+    padding: var(--space-1);
+    flex: none;
   }
-  .editor-footer .help {
-    margin: 0;
+  .editor-footer .primary {
+    margin-left: auto;
   }
-  .short-help {
+  .preview-switch {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    border: 0;
+    font-size: 0.875rem;
+    padding-inline: var(--space-2);
+    color: var(--muted);
+  }
+  .switch-track {
+    display: flex;
+    align-items: center;
+    width: 1.875rem;
+    height: 1.125rem;
+    padding: 2px;
+    border: 1px solid var(--control-border);
+    border-radius: 1rem;
+  }
+  .switch-track span {
+    width: 0.75rem;
+    height: 0.75rem;
+    background: var(--muted);
+    border-radius: 50%;
+  }
+  .preview-switch[aria-checked='true'] .switch-track {
+    background: var(--accent);
+    border-color: var(--accent);
+    justify-content: flex-end;
+  }
+  .preview-switch[aria-checked='true'] .switch-track span {
+    background: var(--on-accent);
+  }
+  .mobile-compose {
     display: none;
-  }
-  @media (max-width: 899px) and (max-height: 400px) {
-    .editor-tabs {
-      flex-wrap: nowrap;
-      gap: 2px;
-      margin-bottom: var(--space-1);
-    }
-    .editor-footer {
-      padding-top: var(--space-1);
-    }
-    .editor-tabs button {
-      min-height: 2rem;
-      padding: 0 4px;
-      font-size: 0.75rem;
-    }
-    .full-help {
-      display: none;
-    }
-    .short-help {
-      display: inline;
-    }
-    .editor-footer .help {
-      font-size: 0.75rem;
-      line-height: 1.4;
-    }
   }
   @media (max-width: 899px) {
     .desktop-composer {
@@ -404,17 +422,9 @@
       display: block;
       min-width: var(--target);
     }
-    .expanded-text {
-      height: auto;
-      min-height: 0;
-    }
-  }
-  @media (max-height: 540px) and (min-width: 900px) {
-    .desktop-composer textarea {
-      height: 4rem;
-    }
-    .desktop-composer .help {
-      font-size: 0.75rem;
+    .expanded-text,
+    .expanded-preview {
+      min-height: 3.5rem;
     }
   }
 </style>

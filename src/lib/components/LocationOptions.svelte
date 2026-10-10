@@ -1,10 +1,18 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
   import { manualLocation } from '#lib/shared/location.ts';
   import { locationSchema } from '#lib/shared/domain.ts';
   import type { DraftWorkspace } from '#lib/client/drafts/workspace.svelte.ts';
-  let { workspace }: { workspace: DraftWorkspace } = $props();
-  let open = $state(false);
+  let {
+    workspace,
+    open = $bindable(false),
+    showTrigger = true,
+  }: {
+    workspace: DraftWorkspace;
+    open?: boolean;
+    showTrigger?: boolean;
+  } = $props();
   let latitude = $state('');
   let longitude = $state('');
   let label = $state('');
@@ -26,18 +34,17 @@
     if (!open) {
       generation++;
       requesting = false;
-    }
+    } else
+      untrack(() => {
+        const location = workspace.active?.location;
+        draftId = workspace.active?.localDraftId ?? null;
+        latitude = location ? String(location.latitude) : '';
+        longitude = location ? String(location.longitude) : '';
+        label = location?.label ?? '';
+        accuracy = location?.accuracy ?? null;
+        error = '';
+      });
   });
-  function begin() {
-    const location = workspace.active?.location;
-    draftId = workspace.active?.localDraftId ?? null;
-    latitude = location ? String(location.latitude) : '';
-    longitude = location ? String(location.longitude) : '';
-    label = location?.label ?? '';
-    accuracy = location?.accuracy ?? null;
-    error = '';
-    open = true;
-  }
   function current() {
     if (requesting || locked) return;
     error = '';
@@ -131,14 +138,16 @@
   }
 </script>
 
-<button
-  class="location-trigger"
-  type="button"
-  disabled={locked}
-  onclick={begin}
-  title={workspace.active?.location?.label ?? undefined}
-  >{workspace.active?.location ? 'Edit location' : 'Add location'}</button
->
+{#if showTrigger}<button
+    class="location-trigger"
+    type="button"
+    disabled={locked}
+    onclick={() => {
+      open = true;
+    }}
+    title={workspace.active?.location?.label ?? undefined}
+    >{workspace.active?.location ? 'Edit location' : 'Add location'}</button
+  >{/if}
 <Modal bind:open title="Note location" dismissible={!saving}>
   <p class="help">
     Optional, device-local until Post or Save changes. No tracking or map

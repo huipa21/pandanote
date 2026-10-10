@@ -8,6 +8,7 @@
     onDismiss = () => {},
     ssrOpen = false,
     onKey = () => {},
+    customHeader = false,
     children,
   }: {
     open?: boolean;
@@ -17,6 +18,7 @@
     onDismiss?: () => void;
     ssrOpen?: boolean;
     onKey?: (event: KeyboardEvent) => void;
+    customHeader?: boolean;
     children: Snippet;
   } = $props();
   const titleId = $props.id();
@@ -118,16 +120,18 @@
   }}
   onkeydown={keydown}
 >
-  <header>
-    <h2 id={titleId}>{title}</h2>
-    <button
-      type="button"
-      aria-label={`Close ${title}`}
-      disabled={!mounted || !dismissible}
-      onclick={dismiss}>Close</button
-    >
-  </header>
-  <div class="dialog-body">{@render children()}</div>
+  {#if customHeader}<h2 class="sr-only" id={titleId}>{title}</h2>{:else}<header>
+      <h2 id={titleId}>{title}</h2>
+      <button
+        type="button"
+        aria-label={`Close ${title}`}
+        disabled={!mounted || !dismissible}
+        onclick={dismiss}>Close</button
+      >
+    </header>{/if}
+  <div class="dialog-body" class:custom-header={customHeader}>
+    {@render children()}
+  </div>
 </dialog>
 
 <style>
@@ -211,10 +215,16 @@
   }
   .editor {
     width: min(52rem, calc(100% - 2 * var(--outer-gap)));
+    height: min(48rem, calc(100dvh - 2 * var(--outer-gap)));
   }
   .editor .dialog-body {
     display: flex;
     flex-direction: column;
+    flex: 1;
+  }
+  .editor .custom-header {
+    padding: 0;
+    overflow: hidden;
   }
   @media (max-width: 899px) and (max-height: 400px) {
     .editor header {

@@ -24,7 +24,7 @@ test('built private composer previews highlighted code and Mermaid under the pro
       '```ts\nconst text = "香港";\n```\n\n```mermaid\nflowchart LR\n A[Write] --> B[Read]\n```',
     );
   await page
-    .getByRole('button', { name: 'Preview', exact: true })
+    .getByRole('switch', { name: 'Preview', exact: true })
     .first()
     .click();
   await expect(page.locator('.compact-preview pre.shiki')).toBeVisible({
@@ -255,7 +255,7 @@ test('diagram deadlines and denied clipboard actions show safe feedback and allo
   await expect(page.locator('.output pre')).toContainText('Keep this code');
 });
 
-test('composer Write/Preview keeps text and has no keyboard publishing shortcut on desktop and mobile', async ({
+test('composer preview switch keeps text and has no keyboard publishing shortcut on desktop and mobile', async ({
   page,
 }) => {
   await page.goto(`${fixture}/shell.html`);
@@ -264,12 +264,12 @@ test('composer Write/Preview keeps text and has no keyboard publishing shortcut 
     .getByRole('textbox', { name: 'Note text' })
     .fill('# 香港\n\n**A quiet note**');
   await page
-    .getByRole('button', { name: 'Preview', exact: true })
+    .getByRole('switch', { name: 'Preview', exact: true })
     .first()
     .click();
   await expect(page.locator('.compact-preview h1')).toHaveText('香港');
   await page
-    .getByRole('button', { name: 'Write', exact: true })
+    .getByRole('switch', { name: 'Preview', exact: true })
     .first()
     .click();
   await page.getByRole('textbox', { name: 'Note text' }).press('Control+Enter');
@@ -282,9 +282,9 @@ test('composer Write/Preview keeps text and has no keyboard publishing shortcut 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Continue writing' }).click();
   const editor = page.getByRole('dialog', { name: 'Write a note' });
-  await editor.getByRole('button', { name: 'Preview', exact: true }).click();
+  await editor.getByRole('switch', { name: 'Preview', exact: true }).click();
   await expect(editor.locator('h1')).toHaveText('香港');
-  await editor.getByRole('button', { name: 'Write', exact: true }).click();
+  await editor.getByRole('switch', { name: 'Preview', exact: true }).click();
   await expect(editor.getByRole('textbox', { name: 'Note text' })).toHaveValue(
     /A quiet note/,
   );

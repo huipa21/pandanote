@@ -350,12 +350,12 @@ test('desktop composer expands on focus without publishing and reduced motion us
   await page.getByRole('button', { name: 'Write a note…' }).focus();
   await expect(page.getByRole('textbox', { name: 'Note text' })).toBeFocused();
   await page.getByRole('textbox', { name: 'Note text' }).fill('In-memory only');
-  await page.getByRole('button', { name: 'Expand editor' }).click();
+  await page.getByRole('button', { name: 'Enter focus mode' }).click();
   const editor = page.getByRole('dialog', { name: 'Write a note' });
   await expect(editor.getByRole('textbox')).toHaveValue('In-memory only');
   await page.keyboard.press('Escape');
   await expect(
-    page.getByRole('button', { name: 'Expand editor' }),
+    page.getByRole('button', { name: 'Enter focus mode' }),
   ).toBeFocused();
   expect(
     await page.evaluate(() =>
@@ -372,7 +372,7 @@ test('desktop composer expands on focus without publishing and reduced motion us
   expect(
     await text.evaluate((el) => {
       el.focus();
-      return getComputedStyle(el).outlineStyle;
+      return getComputedStyle(el.closest('.editor-container')!).outlineStyle;
     }),
   ).toBe('solid');
 });

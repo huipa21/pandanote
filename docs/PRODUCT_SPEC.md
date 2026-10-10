@@ -131,9 +131,11 @@ Draft/list labels use a safe content excerpt, or “Image note” / “File atta
 - Textarea-based Markdown editor initially; a heavyweight editor framework is unnecessary.
 - Enter inserts a newline.
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
-- Write/Preview tabs in compact mode.
-- Expanded desktop editor can optionally use side-by-side preview.
-- Mobile uses Write/Preview tabs.
+- One text-area-style container holds writing/preview, save feedback and all editor controls.
+- A bottom-left + opens secondary Tags, Files, Date and Location options; do not display those buttons permanently.
+- One Preview switch toggles rendered Markdown and raw text without losing content.
+- A top-right expand icon enters focus mode; the same corner shows an X to leave it. Closing focus mode retains the draft and returns focus to its opener.
+- Mobile uses the same integrated controls in its full-screen editor.
 - Preview updates are debounced, particularly Mermaid.
 - Image paste, drag/drop, and file picker supported.
 - Images inserted at the cursor position in Markdown.

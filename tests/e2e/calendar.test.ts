@@ -477,6 +477,10 @@ test('posting from Drafts invalidates calendar counts and a delayed image preser
   });
   await page
     .getByTestId('composer')
+    .getByRole('button', { name: 'Add note options' })
+    .click();
+  await page
+    .getByTestId('composer')
     .getByRole('button', { name: 'Date', exact: true })
     .click();
   const input = page.getByLabel('Timeline date/time (UTC)').first();

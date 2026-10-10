@@ -151,6 +151,9 @@ test('location stays local, validates and survives reload; denied permission nev
   await start(page, text);
   expect(calls).toBe(0);
   await composer(page)
+    .getByRole('button', { name: 'Add note options' })
+    .click();
+  await composer(page)
     .getByRole('button', { name: 'Add location', exact: true })
     .click();
   const dialog = page.getByRole('dialog', {
@@ -189,9 +192,13 @@ test('location stays local, validates and survives reload; denied permission nev
   expect(uploads).toBe(0);
   await page.reload();
   await composer(page).getByRole('button', { name: 'Write a note…' }).click();
+  await composer(page)
+    .getByRole('button', { name: 'Add note options' })
+    .click();
   await expect(
     composer(page).getByRole('button', { name: 'Edit location' }),
   ).toBeEnabled();
+  await page.keyboard.press('Escape');
   expect(calls).toBe(1);
   await composer(page)
     .getByRole('button', { name: 'Post', exact: true })
@@ -255,6 +262,9 @@ test('location stays local, validates and survives reload; denied permission nev
   await expect(popup).toBeVisible();
   await popup.getByRole('button', { name: 'Close location' }).click();
   await detail.getByRole('button', { name: 'Edit note', exact: true }).click();
+  await composer(page)
+    .getByRole('button', { name: 'Add note options' })
+    .click();
   await composer(page).getByRole('button', { name: 'Edit location' }).click();
   await dialog.getByRole('button', { name: 'Remove location' }).click();
   await composer(page)
@@ -283,6 +293,9 @@ test('explicit native browser location preserves accuracy; manual coordinate edi
     (await records(page)).find((draft) => draft.bodyMarkdown === text)
       ?.location,
   ).toBeNull();
+  await composer(page)
+    .getByRole('button', { name: 'Add note options' })
+    .click();
   await composer(page).getByRole('button', { name: 'Add location' }).click();
   const dialog = page.getByRole('dialog', {
     name: 'Note location',
@@ -303,6 +316,9 @@ test('explicit native browser location preserves accuracy; manual coordinate edi
           ?.location?.accuracy,
     )
     .toBe(12);
+  await composer(page)
+    .getByRole('button', { name: 'Add note options' })
+    .click();
   await composer(page).getByRole('button', { name: 'Edit location' }).click();
   await dialog.getByLabel('Longitude', { exact: true }).fill('140');
   await expect(dialog).toContainText(
@@ -327,6 +343,9 @@ test('explicit native browser location preserves accuracy; manual coordinate edi
       },
     }),
   );
+  await composer(page)
+    .getByRole('button', { name: 'Add note options' })
+    .click();
   await composer(page).getByRole('button', { name: 'Edit location' }).click();
   await dialog.getByRole('button', { name: 'Use current location' }).click();
   await dialog.getByRole('button', { name: 'Close Note location' }).click();
@@ -361,6 +380,7 @@ test('mobile manual location dialog, zero coordinates and timeout allow posting 
         fail({ code: 3 }),
     }),
   );
+  await editor.getByRole('button', { name: 'Add note options' }).click();
   await editor.getByRole('button', { name: 'Add location' }).click();
   const dialog = page.getByRole('dialog', {
     name: 'Note location',
@@ -373,6 +393,7 @@ test('mobile manual location dialog, zero coordinates and timeout allow posting 
   await dialog
     .getByRole('button', { name: 'Save location', exact: true })
     .click();
+  await editor.getByRole('button', { name: 'Add note options' }).click();
   await editor.getByRole('button', { name: 'Edit location' }).click();
   await page.screenshot({ path: info.outputPath('mobile-location.png') });
   await dialog.getByRole('button', { name: 'Remove location' }).click();
@@ -604,6 +625,9 @@ test('location storage failure retains editor metadata, reports unsaved state, a
   });
   const text = `S15 quota ${randomUUID()}`;
   await start(page, text);
+  await composer(page)
+    .getByRole('button', { name: 'Add note options' })
+    .click();
   await composer(page).getByRole('button', { name: 'Add location' }).click();
   const dialog = page.getByRole('dialog', {
     name: 'Note location',

@@ -4,9 +4,14 @@
 
 - **Phase:** S00–S17 done; S18 locally verified but **NOT final release** (real VPS,
   public certificates, physical-device/IME/screen-reader/Linux visual/exact-commit gates open).
-- **Repository:** latest UI session started clean at `404ea6d` (image optimization
-  committed by the user). No agent-created commit/deployment/real-data deletion;
-  current uncommitted changes are the requested UI, tests and documentation.
+- **Repository:** concise-editor session started clean at `090b955` (previous UI
+  adjustments committed by the user). No agent-created commit/deployment/real-data
+  deletion; current uncommitted changes are the editor, tests and documentation.
+- **Concise editor: done / host verified.** One surface with bottom-left +
+  (Tags/Files/Date/Location), Preview switch and top-right expand/X focus mode.
+  Recovery/posting protocols unchanged. Final check/lint/build, **146 unit**,
+  **212 integration + 7 existing Linux-only skips**, **101 full Chromium PASS**.
+  No new Linux/native/release claim; physical-device/other-engine review remains.
 - **Requested UI adjustments: done / host verified.** Homepage composer and filters
   scroll with cards; bottom Back to Top returns to writing without changing query
   or loaded notes. Desktop sidebar edge supports pointer/keyboard resizing, with
@@ -72,8 +77,9 @@ or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
 
-**Requested UI change is locally done:** review `AppShell.svelte`, `Calendar.svelte`,
-`client/sidebar-size.ts`, `client/timeline/scroll.ts` and the latest handoff below.
+**Concise editor is locally done:** review
+`Composer.svelte`, `EditorOptions.svelte`, `Modal.svelte`, `TimelineOptions.svelte`,
+`LocationOptions.svelte` and `tests/e2e/editor.test.ts`, then the latest handoff below.
 First safe check: `npm run check && npm run lint && npm run test:unit`. User review/
 commit only with approval; no deployment performed. Native/deployment code is
 unchanged; no new Linux/native release evidence is implied.
@@ -3903,3 +3909,102 @@ Decisions / remaining / next session:
   PRODUCT_SPEC §3/9, ARCHITECTURE §10/11.1, AppShell/Calendar/sidebar-size/scroll,
   and this handoff. First verification: `npm run check && npm run lint && npm run
 test:unit`; next user-facing regression `npm run test:e2e`. No schema migration.
+
+### Session 2026-10-10 — Requested concise integrated editor
+
+**State: done / host verified.** Started clean at
+`090b955`. Explicit user request replaces the old toolbar/tabs with integrated
+controls. No user commit, deployment, dependency/lockfile/schema/server/native
+change or real-data deletion.
+
+Implemented / touched files:
+
+- `src/lib/components/Composer.svelte`: one textarea-style surface contains raw
+  Markdown/preview, existing draft feedback, +/Preview/Post footer and top-right
+  expand icon. Focus mode uses the same surface with corner X, not an extra header
+  or Expand/Collapse button row. Existing cursor/paste/drop/local recovery/frozen
+  saves/explicit Post/Save changes remain. Inline editor is hidden/inert but kept
+  mounted during focus mode so close/Escape returns to its actual opener. Only
+  visible previews render; local blob URL visibility/disposal remains intact.
+- New `EditorOptions.svelte`: native auto popover anchored above bottom-left +,
+  light dismissal, arrow-key navigation/Escape/opener return and four secondary
+  options. Tags inserts # at the retained cursor using existing local AST-aware
+  autocomplete; Files invokes the private local picker; Date/Location open existing
+  dialogs. Nothing uploads/requests geolocation just by opening the menu.
+- `Modal.svelte` adds an optional custom-header path with accessible hidden title
+  (other dialogs unchanged), flex focus editor sizing and safe-area layout.
+  `TimelineOptions.svelte`/`LocationOptions.svelte` add bindable open/showTrigger
+  contracts so menu actions reuse existing validation, metadata and permission
+  behavior. Reopening initializes location fields and clears old date errors.
+- New `tests/e2e/editor.test.ts`: visible/hidden menu actions, anchor geometry,
+  keyboard/hashtag insertion, Preview/raw retention, focus/X/control containment,
+  opener return and zero mutation requests; inline/focus screenshots reviewed.
+  Existing `calendar,drafts,location-storage,markdown,posting,shell,uploads` browser
+  tests now open secondary actions through + and use the switch. Short mobile
+  keyboard/safe-area targets and local bytes/posting/permission assertions remain.
+- PRODUCT_SPEC §4.2, ARCHITECTURE composer/renderer contracts, IMPLEMENTATION_PLAN,
+  UI-EDITOR acceptance and tests README updated. Previous handoff history preserved.
+
+Checks actually run (explicit Node 24.21.0 executable and PATH, npm CLI from S00,
+TLS verification 1; logs in host temporary directory):
+
+- `npm exec -- prettier --write <touched files>`: PASS.
+- Initial `npm run check` failed a conditional bind:this and warned about group
+  key listeners; function binding and button-level events fixed both. Subsequent
+  check/lint PASS, zero diagnostics.
+- First targeted browser command (`editor,markdown,shell` with grep
+  `one editor|composer preview|expands on focus|touch-only`): **3 pass / 2 fail**.
+  Actual cursor after Playwright fill was not retained on blur, so Tags inserted
+  at zero; cursor is now captured on blur. Textarea-only focus-outline assertion
+  updated to the new whole-surface indicator, with a real visible container outline.
+- Targeted `editor,drafts,shell` grep `one editor|expands on focus|mobile.*local`:
+  **3 PASS**, including mobile file picker/recovery at 260px height.
+- First common gate: check/lint/build PASS; **146 unit PASS**, **212 integration
+  PASS + 7 existing Linux-only skips** (219 total). Real host SQLite/Sharp/server/
+  files/archive tests; no added exclusion/skip. Expected low-space fixture refusal
+  and existing large lazy-library build warnings remain visible.
+- First full `npm run test:e2e`: **98 pass / 3 fail**. One mobile test omitted
+  reopening + before Edit location; fixed the workflow. Dark Settings screenshot
+  exposed inadvertently reduced collapsed-composer padding; retained original
+  collapsed padding (not required to change) rather than regenerate baselines.
+  That failed theme test left dark preferences affecting the next light screenshot.
+- Second full `npm run test:e2e`: **101/101 PASS (6.5 min)**, no snapshot updates.
+  Includes full draft/blob/retry/conflict/calendar/search/history/restore/native
+  browser geolocation/keyboard/mobile/axe/reflow regressions. No failed run counted
+  as a pass. Final common/affected rerun after small date-error reset follows below.
+- `.e2e-data` and `NUL` absence: PASS. Dependencies/deployment files unchanged.
+
+Decisions / limitations / exact next task:
+
+- User-authorized Preview switch supersedes Write/Preview tabs; no stack/security/
+  draft/posting contract change. Existing detailed recovery/attachment actions remain
+  available when needed rather than hiding errors or deleting recovery controls.
+- CSS anchor positioning/native popover verified in the actual Chromium browser;
+  other engines, physical devices/IME and screen-reader/Linux visuals not rerun.
+  No Linux native/container change or new Linux pass claimed. Independent SS01
+  literal atomic-exchange and S18 VPS/manual/exact-release gates remain open.
+- Next: user visual review. Read PRODUCT_SPEC §4.2, ARCHITECTURE §7.5/11.2,
+  Composer/EditorOptions/Modal and editor browser tests. Commit/deploy only with
+  approval; no migration required. First safe validation: `npm run check && npm
+run lint && npm run test:unit`; user-facing regression: `npm run test:e2e`.
+
+Final close results:
+
+- Final `npm run check`, `npm run lint`, `npm run build`: PASS, zero diagnostics.
+  `npm run test:unit`: **146 PASS**; `npm run test:integration`: **212 PASS + 7
+  existing explicit Linux-only skips**, no exclusion added. Standalone build and
+  E2E builds pass with the existing lazy-library size warnings.
+- Affected `npm run test:e2e -- tests/e2e/editor.test.ts tests/e2e/location-storage.test.ts
+tests/e2e/shell.test.ts`: **14 PASS / 1 screenshot fixture mismatch**. Opened
+  actual/expected: selected specs seed too few timeline notes to fill the mobile
+  screenshot's pre-existing masked timeline height, so Back to Top is visible.
+  No app defect or baseline update/extra masking applied; the full-suite dataset
+  remains the canonical screenshot context. This filtered run is not claimed pass.
+- Extended editor regression tests ArrowUp, outside light dismissal, date-error
+  reset on reopen and date-modal focus return. Final standalone `npm run test:e2e`:
+  **101/101 Chromium PASS (7.7 min)** with normal unchanged snapshots. No source
+  behavior changed after the final common gate, only this test and documentation.
+- Inline/focus screenshots opened/reviewed; clean `.e2e-data`/`NUL`, unchanged
+  dependency/lock/deployment files and `git diff --check` verified. No commit or
+  deployment. Linux/container/native tests not rerun for this client-only change;
+  existing SS01/S18/manual/release limitations remain explicitly open.
