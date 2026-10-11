@@ -2,6 +2,46 @@
 
 ## Current state
 
+- **Photo thumbnail grid (user request) — done / host verified.** Added photos/videos
+  no longer insert `![name](attachment:id)` into the text and the "Attachments (n)"
+  `<details>` list is gone. New `AttachmentGrid.svelte` (editor) shows square
+  thumbnails in a 3-column grid below the text box (≤ 9 photos → 3×3): drag a tile
+  onto another to move it (`workspace.moveAttachment`, replaces `reorderAttachment`;
+  Alt+Arrow keys for keyboard), a small X removes it, missing-file repair kept.
+  Local files stay in browser memory (blob URLs cached in `workspace.thumbs`) and are
+  uploaded only on Post/Save changes (e2e asserts zero `/api/uploads|notes`
+  non-GET requests before Post). New `ThumbnailGrid.svelte` shows the same 3-column
+  grid on `NoteCard` and `NoteDetail` for photos not embedded in the Markdown
+  (`gridImages` in `shared/timeline.ts`), so old notes with inline images don't
+  duplicate them. `addFiles(files)` no longer takes cursor offsets. Videos show as
+  a named placeholder tile. Touched: workspace, Composer, EditorFeedback, NoteCard,
+  NoteDetail, timeline.ts, PRODUCT_SPEC, unit timeline, e2e editor/posting/detail/
+  editor-session/zzzaccessibility, release drill/benchmark (selectors only; not run).
+  Results: `npm run check` 0 errors; eslint clean; `npm run build` pass; 148 unit
+  pass; e2e editor/editor-session/posting/detail/uploads/timeline/location-storage
+  pass (new grid drag/keyboard/remove/post test included); the two axe walks fail at
+  the known pre-existing "Choose year" button (a temporary axe scan of the new grid at
+  390 and 1280 px, light and dark, was clean and removed). Prettier warns only on
+  `docs/PROGRESS.md` (pre-existing). No Linux/integration/full-suite run; no touch
+  device drag test (HTML5 drag-and-drop does not fire on touch; Alt+Arrow/remove
+  work, mobile reorder is a known gap).
+
+- **Editor media + date picker (user request) — done / host verified.** The Date
+  icon opens the Timeline date dialog with the themed picker already shown
+  (`DateTimeField` `alwaysOpen`/`ondone`; no toggle, Done closes the dialog). The
+  files icon is now "Add photos or video": picker `accept="image/*,video/*"`, and
+  `EditorWorkspace.addFiles` (picker/paste/drop) rejects non-media, allows ≤ 9 photos
+  or exactly one video (no mixing), clearing the previous error on each attempt.
+  Client-side only; server stays generic and stores videos as ordinary files (no
+  inline playback). Touched: `DateTimeField`, `TimelineOptions`, `Composer`,
+  `EditorOptions`, `workspace.svelte.ts`, `file-kind.ts`, PRODUCT_SPEC, e2e
+  editor/posting/detail/editor-session/uploads, release drill/benchmark (use
+  photo-only and separate video posts; not run — need Docker). `npm run check` 0
+  errors, 147 unit pass, build pass; e2e editor/posting/detail/editor-session/
+  uploads/calendar/location-storage pass; the two axe walks fail at the known
+  "Choose year" button (pre-existing). Lint: eslint clean; only the pre-existing
+  Prettier warning on this file. No Linux/full-suite run.
+
 - **Nested tags (user-approved) — NT01–NT06 done, NT07 locally verified.**
   `#a/b/c` hashtags; parents include subtags for counts/filters; sidebar is a
   count-ordered collapsible tree; subtree rename/merge, scoped remove and scoped

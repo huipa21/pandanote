@@ -217,7 +217,7 @@ test('private resumable uploads, processed variants, safe active-file download a
       buffer: image,
     });
     await expect(
-      page.getByRole('button', { name: 'Add files' }).first(),
+      page.getByRole('button', { name: 'Add photos or video' }).first(),
     ).toBeEnabled();
     expect(premature).toEqual([]);
   } finally {

@@ -190,7 +190,7 @@ test.describe('axe WCAG 2.x AA scans', () => {
     await expect(
       page
         .getByTestId('composer')
-        .getByText('Attachments (1)', { exact: true }),
+        .getByRole('list', { name: 'Attachments (1)' }),
     ).toBeVisible();
     await scan(page, 'composer with attachment');
     const post = page

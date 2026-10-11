@@ -19,3 +19,14 @@ export async function localImage(file: File): Promise<boolean> {
     /\.(png|jpe?g|webp|gif|avif|bmp|tiff?)$/i.test(file.name)
   );
 }
+
+/** WeChat-Moments style: up to nine photos, or a single video, per note. */
+export const MAX_NOTE_PHOTOS = 9;
+export const MEDIA_ACCEPT = 'image/*,video/*';
+
+export function isVideoMeta(file: { type?: string; name?: string }): boolean {
+  return (
+    /^video\//i.test(file.type ?? '') ||
+    /\.(mp4|m4v|mov|webm|mkv|avi|3gp|mpe?g|ogv|wmv|flv)$/i.test(file.name ?? '')
+  );
+}

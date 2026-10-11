@@ -74,18 +74,18 @@ test('tab refresh warns, Stay retains work and Leave drops text/files without po
   const text = await start(page);
   await text.fill('Unsubmitted reload text');
   await page.getByLabel('Choose local files').setInputFiles({
-    name: 'only.txt',
-    mimeType: 'text/plain',
+    name: 'only.mp4',
+    mimeType: 'video/mp4',
     buffer: Buffer.from('local bytes'),
   });
   await page
     .getByTestId('composer')
-    .getByText('Attachments (1)', { exact: true })
-    .click();
+    .getByRole('list', { name: 'Attachments (1)' })
+    .waitFor();
   await expect(
     page
       .getByTestId('composer')
-      .getByText('only.txt', { exact: false })
+      .getByText('only.mp4', { exact: false })
       .first(),
   ).toBeVisible();
   const stay = page.waitForEvent('dialog');
@@ -104,7 +104,7 @@ test('tab refresh warns, Stay retains work and Leave drops text/files without po
   await page.waitForLoadState('domcontentloaded');
   await page.getByRole('button', { name: 'Write a note…' }).click();
   await expect(text).toHaveValue('');
-  await expect(page.getByTestId('composer').getByText('only.txt')).toHaveCount(
+  await expect(page.getByTestId('composer').getByText('only.mp4')).toHaveCount(
     0,
   );
 });

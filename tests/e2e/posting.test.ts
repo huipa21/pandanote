@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import sharp from 'sharp';
 import {
   browserSession,
   authenticatedHeaders,
@@ -17,7 +16,7 @@ async function start(page: import('@playwright/test').Page, text: string) {
 const composer = (page: import('@playwright/test').Page) =>
   page.getByTestId('composer');
 
-test('Post uploads text/image/file explicitly, confirms once and leaves no browser persistence', async ({
+test('Post uploads text/video explicitly, confirms once and leaves no browser persistence', async ({
   page,
 }) => {
   await start(page, 'Explicit media post unique');
@@ -26,23 +25,15 @@ test('Post uploads text/image/file explicitly, confirms once and leaves no brows
     if (/\/api\/(uploads|notes)/.test(r.url()) && r.method() !== 'GET')
       writes.push(r.url());
   });
-  const image = await sharp({
-    create: { width: 20, height: 12, channels: 3, background: 'green' },
-  })
-    .png()
-    .toBuffer();
-  await page.getByLabel('Choose local files').setInputFiles([
-    { name: 'image.png', mimeType: 'image/png', buffer: image },
-    {
-      name: 'file.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('exact file bytes'),
-    },
-  ]);
-  await composer(page).getByText('Attachments (2)', { exact: true }).click();
+  await page.getByLabel('Choose local files').setInputFiles({
+    name: 'clip.mp4',
+    mimeType: 'video/mp4',
+    buffer: Buffer.from('exact file bytes'),
+  });
+  await composer(page).getByRole('list', { name: 'Attachments (1)' }).waitFor();
   await expect(
     composer(page).getByRole('button', {
-      name: 'Remove file.txt',
+      name: 'Remove clip.mp4',
       exact: true,
     }),
   ).toBeAttached();
@@ -69,11 +60,10 @@ test('Post uploads text/image/file explicitly, confirms once and leaves no brows
     ).json()
   ).data;
   expect(note.attachments.map((a: { kind: string }) => a.kind)).toEqual([
-    'image',
     'file',
   ]);
   const bytes = await page.request.get(
-    `/api/attachments/${note.attachmentIds[1]}/file`,
+    `/api/attachments/${note.attachmentIds[0]}/file`,
     { headers: await authenticatedHeaders(page) },
   );
   expect((await bytes.body()).toString()).toBe('exact file bytes');
@@ -84,14 +74,14 @@ test('lost response after commit retries the same receipt without duplicate note
 }) => {
   await start(page, 'Uncertain committed note unique');
   await page.getByLabel('Choose local files').setInputFiles({
-    name: 'retry.txt',
-    mimeType: 'text/plain',
+    name: 'retry.mp4',
+    mimeType: 'video/mp4',
     buffer: Buffer.from('retry bytes'),
   });
-  await composer(page).getByText('Attachments (1)', { exact: true }).click();
+  await composer(page).getByRole('list', { name: 'Attachments (1)' }).waitFor();
   await expect(
     composer(page).getByRole('button', {
-      name: 'Remove retry.txt',
+      name: 'Remove retry.mp4',
       exact: true,
     }),
   ).toBeAttached();
@@ -127,14 +117,14 @@ test('failure before upload permits editable retry with remapped IDs and preserv
 }) => {
   await start(page, 'Retry before uploads unique');
   await page.getByLabel('Choose local files').setInputFiles({
-    name: 'retry-before.txt',
-    mimeType: 'text/plain',
+    name: 'retry-before.mp4',
+    mimeType: 'video/mp4',
     buffer: Buffer.from('before bytes'),
   });
-  await composer(page).getByText('Attachments (1)', { exact: true }).click();
+  await composer(page).getByRole('list', { name: 'Attachments (1)' }).waitFor();
   await expect(
     composer(page).getByRole('button', {
-      name: 'Remove retry-before.txt',
+      name: 'Remove retry-before.mp4',
       exact: true,
     }),
   ).toBeAttached();

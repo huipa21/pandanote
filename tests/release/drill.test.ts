@@ -138,10 +138,9 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
   await page.getByLabel('Choose local files').setInputFiles([
     { name: 'one.jpg', mimeType: 'image/jpeg', buffer: photo },
     { name: 'two.png', mimeType: 'image/png', buffer: photo2 },
-    { name: '報告.txt', mimeType: 'text/plain', buffer: fileBytes },
   ]);
   await expect(
-    page.getByTestId('composer').getByText('Attachments (3)', { exact: true }),
+    page.getByTestId('composer').getByRole('list', { name: 'Attachments (2)' }),
   ).toBeVisible();
   const before = await page.getByTestId('posted-note').count();
   await page
@@ -153,6 +152,28 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
   });
   notes.image = 'Drill image post 圖片 #Media';
 
+  // A note holds photos or one video; the video is stored as an unchanged file.
+  const startWriting = page.getByRole('button', { name: 'Write a note…' });
+  if (await startWriting.isVisible()) await startWriting.click();
+  await page
+    .getByRole('textbox', { name: 'Note text' })
+    .fill('Drill video post #Media');
+  await page.getByLabel('Choose local files').setInputFiles({
+    name: '報告.mp4',
+    mimeType: 'video/mp4',
+    buffer: fileBytes,
+  });
+  await expect(
+    page.getByTestId('composer').getByRole('list', { name: 'Attachments (1)' }),
+  ).toBeVisible();
+  await page
+    .getByTestId('composer')
+    .getByRole('button', { name: 'Post', exact: true })
+    .click();
+  await expect(page.getByTestId('posted-note')).toHaveCount(before + 2, {
+    timeout: 60_000,
+  });
+
   const timeline = (await (await api(page, A, 'get', '/api/notes')).json()).data
     .items as {
     bodyMarkdown: string;
@@ -161,9 +182,13 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
   const imagePost = timeline.find((n) =>
     n.bodyMarkdown.includes('Drill image post'),
   )!;
-  expect(imagePost.attachments).toHaveLength(3);
+  const videoPost = timeline.find((n) =>
+    n.bodyMarkdown.includes('Drill video post'),
+  )!;
+  expect(imagePost.attachments).toHaveLength(2);
+  expect(videoPost.attachments).toHaveLength(1);
   const image = imagePost.attachments.find((a) => a.kind === 'image')!;
-  const file = imagePost.attachments.find((a) => a.kind === 'file')!;
+  const file = videoPost.attachments.find((a) => a.kind === 'file')!;
   const bytes = async (path: string) =>
     Buffer.from(await (await api(page, A, 'get', path)).body());
   const imageDisplaySha = sha(

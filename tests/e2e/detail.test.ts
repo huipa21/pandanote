@@ -99,16 +99,16 @@ test('published edit saves files and dates explicitly; reload has no local recov
   await expect(text).toHaveValue(note.bodyMarkdown);
   await text.fill('Explicitly saved edit');
   await page.getByLabel('Choose local files').setInputFiles({
-    name: 'edit.txt',
-    mimeType: 'text/plain',
+    name: 'edit.mp4',
+    mimeType: 'video/mp4',
     buffer: Buffer.from('exact edit bytes'),
   });
   await page
     .getByTestId('composer')
-    .getByText('Attachments (1)', { exact: true })
-    .click();
+    .getByRole('list', { name: 'Attachments (1)' })
+    .waitFor();
   await expect(
-    page.getByRole('button', { name: 'Remove edit.txt', exact: true }),
+    page.getByRole('button', { name: 'Remove edit.mp4', exact: true }),
   ).toBeAttached();
   await save(page);
   await expect(page.getByTestId('composer')).toContainText('Saved on server.');
@@ -135,16 +135,16 @@ test('concurrent editors keep losing files and conflict copy never overwrites wi
   await edit(page, note, 'Winning edit');
   await edit(second, note, 'Losing edit unique copy');
   await second.getByLabel('Choose local files').setInputFiles({
-    name: 'losing.txt',
-    mimeType: 'text/plain',
+    name: 'losing.mp4',
+    mimeType: 'video/mp4',
     buffer: Buffer.from('losing bytes'),
   });
   await second
     .getByTestId('composer')
-    .getByText('Attachments (1)', { exact: true })
-    .click();
+    .getByRole('list', { name: 'Attachments (1)' })
+    .waitFor();
   await expect(
-    second.getByRole('button', { name: 'Remove losing.txt', exact: true }),
+    second.getByRole('button', { name: 'Remove losing.mp4', exact: true }),
   ).toBeAttached();
   await save(page);
   await expect(page.getByTestId('composer')).toContainText('Saved on server.');
@@ -185,16 +185,16 @@ test('explicit replace racing a third edit conflicts again and preserves losing 
   const second = await context.newPage();
   const text = await edit(second, note, 'Local replacement');
   await second.getByLabel('Choose local files').setInputFiles({
-    name: 'race.txt',
-    mimeType: 'text/plain',
+    name: 'race.mp4',
+    mimeType: 'video/mp4',
     buffer: Buffer.from('race bytes'),
   });
   await second
     .getByTestId('composer')
-    .getByText('Attachments (1)', { exact: true })
-    .click();
+    .getByRole('list', { name: 'Attachments (1)' })
+    .waitFor();
   await expect(
-    second.getByRole('button', { name: 'Remove race.txt', exact: true }),
+    second.getByRole('button', { name: 'Remove race.mp4', exact: true }),
   ).toBeAttached();
   await edit(page, note, 'First winner');
   await save(page);

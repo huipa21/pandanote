@@ -1,4 +1,4 @@
-import { SvelteMap } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
 import { storageLimitsFrom, type StorageLimits } from '#lib/shared/storage.ts';
 import type { ImageReference } from '#lib/shared/markdown/render.ts';
@@ -20,7 +20,11 @@ import type {
   NoteSnapshot,
 } from '#lib/shared/domain.ts';
 import { canonicalNoteSnapshot } from '#lib/shared/notes.ts';
-import { localImage } from '../uploads/file-kind.ts';
+import {
+  isVideoMeta,
+  localImage,
+  MAX_NOTE_PHOTOS,
+} from '../uploads/file-kind.ts';
 import { extractTags } from '#lib/shared/markdown/tags.ts';
 import { rewriteTagKeys, type StaleTag } from '#lib/shared/tags.ts';
 import { joinTagSuffix } from '#lib/shared/tag-tree.ts';
@@ -45,6 +49,8 @@ export class EditorWorkspace {
   private cleanSnapshot = $state<string | null>(null);
   active = $state<EditorSession | null>(null);
   images = $state<ImageReference[]>([]);
+  thumbs = $state<Record<string, string>>({});
+  private blobUrls = new SvelteMap<string, { blob: Blob; url: string }>();
   missing = $state<string[]>([]);
   error = $state('');
   status = $state('');
@@ -149,7 +155,7 @@ export class EditorWorkspace {
     this.active = { ...this.active, ...values };
   }
 
-  async addFiles(files: File[], start: number, end: number): Promise<void> {
+  async addFiles(files: File[]): Promise<void> {
     if (
       this.busy ||
       !this.ready ||
@@ -168,13 +174,46 @@ export class EditorWorkspace {
     }
 
     const session = this.active;
+    this.error = '';
     const additions: EditorAttachment[] = [];
     const blobs: [string, Blob][] = [];
-    let imageMarkdown = '';
     this.busy = true;
     try {
-      for (const file of files) {
-        const isImg = await localImage(file);
+      const kinds = await Promise.all(files.map((file) => localImage(file)));
+      const videos = files.filter(
+        (file, i) => !kinds[i] && isVideoMeta(file),
+      ).length;
+      const photos = kinds.filter(Boolean).length;
+      if (videos + photos < files.length) {
+        this.error = 'Only photos and videos can be added to a note.';
+        return;
+      }
+      const existingPhotos = session.attachments.filter(
+        (a) => a.kind === 'image',
+      ).length;
+      const existingVideos = session.attachments.filter(
+        (a) =>
+          a.kind === 'file' && isVideoMeta({ type: a.mime, name: a.filename }),
+      ).length;
+      if (videos > 1) {
+        this.error = 'A note can have only one video.';
+        return;
+      }
+      if (videos && session.attachments.length) {
+        this.error =
+          'A video cannot be combined with photos or other files. Remove them first.';
+        return;
+      }
+      if (photos && existingVideos) {
+        this.error = 'A note with a video cannot also have photos.';
+        return;
+      }
+      if (existingPhotos + photos > MAX_NOTE_PHOTOS) {
+        this.error = `You can add at most ${MAX_NOTE_PHOTOS} photos to one note.`;
+        return;
+      }
+      for (const [index, file] of files.entries()) {
+        const isImg = kinds[index]!;
         const limit = isImg
           ? this.limits.imageInputMaxBytes
           : this.limits.fileMaxBytes;
@@ -192,29 +231,12 @@ export class EditorWorkspace {
           mime: file.type || 'application/octet-stream',
           size: file.size,
         });
-        if (isImg) {
-          const label = file.name.replace(/[\\[\]\r\n]/g, ' ');
-          imageMarkdown += `\n![${label}](attachment:${id})\n`;
-        }
       }
 
-      const bodyMarkdown = imageMarkdown
-        ? session.bodyMarkdown.slice(0, start) +
-          imageMarkdown +
-          session.bodyMarkdown.slice(end)
-        : session.bodyMarkdown;
-      if (
-        new TextEncoder().encode(bodyMarkdown).byteLength >
-        this.limits.markdownMaxBytes
-      ) {
-        this.error = 'Adding images would exceed the note text limit.';
-        return;
-      }
       if (this.disposed || this.active?.localId !== session.localId) return;
       for (const [id, blob] of blobs) this.localBlobs.set(id, blob);
       this.active = {
         ...session,
-        bodyMarkdown,
         attachments: [...session.attachments, ...additions],
       };
       await this.loadFiles();
@@ -295,16 +317,21 @@ export class EditorWorkspace {
     return true;
   }
 
-  async reorderAttachment(id: string, direction: -1 | 1) {
-    if (!this.active || this.busy || this.frozen || this.conflict) return;
+  async moveAttachment(id: string, toIndex: number) {
+    if (
+      !this.active ||
+      this.busy ||
+      this.frozen ||
+      this.posting ||
+      this.conflict
+    )
+      return;
     const attachments = [...this.active.attachments];
     const index = attachments.findIndex((a) => a.id === id);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= attachments.length) return;
-    [attachments[index], attachments[target]] = [
-      attachments[target],
-      attachments[index],
-    ];
+    const target = Math.max(0, Math.min(attachments.length - 1, toIndex));
+    if (index < 0 || target === index) return;
+    const [item] = attachments.splice(index, 1);
+    attachments.splice(target, 0, item);
     this.active = { ...this.active, attachments };
   }
 
@@ -528,41 +555,61 @@ export class EditorWorkspace {
   }
 
   private revokeUrls() {
-    for (const image of this.images) {
-      if (image.url.startsWith('blob:')) URL.revokeObjectURL(image.url);
-    }
+    for (const { url } of this.blobUrls.values()) URL.revokeObjectURL(url);
+    this.blobUrls.clear();
     this.images = [];
+    this.thumbs = {};
+  }
+
+  private blobUrl(id: string, blob: Blob): string {
+    const cached = this.blobUrls.get(id);
+    if (cached?.blob === blob) return cached.url;
+    if (cached) URL.revokeObjectURL(cached.url);
+    const url = URL.createObjectURL(blob);
+    this.blobUrls.set(id, { blob, url });
+    return url;
   }
 
   setPreviewVisible(visible: boolean) {
     this.previewRequested = visible;
-    if (visible) void this.loadFiles();
-    else this.revokeUrls();
+    void this.loadFiles();
   }
 
+  /** Thumbnails are always resolved; Markdown preview images only when shown. */
   async loadFiles() {
-    this.revokeUrls();
     this.missing = [];
-    if (!this.active) return;
+    if (!this.active) {
+      this.revokeUrls();
+      return;
+    }
     const images: ImageReference[] = [];
+    const thumbs: Record<string, string> = {};
+    const live = new SvelteSet<string>();
     for (const item of this.active.attachments) {
       if (item.source === 'local' && !this.localBlobs.has(item.id))
         this.missing.push(item.id);
-      if (item.kind === 'image' && this.previewRequested) {
-        if (item.source === 'server') {
-          images.push({
-            id: item.id,
-            url: `/api/attachments/${item.id}/display`,
-          });
-        } else {
-          const blob = this.localBlobs.get(item.id);
-          if (blob) {
-            images.push({ id: item.id, url: URL.createObjectURL(blob) });
-          }
+      if (item.kind !== 'image') continue;
+      let url: string | undefined;
+      if (item.source === 'server') {
+        url = `/api/attachments/${item.id}/${this.previewRequested ? 'display' : 'thumbnail'}`;
+        thumbs[item.id] = `/api/attachments/${item.id}/thumbnail`;
+      } else {
+        const blob = this.localBlobs.get(item.id);
+        if (blob) {
+          live.add(item.id);
+          url = this.blobUrl(item.id, blob);
+          thumbs[item.id] = url;
         }
       }
+      if (url && this.previewRequested) images.push({ id: item.id, url });
     }
+    for (const [id, { url }] of this.blobUrls)
+      if (!live.has(id)) {
+        URL.revokeObjectURL(url);
+        this.blobUrls.delete(id);
+      }
     this.images = images;
+    this.thumbs = thumbs;
   }
 
   private rememberMutation(result: MutationResult) {

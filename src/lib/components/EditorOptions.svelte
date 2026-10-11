@@ -40,8 +40,8 @@
   <button
     type="button"
     disabled={locked}
-    aria-label="Add files"
-    title="Files"
+    aria-label="Add photos or video"
+    title="Photos or video"
     onclick={onFiles}
   >
     <svg viewBox="0 0 24 24" aria-hidden="true"

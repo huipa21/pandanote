@@ -756,14 +756,9 @@ test('multi-image post (4 × 12 MP photos + file): upload/processing time, writi
         .jpeg({ quality: 88 })
         .toBuffer(),
     });
-  files.push({
-    name: 'notes.txt',
-    mimeType: 'text/plain',
-    buffer: Buffer.from('benchmark file\n'.repeat(5000)),
-  });
   await page.getByLabel('Choose local files').setInputFiles(files);
   await expect(
-    page.getByTestId('composer').getByText('Attachments (5)', { exact: true }),
+    page.getByTestId('composer').getByRole('list', { name: 'Attachments (4)' }),
   ).toBeVisible();
   const before = await page.getByTestId('posted-note').count();
   const cookie = (await context.cookies()).find(
@@ -818,7 +813,7 @@ test('worst-case allowed image (49 MP) is processed within the container limits 
     .getByLabel('Choose local files')
     .setInputFiles({ name: 'huge.jpg', mimeType: 'image/jpeg', buffer: huge });
   await expect(
-    page.getByTestId('composer').getByText('Attachments (1)', { exact: true }),
+    page.getByTestId('composer').getByRole('list', { name: 'Attachments (1)' }),
   ).toBeVisible();
   const before = await page.getByTestId('posted-note').count();
   const measured = await withPeak(async () => {

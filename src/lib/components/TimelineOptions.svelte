@@ -34,10 +34,12 @@
     Choose now or earlier, in the configured app timezone. Ambiguous or
     nonexistent daylight-saving times are rejected.
   </p>
-  {#if workspace.active}
+  {#if open && workspace.active}
     <label for={fieldId}>Timeline date/time ({workspace.timezone})</label>
     <DateTimeField
       id={fieldId}
+      alwaysOpen
+      ondone={() => (open = false)}
       value={timelineInput(workspace.active.timelineAt, workspace.timezone)}
       max={timelineInput(Date.now(), workspace.timezone)}
       disabled={workspace.busy || workspace.frozen || workspace.conflict}

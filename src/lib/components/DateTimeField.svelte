@@ -1,11 +1,13 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { monthCells, monthLabel, shiftMonth } from '#lib/shared/calendar.ts';
   let {
     id,
     value,
     max,
     disabled = false,
+    alwaysOpen = false,
+    ondone,
     onchange,
   }: {
     id: string;
@@ -14,12 +16,22 @@
     /** Latest selectable local date-time; later days are disabled. */
     max: string;
     disabled?: boolean;
+    /** Show the themed picker immediately, without the toggle button. */
+    alwaysOpen?: boolean;
+    /** Called by Done; defaults to collapsing the picker. */
+    ondone?: () => void;
     onchange: (value: string) => void;
   } = $props();
   const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-  let open = $state(false);
+  const startMonth = () => {
+    const day = untrack(() => value.slice(0, 10));
+    return /^\d{4}-\d{2}/.test(day)
+      ? day.slice(0, 7)
+      : untrack(() => max).slice(0, 7);
+  };
+  let open = $state(untrack(() => alwaysOpen));
   let current = $derived(value);
-  let month = $state('');
+  let month = $state(untrack(() => (alwaysOpen ? startMonth() : '')));
   let trigger = $state<HTMLButtonElement>(null!);
   let panel = $state<HTMLDivElement>(null!);
   const date = $derived(current.slice(0, 10));
@@ -51,7 +63,7 @@
   async function toggle() {
     open = !open;
     if (!open) return;
-    month = /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : max.slice(0, 7);
+    month = startMonth();
     await tick();
     panel
       ?.querySelector<HTMLElement>(
@@ -60,7 +72,7 @@
       ?.focus();
   }
   function keydown(event: KeyboardEvent) {
-    if (event.key !== 'Escape' || !open) return;
+    if (event.key !== 'Escape' || !open || alwaysOpen) return;
     // Close only the picker; the surrounding dialog stays open.
     event.preventDefault();
     event.stopPropagation();
@@ -83,16 +95,16 @@
         onchange(event.currentTarget.value);
       }}
     />
-    <button
-      type="button"
-      class="toggle"
-      aria-label="Choose date and time"
-      aria-expanded={open}
-      aria-controls={`${id}-panel`}
-      {disabled}
-      bind:this={trigger}
-      onclick={toggle}>▾</button
-    >
+    {#if !alwaysOpen}<button
+        type="button"
+        class="toggle"
+        aria-label="Choose date and time"
+        aria-expanded={open}
+        aria-controls={`${id}-panel`}
+        {disabled}
+        bind:this={trigger}
+        onclick={toggle}>▾</button
+      >{/if}
   </div>
   {#if open}
     <div
@@ -122,6 +134,7 @@
               class="day"
               aria-label={cell}
               aria-pressed={cell === date}
+              data-initial-focus={cell === date || undefined}
               disabled={cell > max.slice(0, 10)}
               onclick={() => commit(`${cell}T${time.map(pad).join(':')}`)}
               >{Number(cell.slice(8))}</button
@@ -165,8 +178,9 @@
         type="button"
         class="primary done"
         onclick={() => {
+          if (ondone) return ondone();
           open = false;
-          trigger.focus();
+          trigger?.focus();
         }}>Done</button
       >
     </div>

@@ -7,6 +7,7 @@
   } from '#lib/client/timeline/reading.svelte.ts';
   const reading = getContext<ReadingState | undefined>(READING);
   import Markdown from './Markdown.svelte';
+  import ThumbnailGrid from './ThumbnailGrid.svelte';
   import LocationPopover from './LocationPopover.svelte';
   import Modal from './Modal.svelte';
   import {
@@ -16,6 +17,7 @@
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   import {
     cardImages,
+    gridImages,
     toggleTag,
     type TimelineCard,
     type TimelineFilters,
@@ -264,6 +266,16 @@
       }}
     />
   </div>
+  <ThumbnailGrid
+    images={gridImages(source)}
+    disabled={!ready}
+    onOpen={(id) => {
+      void pushState(`/notes/${note.id}`, {
+        detailId: note.id,
+        detailImage: id,
+      });
+    }}
+  />
   {#if note.bodyTruncated && source === note}<p class="help">
       Long note preview · full content loads on expansion.
     </p>{/if}

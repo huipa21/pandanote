@@ -268,6 +268,22 @@ export function cardImages(note: NoteSnapshot): ImageReference[] {
       height: a.thumbnailHeight ?? a.height ?? undefined,
     }));
 }
+/** Photos attached to a note but not embedded in its Markdown, in attachment order. */
+export function gridImages(
+  note: NoteSnapshot,
+): (ImageReference & { filename: string })[] {
+  const body = note.bodyMarkdown;
+  const embedded = (id: string) =>
+    body.includes(`(attachment:${id})`) ||
+    new RegExp(`:\\s*attachment:${id}`).test(body);
+  return (note.attachments ?? [])
+    .filter((a) => a.kind === 'image' && !embedded(a.id))
+    .map((a) => ({
+      id: a.id,
+      url: `/api/attachments/${a.id}/thumbnail`,
+      filename: a.filename,
+    }));
+}
 export function mergeCards(
   current: TimelineCard[],
   incoming: TimelineCard[],

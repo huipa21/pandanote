@@ -6,8 +6,9 @@
   } from '#lib/client/editor/workspace.svelte.ts';
   import type { NoteSnapshot } from '#lib/shared/domain.ts';
   import type { RenderedMarkdown } from '#lib/shared/markdown/render.ts';
-  import { cardImages } from '#lib/shared/timeline.ts';
+  import { cardImages, gridImages } from '#lib/shared/timeline.ts';
   import Modal from './Modal.svelte';
+  import ThumbnailGrid from './ThumbnailGrid.svelte';
   import LocationPopover from './LocationPopover.svelte';
   import Markdown from './Markdown.svelte';
   import ImageViewer from './ImageViewer.svelte';
@@ -144,16 +145,13 @@
           selected = id;
         }}
       />
-      {#if images.length}<ul class="gallery" aria-label="Note images">
-          {#each images as image, index (image.id)}<li>
-              <button
-                disabled={!ready}
-                onclick={() => {
-                  selected = image.id;
-                }}>Open image {index + 1}: {image.filename}</button
-              >
-            </li>{/each}
-        </ul>{/if}
+      <ThumbnailGrid
+        images={gridImages(note)}
+        disabled={!ready}
+        onOpen={(id) => {
+          selected = id;
+        }}
+      />
       <ul class="files" aria-label="Attachments">
         {#each (note.attachments ?? []).filter((file) => file.kind === 'file') as file (file.id)}<li
           >
@@ -225,10 +223,6 @@
   ul {
     padding-left: var(--space-4);
     overflow-wrap: anywhere;
-  }
-  .gallery {
-    list-style: none;
-    padding: 0;
   }
   li a {
     display: inline-flex;

@@ -61,67 +61,6 @@
       <p>{workspace.error}</p>
     </div>
   {/if}
-  {#if workspace.active?.attachments.length}
-    <details class="attachments">
-      <summary
-        >Attachments ({workspace.active.attachments.length}){workspace.missing
-          .length
-          ? ' — missing files'
-          : ''}</summary
-      >
-      <ul>
-        {#each workspace.active.attachments as item, index (item.id)}
-          <li>
-            <span
-              >{item.filename} · {item.kind} · {item.size} bytes · {item.source ===
-              'local'
-                ? 'attached'
-                : 'server reference'}</span
-            >
-            {#if workspace.missing.includes(item.id)}
-              <strong role="alert"
-                >Missing file — choose the original or remove it. Posting must
-                wait.</strong
-              >
-              <label
-                >Repair {item.filename}<input
-                  type="file"
-                  onchange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    if (file) void workspace.repairAttachment(item.id, file);
-                    event.currentTarget.value = '';
-                  }}
-                /></label
-              >
-            {/if}
-            <button
-              disabled={workspace.busy ||
-                workspace.conflict ||
-                workspace.frozen}
-              onclick={() => workspace.removeAttachment(item.id)}
-              >Remove {item.filename}</button
-            >
-            <button
-              disabled={workspace.busy ||
-                workspace.conflict ||
-                workspace.frozen ||
-                index === 0}
-              onclick={() => workspace.reorderAttachment(item.id, -1)}
-              >Move {item.filename} earlier</button
-            >
-            <button
-              disabled={workspace.busy ||
-                workspace.conflict ||
-                workspace.frozen ||
-                index === workspace.active!.attachments.length - 1}
-              onclick={() => workspace.reorderAttachment(item.id, 1)}
-              >Move {item.filename} later</button
-            >
-          </li>
-        {/each}
-      </ul>
-    </details>
-  {/if}
 </div>
 
 <style>
@@ -138,8 +77,7 @@
     display: block;
     max-width: 100%;
   }
-  .editor-error,
-  .attachments {
+  .editor-error {
     flex: none;
     max-height: 8rem;
     overflow: auto;
@@ -147,24 +85,5 @@
   }
   .editor-error p {
     margin-block: var(--space-1);
-  }
-  summary {
-    cursor: pointer;
-    padding-block: var(--space-1);
-  }
-  ul {
-    padding-left: var(--space-4);
-  }
-  li {
-    margin-bottom: var(--space-2);
-    overflow-wrap: anywhere;
-  }
-  li span,
-  li strong,
-  label {
-    display: block;
-  }
-  input {
-    max-width: 100%;
   }
 </style>

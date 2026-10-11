@@ -175,14 +175,15 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - Enter inserts a newline.
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
-- A bottom toolbar shows Tags, Files, Date and Location as icon buttons (bottom-left), matching the reference layout: icons at the left, Post at the right.
+- A bottom toolbar shows Tags, Photos/video, Date and Location as icon buttons (bottom-left), matching the reference layout: icons at the left, Post at the right.
+- The Date icon opens the Timeline date dialog with the themed date/time picker already visible (no extra toggle); Done closes the dialog.
 - One Preview switch toggles rendered Markdown and raw text without losing content.
 - A bottom-right focus icon (next to Post) enters focus mode; the same button shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
 - Mobile uses the same integrated controls in its full-screen editor.
 - Preview updates are debounced, particularly Mermaid.
-- Image paste, drag/drop, and file picker supported.
-- Images inserted at the cursor position in Markdown.
-- Other files displayed as an attachment list below the rendered note.
+- Image paste, drag/drop, and the media picker are supported. The editor accepts only images and videos (picker filtered to `image/*,video/*`; paste/drop/picker all validated), WeChat-Moments style: at most 9 photos, or exactly one video. A video cannot be combined with photos or another video. Violations show a clear editor error and add nothing.
+- Photos are not inserted into the Markdown text. Attached media appears as square thumbnails in a **3-column grid (up to 3 × 3)** below the text box, in attachment order. While editing, a thumbnail can be dragged onto another to move it (Alt+Arrow keys do the same from the keyboard) and a small **X** on each thumbnail removes it. Nothing is uploaded when files are added: picked files stay in browser memory until Post/Save changes. Timeline cards and the note detail show the same thumbnails as a 3-column grid (opening the image viewer); photos referenced inline by older notes still render in place and are not duplicated in the grid.
+- A video is stored unchanged as an ordinary file (see 10.3) and shown as a named tile in the editor and in the attachment list below the rendered note. Existing notes with other file types remain viewable/editable. Limits are enforced in the editor, not by the server.
 - Image-only and file-only notes are valid; a completely empty note is not.
 - Whitespace-only text and missing/failed attachments do not constitute content.
 

@@ -9,8 +9,35 @@ import {
   monthKey,
   mergeCards,
   boundedPreview,
+  gridImages,
   type TimelineCard,
 } from '../../src/lib/shared/timeline.ts';
+
+describe('thumbnail grid images', () => {
+  it('lists photos not embedded in Markdown, in attachment order', () => {
+    const a = '11111111-1111-4111-8111-111111111111';
+    const b = '22222222-2222-4222-8222-222222222222';
+    const c = '33333333-3333-4333-8333-333333333333';
+    const attachment = (id: string, kind: 'image' | 'file') => ({
+      id,
+      kind,
+      filename: `${kind}-${id.slice(0, 1)}`,
+    });
+    const note = {
+      bodyMarkdown: `![x](attachment:${a})\n\n![y][r]\n\n[r]: attachment:${b}`,
+      attachments: [
+        attachment(a, 'image'),
+        attachment(b, 'image'),
+        attachment(c, 'image'),
+        attachment('44444444-4444-4444-8444-444444444444', 'file'),
+      ],
+    } as unknown as Parameters<typeof gridImages>[0];
+    expect(gridImages(note).map((image) => image.id)).toEqual([c]);
+    expect(
+      gridImages({ ...note, bodyMarkdown: 'plain' }).map((i) => i.id),
+    ).toEqual([a, b, c]);
+  });
+});
 
 describe('canonical timeline state', () => {
   it('bounds UTF-8 previews without replacement characters or partial surrogate pairs', () => {

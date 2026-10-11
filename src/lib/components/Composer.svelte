@@ -5,10 +5,12 @@
     type EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
   import EditorFeedback from './EditorFeedback.svelte';
+  import AttachmentGrid from './AttachmentGrid.svelte';
   import TagAutocomplete from './TagAutocomplete.svelte';
   import EditorOptions from './EditorOptions.svelte';
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
+  import { MEDIA_ACCEPT } from '#lib/client/uploads/file-kind.ts';
 
   const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
   let preview = $state(false);
@@ -35,14 +37,12 @@
     cursor = { start: input.selectionStart, end: input.selectionEnd };
   }
   function addFiles(files: File[]) {
-    if (workspace && files.length)
-      void workspace.addFiles(files, cursor.start, cursor.end);
+    if (workspace && files.length) void workspace.addFiles(files);
   }
   function paste(event: ClipboardEvent) {
     const files = Array.from(event.clipboardData?.files ?? []);
     if (files.length && workspace) {
       event.preventDefault();
-      rememberCursor(event);
       addFiles(files);
     }
   }
@@ -50,7 +50,6 @@
     const files = Array.from(event.dataTransfer?.files ?? []);
     if (files.length && workspace) {
       event.preventDefault();
-      rememberCursor(event);
       addFiles(files);
     }
   }
@@ -202,7 +201,9 @@
           {workspace}
         />{/if}
     {/if}
-    {#if workspace}<EditorFeedback {workspace} />{/if}
+    {#if workspace}<AttachmentGrid {workspace} /><EditorFeedback
+        {workspace}
+      />{/if}
     <p class="help" id={focus ? 'expanded-help' : 'composer-help'}>
       {#if workspace}<span role="status"
           >{workspace.status ||
@@ -260,6 +261,7 @@
     tabindex="-1"
     aria-label="Choose local files"
     type="file"
+    accept={MEDIA_ACCEPT}
     multiple
     disabled={!workspace.ready || workspace.busy || workspace.frozen}
     bind:this={fileInput}

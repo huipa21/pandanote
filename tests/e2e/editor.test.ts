@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import sharp from 'sharp';
 import { browserSession } from '../helpers/browser-session.ts';
 
 test('timeline date picker is themed with site tokens and picks a day and time', async ({
@@ -17,8 +18,11 @@ test('timeline date picker is themed with site tokens and picks a day and time',
     exact: true,
   });
   const input = dialog.getByLabel(/Timeline date\/time/);
-  await dialog.getByRole('button', { name: 'Choose date and time' }).click();
   const panel = dialog.getByRole('group', { name: 'Date and time picker' });
+  await expect(panel).toBeVisible();
+  await expect(
+    dialog.getByRole('button', { name: 'Choose date and time' }),
+  ).toHaveCount(0);
   await panel.getByRole('button', { name: 'Previous month' }).click();
   await panel.getByRole('button', { name: /-15$/ }).click();
   await expect(panel.getByRole('button', { name: /-15$/ })).toHaveAttribute(
@@ -42,9 +46,143 @@ test('timeline date picker is themed with site tokens and picks a day and time',
   await panel.getByLabel('Hour').fill('7');
   await panel.getByLabel('Hour').dispatchEvent('change');
   await expect(input).toHaveValue(/-15T07:/);
-  await page.keyboard.press('Escape');
-  await expect(panel).toHaveCount(0);
-  await expect(dialog).toBeVisible();
+  await panel.getByRole('button', { name: 'Done' }).click();
+  await expect(dialog).toBeHidden();
+});
+
+test('media picker accepts only photos or one video and limits a note to nine photos', async ({
+  page,
+}) => {
+  await browserSession(page);
+  await page.goto('/');
+  const composer = page.getByTestId('composer');
+  await composer.getByRole('button', { name: 'Write a note…' }).click();
+  const input = page.getByLabel('Choose local files');
+  await expect(input).toHaveAttribute('accept', 'image/*,video/*');
+  const png = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: 'teal' },
+  })
+    .png()
+    .toBuffer();
+  const photo = (name: string) => ({
+    name,
+    mimeType: 'image/png',
+    buffer: png,
+  });
+  const video = (name: string) => ({
+    name,
+    mimeType: 'video/mp4',
+    buffer: Buffer.from('video bytes'),
+  });
+  const alert = page.getByRole('alert').first();
+
+  await input.setInputFiles({
+    name: 'notes.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('text'),
+  });
+  await expect(alert).toContainText('Only photos and videos');
+
+  await input.setInputFiles(
+    Array.from({ length: 9 }, (_, i) => photo(`p${i}.png`)),
+  );
+  const grid = (count: number) =>
+    composer.getByRole('list', { name: `Attachments (${count})` });
+  await expect(grid(9)).toBeVisible();
+  await expect(grid(9).getByRole('listitem')).toHaveCount(9);
+  await input.setInputFiles(photo('tenth.png'));
+  await expect(alert).toContainText('at most 9 photos');
+  await expect(grid(9)).toBeVisible();
+  await input.setInputFiles(video('clip.mp4'));
+  await expect(alert).toContainText('cannot be combined with photos');
+
+  for (let i = 0; i < 9; i++)
+    await composer
+      .getByRole('button', { name: `Remove p${i}.png`, exact: true })
+      .click();
+  await input.setInputFiles([video('one.mp4'), video('two.mp4')]);
+  await expect(alert).toContainText('only one video');
+  await input.setInputFiles(video('one.mp4'));
+  await expect(grid(1)).toBeVisible();
+  await expect(alert).toHaveCount(0);
+  await input.setInputFiles(photo('after-video.png'));
+  await expect(alert).toContainText('cannot also have photos');
+  await input.setInputFiles(video('second.mp4'));
+  await expect(alert).toContainText('cannot be combined with photos');
+});
+
+test('photos show as a 3-column thumbnail grid, reorder by drag, remove with X and upload only on Post', async ({
+  page,
+}) => {
+  await browserSession(page);
+  await page.goto('/');
+  const composer = page.getByTestId('composer');
+  await composer.getByRole('button', { name: 'Write a note…' }).click();
+  await composer.getByRole('textbox', { name: 'Note text' }).fill('Grid');
+  const uploads: string[] = [];
+  page.on('request', (request) => {
+    if (
+      request.method() !== 'GET' &&
+      /\/api\/(uploads|notes)/.test(request.url())
+    )
+      uploads.push(request.url());
+  });
+  const colors = ['teal', 'orange', 'purple', 'red'];
+  const files = await Promise.all(
+    colors.map(async (background, i) => ({
+      name: `c${i}.png`,
+      mimeType: 'image/png',
+      buffer: await sharp({
+        create: { width: 32, height: 32, channels: 3, background },
+      })
+        .png()
+        .toBuffer(),
+    })),
+  );
+  await page.getByLabel('Choose local files').setInputFiles(files);
+  const grid = composer.getByRole('list', { name: 'Attachments (4)' });
+  await expect(grid.locator('img')).toHaveCount(4);
+  await expect(
+    composer.getByRole('textbox', { name: 'Note text' }),
+  ).toHaveValue('Grid');
+  const lefts = await grid
+    .getByRole('listitem')
+    .evaluateAll((items) =>
+      items.map((item) => Math.round(item.getBoundingClientRect().left)),
+    );
+  expect(new Set(lefts).size).toBe(3);
+  const names = () =>
+    composer
+      .getByRole('list', { name: /^Attachments/ })
+      .getByRole('button', { name: /^c\d\.png, / })
+      .evaluateAll((items) =>
+        items.map((item) => item.getAttribute('aria-label')!.split(',')[0]),
+      );
+  expect(await names()).toEqual(['c0.png', 'c1.png', 'c2.png', 'c3.png']);
+
+  await grid
+    .getByRole('listitem')
+    .nth(0)
+    .dragTo(grid.getByRole('listitem').nth(2));
+  expect(await names()).toEqual(['c1.png', 'c2.png', 'c0.png', 'c3.png']);
+
+  await grid.getByRole('button', { name: /^c3\.png, / }).press('Alt+ArrowLeft');
+  expect(await names()).toEqual(['c1.png', 'c2.png', 'c3.png', 'c0.png']);
+
+  await composer.getByRole('button', { name: 'Remove c2.png' }).click();
+  await expect(
+    composer.getByRole('list', { name: 'Attachments (3)' }),
+  ).toBeVisible();
+  expect(await names()).toEqual(['c1.png', 'c3.png', 'c0.png']);
+  expect(uploads).toEqual([]);
+
+  await composer.getByRole('button', { name: 'Post', exact: true }).click();
+  const posted = page.getByTestId('posted-note').first();
+  await expect(posted.getByRole('list', { name: 'Note images' })).toBeVisible();
+  await expect(
+    posted.getByRole('button', { name: /^Open image \d: / }),
+  ).toHaveCount(3);
+  expect(uploads.length).toBeGreaterThan(0);
 });
 
 test('one editor surface keeps secondary actions in +, switches preview and enters/leaves focus without uploading', async ({
@@ -65,11 +203,16 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
       mutations.push(request.url());
   });
   await expect(
-    composer.getByRole('button', { name: 'Add files' }),
+    composer.getByRole('button', { name: 'Add photos or video' }),
   ).toBeVisible();
   const options = composer.getByRole('group', { name: 'Note options' });
   await expect(options).toBeVisible();
-  for (const name of ['Add tag', 'Add files', 'Set date', 'Add location'])
+  for (const name of [
+    'Add tag',
+    'Add photos or video',
+    'Set date',
+    'Add location',
+  ])
     await expect(
       options.getByRole('button', { name, exact: true }),
     ).toBeVisible();
