@@ -995,6 +995,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "pinned_at": {
+          "name": "pinned_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -1002,12 +1009,22 @@
           "name": "notes_status_timeline",
           "columns": ["status", "\"timeline_at\" DESC", "\"id\" DESC"],
           "isUnique": false
+        },
+        "notes_pinned": {
+          "name": "notes_pinned",
+          "columns": ["\"pinned_at\" DESC", "\"id\" DESC"],
+          "isUnique": false,
+          "where": "\"notes\".\"pinned_at\" IS NOT NULL"
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "note_pinned_check": {
+          "name": "note_pinned_check",
+          "value": "\"notes\".\"pinned_at\" IS NULL OR (\"notes\".\"status\" = 'published' AND \"notes\".\"pinned_at\" BETWEEN 0 AND 8640000000000000)"
+        },
         "note_status_check": {
           "name": "note_status_check",
           "value": "\"notes\".\"status\" IN ('published','trash')"

@@ -133,12 +133,16 @@ test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge
   await expect(page.getByText('1 note · 1 subtag')).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
   await page.getByRole('button', { name: 'Tag actions' }).click();
-  await expect(page.getByRole('button', { name: 'Rename Tag' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Merge Tag' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Remove Tag' })).toBeVisible();
+  await expect(
+    page.getByRole('menuitem', { name: 'Rename Tag' }),
+  ).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Merge Tag' })).toBeVisible();
+  await expect(
+    page.getByRole('menuitem', { name: 'Remove Tag' }),
+  ).toBeVisible();
 
   // Rename rewrites the full path, so the parent changes too.
-  await page.getByRole('button', { name: 'Rename Tag' }).click();
+  await page.getByRole('menuitem', { name: 'Rename Tag' }).click();
   const form = page.getByRole('dialog', { name: 'Rename Tag' });
   await expect(form.getByLabel('Tag path')).toHaveValue(`${root}/a`);
   await form.getByLabel('Tag path').fill(`${root}2/c`);
@@ -149,7 +153,7 @@ test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge
 
   // Merge the renamed tree into an existing tag.
   await page.getByRole('button', { name: 'Tag actions' }).click();
-  await page.getByRole('button', { name: 'Merge Tag' }).click();
+  await page.getByRole('menuitem', { name: 'Merge Tag' }).click();
   const merge = page.getByRole('dialog', { name: 'Merge Tag' });
   await merge.getByLabel('Merge into').fill(`${root}/b`);
   await merge.getByRole('button', { name: 'Preview tag changes' }).click();

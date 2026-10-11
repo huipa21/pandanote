@@ -28,6 +28,22 @@ export const zhCN: Partial<Catalog> = {
   'shell.clearAll': '清除全部',
   'shell.allNotes': '全部笔记',
 
+  'note.actions': '笔记操作',
+  'note.pin': '置顶',
+  'note.unpin': '取消置顶',
+  'note.unpinNote': '取消置顶此笔记',
+  'note.pinned': '已置顶',
+  'note.edit': '编辑',
+  'note.delete': '删除',
+  'note.cancel': '取消',
+  'note.tags': '笔记标签',
+  'note.inTrash': '已在回收站',
+  'note.backToTrash': '返回回收站',
+  'tag.actions': '标签操作',
+  'tag.rename': '重命名标签',
+  'tag.merge': '合并标签',
+  'tag.remove': '移除标签',
+
   'search.label': '搜索笔记',
   'search.failed': '无法加载搜索结果。请修改查询后重试。',
 

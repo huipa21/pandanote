@@ -15,6 +15,7 @@
     type CalendarState,
   } from '#lib/client/timeline/calendar.svelte.ts';
   import { localDate } from '#lib/shared/calendar.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import PageTitle from '#lib/components/PageTitle.svelte';
   import NoteCard from '#lib/components/NoteCard.svelte';
   import TagHeader from '#lib/components/TagHeader.svelte';
@@ -67,6 +68,24 @@
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const calendar = getContext<CalendarState>(CALENDAR);
   const reading = getContext<ReadingState>(READING);
+  const { t } = useI18n();
+  /** Plain "All notes" view: the only view with a Pinned section. */
+  function isPlain(value: TimelineFilters) {
+    return (
+      value.tag === undefined && !value.query && !value.day && !value.month
+    );
+  }
+  const byPin = (a: TimelineCard, b: TimelineCard) =>
+    (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0) ||
+    (a.id === b.id ? 0 : a.id < b.id ? 1 : -1);
+  /** Put a card into the Pinned section or its chronological place. */
+  function place(card: TimelineCard) {
+    pinned = pinned.filter((n) => n.id !== card.id);
+    if (isPlain(filters) && card.pinnedAt !== null) {
+      items = items.filter((n) => n.id !== card.id);
+      pinned = [...pinned, card].sort(byPin);
+    } else items = mergeCards(items, [card]);
+  }
   function queryKey(value: TimelineFilters) {
     return filterKey(value) + '|' + data.timezone + '|' + data.tagGeneration;
   }
@@ -79,6 +98,9 @@
     );
   }
   let items = $state<TimelineCard[]>(untrack(() => data.timeline?.items ?? []));
+  let pinned = $state<TimelineCard[]>(
+    untrack(() => data.timeline?.pinned ?? []),
+  );
   let nextCursor = $state<string | null>(
     untrack(() => data.timeline?.nextCursor ?? null),
   );
@@ -118,6 +140,7 @@
     id: 'published-timeline-v1',
     capture: () => ({
       items: $state.snapshot(items),
+      pinned: $state.snapshot(pinned),
       nextCursor,
       filters: $state.snapshot(filters),
       expanded: [...expanded],
@@ -140,6 +163,7 @@
       emptyMonth = value.emptyMonth;
       followScroll = true;
       items = value.items.filter(knownPublished);
+      pinned = (value.pinned ?? []).filter(knownPublished);
       nextCursor = value.nextCursor;
       filters = value.filters;
       expanded = value.expanded;
@@ -159,6 +183,7 @@
       error = '';
       if (!initial) {
         items = [];
+        pinned = [];
         nextCursor = null;
         return;
       }
@@ -170,7 +195,12 @@
       // Same-filter invalidation retains fetched older pages and their scroll context.
       // Known mutations remove/reconcile their own ID before this refresh.
       const first = initial.items.filter(knownPublished);
-      items = same ? mergeCards(items.filter(knownPublished), first) : first;
+      // The first page always carries the complete Pinned list (plain view only).
+      pinned = (initial.pinned ?? []).filter(knownPublished);
+      const pinnedIds = new Set(pinned.map((n) => n.id));
+      items = (
+        same ? mergeCards(items.filter(knownPublished), first) : first
+      ).filter((n) => !pinnedIds.has(n.id));
       if (!same || items.length <= initial.items.length)
         nextCursor = initial.nextCursor;
       loadedKey = key;
@@ -203,7 +233,12 @@
         }
         const key = queryKey(filters);
         const anchor = mounted ? captureAnchor(scroller) : null;
-        const alreadyLoaded = changed && items.some((n) => n.id === changed.id);
+        const alreadyLoaded =
+          changed &&
+          (items.some((n) => n.id === changed.id) ||
+            pinned.some((n) => n.id === changed.id));
+        const toPinned =
+          changed && isPlain(filters) && changed.pinnedAt !== null;
         const oldest = items.at(-1);
         // Never invent a gap in a partially loaded list just to display a save.
         const withinLoadedDates =
@@ -219,14 +254,24 @@
             changed.timelineAt < data.timeline.anchor) &&
           (!emptyMonth ||
             monthKey(changed.timelineAt, data.timezone) === filters.month);
-        savedOutsideRange = !matches || (!alreadyLoaded && !withinLoadedDates);
-        if (changed) items = items.filter((n) => n.id !== changed.id);
+        savedOutsideRange =
+          !matches || (!alreadyLoaded && !withinLoadedDates && !toPinned);
+        // A card that still matches stays in place (keeps its focus and position)
+        // until its re-rendered replacement arrives.
+        if (changed && !(alreadyLoaded && matches)) {
+          items = items.filter((n) => n.id !== changed.id);
+          pinned = pinned.filter((n) => n.id !== changed.id);
+        }
         void (async () => {
-          if (changed && matches && (alreadyLoaded || withinLoadedDates)) {
+          if (
+            changed &&
+            matches &&
+            (alreadyLoaded || withinLoadedDates || toPinned)
+          ) {
             try {
               const card = await snapshotCard(changed, filters.query);
               if (disposed || key !== queryKey(filters)) return;
-              items = mergeCards(items, [card]);
+              place(card);
               await tick();
               if (anchor && mounted) restoreAnchor(scroller, anchor);
             } catch {
@@ -387,15 +432,19 @@
     const recent = workspace.recentMutations;
     untrack(() => {
       for (const result of recent) {
-        const note = items.find((note) => note.id === result.noteId);
+        const note = [...items, ...pinned].find(
+          (note) => note.id === result.noteId,
+        );
         if (note && note.revision < result.revision) mutation(result);
       }
     });
   });
   function mutation(result: MutationResult) {
     const anchor = captureAnchor(scroller);
-    if (result.status !== 'published' || result.deleted)
+    if (result.status !== 'published' || result.deleted) {
       items = items.filter((n) => n.id !== result.noteId);
+      pinned = pinned.filter((n) => n.id !== result.noteId);
+    }
     const key = queryKey(filters);
     void (async () => {
       if (result.status === 'published' && !result.deleted) {
@@ -408,20 +457,25 @@
             const card = await snapshotCard(payload.data, filters.query);
             if (disposed || key !== queryKey(filters)) return;
             const oldest = items.at(-1);
+            const toPinned = isPlain(filters) && card.pinnedAt !== null;
             const visibleRange =
+              toPinned ||
               items.some((n) => n.id === card.id) ||
               !nextCursor ||
               !oldest ||
               card.timelineAt > oldest.timelineAt ||
               (card.timelineAt === oldest.timelineAt && card.id >= oldest.id);
-            items = items.filter((n) => n.id !== result.noteId);
             const matches =
               matchesFilters(payload.data, filters) &&
               (data.timeline?.anchor == null ||
                 card.timelineAt < data.timeline.anchor) &&
               (!emptyMonth ||
                 monthKey(card.timelineAt, data.timezone) === filters.month);
-            if (matches && visibleRange) items = mergeCards(items, [card]);
+            if (matches && visibleRange) place(card);
+            else {
+              items = items.filter((n) => n.id !== result.noteId);
+              pinned = pinned.filter((n) => n.id !== result.noteId);
+            }
             if (workspace.saved?.result.noteId === card.id)
               savedOutsideRange = !matches || !visibleRange;
           }
@@ -481,7 +535,7 @@
       })}>Return to Today</a
     >
   </section>
-{:else if !items.length && !data.timelineError}
+{:else if !items.length && !pinned.length && !data.timelineError}
   <section class="surface">
     <h2>
       {filters.tag !== undefined || filters.query || filters.day
@@ -493,6 +547,21 @@
         ? 'No published notes match every search term and selected filter. Remove a filter or clear all.'
         : 'Write your first note above. Published notes will appear here.'}
     </p>
+  </section>
+{/if}
+{#if pinned.length}
+  <section class="pinned" aria-labelledby="pinned-heading">
+    <h2 class="month-separator" id="pinned-heading">{t('note.pinned')}</h2>
+    {#each pinned as note (note.id)}
+      <NoteCard
+        {note}
+        {filters}
+        timezone={workspace.timezone}
+        expanded={expanded.includes(note.id)}
+        onExpansion={expansion}
+        onMutation={mutation}
+      />
+    {/each}
   </section>
 {/if}
 {#each items as note, index (note.id)}
@@ -540,6 +609,11 @@
     font-size: 1rem;
     color: var(--muted);
     margin: var(--space-2) 0 0;
+  }
+  /* Pinned cards stack like the timeline: same gap as sibling cards. */
+  .pinned {
+    display: grid;
+    gap: var(--card-gap);
   }
   .paging {
     /* Paging controls move below appended cards; never anchor the viewport to

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync } from 'node:fs';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, count, eq, isNotNull } from 'drizzle-orm';
 import {
   DomainError,
   idSchema,
@@ -11,6 +11,7 @@ import {
 } from '../../shared/domain.ts';
 import {
   canonicalNoteMutation,
+  MAX_PINNED_NOTES,
   noteMutationSchema,
   type NoteContent,
   type NoteMutation,
@@ -82,6 +83,7 @@ function snapshot(db: Reader, row: NoteRow): NoteSnapshot {
     updatedAt: row.updatedAt,
     contentEditedAt: row.contentEditedAt,
     revision: row.revision,
+    pinnedAt: row.pinnedAt,
     location:
       row.latitude === null || row.longitude === null
         ? null
@@ -249,6 +251,7 @@ export class NoteService {
           revision,
           status: 'published' as const,
           priorStatus: null,
+          pinnedAt: old?.pinnedAt ?? null,
           latitude: content.location?.latitude ?? null,
           longitude: content.location?.longitude ?? null,
           accuracy: content.location?.accuracy ?? null,
@@ -315,13 +318,44 @@ export class NoteService {
             )
             .run();
           this.enqueueUnused(tx, previousIds);
+        } else if (value.action === 'pin' || value.action === 'unpin') {
+          if (value.action === 'pin') {
+            if (old.status !== 'published' || old.pinnedAt !== null)
+              throw new DomainError(
+                'validation',
+                'Only an unpinned published note can be pinned.',
+              );
+            if (
+              tx
+                .select({ n: count() })
+                .from(notes)
+                .where(isNotNull(notes.pinnedAt))
+                .get()!.n >= MAX_PINNED_NOTES
+            )
+              throw new DomainError(
+                'validation',
+                `You can pin at most ${MAX_PINNED_NOTES} notes. Unpin one first.`,
+              );
+          } else if (old.pinnedAt === null)
+            throw new DomainError('validation', 'This note is not pinned.');
+          this.update(tx, old, {
+            pinnedAt: value.action === 'pin' ? now : null,
+            revision,
+            updatedAt: now,
+          });
         } else {
           const next = transitionNote(
             old.status,
             old.priorStatus,
             value.action,
           );
-          this.update(tx, old, { ...next, revision, updatedAt: now });
+          // Trash always unpins; restore returns an unpinned note.
+          this.update(tx, old, {
+            ...next,
+            pinnedAt: null,
+            revision,
+            updatedAt: now,
+          });
 
           status = next.status;
         }

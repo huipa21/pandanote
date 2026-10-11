@@ -8,6 +8,8 @@ import {
   getTableColumns,
   gte,
   inArray,
+  isNotNull,
+  isNull,
   lt,
   or,
   sql,
@@ -32,6 +34,7 @@ import { readSettings } from '../settings/repository.ts';
 import { attachmentDto } from '../attachments/service.ts';
 import { DomainError, type NoteSnapshot } from '../../shared/domain.ts';
 import { renderMarkdown } from '../../shared/markdown/render.ts';
+import { MAX_PINNED_NOTES } from '../../shared/notes.ts';
 import {
   CARD_SOURCE_BYTES,
   boundedPreview,
@@ -80,6 +83,106 @@ export function decodeCursor(value: string): CursorPayload {
     );
   }
 }
+type Reader = Persistence['db'];
+type CardRow = typeof notes.$inferSelect &
+  Partial<Record<'searchBody' | 'searchTag' | 'searchFilename', string | null>>;
+type TimelineItem = NoteSnapshot & {
+  bodyTruncated: boolean;
+  snippets?: SearchSnippet[];
+};
+/** Bounded card sources plus tags, files and search snippets for the given rows. */
+function hydrate(
+  tx: Pick<Reader, 'select'>,
+  rows: CardRow[],
+  units: ReturnType<typeof parseSearch>,
+): TimelineItem[] {
+  const ids = rows.map((r) => r.id);
+  const linkedTags = ids.length
+    ? tx
+        .select({ noteId: noteTags.noteId, key: tags.normalizedKey })
+        .from(noteTags)
+        .innerJoin(tags, eq(noteTags.tagId, tags.id))
+        .where(inArray(noteTags.noteId, ids))
+        .orderBy(asc(tags.normalizedKey))
+        .all()
+    : [];
+  const linkedFiles = ids.length
+    ? tx
+        .select({ noteId: noteAttachments.noteId, attachment: attachments })
+        .from(noteAttachments)
+        .innerJoin(
+          attachments,
+          eq(attachments.id, noteAttachments.attachmentId),
+        )
+        .where(inArray(noteAttachments.noteId, ids))
+        .orderBy(asc(noteAttachments.ordinal))
+        .all()
+    : [];
+  return rows.map((row) => {
+    const content = boundedPreview(row.bodyMarkdown);
+    const files = linkedFiles
+      .filter((a) => a.noteId === row.id)
+      .map((a) => attachmentDto(a.attachment));
+    const snippets = units.length
+      ? [
+          row.searchBody
+            ? searchSnippet('body', row.searchBody, units)
+            : undefined,
+          row.searchTag
+            ? searchSnippet('tag', row.searchTag, units)
+            : undefined,
+          row.searchFilename
+            ? searchSnippet('filename', row.searchFilename, units)
+            : undefined,
+        ].filter((s): s is SearchSnippet => !!s)
+      : undefined;
+    const note: NoteSnapshot & {
+      bodyTruncated: boolean;
+      snippets?: SearchSnippet[];
+    } = {
+      id: row.id,
+      status: row.status,
+      priorStatus: row.priorStatus,
+      pinnedAt: row.pinnedAt,
+      timelineAt: row.timelineAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      contentEditedAt: row.contentEditedAt,
+      revision: row.revision,
+      ...content,
+      ...(snippets ? { snippets } : {}),
+      location:
+        row.latitude === null || row.longitude === null
+          ? null
+          : {
+              latitude: row.latitude,
+              longitude: row.longitude,
+              accuracy: row.accuracy,
+              label: row.locationLabel,
+            },
+      attachmentIds: files.map((a) => a.id),
+      attachments: files,
+      tags: linkedTags.filter((t) => t.noteId === row.id).map((t) => t.key),
+    };
+    return note;
+  });
+}
+function pinnedRows(
+  tx: Pick<Reader, 'select'>,
+  units: ReturnType<typeof parseSearch>,
+) {
+  return tx
+    .select({
+      ...getTableColumns(notes),
+      bodyMarkdown: sql<string>`substr(${notes.bodyMarkdown}, 1, ${CARD_SOURCE_BYTES + 1})`,
+      ...snippetColumns(units),
+    })
+    .from(notes)
+    .where(and(eq(notes.status, 'published'), isNotNull(notes.pinnedAt)))
+    .orderBy(desc(notes.pinnedAt), desc(notes.id))
+    .limit(MAX_PINNED_NOTES)
+    .all();
+}
 export async function timelinePage(
   p: Persistence,
   identity: SessionIdentity,
@@ -113,12 +216,20 @@ export async function timelinePage(
       'validation',
       'This cursor belongs to different filters or timezone. Start from the first page.',
     );
+  // Plain "All notes" view: pinned notes live in their own first-page section and
+  // are excluded from the chronological stream.
+  const plain =
+    filters.tag === undefined &&
+    !units.length &&
+    !filters.day &&
+    !filters.month;
   const result = p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
     const predicates = [
       eq(notes.status, 'published'),
       ...searchPredicates(units),
     ];
+    if (plain) predicates.push(isNull(notes.pinnedAt));
     if (filters.day)
       predicates.push(
         gte(notes.timelineAt, filters.day.start),
@@ -165,78 +276,13 @@ export async function timelinePage(
       bounded.push(row);
       used += bytes;
     }
-    const ids = bounded.map((r) => r.id);
-    const linkedTags = ids.length
-      ? tx
-          .select({ noteId: noteTags.noteId, key: tags.normalizedKey })
-          .from(noteTags)
-          .innerJoin(tags, eq(noteTags.tagId, tags.id))
-          .where(inArray(noteTags.noteId, ids))
-          .orderBy(asc(tags.normalizedKey))
-          .all()
-      : [];
-    const linkedFiles = ids.length
-      ? tx
-          .select({ noteId: noteAttachments.noteId, attachment: attachments })
-          .from(noteAttachments)
-          .innerJoin(
-            attachments,
-            eq(attachments.id, noteAttachments.attachmentId),
-          )
-          .where(inArray(noteAttachments.noteId, ids))
-          .orderBy(asc(noteAttachments.ordinal))
-          .all()
-      : [];
-    const items = bounded.map((row) => {
-      const content = boundedPreview(row.bodyMarkdown);
-      const files = linkedFiles
-        .filter((a) => a.noteId === row.id)
-        .map((a) => attachmentDto(a.attachment));
-      const snippets = units.length
-        ? [
-            row.searchBody
-              ? searchSnippet('body', row.searchBody, units)
-              : undefined,
-            row.searchTag
-              ? searchSnippet('tag', row.searchTag, units)
-              : undefined,
-            row.searchFilename
-              ? searchSnippet('filename', row.searchFilename, units)
-              : undefined,
-          ].filter((s): s is SearchSnippet => !!s)
-        : undefined;
-      const note: NoteSnapshot & {
-        bodyTruncated: boolean;
-        snippets?: SearchSnippet[];
-      } = {
-        id: row.id,
-        status: row.status,
-        priorStatus: row.priorStatus,
-        timelineAt: row.timelineAt,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        contentEditedAt: row.contentEditedAt,
-        revision: row.revision,
-        ...content,
-        ...(snippets ? { snippets } : {}),
-        location:
-          row.latitude === null || row.longitude === null
-            ? null
-            : {
-                latitude: row.latitude,
-                longitude: row.longitude,
-                accuracy: row.accuracy,
-                label: row.locationLabel,
-              },
-        attachmentIds: files.map((a) => a.id),
-        attachments: files,
-        tags: linkedTags.filter((t) => t.noteId === row.id).map((t) => t.key),
-      };
-      return note;
-    });
+    const items = hydrate(tx, bounded, units);
+    const pinned =
+      plain && !decoded ? hydrate(tx, pinnedRows(tx, units), units) : undefined;
     const last = items.at(-1);
     return {
       items,
+      pinned,
       emptyMonth,
       nextCursor:
         emptyMonth && rows.length
@@ -260,17 +306,23 @@ export async function timelinePage(
             : null,
     };
   });
-  const items = [];
-  // Bounded sequential rendering limits simultaneous AST/highlighter work.
-  for (const note of result.items)
-    items.push({
-      ...note,
-      rendered: await renderMarkdown(note.bodyMarkdown, cardImages(note)),
-    });
+  const render = async (list: TimelineItem[]) => {
+    const out = [];
+    // Bounded sequential rendering limits simultaneous AST/highlighter work.
+    for (const note of list)
+      out.push({
+        ...note,
+        rendered: await renderMarkdown(note.bodyMarkdown, cardImages(note)),
+      });
+    return out;
+  };
+  const items = await render(result.items);
+  const pinned = result.pinned ? await render(result.pinned) : undefined;
   return {
     filters,
     anchor,
     items,
+    ...(pinned ? { pinned } : {}),
     nextCursor: result.nextCursor,
     emptyMonth: result.emptyMonth,
   };

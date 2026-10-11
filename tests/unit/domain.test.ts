@@ -60,6 +60,7 @@ it('uses UTC integer instants, explicit expected revisions and UUIDv4 IDs', () =
     createdAt: 10,
     updatedAt: 10,
     contentEditedAt: null,
+    pinnedAt: null,
     revision: 1,
     location: null,
   };
@@ -69,6 +70,17 @@ it('uses UTC integer instants, explicit expected revisions and UUIDv4 IDs', () =
   ).toBe(false);
   expect(
     noteMetadataSchema.safeParse({ ...note, title: 'not supported' }).success,
+  ).toBe(false);
+  expect(noteMetadataSchema.safeParse({ ...note, pinnedAt: 10 }).success).toBe(
+    true,
+  );
+  expect(
+    noteMetadataSchema.safeParse({
+      ...note,
+      status: 'trash',
+      priorStatus: 'published',
+      pinnedAt: 10,
+    }).success,
   ).toBe(false);
 });
 it('validates settings with safe bounded defaults, no path or origin settings', () => {

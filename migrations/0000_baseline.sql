@@ -160,6 +160,8 @@ CREATE TABLE `notes` (
 	`longitude` real,
 	`accuracy` real,
 	`location_label` text,
+	`pinned_at` integer,
+	CONSTRAINT "note_pinned_check" CHECK("notes"."pinned_at" IS NULL OR ("notes"."status" = 'published' AND "notes"."pinned_at" BETWEEN 0 AND 8640000000000000)),
 	CONSTRAINT "note_status_check" CHECK("notes"."status" IN ('published','trash')),
 	CONSTRAINT "note_trash_check" CHECK(("notes"."status" = 'trash' AND "notes"."prior_status" IS NOT NULL AND "notes"."prior_status" = 'published') OR ("notes"."status" <> 'trash' AND "notes"."prior_status" IS NULL)),
 	CONSTRAINT "note_revision_check" CHECK("notes"."revision" BETWEEN 1 AND 9007199254740991),
@@ -167,6 +169,7 @@ CREATE TABLE `notes` (
 	CONSTRAINT "note_location_check" CHECK(("notes"."latitude" IS NULL AND "notes"."longitude" IS NULL AND "notes"."accuracy" IS NULL AND "notes"."location_label" IS NULL) OR ("notes"."latitude" IS NOT NULL AND "notes"."longitude" IS NOT NULL AND "notes"."latitude" BETWEEN -90 AND 90 AND "notes"."longitude" BETWEEN -180 AND 180 AND ("notes"."accuracy" IS NULL OR "notes"."accuracy" BETWEEN 0 AND 1.7976931348623157e308) AND ("notes"."location_label" IS NULL OR length("notes"."location_label") <= 200)))
 );
 --> statement-breakpoint
+CREATE INDEX `notes_pinned` ON `notes` ("pinned_at" DESC,"id" DESC) WHERE "notes"."pinned_at" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX `notes_status_timeline` ON `notes` (`status`,"timeline_at" DESC,"id" DESC);--> statement-breakpoint
 CREATE TABLE `recovery_codes` (
 	`id` text PRIMARY KEY NOT NULL,

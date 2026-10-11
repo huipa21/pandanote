@@ -32,9 +32,14 @@ export const noteMetadataSchema = z
     contentEditedAt: instantSchema.nullable(),
     revision: revisionSchema,
     location: locationSchema.nullable(),
+    // UTC ms when pinned to the top of the plain timeline; Trash notes are never pinned.
+    pinnedAt: instantSchema.nullable(),
   })
   .refine((note) => (note.status === 'trash') === (note.priorStatus !== null), {
     message: 'Only Trash notes must retain a prior status',
+  })
+  .refine((note) => note.status === 'published' || note.pinnedAt === null, {
+    message: 'Only published notes can be pinned',
   })
   .refine(
     (note) =>

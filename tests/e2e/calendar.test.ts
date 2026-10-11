@@ -595,10 +595,7 @@ test('calendar count errors retry safely and lifecycle actions refresh all-publi
     .first()
     .getByRole('button', { name: 'Note actions' })
     .click();
-  await page
-    .getByRole('button', { name: 'Move to Trash', exact: true })
-    .click();
-  await page.getByRole('button', { name: 'Confirm move', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   await expect(page.getByTestId('posted-note')).toHaveCount(3);
   await expect(side.locator('[data-date="2024-12-31"]')).toHaveAttribute(
     'aria-label',

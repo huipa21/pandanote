@@ -95,6 +95,8 @@ export interface TimelinePage {
   anchor: number | null;
   emptyMonth?: boolean;
   items: TimelineCard[];
+  /** Plain "All notes" first page only: pinned notes, newest pin first. */
+  pinned?: TimelineCard[];
   nextCursor: string | null;
 }
 

@@ -133,7 +133,7 @@ test('NT-SIDEBAR/NT-UI: count-ordered nested tree, subtree filters, autocomplete
   // Management from the tag view: remove only the exact parent hashtag.
   await page.goto(`/?tag=${root}`);
   await page.getByRole('button', { name: 'Tag actions' }).click();
-  await page.getByRole('button', { name: 'Remove Tag' }).click();
+  await page.getByRole('menuitem', { name: 'Remove Tag' }).click();
   await expect(
     page.getByRole('radio', { name: new RegExp(`Only #${root}`) }),
   ).toBeChecked();

@@ -48,6 +48,9 @@ export const EDITOR_WORKSPACE = Symbol('editor workspace');
 export class EditorWorkspace {
   private cleanSnapshot = $state<string | null>(null);
   active = $state<EditorSession | null>(null);
+  /** Note whose card/page hosts the session. It survives "save as separate note"
+   * (the session becomes new) so that view keeps showing the editor and errors. */
+  editOrigin = $state<string | null>(null);
   images = $state<ImageReference[]>([]);
   thumbs = $state<Record<string, string>>({});
   private blobUrls = new SvelteMap<string, { blob: Blob; url: string }>();
@@ -58,7 +61,6 @@ export class EditorWorkspace {
   busy = $state(false);
   dirty = $derived(isSessionDirty(this.active, this.cleanSnapshot));
   conflict = $state(false);
-  openEditor = $state(0);
   posting = $state(false);
   postError = $state('');
   postRequiresLogin = $state(false);
@@ -133,6 +135,7 @@ export class EditorWorkspace {
     this.revokeUrls();
     this.localBlobs.clear();
     this.active = newSession();
+    this.editOrigin = null;
     this.cleanSnapshot = getSessionDigest(this.active);
     this.missing = [];
     this.error = '';
@@ -625,7 +628,7 @@ export class EditorWorkspace {
   }
 
   /** Open note for editing in memory */
-  async editNote(note: NoteSnapshot, reveal = true): Promise<boolean> {
+  async editNote(note: NoteSnapshot): Promise<boolean> {
     if (!this.ready || this.busy || this.posting) return false;
     try {
       assertEditableSnapshot(note);
@@ -658,9 +661,36 @@ export class EditorWorkspace {
         size: file.storedBytes,
       })),
     };
+    this.editOrigin = note.id;
     this.cleanSnapshot = getSessionDigest(this.active);
     await this.loadFiles();
-    if (reveal) this.openEditor++;
+    return true;
+  }
+
+  /** Does this note's card/page host the one in-memory session? */
+  isEditing(noteId: string): boolean {
+    return this.editOrigin === noteId && this.active !== null;
+  }
+
+  /** Called when the view showing an edit session goes away. An untouched edit
+   * session is dropped; one with changes stays until the user decides (guards). */
+  releaseEdit(noteId: string) {
+    if (
+      this.isEditing(noteId) &&
+      !this.dirty &&
+      !this.busy &&
+      !this.posting &&
+      !this.frozen
+    )
+      this.resetSession();
+  }
+
+  /** Make the one session a fresh new-note session. An edit of a note that is open
+   * elsewhere goes through the unsaved-changes guard first. */
+  async startNew(): Promise<boolean> {
+    if (this.editOrigin === null) return true;
+    if (!(await this.promptUnsavedChanges())) return false;
+    if (this.editOrigin !== null) this.resetSession();
     return true;
   }
 
@@ -686,7 +716,7 @@ export class EditorWorkspace {
           return false;
         }
         this.resetSession();
-        return this.editNote(result.data, false);
+        return this.editNote(result.data);
       }
       if (choice === 'replace' && observed.status === 'trash') return false;
       this.forkAttempt(choice === 'copy' ? 'new' : 'edit');

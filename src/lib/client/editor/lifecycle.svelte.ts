@@ -7,7 +7,13 @@ import {
   type NoteSnapshot,
 } from '#lib/shared/domain.ts';
 import type { ListStatus } from '#lib/shared/status-notes.ts';
-const actionSchema = z.enum(['trash', 'restore', 'permanent-delete']);
+const actionSchema = z.enum([
+  'trash',
+  'restore',
+  'permanent-delete',
+  'pin',
+  'unpin',
+]);
 const attemptSchema = z.strictObject({
   mutationId: idSchema,
   noteId: idSchema,
@@ -30,6 +36,8 @@ export class LifecycleState {
     target: LifecycleTarget;
     action: Attempt['action'];
     attempt?: Attempt;
+    /** Sent immediately without a dialog; the dialog opens only on failure. */
+    silent?: boolean;
   } | null>(null);
   busy = $state(false);
   ready = $state(false);
@@ -71,6 +79,15 @@ export class LifecycleState {
     this.selected = { target, action };
     this.error = '';
     this.observed = null;
+  }
+  /** Persist the retry record and send now. No confirmation step: failures open the
+   * lifecycle dialog in its error state (retry the same action, inspect, refresh). */
+  run(target: LifecycleTarget, action: Attempt['action']): Promise<void> {
+    if (this.busy || !this.ready) return Promise.resolve();
+    this.selected = { target, action, silent: true };
+    this.error = '';
+    this.observed = null;
+    return this.confirm();
   }
   resume(attempt: Attempt) {
     this.selected = {
@@ -137,6 +154,7 @@ export class LifecycleState {
         } catch {
           this.error =
             'The action was not sent: browser retry storage failed. Free browser storage and retry, or inspect the server version.';
+          this.selected = { ...selected, silent: false };
           return;
         }
         this.selected = { ...selected, attempt };
@@ -159,6 +177,8 @@ export class LifecycleState {
       );
       this.selected = null;
     } catch (error) {
+      // A failed immediate action surfaces its dialog (retry, inspect, refresh).
+      if (this.selected) this.selected = { ...this.selected, silent: false };
       this.error =
         (error instanceof Error && error.name !== 'AbortError'
           ? error.message

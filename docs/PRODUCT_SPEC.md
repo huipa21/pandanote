@@ -1,5 +1,20 @@
 # PandaNote — Product specification
 
+## Approved change — note card actions
+
+The user approved a tidier card and direct note actions. Tags sit in their own row
+under the card's date row. The top-right `•••` is borderless and opens a small
+anchored dropdown menu (not a modal) with **Pin**, **Edit**, **Delete**. Pinned notes
+appear at the top of the plain "All notes" timeline only and carry a one-click unpin
+icon; trashing unpins. Edit
+happens in place (in the card, or on the note page) instead of in the top composer.
+Delete moves to Trash immediately without confirmation, status text or Undo; from
+the note page it returns to the timeline. Restore and permanent delete happen only
+on the Trash page (permanent delete still confirms). Copy Markdown is removed; Archive, Share and Copy Link were considered and
+rejected. The fresh-install baseline gains `notes.pinned_at` without migration.
+Authoritative details: [note-actions/README.md](note-actions/README.md) and
+[SPEC](note-actions/SPEC.md); they supersede conflicting lines in sections 6 and 12.
+
 ## Approved change — nested tags
 
 The user approved hierarchical hashtags (`#work/meeting`), superseding the former
@@ -226,7 +241,7 @@ Implementation default: future scheduling is out of scope. Initially restrict an
 
 Trash:
 
-- Delete is soft deletion into Trash.
+- Delete is soft deletion into Trash, sent immediately from the card/note menu without a confirmation dialog (see note-actions).
 - Preserve note contents, dates and files.
 - Restore returns it to ordinary notes, preserving dates/files.
 - Permanent delete requires explicit confirmation.

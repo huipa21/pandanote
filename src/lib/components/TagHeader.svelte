@@ -3,6 +3,7 @@
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { goto } from '$app/navigation';
   import Modal from './Modal.svelte';
+  import ActionMenu, { type ActionMenuItem } from './ActionMenu.svelte';
   import PendingTagOps from './PendingTagOps.svelte';
   import {
     EDITOR_WORKSPACE,
@@ -18,21 +19,39 @@
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const ops = new TagOperations(workspace);
   const id = $props.id();
+  const { t } = useI18n();
   const LABELS = {
     rename: 'Rename Tag',
     merge: 'Merge Tag',
     remove: 'Remove Tag',
   } as const;
-  let ready = $state(false);
-  let menuOpen = $state(false);
+  let menuTrigger = $state<HTMLButtonElement>();
   let formOpen = $state(false);
   let action = $state<TagAction['action']>('rename');
   let target = $state('');
   let scope = $state<TagAction['scope']>('subtree');
-  onMount(() => {
-    ready = true;
-    return ops.start();
-  });
+  onMount(() => ops.start());
+  const menuItems = $derived<ActionMenuItem[]>([
+    {
+      id: 'rename',
+      label: t('tag.rename'),
+      icon: 'pencil',
+      onSelect: () => choose('rename'),
+    },
+    {
+      id: 'merge',
+      label: t('tag.merge'),
+      icon: 'merge',
+      onSelect: () => choose('merge'),
+    },
+    {
+      id: 'remove',
+      label: t('tag.remove'),
+      icon: 'trash',
+      danger: true,
+      onSelect: () => choose('remove'),
+    },
+  ]);
   const choices = $derived.by(() => {
     if (action !== 'merge') return [];
     const needle = tagKey(target.trim().replace(/^#/, ''));
@@ -50,7 +69,6 @@
     target = next === 'rename' ? summary.display : '';
     scope = summary.explicit ? 'exact' : 'subtree';
     ops.reset();
-    menuOpen = false;
     formOpen = true;
   }
   function operation(): TagAction {
@@ -90,23 +108,11 @@
     <p class="meta">{meta}</p>
   </div>
   <a class="leave" href={leaveHref}>{useI18n().t('shell.allNotes')}</a>
-  <button
-    type="button"
-    class="more"
-    aria-label="Tag actions"
-    aria-haspopup="dialog"
-    disabled={!ready}
-    onclick={() => {
-      menuOpen = true;
-    }}
-    ><svg aria-hidden="true" viewBox="0 0 20 20"
-      ><circle cx="4.5" cy="10" r="1.6" /><circle
-        cx="10"
-        cy="10"
-        r="1.6"
-      /><circle cx="15.5" cy="10" r="1.6" /></svg
-    ></button
-  >
+  <ActionMenu
+    label={t('tag.actions')}
+    items={menuItems}
+    bind:trigger={menuTrigger}
+  />
 </header>
 <PendingTagOps
   {ops}
@@ -117,16 +123,6 @@
     });
   }}
 />
-
-<Modal bind:open={menuOpen} title="Tag actions">
-  <div class="menu">
-    <button onclick={() => choose('rename')}>{LABELS.rename}</button>
-    <button onclick={() => choose('merge')}>{LABELS.merge}</button>
-    <button class="danger" onclick={() => choose('remove')}
-      >{LABELS.remove}</button
-    >
-  </div>
-</Modal>
 
 <Modal
   bind:open={formOpen}
@@ -281,23 +277,6 @@
     font-size: 0.875rem;
     color: var(--muted);
   }
-  .more {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: var(--target);
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--muted);
-  }
-  .more svg {
-    width: 1.25rem;
-    height: 1.25rem;
-    fill: currentColor;
-  }
-  .menu,
   form {
     display: grid;
     gap: var(--space-2);

@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { getContext, onMount, untrack } from 'svelte';
+  import { getContext, onDestroy, onMount, tick, untrack } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import {
+    EDITOR_WORKSPACE,
+    type EditorWorkspace,
+  } from '#lib/client/editor/workspace.svelte.ts';
   import {
     READING,
     type ReadingState,
@@ -8,13 +13,17 @@
   import Markdown from './Markdown.svelte';
   import ThumbnailGrid from './ThumbnailGrid.svelte';
   import LocationPopover from './LocationPopover.svelte';
-  import Modal from './Modal.svelte';
+  import ActionMenu, { type ActionMenuItem } from './ActionMenu.svelte';
+  import Icon from './Icon.svelte';
+  import NoteEditor from './NoteEditor.svelte';
   import ImageViewer from './ImageViewer.svelte';
   import {
     LIFECYCLE,
     type LifecycleState,
   } from '#lib/client/editor/lifecycle.svelte.ts';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
+  const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
+  const { t } = useI18n();
   import {
     cardImages,
     gridImages,
@@ -51,8 +60,8 @@
   let full = $state<NoteSnapshot | null>(null);
   let loading = $state(false);
   let error = $state('');
-  let menuOpen = $state(false);
-  let feedback = $state('');
+  let menuTrigger = $state<HTMLButtonElement>();
+  let editor = $state<ReturnType<typeof NoteEditor>>();
   let selectedImage = $state<string | null>(null);
   let disposed = false;
   const contentId = $props.id();
@@ -165,28 +174,62 @@
     )
       void untrack(loadFull);
   });
-  async function copy() {
-    menuOpen = false;
-    try {
-      let text = source.bodyMarkdown;
-      if (note.bodyTruncated && !full) {
-        const response = await fetch(`/api/notes/${note.id}`, {
-          signal: AbortSignal.timeout(15_000),
-        });
-        const payload = (await response.json()) as ApiResult<NoteSnapshot>;
-        if (!payload.ok) throw new Error(payload.error.message);
-        text = payload.data.bodyMarkdown;
-      }
-      await navigator.clipboard.writeText(text);
-      feedback = 'Markdown copied.';
-    } catch {
-      feedback = 'Copy failed. Use Show more and select the text to copy.';
+  const pinned = $derived(note.pinnedAt !== null);
+  // This card renders the workspace's one editor session while it edits this note.
+  const editing = $derived(workspace.isEditing(note.id));
+  const lifecycleBusy = $derived(!lifecycle.ready || lifecycle.busy);
+  const items = $derived<ActionMenuItem[]>([
+    {
+      id: 'pin',
+      label: pinned ? t('note.unpin') : t('note.pin'),
+      icon: pinned ? 'pin-off' : 'pin',
+      disabled: lifecycleBusy,
+      onSelect: () => void lifecycle.run(note, pinned ? 'unpin' : 'pin'),
+    },
+    {
+      id: 'edit',
+      label: t('note.edit'),
+      icon: 'pencil',
+      disabled: !workspace.ready || workspace.busy || workspace.posting,
+      onSelect: () => void startEdit(),
+    },
+    {
+      id: 'delete',
+      label: t('note.delete'),
+      icon: 'trash',
+      danger: true,
+      disabled: lifecycleBusy,
+      onSelect: () => void lifecycle.run(note, 'trash'),
+    },
+  ]);
+  async function startEdit() {
+    error = '';
+    let snapshot: NoteSnapshot = note;
+    if (note.bodyTruncated) {
+      await loadFull();
+      const loaded = full as NoteSnapshot | null;
+      if (!loaded) return;
+      snapshot = loaded;
     }
+    // The unsaved-changes guard runs inside editNote; Cancel keeps everything.
+    if (!(await workspace.editNote(snapshot))) {
+      error = workspace.error;
+      return;
+    }
+    await tick();
+    await editor?.focusText();
   }
-  function choose(value: 'trash') {
-    menuOpen = false;
-    lifecycle.choose(note, value);
-  }
+  // Leaving edit mode (save or cancel) returns focus to this card's trigger.
+  let wasEditing = false;
+  $effect(() => {
+    const now = editing;
+    untrack(() => {
+      const ended = wasEditing && !now;
+      wasEditing = now;
+      if (ended) void tick().then(() => menuTrigger?.focus());
+    });
+  });
+  onDestroy(() => workspace.releaseEdit(note.id));
 </script>
 
 <article
@@ -195,121 +238,132 @@
   data-note-id={note.id}
   data-revision={note.revision}
 >
-  <header>
-    <a
-      class="when"
-      href={`/notes/${note.id}`}
-      title={new Date(note.timelineAt).toLocaleString('en', {
-        timeZone: timezone,
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })}
-      ><time datetime={new Date(note.timelineAt).toISOString()}
-        >{shortDate(note.timelineAt, timezone)}</time
-      ></a
-    >
-    {#if note.contentEditedAt !== null}<span
-        class="help"
-        title={`Content edited ${new Date(note.contentEditedAt).toLocaleString('en', { timeZone: timezone })}`}
-        >Edited</span
-      >{/if}
-    <button
-      class="actions"
-      aria-label="Note actions"
-      aria-haspopup="dialog"
+  {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
+  <div class="card-view" hidden={editing} inert={editing}>
+    <header class:has-tags={note.tags.length > 0}>
+      <a
+        class="when"
+        href={`/notes/${note.id}`}
+        title={new Date(note.timelineAt).toLocaleString('en', {
+          timeZone: timezone,
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })}
+        ><time datetime={new Date(note.timelineAt).toISOString()}
+          >{shortDate(note.timelineAt, timezone)}</time
+        ></a
+      >
+      {#if note.contentEditedAt !== null}<span
+          class="help"
+          title={`Content edited ${new Date(note.contentEditedAt).toLocaleString('en', { timeZone: timezone })}`}
+          >Edited</span
+        >{/if}
+      <div class="header-actions">
+        {#if pinned}<button
+            type="button"
+            class="icon-button unpin"
+            aria-label={t('note.unpinNote')}
+            title={t('note.unpinNote')}
+            disabled={!ready || lifecycleBusy}
+            onclick={() => void lifecycle.run(note, 'unpin')}
+            ><span class="when-rest"><Icon name="pin" /></span><span
+              class="when-active"><Icon name="pin-off" /></span
+            ></button
+          >{/if}
+        <ActionMenu
+          label={t('note.actions')}
+          {items}
+          bind:trigger={menuTrigger}
+        />
+      </div>
+    </header>
+    {#if note.tags.length}<ul class="card-tags" aria-label={t('note.tags')}>
+        {#each note.tags as tag (tag)}<li>
+            <a
+              href={selectTag(filters, tag)}
+              aria-current={filters.tag === tag ? 'true' : undefined}>#{tag}</a
+            >
+          </li>{/each}
+      </ul>{/if}
+    {#if note.snippets?.length}
+      <section
+        class="search-snippets"
+        aria-label="Search excerpts (normalized text)"
+      >
+        <span class="help">Search excerpts · normalized text</span>
+        {#each note.snippets as snippet, index (index)}
+          <p>
+            <span class="muted"
+              >{snippet.field === 'body'
+                ? 'Source'
+                : snippet.field === 'tag'
+                  ? 'Tag'
+                  : 'Filename'}:
+            </span>{#each snippet.segments as segment, part (part)}{#if segment.highlighted}<mark
+                  >{segment.text}</mark
+                >{:else}{segment.text}{/if}{/each}
+          </p>
+        {/each}
+      </section>
+    {/if}
+    <div id={contentId} class="card-content" class:expanded bind:this={content}>
+      <Markdown
+        source={source.bodyMarkdown}
+        images={cardImages(source)}
+        initial={source === note ? note.rendered : undefined}
+        allowCodeCopy={source !== note || !note.bodyTruncated}
+        onImage={(id) => {
+          selectedImage = id;
+        }}
+      />
+    </div>
+    <ThumbnailGrid
+      images={gridImages(source)}
       disabled={!ready}
-      onclick={() => {
-        menuOpen = true;
-      }}>•••</button
-    >
-  </header>
-  {#if note.snippets?.length}
-    <section
-      class="search-snippets"
-      aria-label="Search excerpts (normalized text)"
-    >
-      <span class="help">Search excerpts · normalized text</span>
-      {#each note.snippets as snippet, index (index)}
-        <p>
-          <span class="muted"
-            >{snippet.field === 'body'
-              ? 'Source'
-              : snippet.field === 'tag'
-                ? 'Tag'
-                : 'Filename'}:
-          </span>{#each snippet.segments as segment, part (part)}{#if segment.highlighted}<mark
-                >{segment.text}</mark
-              >{:else}{segment.text}{/if}{/each}
-        </p>
-      {/each}
-    </section>
-  {/if}
-  <div id={contentId} class="card-content" class:expanded bind:this={content}>
-    <Markdown
-      source={source.bodyMarkdown}
-      images={cardImages(source)}
-      initial={source === note ? note.rendered : undefined}
-      allowCodeCopy={source !== note || !note.bodyTruncated}
-      onImage={(id) => {
+      onOpen={(id) => {
         selectedImage = id;
       }}
     />
-  </div>
-  <ThumbnailGrid
-    images={gridImages(source)}
-    disabled={!ready}
-    onOpen={(id) => {
-      selectedImage = id;
-    }}
-  />
-  {#if note.bodyTruncated && source === note}<p class="help">
-      Long note preview · full content loads on expansion.
-    </p>{/if}
-  {#if collapsePreference && (overflow || note.bodyTruncated || expanded)}
-    <button
-      aria-expanded={expanded}
-      aria-controls={contentId}
-      disabled={loading || !ready}
-      onclick={expand}
-      >{loading
-        ? 'Loading full note…'
-        : expanded
-          ? 'Show less'
-          : 'Show more'}</button
-    >
-  {/if}
-  {#if error}<p role="alert">
-      {error}
+    {#if note.bodyTruncated && source === note}<p class="help">
+        Long note preview · full content loads on expansion.
+      </p>{/if}
+    {#if collapsePreference && (overflow || note.bodyTruncated || expanded)}
       <button
-        onclick={() =>
-          onMutation({
-            noteId: note.id,
-            revision: note.revision,
-            status: 'published',
-            deleted: false,
-          })}>Refresh</button
+        aria-expanded={expanded}
+        aria-controls={contentId}
+        disabled={loading || !ready}
+        onclick={expand}
+        >{loading
+          ? 'Loading full note…'
+          : expanded
+            ? 'Show less'
+            : 'Show more'}</button
       >
-    </p>{/if}
-  {#if note.tags.length}<ul class="card-tags" aria-label="Note tags">
-      {#each note.tags as tag (tag)}<li>
-          <a
-            href={selectTag(filters, tag)}
-            aria-current={filters.tag === tag ? 'true' : undefined}>#{tag}</a
-          >
-        </li>{/each}
-    </ul>{/if}
-  {#if note.location}<LocationPopover location={note.location} />{/if}
-  {#if (note.attachments ?? []).some((a) => a.kind === 'file')}
-    <ul class="files" aria-label="Attachments">
-      {#each (note.attachments ?? []).filter((a) => a.kind === 'file') as file (file.id)}<li
+    {/if}
+    {#if error}<p role="alert">
+        {error}
+        <button
+          onclick={() =>
+            onMutation({
+              noteId: note.id,
+              revision: note.revision,
+              status: 'published',
+              deleted: false,
+            })}>Refresh</button
         >
-          <a href={`/api/attachments/${file.id}/file`} download
-            >{file.filename}</a
-          ><span class="help">{file.storedBytes} bytes</span>
-        </li>{/each}
-    </ul>
-  {/if}
-  {#if feedback}<p role="status">{feedback}</p>{/if}
+      </p>{/if}
+    {#if note.location}<LocationPopover location={note.location} />{/if}
+    {#if (note.attachments ?? []).some((a) => a.kind === 'file')}
+      <ul class="files" aria-label="Attachments">
+        {#each (note.attachments ?? []).filter((a) => a.kind === 'file') as file (file.id)}<li
+          >
+            <a href={`/api/attachments/${file.id}/file`} download
+              >{file.filename}</a
+            ><span class="help">{file.storedBytes} bytes</span>
+          </li>{/each}
+      </ul>
+    {/if}
+  </div>
 </article>
 {#if selectedImage && readyImages.some((image) => image.id === selectedImage)}
   <ImageViewer
@@ -320,15 +374,12 @@
     }}
   />
 {/if}
-<Modal bind:open={menuOpen} title="Note actions">
-  <button onclick={copy}>Copy Markdown</button>
-  <button class="danger" onclick={() => choose('trash')}>Move to Trash</button>
-</Modal>
 
 <style>
   .note-card {
     min-width: 0;
   }
+  /* Date row and tags row read as one compact header block. */
   header {
     display: flex;
     gap: var(--space-2);
@@ -337,8 +388,28 @@
     font-size: 0.875rem;
     margin-bottom: var(--space-3);
   }
-  .actions {
+  header.has-tags {
+    margin-bottom: 0;
+  }
+  .header-actions {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+  }
+  .unpin {
+    color: var(--accent);
+  }
+  .unpin .when-active,
+  .unpin:hover:not(:disabled) .when-rest,
+  .unpin:focus-visible .when-rest {
+    display: none;
+  }
+  .unpin:hover:not(:disabled) .when-active,
+  .unpin:focus-visible .when-active {
+    display: inline-grid;
+  }
+  .unpin .when-rest {
+    display: inline-grid;
   }
   .when {
     color: inherit;
@@ -374,9 +445,9 @@
     display: flex;
     flex-wrap: wrap;
     list-style: none;
-    gap: var(--space-2);
+    gap: 0 var(--space-3);
     padding: 0;
-    margin-bottom: 0;
+    margin: 0 0 var(--space-2);
   }
   .card-tags a {
     display: flex;
@@ -384,6 +455,12 @@
     min-height: var(--target);
     color: var(--accent);
     overflow-wrap: anywhere;
+  }
+  @media (pointer: fine) {
+    /* Desktop: a tighter row; touch keeps the full --target hit area. */
+    .card-tags a {
+      min-height: 1.75rem;
+    }
   }
   .card-tags a[aria-current='true'] {
     font-weight: 650;

@@ -12,13 +12,20 @@
     type EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
-  let open = $derived(Boolean(lifecycle.selected));
+  // Immediate (silent) actions only surface this dialog after they fail.
+  let open = $derived(
+    Boolean(lifecycle.selected && !lifecycle.selected.silent),
+  );
   const title = $derived(
     lifecycle.selected?.action === 'permanent-delete'
       ? 'Permanently delete note?'
       : lifecycle.selected?.action === 'restore'
         ? 'Restore note?'
-        : 'Move to Trash?',
+        : lifecycle.selected?.action === 'pin'
+          ? 'Pin note?'
+          : lifecycle.selected?.action === 'unpin'
+            ? 'Unpin note?'
+            : 'Move to Trash?',
   );
 </script>
 
@@ -36,7 +43,11 @@
         ? 'Permanently remove this note and any files no other note references. This cannot be undone.'
         : lifecycle.selected.action === 'restore'
           ? 'Return this note to notes, preserving dates and files.'
-          : 'Keep this note and files in Trash. It disappears from notes, search and calendar.'}
+          : lifecycle.selected.action === 'pin'
+            ? 'Keep this note at the top of All notes.'
+            : lifecycle.selected.action === 'unpin'
+              ? 'Return this note to its date position.'
+              : 'Keep this note and files in Trash. It disappears from notes, search and calendar.'}
     </p>
     {#if lifecycle.error}<p role="alert">{lifecycle.error}</p>{/if}
     {#if lifecycle.observed}<p>
@@ -80,7 +91,11 @@
             ? 'Confirm permanent delete'
             : lifecycle.selected.action === 'restore'
               ? 'Confirm restore'
-              : 'Confirm move'}</button
+              : lifecycle.selected.action === 'pin'
+                ? 'Confirm pin'
+                : lifecycle.selected.action === 'unpin'
+                  ? 'Confirm unpin'
+                  : 'Confirm move'}</button
     >
     {#if lifecycle.selected.attempt}<p class="help">
         Stopping retries does not undo or cancel an action that may already have

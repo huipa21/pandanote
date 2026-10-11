@@ -345,6 +345,7 @@ export async function trustSnapshot(
         updatedAt: row.updated_at,
         contentEditedAt: row.content_edited_at,
         revision: row.revision,
+        pinnedAt: row.pinned_at,
         location:
           row.latitude === null
             ? null

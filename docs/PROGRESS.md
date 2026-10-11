@@ -2,6 +2,14 @@
 
 ## Current state
 
+- **Note card actions (user-approved) — NA02–NA05 implemented; NA06 partly verified.**
+  Tags row under the date row; borderless `•••` opening a dropdown (`ActionMenu`) with
+  Pin, Edit, Delete; pinned notes at the top of the plain timeline with a one-click
+  unpin icon; inline edit in the card and on the note page (`NoteEditor`); Delete moves
+  to Trash without confirmation/status/Undo. Baseline gains `notes.pinned_at` (local
+  `data/` reset needed). Status, decisions and remaining checks:
+  [note-actions/PROGRESS.md](note-actions/PROGRESS.md).
+
 - **Photo thumbnail grid (user request) — done / host verified.** Added photos/videos
   no longer insert `![name](attachment:id)` into the text and the "Attachments (n)"
   `<details>` list is gone. New `AttachmentGrid.svelte` (editor) shows square

@@ -17,6 +17,7 @@
     LifecycleState,
   } from '#lib/client/editor/lifecycle.svelte.ts';
   import ConflictDialog from '#lib/components/ConflictDialog.svelte';
+  import UnsavedChangesDialog from '#lib/components/UnsavedChangesDialog.svelte';
   import StaleTagDialog from '#lib/components/StaleTagDialog.svelte';
   import {
     READING,
@@ -72,6 +73,9 @@
       void invalidate('pandanote:status-notes');
       if (page.data.detail?.id === saved.result.noteId) {
         if (saved.result.deleted) void goto('/trash', { reset: false });
+        // Delete from the note page returns to the timeline (the "All notes" link).
+        else if (saved.result.status === 'trash')
+          void goto('/', { reset: false });
         else void invalidate('pandanote:detail');
       }
     }
@@ -146,6 +150,7 @@
     </section>{/if}
   {@render children()}</AppShell
 >
+<UnsavedChangesDialog {workspace} />
 <ConflictDialog {workspace} />
 <StaleTagDialog {workspace} />
 <LifecycleDialog />

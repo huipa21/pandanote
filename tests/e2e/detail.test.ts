@@ -33,17 +33,22 @@ async function get(page: Page, id: string): Promise<NoteSnapshot> {
 }
 async function edit(page: Page, note: NoteSnapshot, body: string) {
   await page.goto(`/notes/${note.id}`);
-  await page.getByRole('button', { name: 'Edit note', exact: true }).click();
+  await openEditor(page);
   const text = page
-    .getByTestId('composer')
+    .getByTestId('inline-editor')
     .getByRole('textbox', { name: 'Note text' });
   await expect(text).toBeFocused();
   await text.fill(body);
   return text;
 }
+/** Note actions ••• → Edit on the note page: the editor opens in the page. */
+async function openEditor(page: Page) {
+  await page.getByRole('button', { name: 'Note actions' }).click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+}
 async function save(page: Page) {
   await page
-    .getByTestId('composer')
+    .getByTestId('inline-editor')
     .getByRole('button', { name: 'Save changes', exact: true })
     .click();
 }
@@ -69,10 +74,10 @@ test('private full detail supports direct refresh, no-JS reading and unchanged e
   await ssr.goto(`/notes/${note.id}`);
   await expect(ssr.getByTestId('note-detail')).toContainText(note.bodyMarkdown);
   await context.close();
-  await page.getByRole('button', { name: 'Edit note', exact: true }).click();
-  await expect(page.getByTestId('composer').getByRole('textbox')).toHaveValue(
-    note.bodyMarkdown,
-  );
+  await openEditor(page);
+  await expect(
+    page.getByTestId('inline-editor').getByRole('textbox'),
+  ).toHaveValue(note.bodyMarkdown);
   await expect(
     page.getByRole('button', { name: 'Save changes', exact: true }),
   ).toBeDisabled();
@@ -94,8 +99,8 @@ test('published edit saves files and dates explicitly; reload has no local recov
   page.once('dialog', (dialog) => dialog.accept());
   await page.reload();
   await page.goto(`/notes/${note.id}`);
-  await page.getByRole('button', { name: 'Edit note', exact: true }).click();
-  const text = page.getByTestId('composer').getByRole('textbox');
+  await openEditor(page);
+  const text = page.getByTestId('inline-editor').getByRole('textbox');
   await expect(text).toHaveValue(note.bodyMarkdown);
   await text.fill('Explicitly saved edit');
   await page.getByLabel('Choose local files').setInputFiles({
@@ -104,14 +109,16 @@ test('published edit saves files and dates explicitly; reload has no local recov
     buffer: Buffer.from('exact edit bytes'),
   });
   await page
-    .getByTestId('composer')
+    .getByTestId('inline-editor')
     .getByRole('list', { name: 'Attachments (1)' })
     .waitFor();
   await expect(
     page.getByRole('button', { name: 'Remove edit.mp4', exact: true }),
   ).toBeAttached();
   await save(page);
-  await expect(page.getByTestId('composer')).toContainText('Saved on server.');
+  await expect(page.getByTestId('note-detail')).toContainText(
+    'Saved on server.',
+  );
   const saved = await get(page, note.id);
   expect(saved.bodyMarkdown).toBe('Explicitly saved edit');
   expect(saved.timelineAt).toBe(note.timelineAt);
@@ -140,14 +147,16 @@ test('concurrent editors keep losing files and conflict copy never overwrites wi
     buffer: Buffer.from('losing bytes'),
   });
   await second
-    .getByTestId('composer')
+    .getByTestId('inline-editor')
     .getByRole('list', { name: 'Attachments (1)' })
     .waitFor();
   await expect(
     second.getByRole('button', { name: 'Remove losing.mp4', exact: true }),
   ).toBeAttached();
   await save(page);
-  await expect(page.getByTestId('composer')).toContainText('Saved on server.');
+  await expect(page.getByTestId('note-detail')).toContainText(
+    'Saved on server.',
+  );
   await save(second);
   await expect(conflict(second)).toContainText('Winning edit');
   await conflict(second)
@@ -156,7 +165,7 @@ test('concurrent editors keep losing files and conflict copy never overwrites wi
   await second
     .getByRole('button', { name: 'Confirm separate note', exact: true })
     .click();
-  await expect(second.getByTestId('composer')).toContainText(
+  await expect(second.getByTestId('note-detail')).toContainText(
     'Saved on server.',
   );
   expect((await get(page, note.id)).bodyMarkdown).toBe('Winning edit');
@@ -190,7 +199,7 @@ test('explicit replace racing a third edit conflicts again and preserves losing 
     buffer: Buffer.from('race bytes'),
   });
   await second
-    .getByTestId('composer')
+    .getByTestId('inline-editor')
     .getByRole('list', { name: 'Attachments (1)' })
     .waitFor();
   await expect(
@@ -198,7 +207,9 @@ test('explicit replace racing a third edit conflicts again and preserves losing 
   ).toBeAttached();
   await edit(page, note, 'First winner');
   await save(page);
-  await expect(page.getByTestId('composer')).toContainText('Saved on server.');
+  await expect(page.getByTestId('note-detail')).toContainText(
+    'Saved on server.',
+  );
   await save(second);
   await expect(conflict(second)).toBeVisible();
   await conflict(second)
@@ -232,7 +243,7 @@ test('explicit replace racing a third edit conflicts again and preserves losing 
   await second
     .getByRole('button', { name: 'Confirm replace', exact: true })
     .click();
-  await expect(second.getByTestId('composer')).toContainText(
+  await expect(second.getByTestId('note-detail')).toContainText(
     'Saved on server.',
   );
   const replaced = await get(page, note.id);

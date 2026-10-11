@@ -165,6 +165,12 @@ it('restores an independent initialized instance: all statuses/date/location/tag
       noteId: c.noteId,
       expectedRevision: 1,
     });
+    notes.mutate(f.identity, {
+      action: 'pin',
+      mutationId: randomUUID(),
+      noteId: b.noteId,
+      expectedRevision: 1,
+    });
     const image = await sharp({
       create: { width: 20, height: 15, channels: 3, background: '#3f6b4d' },
     })
@@ -290,6 +296,7 @@ it('restores an independent initialized instance: all statuses/date/location/tag
         f.identity.account.id,
       );
       const restoredNotes = new NoteService(destination);
+      expect(snapshots[1].pinnedAt).toBeGreaterThan(0);
       for (const snapshot of snapshots)
         expect(restoredNotes.get(restored, snapshot.id)).toEqual(snapshot);
       expect(restoredNotes.mutate(restored, command)).toEqual(media);

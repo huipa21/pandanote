@@ -1,5 +1,20 @@
 # PandaNote — Architecture and technical contracts
 
+## Current override — note card actions
+
+`notes.pinned_at` (nullable UTC ms, published only, partial index) is added to the
+fresh baseline in place; `pin`/`unpin` are revision-checked lifecycle commands with
+receipts; `trash` clears the pin. The plain timeline (no tag/query/day/month) returns
+at most 20 pinned notes on its first page and excludes them from the paged stream.
+A shared `ActionMenu` dropdown replaces the card/tag-header action modals; a shared
+`NoteEditor` lets the single workspace session render inline in a card or the note
+page. Lifecycle Delete runs without a confirmation step but keeps durable retry
+records; `LifecycleDialog` opens only on failure. Note-page Delete returns to `/`;
+the Trash-note page is read-only (lifecycle actions live on the Trash page only).
+Contracts in sections 4.4, 10.3,
+11.3 and 11.4 that conflict are superseded by
+[note-actions/SPEC.md](note-actions/SPEC.md).
+
 ## Current override — nested tags
 
 Hashtags may contain up to 5 `/`-separated segments (64 codepoints each, 128 per

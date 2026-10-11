@@ -132,12 +132,21 @@ export const notes = sqliteTable(
     longitude: real('longitude'),
     accuracy: real('accuracy'),
     locationLabel: text('location_label'),
+    // UTC ms the note was pinned; only published notes can be pinned.
+    pinnedAt: integer('pinned_at'),
   },
   (t) => [
     index('notes_status_timeline').on(
       t.status,
       sql`${t.timelineAt} DESC`,
       sql`${t.id} DESC`,
+    ),
+    index('notes_pinned')
+      .on(sql`${t.pinnedAt} DESC`, sql`${t.id} DESC`)
+      .where(sql`${t.pinnedAt} IS NOT NULL`),
+    check(
+      'note_pinned_check',
+      sql`${t.pinnedAt} IS NULL OR (${t.status} = 'published' AND ${t.pinnedAt} BETWEEN 0 AND 8640000000000000)`,
     ),
     check('note_status_check', sql`${t.status} IN ('published','trash')`),
     check(

@@ -1,5 +1,13 @@
 # PandaNote — Acceptance and verification matrix
 
+## Note card actions (approved change)
+
+Cases NA-LAYOUT, NA-MENU, NA-PIN, NA-EDIT, NA-DELETE in
+[note-actions/ACCEPTANCE_TESTS.md](note-actions/ACCEPTANCE_TESTS.md). Card/note-page
+Delete no longer asks for confirmation and shows no Undo; the note page has no
+Restore/Permanently delete (NOTE-02 restore and confirmed permanent delete run from
+the Trash page).
+
 ## Current change acceptance (supersedes DRAFT-01–05)
 
 - EDITOR-01: no Drafts UI/status/actions or browser note/blob persistence; ordinary

@@ -25,6 +25,22 @@ export const en = {
   'shell.clearAll': 'Clear all',
   'shell.allNotes': 'All notes',
 
+  'note.actions': 'Note actions',
+  'note.pin': 'Pin',
+  'note.unpin': 'Unpin',
+  'note.unpinNote': 'Unpin note',
+  'note.pinned': 'Pinned',
+  'note.edit': 'Edit',
+  'note.delete': 'Delete',
+  'note.cancel': 'Cancel',
+  'note.tags': 'Note tags',
+  'note.inTrash': 'In Trash',
+  'note.backToTrash': 'Back to Trash',
+  'tag.actions': 'Tag actions',
+  'tag.rename': 'Rename Tag',
+  'tag.merge': 'Merge Tag',
+  'tag.remove': 'Remove Tag',
+
   'search.label': 'Search notes',
   'search.failed': 'Search could not load. Edit the query to retry.',
 

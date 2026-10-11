@@ -281,10 +281,8 @@ test('bounded 300-card DOM growth is measured before virtualization; menu lifecy
   });
   expect(update.status()).toBe(200);
   await race.getByRole('button', { name: 'Note actions' }).click();
-  await page
-    .getByRole('button', { name: 'Move to Trash', exact: true })
-    .click();
-  await page.getByRole('button', { name: 'Confirm move', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+  // Delete has no confirmation; a stale revision opens the dialog in error state.
   await expect(
     page.getByRole('dialog', { name: 'Move to Trash?' }).getByRole('alert'),
   ).toContainText('changed');
@@ -299,10 +297,7 @@ test('bounded 300-card DOM growth is measured before virtualization; menu lifecy
   await expect(page.getByTestId('posted-note')).toHaveCount(300);
   const last = page.getByTestId('posted-note').last();
   await last.getByRole('button', { name: 'Note actions' }).click();
-  await page
-    .getByRole('button', { name: 'Move to Trash', exact: true })
-    .click();
-  await page.getByRole('button', { name: 'Confirm move', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   await expect(page.getByTestId('posted-note')).toHaveCount(299);
   const cookies = await page.context().cookies();
   const result = await page.request.get(`/api/notes/${fixtureIds.at(-1)}`, {

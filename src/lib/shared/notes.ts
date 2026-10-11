@@ -8,6 +8,9 @@ import {
 import { MAX_MARKDOWN_LENGTH } from './markdown/parse.ts';
 import { tagAcknowledgementsSchema } from './tags.ts';
 
+/** At most this many notes can be pinned at once. */
+export const MAX_PINNED_NOTES = 20;
+
 export const noteContentSchema = z.strictObject({
   tagAcknowledgements: tagAcknowledgementsSchema.optional(),
   bodyMarkdown: z
@@ -49,6 +52,8 @@ export const noteMutationSchema = z.discriminatedUnion('action', [
     content: noteContentSchema,
   }),
   z.strictObject({ ...existing, action: z.literal('trash') }),
+  z.strictObject({ ...existing, action: z.literal('pin') }),
+  z.strictObject({ ...existing, action: z.literal('unpin') }),
   z.strictObject({ ...existing, action: z.literal('restore') }),
   z.strictObject({
     ...existing,
