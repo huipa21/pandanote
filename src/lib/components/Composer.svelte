@@ -148,24 +148,6 @@
 
 {#snippet editor(focus: boolean)}
   <div class="editor-container" class:focus-editor={focus}>
-    <button
-      class="focus-control"
-      type="button"
-      aria-label={focus ? 'Close Write a note' : 'Enter focus mode'}
-      title={focus ? 'Close focus mode' : 'Focus mode'}
-      onclick={() => {
-        void handleCloseEditor(focus);
-      }}
-    >
-      {#if focus}<svg viewBox="0 0 24 24" aria-hidden="true"
-          ><path d="m6 6 12 12M18 6 6 18" /></svg
-        >
-      {:else}<svg viewBox="0 0 24 24" aria-hidden="true"
-          ><path
-            d="M8 3H3v5m0-5 6 6m7-6h5v5m0-5-6 6M3 16v5h5m-5 0 6-6m12 1v5h-5m5 0-6-6"
-          /></svg
-        >{/if}
-    </button>
     {#if preview}
       <div
         class="preview-pane"
@@ -249,6 +231,24 @@
         ><span class="switch-track" aria-hidden="true"><span></span></span
         >Preview</button
       >
+      <button
+        class="focus-control"
+        type="button"
+        aria-label={focus ? 'Close Write a note' : 'Enter focus mode'}
+        title={focus ? 'Close focus mode' : 'Focus mode'}
+        onclick={() => {
+          void handleCloseEditor(focus);
+        }}
+      >
+        {#if focus}<svg viewBox="0 0 24 24" aria-hidden="true"
+            ><path d="m6 6 12 12M18 6 6 18" /></svg
+          >
+        {:else}<svg viewBox="0 0 24 24" aria-hidden="true"
+            ><path
+              d="M8 3H3v5m0-5 6 6m7-6h5v5m0-5-6 6M3 16v5h5m-5 0 6-6m12 1v5h-5m5 0-6-6"
+            /></svg
+          >{/if}
+      </button>
       {@render postButton()}
     </div>
   </div>
@@ -389,14 +389,11 @@
     flex: 1;
   }
   .focus-control {
-    position: absolute;
-    top: var(--space-1);
-    right: var(--space-1);
-    z-index: 1;
     width: var(--target);
     padding: 0;
     border: 0;
     color: var(--muted);
+    margin-left: auto;
   }
   .focus-control svg {
     width: 1.125rem;
@@ -410,7 +407,7 @@
   }
   textarea,
   .preview-pane {
-    padding: var(--target) var(--space-3) var(--space-2);
+    padding: var(--space-3) var(--space-3) var(--space-2);
     min-height: 5rem;
     width: 100%;
   }
@@ -444,11 +441,12 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    padding: var(--space-1);
     flex: none;
+    flex-wrap: wrap;
+    padding: var(--space-1);
   }
   .editor-footer .primary {
-    margin-left: auto;
+    margin-left: var(--space-1);
   }
   .preview-switch {
     display: flex;

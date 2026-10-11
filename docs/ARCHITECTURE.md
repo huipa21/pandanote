@@ -1061,8 +1061,9 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   Observers respect clipping/scroll containers, keep theme refresh to currently
   visible diagrams, and disconnect/abort queued work on replacement or unmount.
   Compact and focus/mobile editors share one integrated surface and an ARIA Preview
-  switch. Bottom-left + opens a native, light-dismissed popover for local Tags/Files
-  and the existing Date/Location dialogs. Top-right expand/X enters/leaves the
+  switch. A bottom toolbar of icon buttons (Tags/Files/Date/Location) triggers local
+  Tags/Files and the existing Date/Location dialogs. The bottom-right expand/X
+  enters/leaves the
   native focus editor; its custom header stays visually inside the same surface.
   The inline editor remains mounted but hidden/inert during focus mode so opener
   return is preserved; only the visible preview renders Markdown. Rendering never

@@ -22,7 +22,6 @@ async function start(page: Page) {
 }
 async function location(page: Page) {
   const composer = page.getByTestId('composer');
-  await composer.getByRole('button', { name: 'Add note options' }).click();
   await composer.getByRole('button', { name: /^(Add|Edit) location$/ }).click();
   return page.getByRole('dialog', { name: 'Note location', exact: true });
 }

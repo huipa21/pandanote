@@ -171,7 +171,7 @@ current requirements. Current acceptance is EDITOR-01–05/YEAR-01 below in the 
 3. Add lazy/cached Shiki highlighting, language labels and original-code copy controls.
 4. Add Mermaid only for fenced mermaid blocks; dynamic import, strict security, safe SVG sanitization, visible-only rendering, syntax errors/size limits/debounced preview.
 5. Implement hashtag AST parser/source offsets with Unicode grammar, case normalization, deduplication and excluded contexts.
-6. Add a single Preview switch; integrate bottom-left + secondary options and top-right focus/close icons into the textarea-style container (user-approved editor simplification). No publish keyboard shortcut.
+6. Add a single Preview switch; integrate bottom-toolbar Tags/Files/Date/Location icons and the bottom-right focus/close icon into the textarea-style container (user-approved editor simplification). No publish keyboard shortcut.
 7. Test sanitizer attack fixtures and actual browser SVG output. Do not trust library “strict” mode as the only protection.
 
 ### Acceptance gate

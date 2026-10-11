@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { tick } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
   import LocationOptions from './LocationOptions.svelte';
@@ -13,10 +12,6 @@
     onTag: () => void;
     onFiles: () => void;
   } = $props();
-  const id = $props.id();
-  let menu = $state<HTMLDivElement>();
-  let trigger = $state<HTMLButtonElement>();
-  let showing = $state(false);
   let dateOpen = $state(false);
   let locationOpen = $state(false);
   let locked = $derived(
@@ -25,96 +20,64 @@
       workspace.conflict ||
       workspace.frozen,
   );
-
-  function select(action: 'tags' | 'files' | 'date' | 'location') {
-    menu?.hidePopover();
-    trigger?.focus();
-    if (action === 'tags') onTag();
-    else if (action === 'files') onFiles();
-    else if (action === 'date') dateOpen = true;
-    else locationOpen = true;
-  }
-  async function keydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      menu?.hidePopover();
-      trigger?.focus();
-    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      menu?.showPopover();
-      await tick();
-      const buttons = [
-        ...(menu?.querySelectorAll<HTMLButtonElement>('button') ?? []),
-      ];
-      const index = buttons.indexOf(
-        document.activeElement as HTMLButtonElement,
-      );
-      const step = event.key === 'ArrowDown' ? 1 : -1;
-      const next =
-        index < 0
-          ? step > 0
-            ? 0
-            : buttons.length - 1
-          : (index + step + buttons.length) % buttons.length;
-      buttons[next]?.focus();
-    }
-  }
+  let locationLabel = $derived(
+    workspace?.active?.location ? 'Edit location' : 'Add location',
+  );
 </script>
 
-<div class="options-anchor">
+<div class="note-options" role="group" aria-label="Note options">
   <button
-    bind:this={trigger}
-    class="add-options"
     type="button"
-    aria-label="Add note options"
-    aria-expanded={showing}
-    aria-controls={id}
-    popovertarget={id}
     disabled={locked}
-    onkeydown={keydown}
-    title="Tags, files, date, location">+</button
+    aria-label="Add tag"
+    title="Tags"
+    onclick={onTag}
   >
-  <div
-    bind:this={menu}
-    {id}
-    popover="auto"
-    class="options-menu"
-    role="group"
-    aria-label="Note options"
-    ontoggle={(event) => {
-      showing = event.newState === 'open';
-    }}
+    <svg viewBox="0 0 24 24" aria-hidden="true"
+      ><path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" /></svg
+    >
+  </button>
+  <button
+    type="button"
+    disabled={locked}
+    aria-label="Add files"
+    title="Files"
+    onclick={onFiles}
   >
-    <button
-      type="button"
-      disabled={locked}
-      onkeydown={keydown}
-      onclick={() => select('tags')}>Tags</button
+    <svg viewBox="0 0 24 24" aria-hidden="true"
+      ><rect x="3" y="4" width="18" height="16" rx="2" /><circle
+        cx="9"
+        cy="10"
+        r="1.5"
+      /><path d="m21 16-5-5-9 9" /></svg
     >
-    <button
-      type="button"
-      disabled={locked}
-      onkeydown={keydown}
-      onclick={() => select('files')}
-      aria-label="Add files">Files</button
+  </button>
+  <button
+    type="button"
+    disabled={locked}
+    aria-label="Set date"
+    title="Date"
+    onclick={() => (dateOpen = true)}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true"
+      ><rect x="3" y="5" width="18" height="16" rx="2" /><path
+        d="M3 10h18M8 3v4m8-4v4"
+      /></svg
     >
-    <button
-      type="button"
-      disabled={locked}
-      onkeydown={keydown}
-      onclick={() => select('date')}>Date</button
+  </button>
+  <button
+    type="button"
+    disabled={locked}
+    aria-label={locationLabel}
+    title="Location"
+    onclick={() => (locationOpen = true)}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true"
+      ><path
+        d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21Z"
+      /><circle cx="12" cy="9.5" r="2.5" /></svg
     >
-    <button
-      type="button"
-      disabled={locked}
-      onkeydown={keydown}
-      onclick={() => select('location')}
-      aria-label={workspace?.active?.location
-        ? 'Edit location'
-        : 'Add location'}>Location</button
-    >
-  </div>
+  </button>
 </div>
 {#if workspace}
   <TimelineOptions {workspace} bind:open={dateOpen} showTrigger={false} />
@@ -122,43 +85,28 @@
 {/if}
 
 <style>
-  .options-anchor {
-    position: relative;
-    anchor-scope: --editor-options;
+  .note-options {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
   }
-  .add-options {
+  .note-options button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: var(--target);
     padding: 0;
     border: 0;
-    font-size: 1.5rem;
+    background: transparent;
     color: var(--muted);
   }
-  .options-menu {
-    /* Native top-layer popover, anchored above + even in a scrolling editor. */
-    position: absolute;
-    inset: auto;
-    bottom: anchor(top);
-    left: anchor(left);
-    position-anchor: --editor-options;
-    margin: 0 0 var(--space-1);
-    padding: var(--space-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: 0 4px 16px var(--overlay);
-    max-height: min(16rem, 70dvh);
-    overflow: auto;
-  }
-  .add-options {
-    anchor-name: --editor-options;
-  }
-  .options-menu:popover-open {
-    display: grid;
-    min-width: 9rem;
-  }
-  .options-menu button {
-    border: 0;
-    text-align: left;
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 </style>

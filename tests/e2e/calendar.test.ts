@@ -646,11 +646,7 @@ test('posting from the composer invalidates calendar counts and a delayed image 
   });
   await page
     .getByTestId('composer')
-    .getByRole('button', { name: 'Add note options' })
-    .click();
-  await page
-    .getByTestId('composer')
-    .getByRole('button', { name: 'Date', exact: true })
+    .getByRole('button', { name: 'Set date', exact: true })
     .click();
   const input = page.getByLabel('Timeline date/time (UTC)').first();
   await input.fill('2024-12-30T12:00');

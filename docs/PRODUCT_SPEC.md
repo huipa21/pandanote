@@ -166,9 +166,9 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - Enter inserts a newline.
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
-- A bottom-left + opens secondary Tags, Files, Date and Location options; do not display those buttons permanently.
+- A bottom toolbar shows Tags, Files, Date and Location as icon buttons (bottom-left), matching the reference layout: icons at the left, Post at the right.
 - One Preview switch toggles rendered Markdown and raw text without losing content.
-- A top-right expand icon enters focus mode; the same corner shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
+- A bottom-right focus icon (next to Post) enters focus mode; the same button shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
 - Mobile uses the same integrated controls in its full-screen editor.
 - Preview updates are debounced, particularly Mermaid.
 - Image paste, drag/drop, and file picker supported.

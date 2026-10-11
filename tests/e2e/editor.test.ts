@@ -20,49 +20,41 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   });
   await expect(
     composer.getByRole('button', { name: 'Add files' }),
-  ).not.toBeVisible();
-  await expect(
-    composer.getByRole('button', { name: 'Date', exact: true }),
-  ).not.toBeVisible();
-  const plus = composer.getByRole('button', { name: 'Add note options' });
-  await plus.click();
-  await expect(plus).toHaveAttribute('aria-expanded', 'true');
+  ).toBeVisible();
   const options = composer.getByRole('group', { name: 'Note options' });
   await expect(options).toBeVisible();
-  for (const name of ['Tags', 'Add files', 'Date', 'Add location'])
+  for (const name of ['Add tag', 'Add files', 'Set date', 'Add location'])
     await expect(
       options.getByRole('button', { name, exact: true }),
     ).toBeVisible();
-  const plusBox = (await plus.boundingBox())!;
-  const menuBox = (await options.boundingBox())!;
-  expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(plusBox.y);
-  await options.getByRole('button', { name: 'Tags', exact: true }).click();
+  const optionsBox = (await options.boundingBox())!;
+  const postBox = (await composer
+    .getByRole('button', { name: 'Post', exact: true })
+    .boundingBox())!;
+  const focusBox = (await composer
+    .getByRole('button', { name: 'Enter focus mode' })
+    .boundingBox())!;
+  const textBox = (await text.boundingBox())!;
+  expect(optionsBox.y).toBeGreaterThanOrEqual(textBox.y + textBox.height);
+  expect(focusBox.y).toBeGreaterThanOrEqual(textBox.y + textBox.height);
+  expect(focusBox.x + focusBox.width).toBeLessThanOrEqual(postBox.x);
+  await options.getByRole('button', { name: 'Add tag', exact: true }).click();
   await expect(text).toBeFocused();
   await expect(text).toHaveValue('**Quiet writing** #');
   await text.fill('**Quiet writing**');
-  await plus.focus();
-  await plus.press('ArrowDown');
-  await expect(options.getByRole('button', { name: 'Tags' })).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(options).not.toBeVisible();
-  await expect(plus).toBeFocused();
-  await plus.press('ArrowUp');
-  await expect(
-    options.getByRole('button', { name: 'Add location' }),
-  ).toBeFocused();
-  await text.click();
-  await expect(options).not.toBeVisible();
-  await plus.click();
-  await options.getByRole('button', { name: 'Date', exact: true }).click();
+  const dateButton = options.getByRole('button', {
+    name: 'Set date',
+    exact: true,
+  });
+  await dateButton.click();
   const date = page.getByRole('dialog', { name: 'Timeline date', exact: true });
   const dateInput = date.getByLabel(/Timeline date\/time/);
   await dateInput.fill('9999-01-01T12:00');
   await dateInput.dispatchEvent('change');
   await expect(date.getByRole('alert')).toContainText('now or earlier');
   await page.keyboard.press('Escape');
-  await expect(plus).toBeFocused();
-  await plus.click();
-  await options.getByRole('button', { name: 'Date', exact: true }).click();
+  await expect(dateButton).toBeFocused();
+  await dateButton.click();
   await expect(date.getByRole('alert')).toHaveCount(0);
   await page.keyboard.press('Escape');
   const preview = composer.getByRole('switch', { name: 'Preview' });
@@ -89,7 +81,7 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   );
   const container = (await focus.locator('.editor-container').boundingBox())!;
   for (const control of [
-    focus.getByRole('button', { name: 'Add note options' }),
+    focus.getByRole('group', { name: 'Note options' }),
     focus.getByRole('switch', { name: 'Preview' }),
     focus.getByRole('button', { name: 'Post', exact: true }),
     focus.getByRole('button', { name: 'Close Write a note' }),

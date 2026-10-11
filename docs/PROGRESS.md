@@ -2,6 +2,25 @@
 
 ## Current state
 
+- **Editor toolbar layout (user request) — done / host verified.** Tags/Files/Date/
+  Location are now direct icon buttons at the bottom-left of the editor (the `+`
+  popover is removed); the focus expand/X button moved from the top-right corner to
+  the bottom row beside Post. Touched: `Composer.svelte`, `EditorOptions.svelte`,
+  docs (spec/architecture/plan/acceptance), and e2e tests editor/calendar/
+  location-storage/uploads. Accessible names: Add tag, Add files, Set date,
+  Add/Edit location. `npm run check` 0 errors, eslint clean, `npm run build` pass;
+  e2e editor/location-storage/uploads/calendar/editor-session/accessibility pass;
+  `shell.test.ts` passes with `--ignore-snapshots` (7/7). Two shell screenshot tests
+  fail on this host only because baselines are light and the host renders dark
+  (pre-existing, unrelated to editor). E2E on Windows needs `openssl` on PATH
+  (Git's `usr\bin`) and a fresh `npm run build`. No Linux/full-suite rerun. Next:
+  visual review on
+  a physical mobile device.
+
+- **Nested tags — planned, not approved.** Plan in
+  [docs/nested-tags/](nested-tags/README.md); reverses the PRODUCT_SPEC "flat tags
+  only" non-goal, so the user must answer its open questions before NT01. No code.
+
 - **Startup incompatibility diagnosis / recovery guidance — host verified.** At
   clean user HEAD `8cb3dbd`, local `data/db/pandanote.sqlite` matches the previous
   commit's pre-no-drafts baseline, not current SQL (same numeric schema 2). Read-only

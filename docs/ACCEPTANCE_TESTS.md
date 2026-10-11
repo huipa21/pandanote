@@ -238,11 +238,12 @@ At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No cl
 ### UI-EDITOR — Concise integrated composer
 
 Writing, preview, feedback and Post/Save changes share one textarea-style surface.
-Only bottom-left +, Preview switch, top-right focus icon and publishing control are
-permanent editor actions. + opens Tags/Files/Date/Location with keyboard access,
-Escape/light dismissal and no premature upload. Tags inserts an inline hashtag at
+Only the bottom toolbar (Tags/Files/Date/Location icons at left, Preview switch, focus
+icon and publishing control at right) holds permanent editor actions; nothing floats
+in the top corner. Each icon has an accessible name and keyboard access, with no
+premature upload. Tags inserts an inline hashtag at
 the retained cursor using existing local autocomplete. Preview toggles raw/rendered
-text without loss. Focus mode replaces the corner expand icon with X; close/Escape
+text without loss. Focus mode replaces the expand icon with X; close/Escape
 retains text/files/metadata, returns focus and does not publish. Controls and at least
 one text line remain reachable with mobile safe areas/keyboard-shrunken height.
 
