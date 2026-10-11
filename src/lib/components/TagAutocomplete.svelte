@@ -20,26 +20,42 @@
     if (cursor !== textarea.selectionEnd) return;
     const prefix = textarea.value
       .slice(0, cursor)
-      .match(/#([\p{L}\p{N}\p{M}_-]*)$/u);
+      .match(/#((?:[\p{L}\p{N}\p{M}_-]+\/)*[\p{L}\p{N}\p{M}_-]*)$/u);
     if (!prefix) return;
     const position = cursor - prefix[0].length;
+    // An empty marker or a trailing `/` (`#work/`) is probed with a temporary
+    // letter so the SAME parser decides whether this is a hashtag position.
+    const probe = !prefix[1] || prefix[1].endsWith('/');
     try {
-      // Probe an empty marker with a temporary letter through the SAME parser;
-      // code/HTML/destinations/escapes can never trigger insertion suggestions.
-      const source = prefix[1]
-        ? textarea.value
-        : textarea.value.slice(0, cursor) + 'x' + textarea.value.slice(cursor);
+      // Code/HTML/destinations/escapes can never trigger insertion suggestions.
+      const source = probe
+        ? textarea.value.slice(0, cursor) + 'x' + textarea.value.slice(cursor)
+        : textarea.value;
       const span = tagSpans(source).find(
         (s) => s.start === position && s.end >= cursor,
       );
       if (!span) return;
       start = position;
-      end = prefix[1] ? span.end : cursor;
-      choices = workspace.knownTags
-        .filter(
-          (t) => t.key.startsWith(tagKey(prefix[1])) && t.display !== prefix[1],
-        )
-        .slice(0, 8);
+      end = probe ? cursor : span.end;
+      const typed = tagKey(prefix[1]);
+      const segment = typed.slice(typed.lastIndexOf('/') + 1);
+      const others = (t: { key: string; display: string }) =>
+        t.display !== prefix[1];
+      // Full-path prefix matches first, then later-segment matches (`#meet` →
+      // `work/meeting`); each group keeps the server's count-descending order.
+      const byPath = workspace.knownTags.filter(
+        (t) => t.key.startsWith(typed) && others(t),
+      );
+      const bySegment =
+        typed && !typed.includes('/')
+          ? workspace.knownTags.filter(
+              (t) =>
+                !t.key.startsWith(typed) &&
+                t.key.includes('/' + segment) &&
+                others(t),
+            )
+          : [];
+      choices = [...byPath, ...bySegment].slice(0, 8);
       selected = 0;
     } catch {
       /* Invalid tags are validated when posting; never trap writing. */

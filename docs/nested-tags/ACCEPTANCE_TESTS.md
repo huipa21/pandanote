@@ -6,9 +6,8 @@ wording replaced by NT01).
 ## NT-PARSE — Grammar (unit)
 
 `#a/b/c` → key `a/b/c`. `#A/B` ≡ `#a/b`. `#a/` → `a`. `#a//b` → `a`. `#/a` → none.
-6 segments → first 5 form the tag. Segment of 65 codepoints or path > 128 → that
-token is not a tag (or note validation error, matching current over-limit behavior;
-decide in NT02 and document). `#香港/美食` works. Code spans, `\#a/b`, URLs
+6 segments, a 65-codepoint segment or a path > 128 → note validation error (same as
+today's over-long tag; never silent truncation). `#香港/美食` works. Code spans, `\#a/b`, URLs
 (`https://x.test/#a/b`), link destinations, headings unaffected. Right-to-left
 rewrite of nested spans preserves surrounding Markdown byte-for-byte.
 
@@ -48,11 +47,12 @@ chain `work → job`, `job/new → misc` maps `work/new` → `misc`. Subtree rem
 descendants to removal. Exact removal of `work` does not flag `work/meeting`.
 Acknowledged recreation still requires matching generation.
 
-## NT-MIG — Migration and archives (integration, Linux image)
+## NT-BASE — Fresh baseline (integration, Linux image)
 
-v2 DB → v3: re-derived joins/search; revision +1 only for changed tag sets; bodies
-and timestamps unchanged; failure rolls back entirely; pre-upgrade copy exists.
-Schema-2 archive restores into v3 with the same result. Newer-schema refusal intact.
+Fresh DB accepts a 128-character key and `scope` history rows; rejects 129
+characters, unknown scopes and rename/merge with `exact` scope. Databases created by
+the previous baseline are refused by the hash check (no wipe). Backup create/restore
+round-trip retains nested tags and scoped history.
 
 ## NT-PERF
 

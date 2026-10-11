@@ -96,12 +96,6 @@ export interface TimelinePage {
   items: TimelineCard[];
   nextCursor: string | null;
 }
-export interface TimelineTag {
-  id: string;
-  key: string;
-  label: string;
-  count: number;
-}
 
 export function canonicalFilters(
   tags: readonly string[],
@@ -118,7 +112,13 @@ export function canonicalFilters(
     // NFKC can expand a valid tag (including spaces in Arabic
     // ligatures); reapplying the source grammar here would make it unfilterable.
     normalized.some(
-      (tag) => !tag.length || [...tag].length > 64 || /[\p{Cc}#]/u.test(tag),
+      (tag) =>
+        !tag.length ||
+        [...tag].length > 128 ||
+        /[\p{Cc}#]/u.test(tag) ||
+        // Nested paths: 1–5 non-empty segments separated by single slashes.
+        tag.split('/').length > 5 ||
+        tag.split('/').some((part) => !part.length),
     )
   )
     throw new DomainError('validation', 'Invalid tag filter.');

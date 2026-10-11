@@ -8,11 +8,11 @@ npm run check && npm run lint && npm run test:unit && npm run test:integration &
 
 plus the affected Playwright specs. Record exact commands and real outcomes in
 [PROGRESS.md](PROGRESS.md). Read [README.md](README.md) and [SPEC.md](SPEC.md) first.
-Do not start NT01 until the README open questions are answered.
+Do not start NT01 until the README open questions are answered (done: answered).
 
 ---
 
-## NT01 — Approval and document reconciliation
+## NT01 — Approval and document reconciliation — done
 
 Files: `docs/PRODUCT_SPEC.md` (§2 scope, §3.3 sidebar, §7 tags),
 `docs/ARCHITECTURE.md` (§9, §9.1, §10.3 tag query bounds, §11.2 grammar),
@@ -24,7 +24,7 @@ Files: `docs/PRODUCT_SPEC.md` (§2 scope, §3.3 sidebar, §7 tags),
 
 Gate: docs only; `npm run lint` (Prettier on Markdown).
 
-## NT02 — Shared grammar and path utilities
+## NT02 — Shared grammar and path utilities — done
 
 Files: `src/lib/shared/markdown/tags.ts`, `src/lib/shared/tags.ts`, new
 `src/lib/shared/tag-tree.ts`, `tests/unit/*tags*`.
@@ -41,23 +41,22 @@ Files: `src/lib/shared/markdown/tags.ts`, `src/lib/shared/tags.ts`, new
 
 Tests: all TAG-01 fixtures still pass; NT-PARSE cases; tree ordering/tie/dedup cases.
 
-## NT03 — Schema v3 migration and re-derivation
+## NT03 — Fresh baseline update (no migration) — done
 
-Files: `src/lib/server/db/schema.ts`, `migrations/0002_*.sql` + snapshot/journal,
-`src/lib/server/db/migrations.ts` (`SCHEMA_VERSION = 3`),
-`src/lib/server/db/data-migrations.ts`, `migrations/README.md`,
-`tests/integration/migrations.test.ts`, archive restore tests.
+Files: `src/lib/server/db/schema.ts`, `migrations/0000_baseline.sql`,
+`migrations/meta/0000_snapshot.json` + `0001_snapshot.json`, `migrations/README.md`,
+schema/migration/backup integration tests.
 
-1. Generate/review migration: tag length checks 128, `tag_changes.scope`.
-2. Data step `rederive-nested-tags-v1` (SPEC §7) reusing the note content/tag
-   extraction and `refreshNoteSearch`; revision +1 only when key set changes.
-3. Tests: v2 DB with `#a/b`, `#a`, code-span `#x/y`, Trash note → v3 joins/search/
-   revisions correct; unchanged notes untouched; failure rolls back whole migration;
-   pre-upgrade copy written; schema-2 archive restores into v3 instance.
+1. Edit the baseline in place (user decision 6): tag length checks 128,
+   `tag_changes.scope` with checks (SPEC §7). Schema version stays 2.
+2. Tests: fresh DB accepts 128-character keys and scoped history, rejects invalid
+   scope combinations; existing migration/backup suites pass with the new hash.
+3. Drop/move aside the local development `data/` (user-approved) only when needed
+   for a manual run.
 
-Gate also: run the migration integration tests in the Linux image (native SQLite).
+Gate also: run the schema/backup integration tests in the Linux image (native SQLite).
 
-## NT04 — Server queries: filter, counts, suggestions
+## NT04 — Server queries: filter, counts, suggestions — done
 
 Files: `src/lib/server/notes/timeline.ts` (`publishedTags`, tag predicate),
 `src/lib/shared/timeline.ts` (key bound 128), `src/routes/(app)/+layout.server.ts`
@@ -73,7 +72,7 @@ integration tests.
 
 Tests: NT-FILTER, NT-COUNT; existing timeline/search/calendar suites unchanged.
 
-## NT05 — Sidebar, chips and autocomplete UI
+## NT05 — Sidebar, chips and autocomplete UI — done
 
 Files: `src/lib/components/Sidebar.svelte` (+ new `TagTree.svelte`),
 `AppShell.svelte`, `NoteCard.svelte`, `NoteDetail.svelte`,
@@ -87,7 +86,7 @@ Files: `src/lib/components/Sidebar.svelte` (+ new `TagTree.svelte`),
 
 Tests: NT-SIDEBAR, NT-UI e2e; affected existing tag/accessibility specs.
 
-## NT06 — Management and stale-tag history
+## NT06 — Management and stale-tag history — done
 
 Files: `src/lib/server/tags/service.ts`, `src/lib/shared/tags.ts`,
 `src/routes/api/tags/**`, `src/routes/(app)/tags/+page.*`,
@@ -102,7 +101,7 @@ Files: `src/lib/server/tags/service.ts`, `src/lib/shared/tags.ts`,
 
 Tests: NT-MANAGE, NT-STALE; all existing TAG-03 integration/e2e cases.
 
-## NT07 — Regression and close
+## NT07 — Regression and close — done locally (see PROGRESS for pre-existing e2e failures)
 
 1. Full `npm run test:e2e`, full integration, performance fixture with nested tags.
 2. Linux image: check/lint/build/unit/integration (migration + archive restore).

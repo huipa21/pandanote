@@ -8,17 +8,36 @@ export interface TagSpan {
   spelling: string;
   key: string;
 }
+/** Codepoints per `/`-separated segment of a nested tag. */
 export const MAX_TAG_LENGTH = 64;
+/** Codepoints per whole nested-tag path (source and normalized). */
+export const MAX_TAG_PATH_LENGTH = 128;
+/** Segments per nested-tag path. */
+export const MAX_TAG_DEPTH = 5;
 export const MAX_UNIQUE_TAGS = 100;
+export const TAG_SEPARATOR = '/';
 export function tagKey(value: string): string {
   return value.normalize('NFKC').toLowerCase();
 }
-const body = /^[\p{L}\p{N}\p{M}_-]+$/u;
+const segment = /^[\p{L}\p{N}\p{M}_-]+$/u;
+/** Literal hashtag source: segments joined by single slashes. A trailing or
+ * doubled slash ends the match, so `#a/` is `a` followed by ordinary text. */
+const hashtag = /#[\p{L}\p{N}\p{M}_-]+(?:\/[\p{L}\p{N}\p{M}_-]+)*/gu;
+export const TAG_RULE =
+  'Tags must contain 1–64 letters, numbers, marks, underscores or hyphens per level, at most 5 levels separated by / and 128 characters in total.';
+/** Validates a nested tag source spelling (without `#`); returns its normalized key. */
 export function validateTag(value: string): string {
-  if (!body.test(value) || [...value].length > MAX_TAG_LENGTH)
-    throw new Error(
-      'Tags must contain 1–64 letters, numbers, marks, underscores or hyphens.',
-    );
+  const parts = value.split(TAG_SEPARATOR);
+  if (
+    parts.length > MAX_TAG_DEPTH ||
+    [...value].length > MAX_TAG_PATH_LENGTH ||
+    parts.some(
+      (part) => !segment.test(part) || [...part].length > MAX_TAG_LENGTH,
+    )
+  )
+    throw new Error(TAG_RULE);
+  // NFKC can expand a valid spelling; callers storing keys check the normalized
+  // bound separately (domain error for notes, schema refusal for management).
   return tagKey(value);
 }
 
@@ -67,7 +86,7 @@ export function tagSpans(source: string): TagSpan[] {
       const urls = [
         ...raw.matchAll(/(?:\b[a-z][a-z\d+.-]*:\/\/|\bwww\.)[^\s<>]+/gi),
       ];
-      for (const match of raw.matchAll(/#[\p{L}\p{N}\p{M}_-]+/gu)) {
+      for (const match of raw.matchAll(hashtag)) {
         const index = match.index;
         if (
           urls.some(

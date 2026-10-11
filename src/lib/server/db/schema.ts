@@ -169,7 +169,8 @@ export const tags = sqliteTable(
     uniqueIndex('tags_normalized_key').on(t.normalizedKey),
     check(
       'tag_length_check',
-      sql`length(${t.normalizedKey}) BETWEEN 1 AND 64 AND length(${t.display}) BETWEEN 1 AND 64`,
+      // Nested paths: up to 5 segments, 128 codepoints (docs/nested-tags/SPEC.md).
+      sql`length(${t.normalizedKey}) BETWEEN 1 AND 128 AND length(${t.display}) BETWEEN 1 AND 128`,
     ),
   ],
 );
@@ -195,13 +196,17 @@ export const tagChanges = sqliteTable(
     oldKey: text('old_key').notNull(),
     action: text('action', { enum: ['rename', 'merge', 'remove'] }).notNull(),
     targetKey: text('target_key'),
+    /** `subtree` retires the path and every descendant; rename/merge are subtree. */
+    scope: text('scope', { enum: ['exact', 'subtree'] })
+      .notNull()
+      .default('exact'),
     createdAt: created(),
   },
   (t) => [
     index('tag_changes_old_key').on(t.oldKey, t.generation),
     check(
       'tag_change_check',
-      sql`(${t.action} = 'remove' AND ${t.targetKey} IS NULL) OR (${t.action} IN ('rename','merge') AND ${t.targetKey} IS NOT NULL)`,
+      sql`((${t.action} = 'remove' AND ${t.targetKey} IS NULL) OR (${t.action} IN ('rename','merge') AND ${t.targetKey} IS NOT NULL)) AND ${t.scope} IN ('exact','subtree') AND (${t.action} = 'remove' OR ${t.scope} = 'subtree')`,
     ),
   ],
 );

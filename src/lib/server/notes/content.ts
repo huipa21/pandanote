@@ -33,19 +33,19 @@ export function inspectContent(body: string, imageIds: Set<string>) {
     };
     visit(tree);
     const extracted = extractTags(body);
-    // NFKC may expand a valid source spelling beyond the registry's 64-codepoint
-    // bound (e.g. ligatures). Reject at the domain boundary, not via raw SQL error.
-    if (extracted.some((tag) => [...tag.key].length > 64))
+    // NFKC may expand a valid source spelling beyond the registry's 128-codepoint
+    // path bound (e.g. ligatures). Reject at the domain boundary, not via raw SQL error.
+    if (extracted.some((tag) => [...tag.key].length > 128))
       throw new DomainError(
         'validation',
-        'A normalized tag exceeds 64 characters.',
+        'A normalized tag exceeds 128 characters.',
       );
     return extracted;
   } catch (error) {
     if (error instanceof DomainError) throw error;
     throw new DomainError(
       'validation',
-      'Check the Markdown size and hashtag limits (64 characters per tag, 100 unique tags).',
+      'Check the Markdown size and hashtag limits (64 characters per tag level, up to 5 levels and 128 characters per tag, 100 unique tags).',
     );
   }
 }

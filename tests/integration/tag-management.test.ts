@@ -90,6 +90,7 @@ describe('S14 real coordinated tag transactions', () => {
       const operation: TagAction = {
         source: 'work',
         action: 'rename',
+        scope: 'subtree',
         target: '仕事',
       };
       const preview = t.preview(id, operation);
@@ -128,16 +129,31 @@ describe('S14 real coordinated tag transactions', () => {
         ),
       ).toEqual([a.noteId, b.noteId].sort().reverse());
       expect(() =>
-        t.preview(id, { source: '仕事', action: 'rename', target: '香港' }),
+        t.preview(id, {
+          source: '仕事',
+          action: 'rename',
+          scope: 'subtree',
+          target: '香港',
+        }),
       ).toThrow(/Merge/);
-      execute(t, id, { source: '仕事', action: 'merge', target: '香港' });
+      execute(t, id, {
+        source: '仕事',
+        action: 'merge',
+        scope: 'subtree',
+        target: '香港',
+      });
       expect(n.get(id, a.noteId).tags).toEqual(['香港']);
       expect(extractTags(n.get(id, a.noteId).bodyMarkdown)).toEqual([
         { key: '香港', spelling: '香港' },
       ]);
       expect(t.list(id).some((r) => r.key === '仕事')).toBe(false);
       expect(() =>
-        t.preview(id, { source: '香港', action: 'rename', target: '香港' }),
+        t.preview(id, {
+          source: '香港',
+          action: 'rename',
+          scope: 'subtree',
+          target: '香港',
+        }),
       ).toThrow(/different spelling/);
     }));
   it('case-only rename rewrites all token spelling without retiring the normalized key; remove leaves notes and adjacent whitespace', async () =>
@@ -146,11 +162,21 @@ describe('S14 real coordinated tag transactions', () => {
         n = new NoteService(p),
         t = new TagService(p),
         a = create(n, id, '#Work #work  end');
-      execute(t, id, { source: 'work', action: 'rename', target: 'WORK' });
+      execute(t, id, {
+        source: 'work',
+        action: 'rename',
+        scope: 'subtree',
+        target: 'WORK',
+      });
       expect(n.get(id, a.noteId).bodyMarkdown).toBe('#WORK #WORK  end');
       expect(t.check(id, ['work'])).toEqual([]);
       create(n, id, '#work');
-      execute(t, id, { source: 'work', action: 'remove', target: null });
+      execute(t, id, {
+        source: 'work',
+        action: 'remove',
+        scope: 'subtree',
+        target: null,
+      });
       expect(n.get(id, a.noteId).bodyMarkdown).toBe('   end');
       expect(n.get(id, a.noteId).tags).toEqual([]);
       expect(t.list(id)).toEqual([]);
@@ -164,6 +190,7 @@ describe('S14 real coordinated tag transactions', () => {
       const operation: TagAction = {
         source: 'work',
         action: 'rename',
+        scope: 'subtree',
         target: 'New',
       };
       const preview = t.preview(id, operation);
@@ -196,12 +223,22 @@ describe('S14 real coordinated tag transactions', () => {
       try {
         const other = new TagService(second);
         expect(other.execute(id, command)).toEqual(result);
-        execute(other, id, { source: 'new', action: 'remove', target: null });
+        execute(other, id, {
+          source: 'new',
+          action: 'remove',
+          scope: 'subtree',
+          target: null,
+        });
         expect(other.execute(id, command)).toEqual(result);
         expect(() =>
           other.execute(id, {
             ...command,
-            operation: { source: 'work', action: 'remove', target: null },
+            operation: {
+              source: 'work',
+              action: 'remove',
+              scope: 'subtree',
+              target: null,
+            },
           }),
         ).toThrow(/differs/);
       } finally {
@@ -217,15 +254,28 @@ describe('S14 real coordinated tag transactions', () => {
       const first = execute(t, id, {
         source: 'work',
         action: 'rename',
+        scope: 'subtree',
         target: '仕事',
       }).result;
-      execute(t, id, { source: '仕事', action: 'merge', target: '香港' });
-      execute(t, id, { source: '香港', action: 'remove', target: null });
+      execute(t, id, {
+        source: '仕事',
+        action: 'merge',
+        scope: 'subtree',
+        target: '香港',
+      });
+      execute(t, id, {
+        source: '香港',
+        action: 'remove',
+        scope: 'subtree',
+        target: null,
+      });
       expect(t.check(id, ['work', '仕事', '香港'])).toHaveLength(3);
       expect(t.check(id, ['work'])[0]).toEqual({
         key: 'work',
         generation: first.generation,
         target: null,
+        targetPrefix: null,
+        suffixStart: 1,
       });
       expect(() => create(n, id, 'retired #WORK')).toThrow(/retired tag/);
       const command = {
@@ -242,6 +292,7 @@ describe('S14 real coordinated tag transactions', () => {
       const next = execute(t, id, {
         source: 'work',
         action: 'remove',
+        scope: 'subtree',
         target: null,
       }).result;
       expect(() =>
@@ -267,6 +318,7 @@ describe('S14 real coordinated tag transactions', () => {
         operation: TagAction = {
           source: 'work',
           action: 'remove',
+          scope: 'subtree',
           target: null,
         };
       const preview = t.preview(id, operation),
@@ -318,6 +370,7 @@ describe('S14 real coordinated tag transactions', () => {
       const operation: TagAction = {
         source: 'x',
         action: 'rename',
+        scope: 'subtree',
         target: 'longreplacement',
       };
       const preview = t.preview(id, operation);

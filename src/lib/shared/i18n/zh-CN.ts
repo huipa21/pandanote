@@ -23,7 +23,11 @@ export const zhCN: Partial<Catalog> = {
   'shell.allTagsTitle': '全部标签',
   'shell.findTag': '查找标签',
   'shell.noMatchingTags': '没有匹配的标签。',
-  'shell.tagHelp': '选择多个标签，将显示同时包含这些标签的笔记。',
+  'shell.tagHelp':
+    '选择多个标签，将显示同时包含这些标签的笔记。父标签包含其子标签。',
+  'shell.expandTag': '展开 #{tag} 的子标签',
+  'shell.collapseTag': '收起 #{tag} 的子标签',
+  'shell.tagCount': '#{tag}，{count} 条笔记',
   'shell.version': '版本 {version}',
   'shell.activeFilters': '当前筛选',
   'shell.noFilters': '全部笔记 · 无筛选',

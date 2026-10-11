@@ -23,6 +23,7 @@ import { canonicalNoteSnapshot } from '#lib/shared/notes.ts';
 import { localImage } from '../uploads/file-kind.ts';
 import { extractTags } from '#lib/shared/markdown/tags.ts';
 import { rewriteTagKeys, type StaleTag } from '#lib/shared/tags.ts';
+import { joinTagSuffix } from '#lib/shared/tag-tree.ts';
 
 import {
   newSession,
@@ -58,7 +59,7 @@ export class EditorWorkspace {
   postConflict = $state<NoteSnapshot | null>(null);
   staleTagChoices = $state<StaleTag[]>([]);
   tagsChanged = $state(0);
-  knownTags = $state<{ key: string; display: string }[]>([]);
+  knownTags = $state<{ key: string; display: string; count?: number }[]>([]);
   postProgress = $state<PostingProgress | null>(null);
   saved = $state<{
     serial: number;
@@ -481,18 +482,28 @@ export class EditorWorkspace {
     const choices = this.staleTagChoices;
     if (this.frozen) this.forkAttempt();
     const session = this.active;
-    const bodyMarkdown =
-      choice === 'recreate'
-        ? session.bodyMarkdown
-        : rewriteTagKeys(
-            session.bodyMarkdown,
-            new SvelteMap(
-              choices.map((t) => [
-                t.key,
-                choice === 'remove' ? null : t.target,
-              ]),
-            ),
-          );
+    let bodyMarkdown: string;
+    try {
+      bodyMarkdown =
+        choice === 'recreate'
+          ? session.bodyMarkdown
+          : rewriteTagKeys(session.bodyMarkdown, (span) => {
+              const stale = choices.find((t) => t.key === span.key);
+              if (!stale) return undefined;
+              if (choice === 'remove' || stale.targetPrefix === null)
+                return null;
+              // Keep this editor's own spelling of segments history did not rename.
+              return joinTagSuffix(
+                stale.targetPrefix,
+                span.spelling,
+                stale.suffixStart,
+              );
+            });
+    } catch {
+      this.postError =
+        'A resolved tag would exceed the tag limits. Edit that hashtag manually; your text is unchanged.';
+      return false;
+    }
     const acknowledgements =
       choice === 'recreate'
         ? [

@@ -2,6 +2,17 @@
 
 ## Current state
 
+- **Nested tags (user-approved) — NT01–NT06 done, NT07 locally verified.**
+  `#a/b/c` hashtags; parents include subtags for counts/filters; sidebar is a
+  count-ordered collapsible tree; subtree rename/merge, scoped remove and scoped
+  tag history. Fresh baseline edited in place (no migration); local `data/` was
+  deleted with user permission for a fresh restart. Check/lint/build pass; 147 unit,
+  220 integration + 7 existing Linux skips on host; Alpine image check/lint/147 unit/
+  227 integration (zero skips)/build pass. Full e2e 64 pass / 5 fail; all 5 also
+  fail on a clean HEAD worktree (language "全部笔记", two screenshots, two axe walks at
+  the calendar "Choose year" button) and are unrelated. Details/handoff:
+  [nested-tags/PROGRESS.md](nested-tags/PROGRESS.md). Not committed by the agent.
+
 - **Editor toolbar layout (user request) — done / host verified.** Tags/Files/Date/
   Location are now direct icon buttons at the bottom-left of the editor (the `+`
   popover is removed); the focus expand/X button moved from the top-right corner to
@@ -16,10 +27,6 @@
   (Git's `usr\bin`) and a fresh `npm run build`. No Linux/full-suite rerun. Next:
   visual review on
   a physical mobile device.
-
-- **Nested tags — planned, not approved.** Plan in
-  [docs/nested-tags/](nested-tags/README.md); reverses the PRODUCT_SPEC "flat tags
-  only" non-goal, so the user must answer its open questions before NT01. No code.
 
 - **Startup incompatibility diagnosis / recovery guidance — host verified.** At
   clean user HEAD `8cb3dbd`, local `data/db/pandanote.sqlite` matches the previous

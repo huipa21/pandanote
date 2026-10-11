@@ -1200,6 +1200,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'exact'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -1221,7 +1229,7 @@
       "checkConstraints": {
         "tag_change_check": {
           "name": "tag_change_check",
-          "value": "(\"tag_changes\".\"action\" = 'remove' AND \"tag_changes\".\"target_key\" IS NULL) OR (\"tag_changes\".\"action\" IN ('rename','merge') AND \"tag_changes\".\"target_key\" IS NOT NULL)"
+          "value": "((\"tag_changes\".\"action\" = 'remove' AND \"tag_changes\".\"target_key\" IS NULL) OR (\"tag_changes\".\"action\" IN ('rename','merge') AND \"tag_changes\".\"target_key\" IS NOT NULL)) AND \"tag_changes\".\"scope\" IN ('exact','subtree') AND (\"tag_changes\".\"action\" = 'remove' OR \"tag_changes\".\"scope\" = 'subtree')"
         }
       }
     },
@@ -1318,7 +1326,7 @@
       "checkConstraints": {
         "tag_length_check": {
           "name": "tag_length_check",
-          "value": "length(\"tags\".\"normalized_key\") BETWEEN 1 AND 64 AND length(\"tags\".\"display\") BETWEEN 1 AND 64"
+          "value": "length(\"tags\".\"normalized_key\") BETWEEN 1 AND 128 AND length(\"tags\".\"display\") BETWEEN 1 AND 128"
         }
       }
     },

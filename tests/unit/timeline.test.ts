@@ -54,7 +54,9 @@ describe('canonical timeline state', () => {
       'day=2020-01-01',
       'tag=%23work',
       'tag=%00',
-      `tag=${'港'.repeat(65)}`,
+      `tag=${'港'.repeat(129)}`,
+      'tag=a%2F%2Fb',
+      'tag=a%2F',
       Array.from({ length: 21 }, (_, n) => `tag=t${n}`).join('&'),
     ])
       expect(() => parseTimelineQuery(new URLSearchParams(query))).toThrow();

@@ -1,5 +1,14 @@
 # PandaNote — Product specification
 
+## Approved change — nested tags
+
+The user approved hierarchical hashtags (`#work/meeting`), superseding the former
+"nested tags" non-goal and "Flat tags only". Parent tags include subtags for counts
+and filtering; the sidebar shows a collapsible tree ordered by count at every level;
+rename/merge move whole subtrees and remove asks for scope. The fresh-install
+baseline changes without migration. Authoritative details:
+[nested-tags/README.md](nested-tags/README.md) and [SPEC](nested-tags/SPEC.md).
+
 ## Approved change — miniature year heatmaps and no drafts
 
 This user-approved contract supersedes all older draft/recovery references below.
@@ -71,7 +80,7 @@ Not included:
 - Collaboration, public notes/sharing, public registration, roles.
 - AI or semantic search, fuzzy/typo search, reading/romanization conversion.
 - Automatic Traditional/Simplified conversion.
-- Rich-text/block editor, nested tags, folders, embedded maps, reverse geocoding.
+- Rich-text/block editor, folders, embedded maps, reverse geocoding.
 - Automatic backups, separate backup password, original-image retention.
 - Full-text extraction from PDF/Office/files.
 - Automatic conflict merging or automatic posting/saving.
@@ -227,7 +236,8 @@ Trash:
 ## 7. Tags
 
 - Inline hashtags, with autocomplete of existing tags.
-- Flat tags only; no parent/child behavior.
+- Nested tags with `/` (up to 5 levels); a parent includes its subtags for counts and filters. See [nested-tags/SPEC.md](nested-tags/SPEC.md).
+- Sidebar tags form a collapsible tree ordered by published-note count (descending) at every level.
 - Unicode Chinese/Japanese/Cantonese characters supported.
 - English tag identity is case-insensitive: #Work and #work are the same tag.
 - Ignore code blocks, inline code, raw HTML, URLs/link destinations, and escaped hashtag markers when extracting tags.

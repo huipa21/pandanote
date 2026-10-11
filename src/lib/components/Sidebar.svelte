@@ -5,13 +5,14 @@
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
   import { buildInfo } from '#lib/shared/version.ts';
-  import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
-  export interface ShellTag {
-    id: string;
-    label: string;
-    key?: string;
-    count?: number;
-  }
+  import TagTree from './TagTree.svelte';
+  import { SvelteSet } from 'svelte/reactivity';
+  import type { TimelineFilters } from '#lib/shared/timeline.ts';
+  import {
+    filterTagTree,
+    tagAncestors,
+    type TagNode,
+  } from '#lib/shared/tag-tree.ts';
   let {
     calendar,
     active = '/',
@@ -23,7 +24,8 @@
   }: {
     calendar?: CalendarState;
     active?: string;
-    tags?: ShellTag[];
+    /** Count-ordered nested tag tree (docs/nested-tags/SPEC.md §3). */
+    tags?: TagNode[];
     filters?: TimelineFilters;
     searchQuery?: string;
     onSearch?: (href: string) => Promise<unknown>;
@@ -34,11 +36,14 @@
   const t = i18n.t;
   let showTags = $state(false);
   let tagQuery = $state('');
-  const filteredTags = $derived(
-    tags.filter((tag) =>
-      tag.label.toLocaleLowerCase().includes(tagQuery.toLocaleLowerCase()),
-    ),
-  );
+  // In-memory per page session; never persisted.
+  const expanded = new SvelteSet<string>();
+  $effect(() => {
+    // Reveal the branches holding active filters (the user may collapse them).
+    for (const key of filters.tags)
+      for (const ancestor of tagAncestors(key)) expanded.add(ancestor);
+  });
+  const filteredTags = $derived(filterTagTree(tags, tagQuery));
 </script>
 
 <div class="sidebar-content">
@@ -75,19 +80,9 @@
         <a href="/tags" onclick={onNavigate}>{t('shell.manage')}</a>
       </div>
       {#if tags.length}
-        <ul class="tag-list">
-          {#each tags.slice(0, 6) as tag (tag.id)}<li>
-              <a
-                href={toggleTag(filters, tag.key ?? tag.label)}
-                aria-current={filters.tags.includes(tag.key ?? tag.label)
-                  ? 'true'
-                  : undefined}
-                onclick={onNavigate}
-                >#{tag.label}{#if tag.count !== undefined}
-                  <span class="muted">({tag.count})</span>{/if}</a
-              >
-            </li>{/each}
-        </ul>
+        <div class="tag-list">
+          <TagTree nodes={tags.slice(0, 6)} {filters} {expanded} {onNavigate} />
+        </div>
         {#if tags.length > 6}<button
             onclick={() => {
               showTags = true;
@@ -121,23 +116,19 @@
     bind:value={tagQuery}
     data-initial-focus
   />
-  <ul class="tag-list">
-    {#each filteredTags as tag (tag.id)}<li>
-        <a
-          href={toggleTag(filters, tag.key ?? tag.label)}
-          aria-current={filters.tags.includes(tag.key ?? tag.label)
-            ? 'true'
-            : undefined}
-          onclick={() => {
-            showTags = false;
-            onNavigate();
-          }}
-          >#{tag.label}{#if tag.count !== undefined}
-            <span class="muted">({tag.count})</span>{/if}</a
-        >
-      </li>{/each}
-  </ul>
-  {#if !filteredTags.length}<p class="muted">
+  <div class="tag-list">
+    <TagTree
+      nodes={filteredTags.nodes}
+      {filters}
+      {expanded}
+      revealed={filteredTags.expanded}
+      onNavigate={() => {
+        showTags = false;
+        onNavigate();
+      }}
+    />
+  </div>
+  {#if !filteredTags.nodes.length}<p class="muted">
       {t('shell.noMatchingTags')}
     </p>{/if}
   <p class="help">{t('shell.tagHelp')}</p>
@@ -235,22 +226,7 @@
     font-size: 0.75rem;
   }
   .tag-list {
-    list-style: none;
-    padding: 0;
     margin-block: var(--space-2);
-  }
-  .tag-list a {
-    display: block;
-    color: var(--accent);
-    min-height: var(--target);
-  }
-  .tag-list a[aria-current='true'] {
-    font-weight: 650;
-    background: var(--accent-soft);
-  }
-  .tag-list li {
-    padding-block: var(--space-2);
-    overflow-wrap: anywhere;
   }
   @media (max-height: 540px) {
     .sidebar-top {

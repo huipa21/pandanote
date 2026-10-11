@@ -135,6 +135,7 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
           oldKey: 'old',
           action: 'rename',
           targetKey: 'work',
+          scope: 'subtree',
           createdAt: Date.now(),
         })
         .run();

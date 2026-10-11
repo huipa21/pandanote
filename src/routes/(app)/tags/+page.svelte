@@ -20,6 +20,7 @@
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   let source = $state<ManagedTag | null>(null),
     action = $state<TagAction['action']>('rename'),
+    scope = $state<TagAction['scope']>('subtree'),
     target = $state('');
   let preview = $state<TagPreview | null>(null),
     busy = $state(false),
@@ -78,6 +79,8 @@
         source: source.key,
         action,
         target: action === 'remove' ? null : target,
+        // Rename/merge always move the whole subtree; removal states its scope.
+        scope: action === 'remove' ? scope : 'subtree',
       });
       open = true;
     } catch (e) {
@@ -124,7 +127,9 @@
   <h1>Manage tags</h1>
   <p class="help">
     Rename, merge or remove actual hashtags in notes and Trash. Code, URLs and
-    unrelated formatting stay untouched.
+    unrelated formatting stay untouched. Nested tags use <code>/</code>, such as
+    <code>#work/meeting</code>; renaming or merging a tag also moves its
+    subtags.
   </p>
   <form method="GET">
     <label>Find tags <input name="q" maxlength="256" /></label><button
@@ -132,7 +137,8 @@
     >
   </form>
   <p class="help">
-    Up to 100 tags shown. Search to find more. Published counts exclude Trash.
+    Up to 100 tags shown. Search to find more. Counts include subtags; published
+    counts exclude Trash.
   </p>
   {#if error}<p role="alert">{error}</p>{/if}
   {#if status}<p role="status">{status}</p>{/if}
@@ -162,17 +168,25 @@
         </div>{/each}
     </section>{/if}
   <ul class="tag-list">
-    {#each data.managedTags as tag (tag.key)}<li>
+    {#each data.managedTags as tag (tag.key)}<li
+        style:padding-inline-start={`${(tag.depth - 1) * 1.25}rem`}
+      >
         <button
           disabled={!ready || busy}
           onclick={() => {
             source = tag;
             target = tag.display;
             action = 'rename';
+            scope = tag.explicit ? 'exact' : 'subtree';
             preview = null;
             error = '';
           }}>#{tag.display}</button
-        ><span>{tag.published} notes · {tag.trash} Trash</span>
+        ><span
+          >{tag.published} notes · {tag.trash} Trash{#if tag.hasChildren}
+            · {tag.explicit
+              ? `${tag.directPublished} directly tagged`
+              : 'group only'}{/if}</span
+        >
       </li>{/each}
   </ul>
   {#if !data.managedTags.length}<p>No matching tags.</p>{/if}
@@ -193,6 +207,27 @@
           ><option value="remove">Remove hashtag from notes</option></select
         ></label
       >
+      {#if action === 'remove' && source.hasChildren}<fieldset>
+          <legend>Remove which hashtags?</legend>
+          <label
+            ><input
+              type="radio"
+              bind:group={scope}
+              value="exact"
+              disabled={busy || !source.explicit}
+            />
+            Only #{source.display} (keep its subtags)</label
+          >
+          <label
+            ><input
+              type="radio"
+              bind:group={scope}
+              value="subtree"
+              disabled={busy}
+            />
+            #{source.display} and all its subtags</label
+          >
+        </fieldset>{/if}
       {#if action !== 'remove'}<label
           >Target tag spelling <input
             bind:value={target}
@@ -213,8 +248,21 @@
       {preview.operation.action} #{preview.operation.source}{preview.operation
         .target
         ? ` → #${preview.operation.target}`
+        : ''}{preview.operation.action === 'remove' &&
+      preview.operation.scope === 'subtree'
+        ? ' and all subtags'
         : ''}
     </p>
+    {#if preview.mappings.length > 1 || preview.mappings.some((m) => m.collision)}<ul
+        aria-label="Affected tags"
+      >
+        {#each preview.mappings as mapping (mapping.from)}<li>
+            #{mapping.from} → {mapping.to === null
+              ? 'removed'
+              : `#${mapping.to}`}{#if mapping.collision}
+              (merged with existing tag){/if}
+          </li>{/each}
+      </ul>{/if}
     <p>
       {preview.counts.published} notes · {preview.counts.trash} Trash notes will receive
       new revisions. In-progress editors will conflict.
@@ -269,6 +317,11 @@
   }
   label {
     display: block;
+    margin-block: var(--space-2);
+  }
+  fieldset {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     margin-block: var(--space-2);
   }
   input,

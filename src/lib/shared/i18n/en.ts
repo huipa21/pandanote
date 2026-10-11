@@ -20,7 +20,11 @@ export const en = {
   'shell.allTagsTitle': 'All tags',
   'shell.findTag': 'Find a tag',
   'shell.noMatchingTags': 'No matching tags.',
-  'shell.tagHelp': 'Select tags to show notes matching all of them.',
+  'shell.tagHelp':
+    'Select tags to show notes matching all of them. A parent tag includes its subtags.',
+  'shell.expandTag': 'Show subtags of #{tag}',
+  'shell.collapseTag': 'Hide subtags of #{tag}',
+  'shell.tagCount': '#{tag}, {count} notes',
   'shell.version': 'Version {version}',
   'shell.activeFilters': 'Active filters',
   'shell.noFilters': 'All notes · no active filters',

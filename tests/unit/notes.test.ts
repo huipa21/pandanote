@@ -117,7 +117,7 @@ describe('note boundary contracts', () => {
       expect(() => inspectContent(body, new Set())).toThrow(
         /Every Markdown image/,
       );
-    expect(() => inspectContent('#' + 'ﬄ'.repeat(30), new Set())).toThrow(
+    expect(() => inspectContent('#' + 'ﬄ'.repeat(50), new Set())).toThrow(
       /normalized tag/,
     );
   });

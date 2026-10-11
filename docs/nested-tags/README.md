@@ -1,10 +1,8 @@
 # Change: Nested tags
 
-**Status:** planned (planning session only). **Not approved.** No code written.
-`docs/PRODUCT_SPEC.md` §2 currently lists "nested tags" as **out of scope** and §7 says
-"Flat tags only"; ARCHITECTURE §9 says "Slash is not a nested-tag operator". This
-change reverses those decisions and therefore needs explicit user approval of the
-open questions below before NT01 starts.
+**Status:** **approved by the user.** This reverses the former "nested tags" non-goal,
+"Flat tags only" (PRODUCT_SPEC §2/§7) and "Slash is not a nested-tag operator"
+(ARCHITECTURE §9). Implementation status: [PROGRESS.md](PROGRESS.md).
 
 **Type:** user-requested post-S18 feature. Does not close S18's open release gates.
 
@@ -17,36 +15,31 @@ shown as a collapsible tree in which every level is ordered by count.
 
 ## Documents
 
-| File                                       | Purpose                                     |
-| ------------------------------------------ | ------------------------------------------- |
-| [SPEC.md](SPEC.md)                         | Agreed/proposed behavior and data contracts |
-| [PLAN.md](PLAN.md)                         | Ordered steps NT01–NT07 with done gates     |
-| [ACCEPTANCE_TESTS.md](ACCEPTANCE_TESTS.md) | Verification cases NT-*                     |
-| [PROGRESS.md](PROGRESS.md)                 | Status, decisions, handoff for this change  |
+| File                                       | Purpose                                    |
+| ------------------------------------------ | ------------------------------------------ |
+| [SPEC.md](SPEC.md)                         | Agreed behavior and data contracts         |
+| [PLAN.md](PLAN.md)                         | Ordered steps NT01–NT07 with done gates    |
+| [ACCEPTANCE_TESTS.md](ACCEPTANCE_TESTS.md) | Verification cases NT-\*                   |
+| [PROGRESS.md](PROGRESS.md)                 | Status, decisions, handoff for this change |
 
-Authority for this change once approved: user answers > SPEC.md > main
-`PRODUCT_SPEC.md`/`ARCHITECTURE.md` where they conflict. NT01 reconciles the main
-documents so they do not contradict each other.
+Authority for this change: user answers below > SPEC.md > main
+`PRODUCT_SPEC.md`/`ARCHITECTURE.md` where they conflict. NT01 reconciled the main
+documents so they point here instead of contradicting this change.
 
-## Open questions (defaults proposed; confirm or change)
+## Decisions (user answers)
 
-1. **Sidebar shape.** Default: collapsible tree; roots and each level of children are
-   sorted by subtree count descending, ties by tag name. Alternative: keep a flat
-   list of full paths (`#work/meeting`) sorted by count. _Note: the current sidebar
-   actually sorts alphabetically by normalized key (`publishedTags` in
-   `src/lib/server/notes/timeline.ts`) and shows the first 6. This plan switches it
-   to count order either way._
-2. **Parent counts.** Default: a node's count is the number of distinct published
-   notes tagged with it **or any subtag** (a note with `#work` and `#work/meeting`
-   counts once for `work`).
-3. **Parent filter.** Default: selecting `#work` includes all subtags. No separate
-   "exact only" filter.
-4. **Management.** Default: rename/merge always move the whole subtree
-   (`work` → `job` turns `#work/meeting` into `#job/meeting`); remove asks for scope:
-   "this tag only" or "this tag and all subtags".
-5. **Limits.** Default: separator `/`; at most 5 levels; each level 1–64 codepoints;
-   whole path ≤ 128 codepoints (source and normalized).
-6. **Existing data.** Default: a schema-v3 migration re-derives tags from note bodies
-   (bodies untouched), so text like `#a/b` that used to yield tag `a` now yields
-   `a/b`. Alternative: fresh-baseline update without migration, as in the no-drafts
-   change (refuses current development DBs).
+1. **Sidebar shape:** collapsible tree; roots and each level of children sorted by
+   subtree count descending, ties by tag key. The previous sidebar sorted
+   alphabetically by key; it now sorts by count.
+2. **Parent counts:** distinct published notes tagged with the node **or any
+   subtag** (a note with `#work` and `#work/meeting` counts once for `work`).
+3. **Parent filter:** selecting `#work` includes all subtags. No "exact only" filter.
+4. **Management:** rename/merge always move the whole subtree (`work` → `job` turns
+   `#work/meeting` into `#job/meeting`); remove asks for scope: "this tag only" or
+   "this tag and all subtags".
+5. **Limits:** separator `/`; at most 5 levels; each level 1–64 codepoints; whole
+   path ≤ 128 codepoints (source and normalized).
+6. **Existing data:** no migration. The fresh-install baseline is updated in place
+   (as in the no-drafts change); development databases/archives created before
+   this change are incompatible and refused. The user permitted dropping the local
+   development database for a fresh restart.

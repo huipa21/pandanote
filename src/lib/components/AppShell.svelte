@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, type Snippet } from 'svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
-  import Sidebar, { type ShellTag } from './Sidebar.svelte';
+  import Sidebar from './Sidebar.svelte';
+  import type { TagNode } from '#lib/shared/tag-tree.ts';
   import Modal from './Modal.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Composer from './Composer.svelte';
@@ -27,7 +28,7 @@
   }: {
     calendar?: CalendarState;
     active?: string;
-    tags?: ShellTag[];
+    tags?: TagNode[];
     filters?: TimelineFilters;
     searchQuery?: string;
     onSearch?: (href: string) => Promise<unknown>;

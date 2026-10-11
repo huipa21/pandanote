@@ -43,8 +43,13 @@ import {
   parseTimelineQuery,
   type CursorPayload,
   type TimelinePage,
-  type TimelineTag,
 } from '../../shared/timeline.ts';
+import {
+  buildTagTree,
+  tagAncestors,
+  tagSubtreeUpper,
+  type TagNode,
+} from '../../shared/tag-tree.ts';
 
 // Cursors contain no authority: all predicates and session checks still apply.
 // A query fingerprint binds canonical filters, timezone and the fixed anchor.
@@ -129,7 +134,8 @@ export async function timelinePage(
       );
     for (const tag of filters.tags)
       predicates.push(
-        sql`exists (select 1 from ${noteTags} inner join ${tags} on ${tags.id} = ${noteTags.tagId} where ${noteTags.noteId} = ${notes.id} and ${tags.normalizedKey} = ${tag})`,
+        // Subtree match: the tag itself or any `tag/...` descendant (BINARY range).
+        sql`exists (select 1 from ${noteTags} inner join ${tags} on ${tags.id} = ${noteTags.tagId} where ${noteTags.noteId} = ${notes.id} and (${tags.normalizedKey} = ${tag} or (${tags.normalizedKey} >= ${tag + '/'} and ${tags.normalizedKey} < ${tagSubtreeUpper(tag)})))`,
       );
     const rows = tx
       .select({
@@ -267,25 +273,52 @@ export async function timelinePage(
     emptyMonth: result.emptyMonth,
   };
 }
+/** Count-ordered nested tag tree of published notes (docs/nested-tags/SPEC.md §2-3).
+ * One covering read of published (note, tag) pairs; every node counts distinct notes
+ * within its subtree, aggregated in memory (bounded by the 100-tags-per-note cap). */
 export function publishedTags(
   p: Persistence,
   identity: SessionIdentity,
-): TimelineTag[] {
+): TagNode[] {
   return p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
-    return tx
-      .select({
-        id: tags.id,
-        key: tags.normalizedKey,
-        label: tags.display,
-        count: sql<number>`count(*)`,
-      })
-      .from(tags)
-      .innerJoin(noteTags, eq(tags.id, noteTags.tagId))
-      .innerJoin(notes, eq(notes.id, noteTags.noteId))
-      .where(eq(notes.status, 'published'))
-      .groupBy(tags.id)
-      .orderBy(asc(tags.normalizedKey))
-      .all();
+    const registry = new Map(
+      tx
+        .all<{
+          id: string;
+          key: string;
+          display: string;
+        }>(sql`select id, normalized_key as key, display from tags`)
+        .map((row) => [row.id, row]),
+    );
+    // notes_status_timeline and the note_tags primary key cover this scan.
+    const pairs = tx.all<{ note: string; tag: string }>(
+      sql`select nt.note_id as note, nt.tag_id as tag from notes n
+        join note_tags nt on nt.note_id = n.id where n.status = 'published'`,
+    );
+    const direct = new Map<string, number>();
+    const within = new Map<string, Set<string>>();
+    const paths = new Map<string, string[]>();
+    for (const { note, tag } of pairs) {
+      direct.set(tag, (direct.get(tag) ?? 0) + 1);
+      let path = paths.get(tag);
+      if (!path) {
+        const key = registry.get(tag)!.key;
+        paths.set(tag, (path = [...tagAncestors(key), key]));
+      }
+      for (const key of path) {
+        let notesWithin = within.get(key);
+        if (!notesWithin) within.set(key, (notesWithin = new Set()));
+        notesWithin.add(note);
+      }
+    }
+    return buildTagTree(
+      [...direct].map(([tag, count]) => ({
+        key: registry.get(tag)!.key,
+        display: registry.get(tag)!.display,
+        count,
+      })),
+      new Map([...within].map(([key, set]) => [key, set.size])),
+    );
   });
 }

@@ -2,10 +2,29 @@
   import '../../src/lib/styles/tokens.css';
   import '../../src/lib/styles/global.css';
   import AppShell from '../../src/lib/components/AppShell.svelte';
-  const tags = Array.from({ length: 200 }, (_, i) => ({
-    id: String(i),
-    label: `香港-図書館-${String(i).padStart(3, '0')}`,
-  }));
+  import type { TagNode } from '../../src/lib/shared/tag-tree.ts';
+  // 200 synthetic roots, a few with nested children, in count order.
+  const tags: TagNode[] = Array.from({ length: 200 }, (_, i) => {
+    const label = `香港-図書館-${String(i).padStart(3, '0')}`;
+    return {
+      key: label,
+      display: label,
+      label,
+      count: 200 - i,
+      children:
+        i % 50 === 0
+          ? [
+              {
+                key: `${label}/子`,
+                display: `${label}/子`,
+                label: '子',
+                count: 1,
+                children: [],
+              },
+            ]
+          : [],
+    };
+  });
 </script>
 
 <AppShell {tags}>

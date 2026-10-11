@@ -138,7 +138,7 @@ Open detail from timeline, close/Escape/Back, recover filters/scroll/focus. Deep
 
 ### TAG-01 — Extraction/identity
 
-English case-insensitive identity; Unicode Cantonese/Chinese/Japanese tags and marks supported. Flat only. Duplicate tags collapse. Heading `# Heading`, inline/fenced code, escaped `\#tag`, HTML/URLs/link destinations do not become tags. Grammar/punctuation/source-offset edge cases have fixtures.
+English case-insensitive identity; Unicode Cantonese/Chinese/Japanese tags and marks supported. Nested `/` paths per [nested-tags/ACCEPTANCE_TESTS.md](nested-tags/ACCEPTANCE_TESTS.md). Duplicate tags collapse. Heading `# Heading`, inline/fenced code, escaped `\#tag`, HTML/URLs/link destinations do not become tags. Grammar/punctuation/source-offset edge cases have fixtures.
 
 ### TAG-02 — Filtering/autocomplete
 
