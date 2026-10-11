@@ -9,7 +9,9 @@ at most 20 pinned notes on its first page and excludes them from the paged strea
 A shared `ActionMenu` dropdown replaces the card/tag-header action modals; a shared
 `NoteEditor` lets the single workspace session render inline in a card or the note
 page. Lifecycle Delete runs without a confirmation step but keeps durable retry
-records; `LifecycleDialog` opens only on failure. Note-page Delete returns to `/`;
+records; `LifecycleDialog` opens only on failure. Pinned cards have no visible group heading;
+the section uses its translated `aria-label`. Card dates omit Edited/underline;
+date/tag/action pills share 1.75rem fine-pointer height and full touch targets. Note-page Delete returns to `/`;
 the Trash-note page is read-only (lifecycle actions live on the Trash page only).
 Contracts in sections 4.4, 10.3,
 11.3 and 11.4 that conflict are superseded by
@@ -49,8 +51,13 @@ archive summary/scope no longer have draft fields. Portable auth recovery is unc
 Private `/api/calendar?year=YYYY` returns twelve month/count arrays, timezone,
 weekStart and today from one authorized read snapshot, bounded to 1969–9998. Daily
 UTC intervals follow Temporal/IANA including DST; no content or coordinates leave
-SQL. `MonthPicker` renders twelve whole-tile links in 4 × 3 with miniature heatmaps;
-async requests have cancellation, deadlines/stale suppression and visible retry.
+SQL. The year endpoint remains implemented but is no longer used by the picker.
+The later user request replaces miniature heatmaps with an inline `MonthPicker`
+in the calendar's position: twelve Jan–Dec links in 4 × 3 below a year between
+previous/next arrows. Clicking the year enables validated direct entry; Enter
+applies, Escape cancels entry/closes the picker, outside click dismisses. No modal,
+quick-year list or year-activity request. Month selection clears day, retains
+search/tag; browsing changes no filters.
 
 ## 1. Status and design rules
 
@@ -62,7 +69,7 @@ directory-exchange clarification remain open.
 - SQLite is the source of truth. Search is derived and rebuildable.
 - No external search service, location service, file storage service, or job broker.
 - Render the initial authenticated view on the server, hydrate interactions, and fetch subsequent pages without full reloads.
-- Browser drafts are device-local recovery storage, not offline synchronization.
+- Unsaved editor text/metadata/blobs are tab-local memory only, not persisted recovery or offline synchronization.
 - Keep server-only modules in SvelteKit's server directory; never bundle database/filesystem/secret code into the client.
 
 Setup/migrations/deployment follow the approved
@@ -855,7 +862,8 @@ Case-only display changes and rename to an existing normalized tag need explicit
 - Editor autocomplete uses the same eligible AST spans, keyboard arrows/Enter/
   Escape and touch options. It ignores code/HTML/escapes/URLs/destinations and IME
   confirmation. Up to 5,000 non-retired registry spellings arrive as metadata in
-  private SSR; eight prefix suggestions are filtered locally. No typed prefix,
+  private SSR; at most five prefix suggestions are filtered locally and rendered as
+  vertical borderless rows with selected-row highlighting. No typed prefix,
   body or file is sent while writing. Manage search can find inventory beyond
   this bounded suggestion set. No dependency, service or security-policy change.
 
@@ -1053,6 +1061,19 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   and full assistive-technology audits remain part of S18's integrated gate.
 
 ### 11.2 S04 Markdown and tag contracts
+
+Current user-requested refinements: `NoteEditor` compact textarea uses an `autoGrow`
+Svelte action on content updates/window resize, with 10rem minimum and
+`min(24rem, 60vh)` maximum, then internal scrolling; expanded focus text is not
+resized by this action. Editor placeholder/new-note guidance and the exact
+"Saved on server." footer status are omitted; workspace receipt/status state and
+the separate note-detail success line remain unchanged.
+
+`renderMarkdown` wraps eligible hashtag spans as `tagText` → `.tag-text`, hidden
+only in `NoteCard` content. After tag splitting, LF characters in ordinary mdast
+text become `break` nodes before rehype/sanitization. Stored source, tag-management
+spans and original fenced-code values are unchanged. Shared Markdown CSS tightens
+h1–h4 margins to `0.6em 0.2em`. These are rendering changes, not schema changes.
 
 - `shared/markdown/{parse,render,highlight,tags}.ts` is the product pipeline, not
   an import of the S00 probes. One remark/GFM parser enforces a 1 MiB UTF-8 text

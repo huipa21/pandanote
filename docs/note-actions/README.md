@@ -49,6 +49,15 @@ Authority for this change: user answers below > SPEC.md > main
 9. **Data:** edit the fresh-install baseline in place (as nested tags did), no
    migration; the user approves resetting the local development `data/` again.
 
+## Later UI refinements (2026-10-11 session history)
+
+Cards omit Edited and date underlines; dates/tags/header actions use consistent
+soft pill hover shapes. Card bodies hide hashtag tokens, not stored source.
+The plain pinned section has no visible heading but keeps its accessible name.
+Desktop new-note editor is shown directly and hidden during inline edits, not
+replaced by a collapsed button. See the updated SPEC and main PROGRESS for
+partial validation evidence; these changes do not close NA06/S18.
+
 ## Session 2 decisions (user answers to the proposed defaults)
 
 10. **Unpin icon:** a pinned note shows an **unpin icon button** in its date row;
@@ -57,7 +66,8 @@ Authority for this change: user answers below > SPEC.md > main
 12. **Note page Delete:** moves to Trash and returns to the timeline (same target as
     the page's "All notes" link). The note page offers **no** Restore or Permanently
     delete buttons; restore and permanent deletion happen only on the Trash page.
-13. Accepted as proposed: pin limit 20; newest pin first under a "Pinned" heading;
+13. Accepted as proposed: pin limit 20; newest pin first (the originally approved
+    "Pinned" heading was removed by the later user request);
     pinned notes keep their date position (with the unpin icon) in tag/search/day/
     month views; inline editing at every width with the focus button for full screen;
     the tag view's `•••` uses the same dropdown component.

@@ -2,6 +2,15 @@
 
 ## Current state
 
+- **Latest UI refinements — implemented; validation partial.** Reviewed staged
+  changes at HEAD `9af9280` and 2026-10-11 pi session history. Compact editor grows
+  then scrolls; five vertical prefix suggestions; editor success footer hidden;
+  Markdown single newlines preserved; heading margins tightened; visible Pinned
+  heading removed. Prior committed placeholder/card-hover/hashtag refinements are
+  also reconciled in specs. No code, index, commit, deployment or data change in
+  this documentation session. See the latest handoff for exact evidence/limitations.
+  NA06/S18 remain open; browser geometry for auto-grow is not yet tested.
+
 - **Note card actions (user-approved) — NA02–NA05 implemented; NA06 partly verified.**
   Tags row under the date row; borderless `•••` opening a dropdown (`ActionMenu`) with
   Pin, Edit, Delete; pinned notes at the top of the plain timeline with a one-click
@@ -110,11 +119,13 @@
 
 - **Phase:** S00–S17 done; S18 locally verified but **NOT final release** (real VPS,
   public certificates, physical-device/IME/screen-reader/Linux visual/exact-commit gates open).
-- **Repository:** user HEAD `6619a94` (calendar UI change). Current uncommitted
-  work is the approved miniature year heatmaps/no-drafts change and tests/docs;
-  no agent-created commit, deployment or development-data deletion.
-- **Calendar:** bold heading/date heat tiles/year quick navigation retained;
-  month-name choices replaced by 12 miniature monthly heatmaps in 4 × 3.
+- **Repository (latest review):** user HEAD `9af9280` (editor UI adjustment).
+  Ten files were staged at session start: five small UI/rendering changes and
+  related tests/docs. Those staged bytes remain untouched; documentation edits
+  from this session are unstaged. No agent commit/deployment/data change.
+- **Calendar (current):** bold heading/date heat tiles retained; inline Jan–Dec
+  picker in 4 × 3 with year arrows/click-to-type year. Miniature heatmaps, modal
+  and quick-year navigation were superseded by the later user request.
   Full current browser gate passes including archive restore; the earlier
   calendar-only full-suite refusal is historical, not a current reproduced blocker.
   Its historical root cause was not proven; no trust bypass or final release claim.
@@ -188,7 +199,17 @@ or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
 
-**Reported local startup refusal:** use README's “Applied migration history does
+**Latest UI follow-up first:** review the last handoff and `NoteEditor.svelte`,
+`TagAutocomplete.svelte`, `shared/markdown/render.ts`, `NoteCard.svelte`, and
+editor/posting/markdown/note-actions tests. Add grow/cap/shrink/resize/focus-return
+and five-option vertical-list browser geometry assertions; rerun build and affected
+browser specs with Node24.21.0 executable AND PATH and TLS verification 1. Keep
+build-mutating integration, standalone build and Playwright sequential. First
+validation: `npm run check && npm run lint && npm run test:unit`. Then full
+integration/build/e2e and Linux gates before closing NA06. Do not stash/reset or
+commit the user's staged changes without permission.
+
+**Historical local startup refusal (not a newly reproduced blocker):** use README's “Applied migration history does
 not match” troubleshooting. Do not wipe `data`, rewrite hashes or add an old-baseline
 importer without approval. In PowerShell, set `DATA_DIR` to a new unused private
 folder before `npm run dev`; retain that setting on later starts. Existing data
@@ -268,9 +289,9 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 
 - No note titles; the earlier optional-title answer was explicitly superseded.
 - No separate search service; exact substring search, FTS5 trigram plus short-query fallback.
-- New drafts stay entirely local until Post; text in localStorage, binary files in IndexedDB.
-- Multiple local drafts; server drafts originate from published notes moved to draft.
-- Server draft edits stay local until Post; no Save draft/background server autosave.
+- One tab-local unsaved editor; text/metadata/blobs in memory only, never localStorage/IndexedDB.
+- No Drafts screen/status, multiple-draft manager, autosave or reload recovery.
+- Post/Save changes are explicit; failures retain mounted work and receipt-first retries.
 - Post button only; no Ctrl/Cmd+Enter publishing shortcut.
 - Continuous single-column timeline; month calendar follows top visible note; not a year heatmap or masonry.
 - Day filter locks results to that day; search/tag filters otherwise cover all dates.
@@ -283,7 +304,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 - Optional TOTP with single-use recovery codes; seven-day default sessions.
 - Manual server-stored full backups/download; restore via uploaded backup in Settings.
 - No automatic backups, no separate backup password; archives unencrypted/sensitive.
-- Detail dialog/private URL; tag management edits source hashtags; no silent conflict overwrites.
+- Detail is a normal private URL-addressable page; tag management edits source hashtags; no silent conflict overwrites.
 
 ## Defaults needing validation, not new user requirements
 
@@ -4497,3 +4518,89 @@ Remaining: review/update screenshot baselines; re-run the full e2e suite; `tests
 Touched: `src/lib/shared/markdown/render.ts`, `src/lib/components/NoteCard.svelte`, `docs/PROGRESS.md`.
 Commands: `npm run check` PASS (0 errors, pre-existing AppShell CSS warning); `npx eslint` on touched files PASS; `npm run lint` shows only the pre-existing prettier warnings on other files (touched files pass prettier); `npm run test:unit` 152 PASS; `npm run test:integration -- markdown timeline nested-tags` 18 PASS; `npx playwright test markdown timeline tag-management` 10 pass / 1 fail: timeline "older loading…" test waits for the "Active filters" region with "no active filters", which the fix doesn't touch; baseline not re-run, so the cause is unverified.
 Next: run `npm run test:e2e -- timeline` on a clean state to confirm that failure is pre-existing or regressed; review the card header visually.
+
+## UI tweak: editor footer and tag autocomplete (user request)
+- Editor footer no longer shows "Saved on server." (`NoteEditor.svelte`). Other status text still shows. Note-detail post-save line (`NoteDetail.svelte`) is unchanged.
+- Tag autocomplete (`TagAutocomplete.svelte`): vertical list, max 5 options, borderless rows, narrowed by typed prefix as before.
+- e2e: `posting.test.ts`, `location-storage.test.ts` used "Saved on server." as a save sync point; now wait on the composer textarea being cleared or the API receipt.
+- Commands: `npm run check` 0 errors (pre-existing AppShell CSS warning); `npx playwright test posting nested-tags location-storage` 7 passed. Not run: full suite, build, Linux image.
+
+### Session 2026-10-11 — Documentation reconciliation from pi session history
+
+**State: documentation updated; implementation validation remains partial.** Session
+`01a12b46-2f20-7761-a743-3e23a8832b57`. Reviewed HEAD `9af9280`, all ten staged
+files and relevant pi JSONL sessions; earlier history (including entries labelled
+Oct 12–14) is preserved, not silently redated. No application/test/index/data edits,
+no commit. Mermaid estimate session changed no files; support already exists.
+
+Reconciled behavior / source evidence:
+
+- `NoteEditor.svelte`: compact-only autoGrow action on value/resize; 10rem minimum,
+  `min(24rem, 60vh)` cap then scrolling; focus layout unchanged. Exact success footer
+  hidden, progress/errors/edit guidance retained. Placeholder/new-note guidance
+  removal is already committed.
+- `TagAutocomplete.svelte`: at most five vertical borderless locally narrowed rows.
+  `posting.test.ts`/`location-storage.test.ts` wait on cleared composer/API result.
+- `render.ts` + `markdown-render.test.ts`: ordinary text LF becomes mdast breaks
+  after hashtag splitting; source/code unchanged. `markdown.css`: h1–h4 margins
+  1.3em/0.5em → 0.6em/0.2em. Timeline pinned section has aria-label, no visible h2.
+- Committed `NoteCard.svelte`: no Edited label/date underline; consistent pills,
+  1px optical date alignment; hashtag span hidden only in card body. Inline
+  month-name picker/direct desktop composer overrides reconciled as well.
+- Touched docs: PRODUCT_SPEC, ARCHITECTURE, IMPLEMENTATION_PLAN, ACCEPTANCE_TESTS,
+  main PROGRESS and note-actions README/SPEC/PLAN/ACCEPTANCE_TESTS/PROGRESS.
+
+Prior-session commands actually recorded (not rerun or a new common-gate pass):
+
+- Footer/autocomplete: `npm run check` 0 errors/1 AppShell CSS warning; final
+  `npx playwright test posting.test.ts nested-tags.test.ts location-storage.test.ts`
+  **7 PASS**. Earlier negative-success-text wait caused 1 then 2 failures; final
+  waits use completion signals. `npm run lint` **FAIL**, 19 formatting warnings
+  at that point; not repaired here or claimed all pre-existing.
+- Newlines: `npx vitest run tests/integration/markdown-render.test.ts` **7 PASS**;
+  targeted eslint/Prettier PASS; check 0 errors/1 warning. Piped full integration
+  output says **37 passed files of 38, 223 passed/7 skipped of 233 tests**. This
+  leaves three tests unaccounted for and the pipeline hid the real exit/output;
+  **not a full integration pass**. Fresh sequential unfiltered rerun needed.
+  Seven platform skips correspond to Linux/root bootstrap and PTY reset tests.
+- Pinned heading: check 0 errors/1 warning; formatter issue reported without
+  baseline verification. Heading margins: no tests/browser review recorded.
+- Auto-grow: `npx svelte-check --threshold error` 0 errors/1 AppShell warning;
+  targeted Prettier PASS; direct `npx playwright test editor.test.ts posting.test.ts`
+  **7 PASS**, but no grow/cap geometry assertion or UI review. Run emitted
+  `NODE_TLS_REJECT_UNAUTHORIZED=0` warning; this is not secure release evidence.
+  No fresh build recorded before direct browser invocation, so it does not prove
+  the new source ran in the built browser app.
+
+This session validation: pinned Node24.21.0/PATH, TLS1; targeted documentation
+Prettier check PASS; `git diff --check` and `git diff --cached --check` PASS (CRLF
+notices only). Final documentation/hygiene results appended below. No app check,
+unit/full integration/build/e2e/Linux rerun for this documentation-only session.
+
+Remaining: auto-grow geometry + five-option list regression, visual heading/pill
+review, unfiltered integration output, sequential fresh build/affected/full e2e,
+formatting defects and existing screenshot/calendar/language/axe failures. No
+new baseline comparison attempted. No data reset merely because old handoffs
+mention one; actual startup compatibility was not tested this session. NA06/Linux,
+SS01 exchange and S18/VPS/device/AT/ARM64/exact-release gates remain open.
+
+Exact next task: add the browser geometry regressions to `tests/e2e/editor.test.ts`
+(and autocomplete coverage), reading NoteEditor/TagAutocomplete/Markdown/NoteCard
+and latest note-actions handoff first. First validation `npm run check && npm run
+lint && npm run test:unit`; then integration, build and affected Playwright,
+sequentially with supported Node/PATH/TLS1. Commit/deploy only with approval.
+
+Final documentation validation (this session):
+
+- `/tmp/pandanote-node24/node.exe node_modules/prettier/bin/prettier.cjs --check
+  docs/PRODUCT_SPEC.md docs/ARCHITECTURE.md docs/IMPLEMENTATION_PLAN.md
+  docs/ACCEPTANCE_TESTS.md docs/PROGRESS.md docs/note-actions/*.md`: only
+  `docs/PROGRESS.md` warns. Other nine changed docs pass; no whole-history
+  reformat performed, preserving existing uncommitted text and handoff history.
+- `/tmp/pandanote-node24/node.exe node_modules/vitest/vitest.mjs run --config
+  vitest.integration.config.ts tests/integration/release-hygiene.test.ts`:
+  **7/7 PASS**, including documentation/link guards. Node24.21.0 executable/PATH,
+  `NODE_TLS_REJECT_UNAUTHORIZED=1`.
+- `git diff --check` and `git diff --cached --check`: PASS; only CRLF notices.
+  Final status shows documentation-only unstaged edits; all original source/test
+  edits remain staged and unchanged. No full lint/application/native gate claimed.

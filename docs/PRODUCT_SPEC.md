@@ -6,7 +6,10 @@ The user approved a tidier card and direct note actions. Tags sit in their own r
 under the card's date row. The top-right `•••` is borderless and opens a small
 anchored dropdown menu (not a modal) with **Pin**, **Edit**, **Delete**. Pinned notes
 appear at the top of the plain "All notes" timeline only and carry a one-click unpin
-icon; trashing unpins. Edit
+icon; no visible "Pinned" heading is needed (the section retains an accessible name).
+Card dates have no resting underline or Edited label; dates, tags and header actions
+use consistent pill geometry/soft hover backgrounds (tags underline on hover).
+Trashing unpins. Edit
 happens in place (in the card, or on the note page) instead of in the top composer.
 Delete moves to Trash immediately without confirmation, status text or Undo; from
 the note page it returns to the timeline. Restore and permanent delete happen only
@@ -158,7 +161,7 @@ Left sidebar:
 
 Main area:
 
-- Desktop editor above the timeline within the notes scroller, shown directly with its buttons (no collapsed one-line "Write a note…" mode); scrolls away with the notes. The filter strip shows only search/day chips, and the duplicate "Saved on server." line under the editor is removed (the editor footer keeps its own save status).
+- Desktop editor above the timeline within the notes scroller, shown directly with its buttons (no collapsed one-line "Write a note…" mode); scrolls away with the notes. The filter strip shows only search/day chips, and the duplicate "Saved on server." line under the editor is removed. The editor footer also omits "Saved on server."; other progress, error and edit guidance remains.
 - Back to Top button below the timeline returns the notes pane to the composer.
 - Visible active filters and Clear all.
 - Single-column chronological cards. Not masonry, despite the conversational use of “waterfall.” Reading order must be unambiguous.
@@ -186,7 +189,8 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 
 ### 4.2 Writing and preview
 
-- Textarea-based Markdown editor initially; a heavyweight editor framework is unnecessary.
+- Textarea-based Markdown editor initially; a heavyweight editor framework is unnecessary. No writing placeholder or "New note · publish with Post." guidance is shown.
+- The compact timeline textarea grows with its content, then scrolls at a height cap. Current sizing defaults: 10rem minimum and `min(24rem, 60vh)` maximum; focus mode keeps its full-screen layout.
 - Enter inserts a newline.
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
@@ -251,7 +255,7 @@ Trash:
 
 ## 7. Tags
 
-- Inline hashtags, with autocomplete of existing tags.
+- Inline hashtags, with autocomplete of existing tags: at most five prefix-filtered options in a vertical, borderless list, with selected-row highlighting and existing keyboard/touch interaction. Suggestions narrow as text is typed, without sending the prefix or note content to the server.
 - Nested tags with `/` (up to 5 levels); a parent includes its subtags for counts and filters. See [nested-tags/SPEC.md](nested-tags/SPEC.md).
 - Sidebar tags are flowing chips ordered by published-note count (descending) at every level; a chevron expands subtags beneath the chip. Tags page: title "Tags", search directly below (Enter to search), flat list of every tag path as soft chips with counts, loaded lazily 60 at a time.
 - Unicode Chinese/Japanese/Cantonese characters supported.
@@ -336,7 +340,9 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 
 ### 10.1 Rendering
 
-- Markdown rendered safely through remark/rehype.
+- Markdown rendered safely through remark/rehype. Single newlines in ordinary text display as line breaks (not spaces), consistently in preview, cards and detail; stored Markdown and code-copy bytes remain unchanged.
+- Heading spacing is compact; current h1–h4 margin default is `0.6em 0.2em`, without changing heading font sizes.
+- Timeline cards show hashtags as chips without repeating their tokens in rendered body text. Source, editor preview, note detail and search excerpts retain hashtag text; this is a display change, not tag removal from stored notes.
 - No unsafe raw HTML execution.
 - Highlighted code blocks have language label, horizontal scrolling, Copy button, and confirmation feedback.
 - Copy uses original code, not HTML or line labels.

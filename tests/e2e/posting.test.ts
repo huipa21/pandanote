@@ -40,7 +40,7 @@ test('Post uploads text/video explicitly, confirms once and leaves no browser pe
   await composer(page)
     .getByRole('button', { name: 'Post', exact: true })
     .click();
-  await expect(composer(page)).toContainText('Saved on server.');
+  await expect(composer(page).getByRole('textbox')).toHaveValue('');
   await expect(text).toHaveValue('');
   const result = await page.request.get(
     '/api/notes?q="Explicit media post unique"',
@@ -100,7 +100,7 @@ test('lost response after commit retries the same receipt without duplicate note
   await composer(page)
     .getByRole('button', { name: 'Check and retry save', exact: true })
     .click();
-  await expect(composer(page)).toContainText('Saved on server.');
+  await expect(composer(page).getByRole('textbox')).toHaveValue('');
   const result = await page.request.get(
     '/api/notes?q="Uncertain committed note unique"',
     { headers: await authenticatedHeaders(page) },
@@ -140,7 +140,15 @@ test('failure before upload permits editable retry with remapped IDs and preserv
   await composer(page)
     .getByRole('button', { name: 'Post', exact: true })
     .click();
-  await expect(composer(page)).toContainText('Saved on server.');
+  await expect
+    .poll(async () => {
+      const found = await page.request.get(
+        '/api/notes?q="Retry edited before uploads unique"',
+        { headers: await authenticatedHeaders(page) },
+      );
+      return ((await found.json()).data.items as unknown[]).length;
+    })
+    .toBe(1);
   const result = await page.request.get(
     '/api/notes?q="Retry edited before uploads unique"',
     { headers: await authenticatedHeaders(page) },

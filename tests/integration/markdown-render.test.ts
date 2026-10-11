@@ -14,6 +14,13 @@ describe('production Markdown pipeline with real remark/rehype/Shiki', () => {
     expect(result.codes).toEqual(['  const x = "<unsafe>";  \n']);
     expect(result.html).not.toContain('<unsafe>');
   });
+  it('keeps single newlines typed in a paragraph as visible line breaks', async () => {
+    const result = await renderMarkdown('first line\nsecond #tag line\nthird');
+    expect(result.html).toContain('first line<br>\nsecond');
+    expect(result.html.match(/<br>/g)).toHaveLength(2);
+    expect(result.html).toContain('<span class="tag-text">#tag</span>');
+    expect(result.html).not.toContain('first line second');
+  });
   it('gives every GFM task checkbox an accessible name without trusting source attributes', async () => {
     const result = await renderMarkdown(
       ['- [x] Done thing', '- [ ] Open <b>thing</b>'].join('\n'),

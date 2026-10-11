@@ -65,7 +65,8 @@ axe at 390/1280 light/dark with the menu open.
 Files: `src/routes/(app)/+page.svelte`, `+page.server.ts`, `src/lib/shared/timeline.ts`,
 timeline client paging/history code.
 
-1. Render "Pinned" heading and pinned cards above month separators in plain view.
+1. Render pinned cards above month separators in plain view, without a visible
+   heading (later user request); retain the section's accessible name.
 2. Keep pinned cards in paging/history snapshots and mutation filtering
    (pin/unpin/trash moves cards between sections after invalidation).
 

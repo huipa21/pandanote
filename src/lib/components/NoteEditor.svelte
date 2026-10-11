@@ -57,6 +57,24 @@
     textarea?.focus();
   }
 
+  /**
+   * Grows the inline (compact) text area with its content. CSS max-height caps the
+   * growth; past the cap the text area scrolls instead.
+   */
+  function autoGrow(node: HTMLTextAreaElement, _value: string) {
+    const fit = () => {
+      if (!node.classList.contains('compact-text')) return;
+      node.style.height = 'auto';
+      node.style.height = `${node.scrollHeight}px`;
+    };
+    const onResize = () => fit();
+    fit();
+    window.addEventListener('resize', onResize);
+    return {
+      update: fit,
+      destroy: () => window.removeEventListener('resize', onResize),
+    };
+  }
   function changed(event: Event) {
     const value = (event.currentTarget as HTMLTextAreaElement).value;
     if (workspace) workspace.change(value);
@@ -212,6 +230,8 @@
           }
         }
         class:expanded-text={focus}
+        class:compact-text={!focus}
+        use:autoGrow={focus ? '' : text}
         value={text}
         disabled={Boolean(
           workspace && (!workspace.ready || workspace.busy || workspace.frozen),
@@ -242,7 +262,7 @@
       />{/if}
     <p class="help" id={focus ? 'expanded-help' : 'composer-help'}>
       {#if workspace}<span role="status"
-          >{workspace.status ||
+          >{(workspace.status !== 'Saved on server.' && workspace.status) ||
             (workspace.active?.kind === 'edit'
               ? 'Editing note · save with Save changes.'
               : '')}</span
@@ -415,6 +435,12 @@
     border-radius: 0;
     resize: none;
     height: 10rem;
+  }
+  /* Inline editor: grows with the text up to a cap, then scrolls. */
+  textarea.compact-text {
+    min-height: 10rem;
+    max-height: min(24rem, 60vh);
+    overflow-y: auto;
   }
   textarea:focus-visible {
     outline: none;

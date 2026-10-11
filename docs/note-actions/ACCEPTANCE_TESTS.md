@@ -6,10 +6,12 @@ longer asks for confirmation.
 
 ## NA-LAYOUT — Card header (e2e + visual)
 
-Card with tags: date row (date, Edited, unpin icon if pinned, `•••`) then a tags row directly
+Card with tags: date row (date, no Edited label, unpin icon if pinned, `•••`) then a tags row directly
 beneath, before search excerpts/content. Card without tags: no empty row. The `•••`
-has no border/background at rest; hover and focus-visible show the soft round
-background and focus ring. 390 px and 1280 px, light and dark: no overflow, axe clean.
+has no border/background at rest; hover and focus-visible show the same soft pill
+shape as dates/tags with a focus ring. Fine-pointer pills are 1.75rem high; touch
+retains full targets. Dates never underline, tags underline on hover; card body
+hides hashtag tokens while preview/detail/source retain them. 390 px and 1280 px, light and dark: no overflow, axe clean.
 
 ## NA-MENU — Dropdown behavior (e2e)
 
@@ -31,7 +33,7 @@ its Rename/Merge/Remove forms still work.
 - Timeline: plain view first page has `pinned` (newest pin first) and the stream
   excludes them; second page never contains a pinned note; tag/search/day/month views
   include pinned notes in date order and have no `pinned` list.
-- E2E: pin an old note → it appears under "Pinned" at the top and not in its month;
+- E2E: pin an old note → it appears at the top with an unpin icon, no visible "Pinned" heading, and not in its month; the section has an accessible name;
   menu now says Unpin and the card shows the unpin icon; clicking the unpin icon
   (no menu) → back in date position; pin again, open a tag view → note in date
   position with the unpin icon; delete a pinned note → gone from Pinned; restore it
@@ -40,8 +42,8 @@ its Rename/Merge/Remove forms still work.
 ## NA-EDIT — Inline edit (e2e)
 
 - Card Edit turns that card into the editor at the same list position; top composer
-  stays collapsed. Change text, Save changes → card shows new text, same position,
-  "Edited" label, focus returns to its `•••`; no navigation occurred.
+  is hidden. Change text, Save changes → card shows new text, same position,
+  no "Edited" label, focus returns to its `•••`; no navigation occurred.
 - Truncated long note: Edit loads the full body before opening.
 - Cancel with no change closes silently; with changes offers Discard / Keep editing.
 - Unsaved text in the top composer, then card Edit → Post–Discard–Cancel prompt;

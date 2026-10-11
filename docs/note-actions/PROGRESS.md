@@ -2,6 +2,15 @@
 
 ## Current state
 
+- **2026-10-11 documentation reconciliation:** later user changes supersede the
+  original round hover/Edited/Pinned-heading/collapsed-composer requirements.
+  Card date/tag/actions use consistent pills; no Edited/date underline; hashtags
+  hidden in card body only. No visible Pinned heading, accessible section retained;
+  direct desktop composer hidden while inline editing. SPEC/acceptance/plan now
+  agree. Implementation validation is partial; NA06 remains open. Exact reviewed
+  pi commands/results and source/index preservation are in main PROGRESS's latest
+  handoff; historical Session 3 counts below are not fresh validation.
+
 - **NA02–NA05 implemented in one session; NA06 (full regression) partly done.**
   Every behavior in [SPEC.md](SPEC.md) is implemented except items listed under
   "Remaining" below. Checks: `npm run check` (0 errors), `npm run lint`,
@@ -86,3 +95,15 @@ generate` reports no drift). `pin`/`unpin` commands (shared `noteMutationSchema`
   language, shell and zzrestore specs (same six failures). A bug found by the new
   e2e (menu items were `visibility:hidden` when first focus ran) is fixed.
 - **Next:** finish the "Remaining" list above, then close NA06.
+
+## Session 2026-10-11 — Later UI contract reconciliation (docs only)
+
+Reviewed actual staged pinned-heading change and committed NoteCard styles against
+pi user requests. Updated README/SPEC/PLAN/ACCEPTANCE_TESTS and this current summary:
+no visible heading/Edited, matched pill hover geometry, card-only hidden hashtag
+spans and no collapsed top composer. No code/index/data edits or commit. Main
+PROGRESS records partial prior-session checks, insecure-TLS browser warning and
+ambiguous full integration output; no new NA06/Linux/release pass implied.
+Next: fresh sequential build/affected/full-browser and Linux validation, visual
+pills/header review, plus compact-editor geometry regression. First command:
+`npm run check && npm run lint && npm run test:unit` on supported Node/PATH/TLS1.

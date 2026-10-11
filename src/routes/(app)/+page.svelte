@@ -549,8 +549,7 @@
   </section>
 {/if}
 {#if pinned.length}
-  <section class="pinned" aria-labelledby="pinned-heading">
-    <h2 class="month-separator" id="pinned-heading">{t('note.pinned')}</h2>
+  <section class="pinned" aria-label={t('note.pinned')}>
     {#each pinned as note (note.id)}
       <NoteCard
         {note}

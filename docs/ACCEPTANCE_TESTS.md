@@ -24,10 +24,12 @@ the Trash page).
   checked, conflicts keep losing bytes; copy and newly observed replace remain
   revision-checked. Fresh schema rejects drafts, tag/Trash/archive contracts agree;
   no legacy migration/import or automatic development-data deletion.
-- YEAR-01: 12 miniature monthly heatmaps, 4 × 3, whole tile navigates to month;
-  real all-note timezone/week-start daily counts, leap/DST and 1969/9998 bounds.
-  Year arrows/quick scrolling/direct entry, stale response cancellation, visible
-  error/retry, keyboard/mobile/AA labels; selection retains search/tags and clears day.
+- YEAR-01 (later user override): inline picker in the calendar's position, twelve
+  Jan–Dec links in 4 × 3; year between arrows, click to enter 1969–9998 (Enter
+  applies, Escape cancels, invalid input errors). Escape/outside click dismiss;
+  no modal, miniature heatmaps, quick-year list or year-activity request. Browsing
+  changes no filters; selection retains search/tag and clears day. Month heatmap
+  counts still cover all ordinary notes with timezone/week-start/leap/DST handling.
 
 Covered by editor-session/model/posting unit, calendar/notes/status/tags/archive
 integration, editor-session/posting/detail/calendar browser tests. Common/full
@@ -150,7 +152,7 @@ English case-insensitive identity; Unicode Cantonese/Chinese/Japanese tags and m
 
 ### TAG-02 — Filtering/autocomplete
 
-Existing-tag autocomplete accessible with keyboard/touch. Selecting two tags requires both; clicking card tag updates visible filters. Published usage counts exclude draft/Trash. Large tag list remains usable without scrolling the entire desktop page.
+Existing-tag autocomplete is a vertical, borderless list of at most five locally prefix-filtered options, with selected-row highlight and keyboard/touch access; typing narrows results without uploading content. Selection uses exactly one tag including its subtree; repeated `tag` values are rejected. Card tags select the tag view without a redundant tag chip. Published usage counts exclude Trash. Large tag list remains usable without scrolling the entire desktop page.
 
 ### TAG-03 — Management
 
@@ -193,7 +195,7 @@ Matches visibly highlighted, snippets escaped and safe. Unicode normalization ca
 
 ### CAL-01 — Month UI/navigation
 
-Correct weekday/day count/leap years, optional week-start setting. Weekdays use three-letter abbreviations with full-name titles. Bold borderless month/year heading is left-aligned; previous/next arrows are grouped on the right. Compact square backgrounds behind date numerals form a monthly heatmap; heat shades correspond to note counts, with zero/today/selection distinguishable and accessible. Heading opens 12 month links in 4 columns × 3 rows; top-year click opens scrollable quick years/direct entry, and top-right arrows move years. Browsing does not change filters; month selection clears day but retains search/tags. Verify 1969/9998 bounds, keyboard focus/Escape/return, four-column mobile targets and light/dark contrast. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
+Correct weekday/day count/leap years, optional week-start setting. Weekdays use three-letter abbreviations with full-name titles. Bold borderless month/year heading is left-aligned; previous/next arrows are grouped on the right. Compact square backgrounds behind date numerals form a monthly heatmap; heat shades correspond to note counts, with zero/today/selection distinguishable and accessible. Heading opens 12 month links in 4 columns × 3 rows; clicking the year enables direct text entry, and arrows on either side move years. The picker is inline, not a modal, and has no quick-year list or year-activity fetch. Browsing does not change filters; month selection clears day but retains search/tags. Verify 1969/9998 bounds, keyboard focus/Escape/return, four-column mobile targets and light/dark contrast. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
 
 ### CAL-02 — Continuous scrolling
 
@@ -211,7 +213,7 @@ Examples around Hong Kong/Tokyo midnight, leap day, year boundary and America/Ne
 
 ### MD-01 — Rendering/code
 
-Representative GFM renders consistently in preview/card/detail. Code copy is original code including whitespace, with language label and feedback. Code scrolls within block, not page. Unsupported code language has safe readable fallback. Unsafe HTML/links/schemes do not execute.
+Representative GFM renders consistently in preview/card/detail. Single newlines in ordinary text become visible breaks, including around hashtag spans, without changing stored Markdown or code bytes. h1–h4 use compact spacing. Cards hide eligible hashtag tokens in their body while showing chips; preview/detail/search retain those tokens. Code copy is original code including whitespace, with language label and feedback. Code scrolls within block, not page. Unsupported code language has safe readable fallback. Unsafe HTML/links/schemes do not execute.
 
 ### MD-02 — Mermaid
 
@@ -254,6 +256,13 @@ the retained cursor using existing local autocomplete. Preview toggles raw/rende
 text without loss. Focus mode replaces the expand icon with X; close/Escape
 retains text/files/metadata, returns focus and does not publish. Controls and at least
 one text line remain reachable with mobile safe areas/keyboard-shrunken height.
+Compact timeline text grows from its minimum to the cap, then internally scrolls;
+verify long input, deletion/shrink, window resize and focus-mode open/return. Defaults
+are 10rem minimum and `min(24rem, 60vh)` maximum. No writing placeholder, new-note
+guidance or "Saved on server." footer text; errors/progress/edit guidance remain.
+Save tests synchronize on cleared composer/server receipt, not hidden success text.
+The grow/cap geometry still needs a dedicated browser regression; existing editor
+and posting passes alone do not prove that behavior.
 
 ### UI-03 — Context/error states
 

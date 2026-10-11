@@ -55,7 +55,7 @@
                 others(t),
             )
           : [];
-      choices = [...byPath, ...bySegment].slice(0, 8);
+      choices = [...byPath, ...bySegment].slice(0, 5);
       selected = 0;
     } catch {
       /* Invalid tags are validated when posting; never trap writing. */
@@ -149,14 +149,22 @@
 <style>
   .suggestions {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1);
-    max-height: 6rem;
+    flex-direction: column;
+    align-items: stretch;
+    max-height: 15rem;
     overflow: auto;
     flex: none;
   }
-  button[aria-selected='true'] {
-    border-color: var(--accent);
+  .suggestions button {
+    justify-content: flex-start;
+    text-align: left;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: var(--space-1) var(--space-3);
+  }
+  .suggestions button[aria-selected='true'] {
     background: var(--accent-soft);
+    color: var(--accent);
   }
 </style>

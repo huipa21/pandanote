@@ -65,7 +65,9 @@ test('manual location stays in memory, validates and posts; denial never blocks 
     .getByTestId('composer')
     .getByRole('button', { name: 'Post', exact: true })
     .click();
-  await expect(page.getByTestId('composer')).toContainText('Saved on server.');
+  await expect(page.getByTestId('composer').getByRole('textbox')).toHaveValue(
+    '',
+  );
   const result = await page.request.get(
     `/api/notes?q=${encodeURIComponent(text)}`,
     { headers: await authenticatedHeaders(page) },
@@ -132,7 +134,9 @@ test('native explicit geolocation preserves accuracy; manual coordinates clear i
     accuracy: null,
     label: null,
   });
-  await expect(page.getByTestId('composer')).toContainText('Saved on server.');
+  await expect(page.getByTestId('composer').getByRole('textbox')).toHaveValue(
+    '',
+  );
   await page
     .getByTestId('composer')
     .getByRole('textbox')

@@ -138,7 +138,9 @@ export async function renderMarkdown(
     if ('children' in node) {
       const parent = node as { children: Nodes[] };
       parent.children = parent.children.flatMap((child) =>
-        child.type === 'text' ? splitTags(child) : [child],
+        child.type === 'text'
+          ? splitTags(child).flatMap(splitLineBreaks)
+          : [child],
       );
       parent.children.forEach(prepare);
     }
@@ -150,6 +152,17 @@ export async function renderMarkdown(
     tags = tagSpans(source);
   } catch {
     // Over-limit notes still render; only the tag-text wrapping is skipped.
+  }
+  // Standard Markdown folds a single newline into a space. PandaNote notes are
+  // typed like plain notes, so every newline inside text becomes a hard break.
+  function splitLineBreaks(node: Nodes): Nodes[] {
+    if (node.type !== 'text' || !node.value.includes('\n')) return [node];
+    return node.value.split('\n').flatMap((line, index) => {
+      const parts: Nodes[] = [];
+      if (index > 0) parts.push({ type: 'break' });
+      if (line) parts.push({ type: 'text', value: line });
+      return parts;
+    });
   }
   function splitTags(node: MdText): Nodes[] {
     const start = node.position?.start.offset;

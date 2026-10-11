@@ -8,7 +8,7 @@ retries, revision checks, no silent overwrite, private data).
 
 Order inside a published-note card (timeline):
 
-1. **Date row:** date link (opens `/notes/<id>`), optional "Edited" label, and at the
+1. **Date row:** date link (opens `/notes/<id>`), no "Edited" label, and at the
    far right the **unpin icon button** (pinned notes only) followed by the `•••`
    trigger. The unpin button shows a pin icon in the accent colour (pin-off on
    hover/focus), uses the same borderless style as `•••` (section 2), has the
@@ -17,11 +17,15 @@ Order inside a published-note card (timeline):
    flight. It is shown wherever the pinned note appears (Pinned section and other
    views).
 2. **Tags row:** directly under the date row, before search excerpts and content.
-   Same clickable accent tag links as today (`selectTag`), wrapping onto several
+   Soft-background pill links (`selectTag`), no resting underline and underline
+   on hover, wrapping onto several
    lines; `aria-current` on the active tag. Omitted entirely when the note has no tags
    (no empty row or spacing).
 3. Search excerpts (search views only), content, photo grid, Show more, location,
-   files, feedback — unchanged order.
+   files, feedback — unchanged order. Eligible hashtag tokens are hidden in the
+   card body because the chip row already shows them. Source, editor preview,
+   note detail and search excerpts retain the tokens; tag management still rewrites
+   source spans rather than removing hashtags on Post.
 
 Spacing: the date row and tags row read as one compact header block (small gap
 between them, the existing larger gap before content). The tags row must not reduce
@@ -32,8 +36,11 @@ visually tighter as long as the hit area stays.
 
 - Icon: three dots (SVG, same as the tag-header icon), muted colour.
 - **No border and no resting background.** Hover and keyboard focus show a soft
-  round background (`--accent-soft` or the theme's subtle hover surface) and a
-  visible focus ring; the hit area remains `--target` square.
+  pill background (`--accent-soft`) and a visible focus ring. Card date, tag,
+  unpin and `•••` controls share pill radius/padding and 1.75rem fine-pointer
+  height; touch keeps full `--target` height. Date has no underline and its text
+  is optically nudged upward 1px to align with the dots. Other shared menus are
+  not forced to adopt the card-specific geometry.
 - Accessible name "Note actions"; `aria-haspopup="menu"`, `aria-expanded`,
   `aria-controls` the menu. Disabled until hydrated.
 
@@ -108,9 +115,9 @@ existing form dialog. Behavior of tag operations is unchanged.
     at most 20, ordered `pinned_at DESC, id DESC`). Later cursor pages omit it.
   - The chronological stream excludes pinned notes (`pinned_at IS NULL`), so a
     pinned note appears **only** at the top. Cursors stay bound to filters as today.
-  - UI: a muted "Pinned" heading (styled like month separators) above the pinned
-    cards, then the normal month separators and cards. No Pinned heading when
-    nothing is pinned.
+  - UI: pinned cards above the normal month separators/cards, without a visible
+    "Pinned" heading (later user request). The section retains its translated
+    accessible name; the per-card pin icon identifies pinned notes visually.
 - **Every other view** (tag, search, day, month jump): pinned notes appear in their
   normal chronological position with the unpin icon; no Pinned section.
 - Calendar counts, tag counts, search and Trash are unaffected by pinning.
@@ -140,8 +147,9 @@ page use it for edits. No duplicated editor logic.
   stays at the same position in the list). The editor shows **Save changes** and a
   **Cancel** text button; Cancel closes without prompting when unchanged, otherwise
   offers Discard / Keep editing.
-- The top composer shows only the collapsed "Write a note…" button while an edit is
-  open elsewhere. Activating it (or the mobile compose button) triggers the guard.
+- The top composer is hidden while an inline edit is open elsewhere. On the
+  unfiltered main timeline it otherwise shows the editor directly, not a collapsed
+  "Write a note…" button (later user request). Mobile compose triggers the guard.
 - Save changes uses the existing receipt-first update. On success the session ends,
   the card re-renders read-only with the new revision in the same place and focus
   returns to its `•••` trigger. If the edited note no longer matches the view

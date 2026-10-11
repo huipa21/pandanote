@@ -25,11 +25,12 @@ For user-facing steps also run affected Playwright tests. At milestones run `npm
 
 Every completed step must record changed files, tests actually run, blockers/known issues, and the precise next task in PROGRESS. Commit-sized units are preferable; only commit if the user's/session's repository workflow permits it.
 
-## Active approved change — yearly heatmaps and remove drafts
+## Active approved change — inline year/month picker and no drafts
 
-1. Replace month-name choices with twelve miniature month heatmaps in 4 × 3,
-   private year aggregation, quick years/arrows, loading/error/retry and accessible
-   whole-tile navigation preserving search/tags while clearing day.
+1. The delivered yearly miniature heatmaps were superseded by the user's later
+   request: inline Jan–Dec links in 4 × 3, year between arrows, click-to-type year
+   (1969–9998), Escape/outside dismissal; no modal/quick-year list/activity fetch.
+   Preserve search/tag and clear day only on month selection.
 2. Remove browser draft repositories/blobs/recovery, Drafts screen/navigation and
    server draft/publish actions. Use one memory-only editor, explicit Post/Save
    changes, protected attachments/retries and optimistic server conflicts.
@@ -42,7 +43,18 @@ Every completed step must record changed files, tests actually run, blockers/kno
    SQLite/archive gates, no legacy-draft compatibility or security bypass.
 
 Historical S05/S13 draft tasks below describe superseded delivered behavior, not
-current requirements. Current acceptance is EDITOR-01–05/YEAR-01 below in the matrix.
+current requirements. Current acceptance is EDITOR-01–05/YEAR-01 in ACCEPTANCE_TESTS.
+
+## Latest small UI refinements — implemented, validation partial
+
+Uncommitted changes at reviewed HEAD `9af9280`: compact editor grows then scrolls;
+five vertical prefix suggestions; editor success footer hidden; ordinary Markdown
+newlines preserved; compact heading margins; no visible Pinned heading. Prior
+commits also remove placeholder/new-note/Edited labels and align card hover pills.
+See the latest PROGRESS entry for session evidence and failed/incomplete checks.
+Next validation work: dedicated grow/cap/resize/focus-return and suggestion geometry
+browser assertions, then sequential common/full-browser and Linux gates. Do not
+mark NA06/S18 complete from these focused runs.
 
 ## S00 — Bootstrap and validate technical assumptions
 
@@ -357,7 +369,7 @@ current requirements. Current acceptance is EDITOR-01–05/YEAR-01 below in the 
 
 1. Build calendar grid, activity shades, today/selection distinctions, accessibility labels and month counts.
 2. Implement IANA timezone setting/detection and correct half-open UTC day/month boundaries.
-3. Month arrows, bold heading, compact date heat tiles, 4 × 3 year/month picker with year arrows/scrollable quick-year/direct entry, Today and manually selected empty month behavior.
+3. Month arrows, bold heading, compact date heat tiles, inline 4 × 3 month-name picker with year arrows/click-to-type year, Today and manually selected empty month behavior (later user override: no modal/quick-year list/miniature heatmaps).
 4. Connect top-visible card to displayed calendar month; continuous older loading skips empty matching months.
 5. Day-filter mode locks results to selected day; clicking selected day/chip clears it.
 6. Search/tags cover all dates by default; counts remain all published notes.
