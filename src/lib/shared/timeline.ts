@@ -315,3 +315,25 @@ export function shortDate(
     ...(year(at) === year(now) ? {} : { year: 'numeric' }),
   }).format(at);
 }
+
+/**
+ * Exact stamp in the account timezone as "YYYY-MM-DD HH:mm" (24-hour, no
+ * seconds, no timezone text), used by hover details on note cards.
+ */
+export function stampDateTime(at: number, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
+    .formatToParts(at)
+    .reduce<Record<string, string>>((acc, part) => {
+      acc[part.type] = part.value;
+      return acc;
+    }, {});
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+}

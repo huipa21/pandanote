@@ -1,7 +1,7 @@
 <script module lang="ts">
   /** Small stroke icon set for action menus (16–18 px, inherits text colour). */
   export type IconName =
-    'pin' | 'pin-off' | 'pencil' | 'trash' | 'merge' | 'dots';
+    'pin' | 'pin-off' | 'pencil' | 'trash' | 'merge' | 'dots' | 'back';
 </script>
 
 <script lang="ts">
@@ -24,6 +24,8 @@
       <path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6ZM3 3l18 18" />
     {:else if name === 'pencil'}
       <path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4" />
+    {:else if name === 'back'}
+      <path d="M19 12H5M11 6l-6 6 6 6" />
     {:else if name === 'merge'}
       <path
         d="M6 4v4a4 4 0 0 0 4 4h4a4 4 0 0 1 4 4v4M18 4v4a4 4 0 0 1-4 4M6 20v-4"

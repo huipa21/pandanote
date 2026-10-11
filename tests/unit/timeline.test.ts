@@ -12,6 +12,7 @@ import {
   boundedPreview,
   gridImages,
   shortDate,
+  stampDateTime,
   type TimelineCard,
 } from '../../src/lib/shared/timeline.ts';
 
@@ -154,5 +155,15 @@ describe('card short date', () => {
     const at = Date.UTC(2025, 11, 31, 20); // 2026-01-01 04:00 in Hong Kong
     expect(shortDate(at, 'Asia/Hong_Kong', now)).toBe('Thu, Jan 1');
     expect(shortDate(at, 'UTC', now)).toBe('Wed, Dec 31, 2025');
+  });
+});
+
+describe('card hover stamp', () => {
+  it('formats YYYY-MM-DD HH:mm in the account timezone', () => {
+    const at = Date.UTC(2025, 11, 31, 20, 5); // 2026-01-01 04:05 in Hong Kong
+    expect(stampDateTime(at, 'Asia/Hong_Kong')).toBe('2026-01-01 04:05');
+    expect(stampDateTime(Date.UTC(2026, 6, 21, 0, 0), 'UTC')).toBe(
+      '2026-07-21 00:00',
+    );
   });
 });

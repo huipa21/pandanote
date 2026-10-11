@@ -165,15 +165,16 @@ page use it for edits. No duplicated editor logic.
 
 ### 5.3 Note page
 
-- The note page header shows the same `•••` menu (Pin/Unpin, Edit, Delete) for
-  published notes, replacing the "Edit note" / "Move to Trash" buttons, plus the
-  unpin icon when the note is pinned.
+- The note page header uses the same date (top left) and tag chips under it as
+  the card. Its actions are three icon buttons, not a `•••` menu: **Pin** (shows
+  pin-off on hover when pinned; unpins), **Edit** (pencil) and **Delete** (trash,
+  immediate, as on the card). Shown for published notes only.
+- The date and tags header stays visible while the note page is in edit mode.
 - A Trash note's page (opened from the Trash list) shows the note read-only with an
   "In Trash" label and a link back to Trash, but **no** Restore, Permanently delete,
-  Edit or `•••` controls. Restore and permanent deletion happen only on the Trash
+  Edit or action controls. Restore and permanent deletion happen only on the Trash
   page.
-- Edit renders the editor inside the note page article, replacing the rendered body
-  and metadata; it no longer navigates to the timeline. Save changes stays on the
+- Edit renders the editor inside the note page article, replacing the rendered body; it no longer navigates to the timeline. Save changes stays on the
   page and shows the updated note; Cancel follows 5.2.
 - Leaving the page with unsaved changes uses the existing guard.
 

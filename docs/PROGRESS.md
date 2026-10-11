@@ -2,6 +2,14 @@
 
 ## Current state
 
+- **Note page layout (user request) — implemented; partly verified.** The note page
+  now matches the card header: date top left, tag chips under it (no bottom Tags
+  list, no location label), body hides hashtag text (`#test/1` no longer shows), and
+  the header stays while editing. The `•••` menu is replaced by three icon buttons:
+  pin (toggles), edit, delete. Files: `src/lib/components/NoteDetail.svelte`,
+  `src/routes/(app)/notes/[noteId]/+page.svelte` (passes `timezone`). Card/timeline
+  unchanged. Gates: see the latest history entry at the end of this file.
+
 - **Latest UI refinements — implemented; validation partial.** Reviewed staged
   changes at HEAD `9af9280` and 2026-10-11 pi session history. Compact editor grows
   then scrolls; five vertical prefix suggestions; editor success footer hidden;
@@ -4604,3 +4612,30 @@ Final documentation validation (this session):
 - `git diff --check` and `git diff --cached --check`: PASS; only CRLF notices.
   Final status shows documentation-only unstaged edits; all original source/test
   edits remain staged and unchanged. No full lint/application/native gate claimed.
+
+## Note page layout — session handoff (user request)
+
+- **State: in progress.** Implemented the note page layout change above. Specs
+  updated: PRODUCT_SPEC (note detail hides hashtag text), note-actions SPEC/README/
+  ACCEPTANCE_TESTS (icon actions instead of `•••` on the note page).
+- Commands and real results:
+  - `npm run check`: 0 errors; 1 pre-existing warning (`AppShell.svelte` unused CSS).
+  - `npm run lint`: **FAILS** on pre-existing `NoteEditor.svelte:64` unused `_value`
+    (file not touched this session). Prettier check on touched files not clean in
+    the wider `tests/e2e` set (9 files pre-existing warnings); touched files were
+    formatted with prettier.
+  - `npm run test:unit`: exit 0.
+  - `npm run build`: exit 0.
+  - `npx playwright test tests/e2e/detail.test.ts tests/e2e/note-edit.test.ts
+    tests/e2e/note-actions.test.ts`: 16/17 pass. New test "note page keeps the card
+    header…" passes. **Failing:** `NA-PIN` at `note-actions.test.ts:111` expects
+    `getByRole('heading', { name: 'Pinned', level: 2 })`; the timeline renders
+    `<section aria-label="Pinned">` with no heading (pre-existing; `+page.svelte`
+    untouched). The pin itself works (the note page shows "Unpin note").
+- Not run: full e2e suite, integration tests, Linux/native gates.
+- Next: fix the stale `NA-PIN` heading assertion (or add a real heading to the
+  Pinned section, with a decision recorded), fix the NoteEditor lint error, then run
+  `npm run lint` and the full e2e suite. Files: `NoteDetail.svelte`,
+  `tests/e2e/note-actions.test.ts`.
+
+- Addendum: `NA-PIN` fixed by asserting the labelled region `getByRole('region', { name: 'Pinned' })` (no visible heading by design). Rerun `npx playwright test tests/e2e/detail.test.ts tests/e2e/note-edit.test.ts tests/e2e/note-actions.test.ts`: **17/17 pass**. Remaining: NoteEditor lint error, full e2e suite, integration/Linux gates.

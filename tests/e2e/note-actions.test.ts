@@ -104,12 +104,11 @@ test('NA-PIN: pin moves a note to Pinned at the top, unpin icon restores it, oth
   );
   await create(page, `Newest unpinned ${tag}`);
   await page.goto(`/notes/${id}`);
-  await page.getByRole('button', { name: 'Note actions' }).click();
-  await pick(page, 'Pin');
+  await page.getByRole('button', { name: 'Pin', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Unpin note' })).toBeVisible();
   await page.goto('/');
   await expect(
-    page.getByRole('heading', { name: 'Pinned', level: 2 }),
+    page.getByRole('region', { name: 'Pinned', exact: true }),
   ).toBeVisible();
   await expect(
     page.locator('section.pinned').locator(`[data-note-id="${id}"]`),
@@ -132,7 +131,9 @@ test('NA-PIN: pin moves a note to Pinned at the top, unpin icon restores it, oth
   await expect(
     card(page, id).getByRole('button', { name: 'Unpin note' }),
   ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Pinned' })).toHaveCount(0);
+  await expect(
+    page.getByRole('region', { name: 'Pinned', exact: true }),
+  ).toHaveCount(0);
   // One click on the icon unpins without a menu or confirmation.
   await page.goto('/');
   await card(page, id).getByRole('button', { name: 'Unpin note' }).click();
@@ -191,15 +192,12 @@ test('NA-DELETE: note page Delete returns to the timeline; Trash notes are read-
 }) => {
   const id = await create(page, `Page delete ${randomUUID()}`);
   await page.goto(`/notes/${id}`);
-  await page.getByRole('button', { name: 'Note actions' }).click();
-  await pick(page, 'Delete');
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(card(page, id)).toHaveCount(0);
   await page.goto(`/notes/${id}`);
   await expect(page.getByText('In Trash', { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: /Back to Trash/ }),
-  ).toHaveAttribute('href', '/trash');
+  await expect(page.getByRole('link', { name: 'Back' })).toHaveCount(0);
   for (const name of [
     'Restore',
     'Permanently delete',

@@ -29,6 +29,7 @@
     gridImages,
     selectTag,
     shortDate,
+    stampDateTime,
     type TimelineCard,
     type TimelineFilters,
   } from '#lib/shared/timeline.ts';
@@ -241,18 +242,23 @@
   {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
   <div class="card-view" hidden={editing} inert={editing}>
     <header class:has-tags={note.tags.length > 0}>
-      <a
-        class="when"
-        href={`/notes/${note.id}`}
-        title={new Date(note.timelineAt).toLocaleString('en', {
-          timeZone: timezone,
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        })}
-        ><time datetime={new Date(note.timelineAt).toISOString()}
-          >{shortDate(note.timelineAt, timezone)}</time
-        ></a
-      >
+      <span class="when-wrap">
+        <a
+          class="when"
+          href={`/notes/${note.id}`}
+          aria-describedby={`when-info-${note.id}`}
+          ><time datetime={new Date(note.timelineAt).toISOString()}
+            >{shortDate(note.timelineAt, timezone)}</time
+          ></a
+        >
+        <span class="when-info" id={`when-info-${note.id}`} role="tooltip"
+          ><span
+            >{t('note.created')} {stampDateTime(note.createdAt, timezone)}</span
+          ><span
+            >{t('note.updated')} {stampDateTime(note.updatedAt, timezone)}</span
+          ></span
+        >
+      </span>
       <div class="header-actions">
         {#if pinned}<button
             type="button"
@@ -429,6 +435,32 @@
   }
   .when {
     min-height: var(--target);
+  }
+  .when-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  /* Hover/focus details: shown only while the pointer or focus is on the date. */
+  .when-info {
+    display: none;
+    position: absolute;
+    top: calc(100% + var(--space-1));
+    left: 0;
+    z-index: 10;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: var(--space-2) var(--space-3);
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    pointer-events: none;
+  }
+  .when-wrap:hover .when-info,
+  .when-wrap:focus-within .when-info {
+    display: flex;
   }
   /* Same pill geometry as .card-tags a so the hover chips line up. */
   .when {

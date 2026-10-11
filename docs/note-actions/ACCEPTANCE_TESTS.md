@@ -11,7 +11,7 @@ beneath, before search excerpts/content. Card without tags: no empty row. The `�
 has no border/background at rest; hover and focus-visible show the same soft pill
 shape as dates/tags with a focus ring. Fine-pointer pills are 1.75rem high; touch
 retains full targets. Dates never underline, tags underline on hover; card body
-hides hashtag tokens while preview/detail/source retain them. 390 px and 1280 px, light and dark: no overflow, axe clean.
+and note-page body hide hashtag tokens while preview/source retain them; the note page shows the date top left, tag chips under it, and pin/edit/delete icons. 390 px and 1280 px, light and dark: no overflow, axe clean.
 
 ## NA-MENU — Dropdown behavior (e2e)
 
@@ -54,7 +54,7 @@ its Rename/Merge/Remove forms still work.
 - Focus button opens the full-screen editor; X returns to the inline card editor
   with the same text/files. 390 px mobile inline edit works with the virtual
   keyboard area (manual check on a device).
-- Note page: menu Edit edits within the page; Save changes stays on `/notes/<id>`
+- Note page: the Edit icon edits within the page; Save changes stays on `/notes/<id>`
   with the new revision; leaving with unsaved text prompts.
 
 ## NA-DELETE — Delete (e2e + unit)

@@ -119,8 +119,7 @@ test('NA-EDIT: the note page edits in place and leaving with changes prompts', a
 }) => {
   const id = await create(page, `Page edit ${randomUUID()}`);
   await page.goto(`/notes/${id}`);
-  await page.getByRole('button', { name: 'Note actions' }).click();
-  await pick(page, 'Edit');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   const editor = page.getByTestId('inline-editor');
   await editor.getByRole('textbox').fill('Page edit saved');
   await editor.getByRole('button', { name: 'Save changes' }).click();
@@ -132,10 +131,9 @@ test('NA-EDIT: the note page edits in place and leaving with changes prompts', a
     'data-revision',
     '2',
   );
-  await page.getByRole('button', { name: 'Note actions' }).click();
-  await pick(page, 'Edit');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await page.getByTestId('inline-editor').getByRole('textbox').fill('Unsaved');
-  await page.getByRole('link', { name: '← All notes' }).click();
+  await page.getByRole('link', { name: 'Back', exact: true }).click();
   await expect(
     page.getByRole('dialog', { name: 'Unsaved changes' }),
   ).toBeVisible();

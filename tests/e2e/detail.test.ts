@@ -41,10 +41,9 @@ async function edit(page: Page, note: NoteSnapshot, body: string) {
   await text.fill(body);
   return text;
 }
-/** Note actions ••• → Edit on the note page: the editor opens in the page. */
+/** Edit icon on the note page: the editor opens in the page. */
 async function openEditor(page: Page) {
-  await page.getByRole('button', { name: 'Note actions' }).click();
-  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
 }
 async function save(page: Page) {
   await page
@@ -271,4 +270,40 @@ test('card date is a short link to the note page, not a popup', async ({
     note.bodyMarkdown,
   );
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('note page keeps the card header: date, tag chips under it, hashtag text hidden, icon actions', async ({
+  page,
+}) => {
+  await browserSession(page);
+  const tag = `layout${randomUUID().slice(0, 8)}`;
+  const result = await page.request.post('/api/notes', {
+    headers: await authenticatedHeaders(page),
+    data: {
+      action: 'create',
+      mutationId: randomUUID(),
+      content: {
+        bodyMarkdown: `This is a test post. #${tag}/1`,
+        timelineAt: Date.UTC(2020, 0, 1),
+        location: null,
+        attachmentIds: [],
+      },
+    },
+  });
+  expect(result.status()).toBe(200);
+  const id = (await result.json()).data.noteId as string;
+  await page.goto(`/notes/${id}`);
+  const detail = page.getByTestId('note-detail');
+  await expect(detail.locator('header .when time')).toBeVisible();
+  await expect(detail.locator('.note-tags a')).toHaveText(`#${tag}/1`);
+  await expect(detail.locator('.note-body')).toContainText(
+    'This is a test post.',
+  );
+  await expect(detail.locator('.note-body .tag-text').first()).toBeHidden();
+  await expect(detail.getByText('Tags', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Note actions' })).toHaveCount(
+    0,
+  );
+  for (const name of ['Pin', 'Edit', 'Delete'])
+    await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
 });

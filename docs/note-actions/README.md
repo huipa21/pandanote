@@ -17,7 +17,7 @@ Make the timeline note card tidier and its actions direct:
 - **Edit** edits in place: in the card on the timeline, or in the note page.
 - **Delete** moves the note to Trash immediately, without a confirmation dialog,
   status text or Undo. Restore and permanent delete live only on the Trash page.
-- The same menu look is used everywhere a `•••` appears (card, note page, tag view).
+- The card and tag view use the `•••` menu. The note page uses three icon buttons (pin, edit, delete) instead, with the same date and tag header as the card.
 
 ## Documents
 

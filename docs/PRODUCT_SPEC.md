@@ -342,7 +342,7 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 
 - Markdown rendered safely through remark/rehype. Single newlines in ordinary text display as line breaks (not spaces), consistently in preview, cards and detail; stored Markdown and code-copy bytes remain unchanged.
 - Heading spacing is compact; current h1–h4 margin default is `0.6em 0.2em`, without changing heading font sizes.
-- Timeline cards show hashtags as chips without repeating their tokens in rendered body text. Source, editor preview, note detail and search excerpts retain hashtag text; this is a display change, not tag removal from stored notes.
+- Timeline cards show hashtags as chips without repeating their tokens in rendered body text. Note detail shows the same layout as a card: date at top left, tag chips under it, no tag list at the bottom, and the body hides hashtag tokens. Source, editor preview and search excerpts retain hashtag text; this is a display change, not tag removal from stored notes.
 - No unsafe raw HTML execution.
 - Highlighted code blocks have language label, horizontal scrolling, Copy button, and confirmation feedback.
 - Copy uses original code, not HTML or line labels.

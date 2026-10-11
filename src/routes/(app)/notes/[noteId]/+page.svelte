@@ -5,4 +5,8 @@
 </script>
 
 <PageTitle title="Note" />
-<NoteDetail note={data.detail} rendered={data.rendered} />
+<NoteDetail
+  note={data.detail}
+  rendered={data.rendered}
+  timezone={data.timezone}
+/>
