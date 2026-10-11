@@ -453,34 +453,25 @@ test('top visible tall/Mermaid cards track year boundaries without scroll reset/
     .toBeCloseTo(position.offset, 0);
 });
 
-test('scrolling composer and Back to Top retain unpublished text, filters and loaded notes', async ({
+test('filtered timeline has no composer; scrolling and Back to Top retain filters and loaded notes', async ({
   page,
 }) => {
   await start(page);
-  const composer = page.getByTestId('composer');
-  await composer.getByRole('button', { name: 'Write a note…' }).click();
-  const text = composer.getByRole('textbox', { name: 'Note text' });
-  await text.fill('Unpublished scrolling draft 香港');
+  await expect(page.getByTestId('composer')).toHaveCount(0);
   await expect(page.locator('#notes-pane')).toHaveJSProperty('scrollTop', 0);
   await page
     .locator('#notes-pane')
     .evaluate((el) => (el.scrollTop = el.scrollHeight));
   await expect(page.getByTestId('posted-note')).toHaveCount(40);
-  await expect(composer).not.toBeInViewport();
   const url = page.url();
   const historyLength = await page.evaluate(() => history.length);
   await page.getByRole('button', { name: 'Back to Top ↑' }).click();
   await expect(page.locator('#notes-pane')).toHaveJSProperty('scrollTop', 0);
-  await expect(text).toHaveValue('Unpublished scrolling draft 香港');
-  await expect(composer).toBeInViewport();
   await expect(page.getByTestId('posted-note')).toHaveCount(40);
   expect(page.url()).toBe(url);
   expect(await page.evaluate(() => history.length)).toBe(historyLength);
   await expect(page.locator('#notes-pane')).toBeFocused();
-  page.on('dialog', (dialog) => dialog.accept());
-  await page.reload();
-  await composer.getByRole('button', { name: 'Write a note…' }).click();
-  await expect(text).toHaveValue('');
+  await expect(page.getByTestId('composer')).toHaveCount(0);
 });
 
 test('timezone detection is an explicit proposal; settings errors retain choices and saved zone drives dates across browser zones', async ({

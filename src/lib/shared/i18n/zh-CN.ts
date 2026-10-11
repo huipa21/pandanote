@@ -31,7 +31,6 @@ export const zhCN: Partial<Catalog> = {
   'shell.version': '版本 {version}',
   'shell.activeFilters': '当前筛选',
   'shell.noFilters': '全部笔记 · 无筛选',
-  'shell.yourNotebook': '你的笔记本',
   'shell.clearAll': '清除全部',
 
   'search.label': '搜索笔记',

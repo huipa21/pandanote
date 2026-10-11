@@ -165,7 +165,9 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
     .toBe(await card.getAttribute('data-note-id'));
   await expect(card).toBeInViewport();
   await expect(page.getByTestId('posted-note')).toHaveCount(30);
-  const composerBefore = await page.getByTestId('composer').boundingBox();
+  const filtersBefore = await page
+    .getByRole('region', { name: 'Active filters' })
+    .boundingBox();
   await page.route('**/api/notes?*', (route) => route.abort('failed'), {
     times: 1,
   });
@@ -176,9 +178,10 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
   await page.getByRole('button', { name: 'Retry older notes' }).click();
   await expect(page.getByTestId('posted-note')).toHaveCount(60);
   expect(await page.evaluate(() => scrollY)).toBe(0);
-  expect((await page.getByTestId('composer').boundingBox())!.y).toBeLessThan(
-    composerBefore!.y,
-  );
+  expect(
+    (await page.getByRole('region', { name: 'Active filters' }).boundingBox())!
+      .y,
+  ).toBeLessThan(filtersBefore!.y);
   const position = await readingAnchor(page);
   const topId = await page
     .locator('[data-top-month]')

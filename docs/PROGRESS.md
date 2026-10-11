@@ -4416,3 +4416,11 @@ Commands: `npm run check` PASS; eslint/prettier on touched files PASS; `vite bui
 Touched: `src/lib/styles/tokens.css`, `Sidebar.svelte`, `TagTree.svelte`, `TimelineOptions.svelte`, `DateTimeField.svelte` (new), `tests/e2e/editor.test.ts` (new picker test).
 
 Commands: `npm run check` PASS; `npm run lint` PASS; `npm run test:unit` 147/147 PASS; `npm run build` PASS; `playwright test editor calendar` PASS (openssl from Git for Windows on PATH; e2e server runs `build/`, so rebuild first). `shell.test.ts` 2 tests (appearance, viewport matrix) fail identically on a clean stash — pre-existing. Integration suite, Linux image not run. Spacing visually unverified by screenshot comparison; shell screenshot snapshots may need review.
+
+### Session 2026-10-12 — composer only on the unfiltered main timeline
+
+**State: done.** User-requested change: the "Write a note…" composer (and its filter strip's "Your notebook" placeholder) no longer appears on Tags, Trash, Settings, note pages, or any filtered timeline (tag/search/day filter). It shows only on `/` with no tag/search/day filter (`?month=` alone is not a filter). On a filtered timeline the active-filter chips remain so filters can be removed. Drafts live in `EditorWorkspace`, and navigation with a dirty draft already prompts, so hiding the composer cannot lose a draft.
+
+Touched: `src/lib/components/AppShell.svelte` (`hasFilters`; composer region only inside the notes scroller; `shell.yourNotebook` removed from `en.ts`/`zh-CN.ts`), `tests/e2e/shell.test.ts` (new "composer appears only on the unfiltered main timeline"; touch test returns Home before composing), `tests/e2e/calendar.test.ts` (filtered-view test rewritten: no composer, Back to Top retains filters/notes), `tests/e2e/timeline.test.ts` (scroll indicator is the Active filters region instead of the composer).
+
+Commands: `npm run check` PASS; `npm run build` PASS; `npm run test:unit` PASS; full `playwright test`: all related tests PASS. Failing and identical on a clean stash (pre-existing, unrelated): shell `appearance persists…` and `real private shell viewport…` (screenshot baselines), `language and site title` (expects a zh-CN "全部笔记" sidebar link that doesn't exist), axe `light`/`dark` (month picker button), calendar `posting from the composer…` (naturalWidth 400). Integration suite and Linux image not run.

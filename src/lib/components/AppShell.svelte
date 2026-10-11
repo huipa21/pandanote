@@ -34,6 +34,10 @@
     onSearch?: (href: string) => Promise<unknown>;
     children: Snippet;
   } = $props();
+  // The composer belongs only to the unfiltered main timeline.
+  const hasFilters = $derived(
+    Boolean(filters.tags.length || filters.query || filters.day),
+  );
   const i18n = useI18n();
   const t = i18n.t;
   let drawerOpen = $state(false);
@@ -140,12 +144,12 @@
     </header>
     {#snippet composerRegion()}
       <div class="composer-region">
-        <div class="column-inner"><Composer /></div>
+        {#if !hasFilters}<div class="column-inner"><Composer /></div>{/if}
         <section
           class="filter-region column-inner"
           aria-label={t('shell.activeFilters')}
         >
-          {#if active === '/' && (filters.tags.length || filters.query || filters.day)}
+          {#if hasFilters}
             <div class="filter-chips">
               {#if filters.query}<a
                   class="filter-chip"
@@ -171,15 +175,10 @@
               {/each}
             </div>
             <a href="/">{t('shell.clearAll')}</a>
-          {:else}<span class="muted"
-              >{active === '/'
-                ? t('shell.noFilters')
-                : t('shell.yourNotebook')}</span
-            >{/if}
+          {:else}<span class="muted">{t('shell.noFilters')}</span>{/if}
         </section>
       </div>
     {/snippet}
-    {#if active !== '/'}{@render composerRegion()}{/if}
     <!-- svelte-ignore a11y_no_noninteractive_tabindex (The primary scroll surface must be keyboard-scrollable.) -->
     <main
       id="notes-pane"

@@ -28,7 +28,6 @@ export const en = {
   'shell.version': 'Version {version}',
   'shell.activeFilters': 'Active filters',
   'shell.noFilters': 'All notes · no active filters',
-  'shell.yourNotebook': 'Your notebook',
   'shell.clearAll': 'Clear all',
 
   'search.label': 'Search notes',

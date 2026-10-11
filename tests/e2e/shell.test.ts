@@ -142,6 +142,27 @@ test('appearance persists in SQLite and SSR before JavaScript, follows system, a
   );
 });
 
+test('composer appears only on the unfiltered main timeline', async ({
+  page,
+  context,
+}) => {
+  await signIn(page, context);
+  const composer = page.getByTestId('composer');
+  await page.goto('/');
+  await expect(composer).toBeVisible();
+  for (const path of [
+    '/?tag=anything',
+    '/?q=anything',
+    '/?date=2024-12-30',
+    '/tags',
+    '/trash',
+    '/settings',
+  ]) {
+    await page.goto(path);
+    await expect(composer, path).toHaveCount(0);
+  }
+});
+
 test('real private shell viewport/screenshot matrix, mobile drawer focus, navigation and editor shrinking', async ({
   page,
   context,
@@ -533,6 +554,9 @@ test('touch-only private navigation and safe-area/keyboard-shrink scenarios expo
       await expect(page).toHaveURL(`${origin}${path}`);
       await expect(drawer).not.toBeVisible();
     }
+    // The composer is intentionally absent from Settings; return to the timeline.
+    await page.getByRole('link', { name: /home$/ }).tap();
+    await expect(page).toHaveURL(`${origin}/`);
     await page.getByRole('button', { name: 'Compose a note' }).tap();
     const editor = page.getByRole('dialog', { name: 'Write a note' });
     const text = editor.getByRole('textbox', { name: 'Note text' });
