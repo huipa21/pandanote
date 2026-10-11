@@ -305,7 +305,7 @@ current requirements. Current acceptance is EDITOR-01–05/YEAR-01 below in the 
 1. SSR initial page, then cursor-based older loading in the actual notes scroller.
 2. Build note cards with timestamps, optional edited/location/attachment sections, action menu and clickable tags.
 3. Apply long-card collapse preference, Show more/less and density modes; note detail comes later.
-4. Canonical filter state/query params and chips; multiple tags use AND.
+4. Canonical filter state/query params and chips; a single tag (superseded: originally multiple tags used AND).
 5. Dedupe IDs/revisions, cancel stale responses, preserve scroll anchors during image load/edit/post and Back navigation.
 6. Month separators/top-visible observer foundation for S11.
 7. Empty/loading/error/retry states. Measure DOM growth before adding page trimming or virtualization.
@@ -316,7 +316,7 @@ current requirements. Current acceptance is EDITOR-01–05/YEAR-01 below in the 
 - Equal timestamps paginate without duplicates/skips in an unchanged dataset.
 - Filter changes invalidate stale cursors/results; clear/removal predictable.
 - Long content/code/images do not overflow or shift scroll unexpectedly.
-- Sidebar remains stationary; homepage composer scrolls with notes, and Back to Top returns to it. Tags actually narrow by all selected tags.
+- Sidebar remains stationary; homepage composer scrolls with notes, and Back to Top returns to it. The selected tag narrows the timeline to that tag and its subtags (one tag at a time).
 
 **Next hint:** S10 supplies exact multilingual search on the same list contract, not a parallel result system.
 

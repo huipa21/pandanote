@@ -78,7 +78,8 @@ export async function snapshotCard(
   };
 }
 export interface TimelineFilters {
-  tags: string[];
+  /** At most one tag (normalized key); it matches the tag and its subtags. */
+  tag?: string;
   query?: string;
   day?: { start: number; end: number };
   date?: string;
@@ -98,28 +99,24 @@ export interface TimelinePage {
 }
 
 export function canonicalFilters(
-  tags: readonly string[],
+  tag: string | null | undefined,
   query = '',
   day?: TimelineFilters['day'],
   date?: string,
   month?: string,
 ): TimelineFilters {
-  if (tags.length > 20)
-    throw new DomainError('validation', 'Select at most 20 tags.');
-  const normalized = tags.map((tag) => tag.normalize('NFKC').toLowerCase());
+  const normalized = tag?.normalize('NFKC').toLowerCase();
   if (
+    normalized !== undefined &&
     // Filters address existing normalized identities, not new hashtag input.
     // NFKC can expand a valid tag (including spaces in Arabic
     // ligatures); reapplying the source grammar here would make it unfilterable.
-    normalized.some(
-      (tag) =>
-        !tag.length ||
-        [...tag].length > 128 ||
-        /[\p{Cc}#]/u.test(tag) ||
-        // Nested paths: 1–5 non-empty segments separated by single slashes.
-        tag.split('/').length > 5 ||
-        tag.split('/').some((part) => !part.length),
-    )
+    (!normalized.length ||
+      [...normalized].length > 128 ||
+      /[\p{Cc}#]/u.test(normalized) ||
+      // Nested paths: 1–5 non-empty segments separated by single slashes.
+      normalized.split('/').length > 5 ||
+      normalized.split('/').some((part) => !part.length))
   )
     throw new DomainError('validation', 'Invalid tag filter.');
   const search = canonicalSearch(query);
@@ -137,21 +134,21 @@ export function canonicalFilters(
   return {
     ...(date ? { date } : {}),
     ...(month ? { month } : {}),
-    tags: [...new Set(normalized)].sort(),
+    ...(normalized !== undefined ? { tag: normalized } : {}),
     ...(search ? { query: search } : {}),
     ...(day ? { day } : {}),
   };
 }
 export function filterKey(filters: TimelineFilters): string {
   const canonical = canonicalFilters(
-    filters.tags,
+    filters.tag,
     filters.query,
     filters.day,
     filters.date,
     filters.month,
   );
   return JSON.stringify([
-    canonical.tags,
+    canonical.tag ?? null,
     canonical.query ?? '',
     canonical.date ?? canonical.day ?? null,
     canonical.month ?? null,
@@ -160,13 +157,13 @@ export function filterKey(filters: TimelineFilters): string {
 export function filterHref(filters: TimelineFilters): string {
   const params = new URLSearchParams();
   const canonical = canonicalFilters(
-    filters.tags,
+    filters.tag,
     filters.query,
     filters.day,
     filters.date,
     filters.month,
   );
-  for (const tag of canonical.tags) params.append('tag', tag);
+  if (canonical.tag !== undefined) params.set('tag', canonical.tag);
   if (canonical.query) params.set('q', canonical.query);
   if (canonical.month) params.set('month', canonical.month);
   if (canonical.date) params.set('date', canonical.date);
@@ -176,20 +173,19 @@ export function filterHref(filters: TimelineFilters): string {
   }
   return `/${params.size ? `?${params}` : ''}`;
 }
-export function toggleTag(filters: TimelineFilters, tag: string): string {
-  const key = canonicalFilters([tag]).tags[0];
+/** Tag views are single-tag: selecting a tag replaces any other tag filter. */
+export function selectTag(filters: TimelineFilters, tag: string): string {
   return filterHref(
-    canonicalFilters(
-      filters.tags.includes(key)
-        ? filters.tags.filter((t) => t !== key)
-        : [...filters.tags, key],
-      filters.query,
-      filters.day,
-      filters.date,
-    ),
+    canonicalFilters(tag, filters.query, filters.day, filters.date),
   );
 }
+/** Does a note's tag set fall under the selected tag (itself or a subtag)? */
+export function noteHasTag(noteTags: readonly string[], tag: string): boolean {
+  return noteTags.some((t) => t === tag || t.startsWith(tag + '/'));
+}
 export function parseTimelineQuery(params: URLSearchParams) {
+  if (params.getAll('tag').length > 1)
+    throw new DomainError('validation', 'Select only one tag.');
   if (
     params.toString().length > 8192 ||
     [...params.keys()].some(
@@ -232,7 +228,7 @@ export function parseTimelineQuery(params: URLSearchParams) {
     throw new DomainError('validation', 'Invalid selected-day range.');
   return {
     filters: canonicalFilters(
-      params.getAll('tag'),
+      params.get('tag'),
       params.get('q') ?? '',
       start !== null ? { start: Number(start), end: Number(end) } : undefined,
       params.get('date') ?? undefined,
@@ -296,4 +292,24 @@ export function mergeCards(
     (a, b) =>
       b.timelineAt - a.timelineAt || (a.id === b.id ? 0 : a.id < b.id ? 1 : -1),
   );
+}
+
+/**
+ * Compact card date in the account timezone, without timezone text:
+ * "Mon, Jul 21" in the current year, "Mon, Jul 21, 2020" otherwise.
+ */
+export function shortDate(
+  at: number,
+  timeZone: string,
+  now: number = Date.now(),
+): string {
+  const year = (value: number) =>
+    new Intl.DateTimeFormat('en', { timeZone, year: 'numeric' }).format(value);
+  return new Intl.DateTimeFormat('en', {
+    timeZone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    ...(year(at) === year(now) ? {} : { year: 'numeric' }),
+  }).format(at);
 }

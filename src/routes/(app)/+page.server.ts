@@ -7,13 +7,18 @@ export const load: PageServerLoad = async ({ locals, url, depends }) => {
   const p = locals.runtime!.persistence;
   const identity = locals.identity!;
   try {
+    const timeline = await timelinePage(p, identity, url.searchParams);
+    // A single-tag filter is a tag view with its own summary and management menu.
+    const key = timeline.filters.tag ?? null;
     return {
-      timeline: await timelinePage(p, identity, url.searchParams),
+      timeline,
       timelineError: '',
+      tagSummary: key ? locals.runtime!.tags.summary(identity, key) : null,
     };
   } catch (error) {
     return {
       timeline: null,
+      tagSummary: null,
       timelineError:
         error instanceof DomainError
           ? error.message

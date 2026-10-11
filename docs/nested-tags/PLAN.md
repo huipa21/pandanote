@@ -63,7 +63,7 @@ Files: `src/lib/server/notes/timeline.ts` (`publishedTags`, tag predicate),
 (`availableTags` tree, `tagSuggestions`), `src/lib/server/search/*` (verify only),
 integration tests.
 
-1. Subtree `exists` predicate via `subtreeRange`; AND across tags; cursor/fingerprint
+1. Subtree `exists` predicate via `subtreeRange`; single tag filter (superseded: formerly AND across tags); cursor/fingerprint
    unchanged.
 2. `publishedTags` returns tree data: one read of published `(note_id, key)` joins,
    aggregated with `buildTagTree`; measure with the 10k-note/hundreds-of-tags fixture

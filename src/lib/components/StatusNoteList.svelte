@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getContext, onMount, untrack } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
-  import { invalidate, pushState } from '$app/navigation';
+  import { invalidate } from '$app/navigation';
   import {
     EDITOR_WORKSPACE,
     type EditorWorkspace,
@@ -108,18 +108,6 @@
       if (!disposed && currentGeneration === generation) loading = false;
     }
   }
-  function open(event: MouseEvent, id: string) {
-    if (
-      event.button ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey ||
-      event.altKey
-    )
-      return;
-    event.preventDefault();
-    void pushState(`/notes/${id}`, { detailId: id });
-  }
 </script>
 
 <section class="surface" aria-label="Trashed notes">
@@ -146,9 +134,7 @@
             timeZone: workspace.timezone,
           })} · {note.images} image(s) · {note.files} file(s) · revision {note.revision}
         </p>
-        <a href={`/notes/${note.id}`} onclick={(event) => open(event, note.id)}
-          >Open trashed note</a
-        >
+        <a href={`/notes/${note.id}`}>Open trashed note</a>
         <button
           disabled={!lifecycle.ready || lifecycle.busy}
           onclick={() => lifecycle.choose(note, 'restore')}>Restore</button

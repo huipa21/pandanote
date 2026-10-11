@@ -1107,12 +1107,10 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   sanitized Markdown, ordered ready attachments and complete metadata. Missing or
   invalid IDs return a safe 404; transient reads fail safely. Refresh/direct entry
   works without prior timeline state, including readable no-JavaScript detail.
-- Timeline Open note uses Kit 3 shallow `pushState` to that same URL, carrying only
-  note/image IDs. The mounted timeline, filters, fetched pages and scroll remain
-  intact under a native modal. Close/Escape/Back pops this owned entry; Forward
-  reopens it. Direct/refresh entry closes to All notes, never an invented previous
-  page. Detail GETs have abort/deadline/stale guards and a visible retry. Native
-  modal inertness, Tab wrapping and explicit opener return apply to nested viewers.
+- The card date is a plain link to that URL (superseding the earlier shallow
+  `pushState` modal): detail renders as a normal page inside the app shell with an
+  "All notes" link; Back returns to the timeline. Card images open the image viewer
+  in place. Native modal inertness and Tab wrapping still apply to the viewer.
 - Full snapshots alone seed recovery (`client/drafts/recovery.ts`), including
   ordered server descriptors, timeline/location and canonical base digest. Existing
   local edits for the note are resumed, never silently overwritten; a stale base
@@ -1180,8 +1178,7 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   mutations filter old timeline history snapshots. Loaded status pages retain
   deduped rows/cursors while known changed-status IDs are removed; explicit Refresh
   starts from page one. Abort/generation guards suppress stale paging and errors
-  retain retry controls. List detail opens shallow private URLs, preserving the
-  mounted list and focus/scroll. Direct permanent deletion returns to Trash.
+  retain retry controls. List detail links to the private note page. Direct permanent deletion returns to Trash.
 - Restore preserves prior status/dates/files; permanent deletion keeps browser
   recoveries and uses existing reference-safe queued filesystem cleanup. No bulk
   Empty Trash action, cleanup timer, migration, dependency or backup implementation

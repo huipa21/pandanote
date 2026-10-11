@@ -244,3 +244,20 @@ test('explicit replace racing a third edit conflicts again and preserves losing 
   expect((await download.body()).toString()).toBe('race bytes');
   await context.close();
 });
+
+test('card date is a short link to the note page, not a popup', async ({
+  page,
+}) => {
+  const note = await create(page); // timeline date 2020-01-01 (a previous year)
+  await page.goto('/');
+  const card = page.locator(`[data-note-id="${note.id}"]`);
+  await expect(card.getByRole('link', { name: 'Open note' })).toHaveCount(0);
+  const date = card.locator('a.when');
+  await expect(date).toHaveText(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}, 2020$/);
+  await date.click();
+  await expect(page).toHaveURL(`/notes/${note.id}`);
+  await expect(page.getByTestId('note-detail')).toContainText(
+    note.bodyMarkdown,
+  );
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});

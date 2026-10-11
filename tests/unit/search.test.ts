@@ -96,11 +96,11 @@ it('conservatively accelerates codepoint-long plain units and scans all unsuppor
   ])
     expect(trigramLiteral(unit)).toBeNull();
 });
-it('binds canonical query and half-open day alongside all tags in cursor identity/URLs', () => {
-  const a = canonicalFilters(['Work'], 'COFFEE shop', { start: 100, end: 200 });
+it('binds canonical query and half-open day alongside the tag in cursor identity/URLs', () => {
+  const a = canonicalFilters('Work', 'COFFEE shop', { start: 100, end: 200 });
   expect(filterKey(a)).toBe(
     filterKey(
-      canonicalFilters(['ｗｏｒｋ'], 'shop coffee', { start: 100, end: 200 }),
+      canonicalFilters('ｗｏｒｋ', 'shop coffee', { start: 100, end: 200 }),
     ),
   );
   expect(

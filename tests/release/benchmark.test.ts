@@ -422,7 +422,6 @@ test('API latency (through the real HTTPS proxy, warm p50/p95) for list, tag, ca
     ['timeline first page (30)', '/api/notes'],
     ['timeline next page by cursor', `/api/notes?cursor=${cursor}`],
     ['tag filter (common topic)', '/api/notes?tag=topic3'],
-    ['two-tag filter', '/api/notes?tag=topic3&tag=topic9'],
     ['calendar month activity', '/api/calendar?month=2024-06'],
     ['month filter timeline', '/api/notes?month=2024-06'],
     ['calendar year activity', '/api/calendar?year=2024'],
@@ -689,23 +688,20 @@ test('browser memory/DOM growth: long timeline scrolling plus repeated detail op
       });
   }
   const cardsAfterScroll = await view.getByTestId('posted-note').count();
-  // Reload at top and repeat open/close of the detail dialog.
+  // Reload at top and repeat open/back of the note page.
   await view.goto(`${C}/`);
   await view.getByTestId('posted-note').first().waitFor();
   const baseline = await heapAndDom(session);
   const loops: Record<string, unknown>[] = [];
   for (let i = 1; i <= 60; i++) {
     await view
-      .getByRole('link', { name: 'Open note' })
+      .getByTestId('posted-note')
       .nth(i % 5)
+      .locator('a.when')
       .click();
-    await view.getByRole('dialog').first().waitFor();
-    await view.keyboard.press('Escape');
-    await view
-      .getByRole('dialog')
-      .first()
-      .waitFor({ state: 'detached' })
-      .catch(() => undefined);
+    await view.getByTestId('note-detail').waitFor();
+    await view.goBack();
+    await view.getByTestId('posted-note').first().waitFor();
     if (i % 20 === 0)
       loops.push({ iteration: i, ...(await heapAndDom(session)) });
   }

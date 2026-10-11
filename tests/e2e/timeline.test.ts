@@ -133,12 +133,14 @@ test('real SSR contains only the first 30 published cards; private paging, UTF-8
     .first()
     .getByRole('link', { name: '#s09even', exact: true })
     .click();
-  await expect(page).toHaveURL(/tag=s09even&tag=s09timeline/);
-  await expect(page.getByTestId('posted-note')).toHaveCount(30);
+  // Tags are single-select: the clicked tag replaces the previous one.
+  await expect(page).toHaveURL(/\?tag=s09even$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('#S09even');
+  expect(await page.getByTestId('posted-note').count()).toBeGreaterThan(0);
   for (const note of await page.getByTestId('posted-note').all())
     await expect(note).toContainText('#s09even');
-  await page.getByRole('link', { name: 'Remove tag filter s09even' }).click();
-  await expect(page).toHaveURL(/\?tag=s09timeline$/);
+  await page.getByRole('link', { name: 'All notes', exact: true }).click();
+  await expect(page).toHaveURL('/');
 });
 
 test('older loading is confined to the notes pane; retry/stale-filter cancellation, history, collapse and scroll anchors work', async ({
@@ -165,8 +167,9 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
     .toBe(await card.getAttribute('data-note-id'));
   await expect(card).toBeInViewport();
   await expect(page.getByTestId('posted-note')).toHaveCount(30);
-  const filtersBefore = await page
-    .getByRole('region', { name: 'Active filters' })
+  // The tag view's header scrolls away with the notes as older pages load.
+  const headerBefore = await page
+    .getByRole('heading', { level: 1 })
     .boundingBox();
   await page.route('**/api/notes?*', (route) => route.abort('failed'), {
     times: 1,
@@ -179,9 +182,8 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
   await expect(page.getByTestId('posted-note')).toHaveCount(60);
   expect(await page.evaluate(() => scrollY)).toBe(0);
   expect(
-    (await page.getByRole('region', { name: 'Active filters' }).boundingBox())!
-      .y,
-  ).toBeLessThan(filtersBefore!.y);
+    (await page.getByRole('heading', { level: 1 }).boundingBox())!.y,
+  ).toBeLessThan(headerBefore!.y);
   const position = await readingAnchor(page);
   const topId = await page
     .locator('[data-top-month]')
@@ -220,9 +222,7 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
   );
   await nearBottom(page);
   await entered;
-  await page
-    .getByRole('link', { name: 'Remove tag filter s09timeline' })
-    .click();
+  await page.getByRole('link', { name: 'All notes', exact: true }).click();
   await expect(page).toHaveURL('/');
   release();
   await page.unrouteAll({ behavior: 'wait' });

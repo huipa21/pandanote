@@ -100,7 +100,9 @@ describe('NT nested tags with actual SQLite', () => {
       ]);
       expect(await ids(p, id, 'tag=work')).toEqual([n1, n2, n3].sort());
       expect(await ids(p, id, 'tag=Work/Meeting')).toEqual([n2, n3].sort());
-      expect(await ids(p, id, 'tag=work&tag=home')).toEqual([]);
+      await expect(ids(p, id, 'tag=work&tag=home')).rejects.toThrow(
+        'Select only one tag.',
+      );
       expect(await ids(p, id, 'tag=wor')).toEqual([]);
       expect(await ids(p, id, 'tag=work/x')).toEqual([]); // Trash excluded
       // Search on a subtag segment still finds the full key.
@@ -156,6 +158,42 @@ describe('NT nested tags with actual SQLite', () => {
       insert('rename', 'j', 'subtree');
       expect(p.db.select().from(tagChanges).all()).toHaveLength(2);
       expect(() => create(n, id, '#a/b/c/d/e/f')).toThrow(/5 levels|limits/);
+    }));
+
+  it('NT-FLAT: tag pages are flat, searchable and bounded; summary counts subtags', async () =>
+    withPersistence((p) => {
+      const id = owner(p),
+        n = new NoteService(p),
+        t = new TagService(p);
+      create(n, id, '#work/meeting/2026 #work/plans #home');
+      create(n, id, '#work/meeting #Home');
+      const first = t.page(id, '', 0, 3);
+      expect(first.items.map((r) => r.key)).toEqual([
+        'home',
+        'work',
+        'work/meeting',
+      ]);
+      expect(first.nextOffset).toBe(3);
+      const rest = t.page(id, '', 3, 3);
+      expect(rest.items.map((r) => r.key)).toEqual([
+        'work/meeting/2026',
+        'work/plans',
+      ]);
+      expect(rest.nextOffset).toBeNull();
+      // A leading # is accepted; matches are paths only (no implied ancestors).
+      expect(t.page(id, '#MEETING').items.map((r) => r.key)).toEqual([
+        'work/meeting',
+        'work/meeting/2026',
+      ]);
+      expect(t.summary(id, 'work')).toMatchObject({
+        key: 'work',
+        published: 2,
+        subtags: 3,
+        explicit: false,
+      });
+      expect(t.summary(id, 'work/plans')).toMatchObject({ subtags: 0 });
+      expect(t.summary(id, 'missing')).toBeNull();
+      expect(() => t.page(id, 'x'.repeat(257))).toThrow(/too long/);
     }));
 
   it('NT-MANAGE: subtree rename keeps suffix spelling, refuses moves into itself and needs merge for collisions', async () =>

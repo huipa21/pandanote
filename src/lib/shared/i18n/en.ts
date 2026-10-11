@@ -14,14 +14,8 @@ export const en = {
   'shell.monthActivity': 'Month activity',
   'shell.calendarUnavailable': 'Calendar is unavailable right now.',
   'shell.tags': 'Tags',
-  'shell.manage': 'Manage',
-  'shell.showAllTags': 'Show all tags ({count})',
+  'shell.allTags': 'All tags ({count})',
   'shell.noTags': 'No published tags yet.',
-  'shell.allTagsTitle': 'All tags',
-  'shell.findTag': 'Find a tag',
-  'shell.noMatchingTags': 'No matching tags.',
-  'shell.tagHelp':
-    'Select tags to show notes matching all of them. A parent tag includes its subtags.',
   'shell.expandTag': 'Show subtags of #{tag}',
   'shell.collapseTag': 'Hide subtags of #{tag}',
   'shell.tagCount': '#{tag}, {count} notes',
@@ -29,10 +23,9 @@ export const en = {
   'shell.activeFilters': 'Active filters',
   'shell.noFilters': 'All notes · no active filters',
   'shell.clearAll': 'Clear all',
+  'shell.allNotes': 'All notes',
 
   'search.label': 'Search notes',
-  'search.placeholder': 'Words or "exact phrase"',
-  'search.help': 'All terms · published notes · all months',
   'search.failed': 'Search could not load. Edit the query to retry.',
 
   'auth.signIn': 'Sign in',

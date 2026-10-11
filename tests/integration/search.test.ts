@@ -244,7 +244,7 @@ it('uses actual trigram candidates plus a separate-field literal oracle with det
     }
   });
 });
-it('combines search, all tags, UTC day and tied-date cursors; source changes/status/deletion/repair are immediate and atomic', async () => {
+it('combines search, tag, UTC day and tied-date cursors; source changes/status/deletion/repair are immediate and atomic', async () => {
   await withPersistence(async (p) => {
     const identity = owner(p),
       service = new NoteService(p);

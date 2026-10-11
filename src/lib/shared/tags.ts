@@ -85,6 +85,10 @@ export interface ManagedTag {
   depth: number;
   hasChildren: boolean;
 }
+export interface TagSummary extends ManagedTag {
+  /** Number of descendant tag paths. */
+  subtags: number;
+}
 export interface TagPreview {
   operation: TagAction;
   previewToken: string;

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Modal from './Modal.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Calendar from './Calendar.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
@@ -8,16 +7,12 @@
   import TagTree from './TagTree.svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import type { TimelineFilters } from '#lib/shared/timeline.ts';
-  import {
-    filterTagTree,
-    tagAncestors,
-    type TagNode,
-  } from '#lib/shared/tag-tree.ts';
+  import { tagAncestors, type TagNode } from '#lib/shared/tag-tree.ts';
   let {
     calendar,
     active = '/',
     tags = [],
-    filters = { tags: [] },
+    filters = {},
     searchQuery = '',
     onSearch = async () => {},
     onNavigate = () => {},
@@ -34,16 +29,15 @@
   const id = $props.id();
   const i18n = useI18n();
   const t = i18n.t;
-  let showTags = $state(false);
-  let tagQuery = $state('');
+  /** Top-level tags shown here; the Tags page lists everything. */
+  const VISIBLE_TAGS = 12;
   // In-memory per page session; never persisted.
   const expanded = new SvelteSet<string>();
   $effect(() => {
     // Reveal the branches holding active filters (the user may collapse them).
-    for (const key of filters.tags)
-      for (const ancestor of tagAncestors(key)) expanded.add(ancestor);
+    if (filters.tag !== undefined)
+      for (const ancestor of tagAncestors(filters.tag)) expanded.add(ancestor);
   });
-  const filteredTags = $derived(filterTagTree(tags, tagQuery));
 </script>
 
 <div class="sidebar-content">
@@ -75,19 +69,24 @@
         </p>{/if}
     </section>
     <section aria-labelledby={`${id}-tags`}>
-      <div class="section-heading">
-        <h2 id={`${id}-tags`}>{t('shell.tags')}</h2>
-        <a href="/tags" onclick={onNavigate}>{t('shell.manage')}</a>
-      </div>
+      <h2 id={`${id}-tags`}>
+        <a href="/tags" onclick={onNavigate}>{t('shell.tags')}</a>
+      </h2>
       {#if tags.length}
         <div class="tag-list">
-          <TagTree nodes={tags.slice(0, 6)} {filters} {expanded} {onNavigate} />
+          <TagTree
+            nodes={tags.slice(0, VISIBLE_TAGS)}
+            {filters}
+            {expanded}
+            {onNavigate}
+          />
+          {#if tags.length > VISIBLE_TAGS}<a
+              class="more"
+              href="/tags"
+              aria-label={t('shell.allTags', { count: tags.length })}
+              onclick={onNavigate}>+{tags.length - VISIBLE_TAGS}</a
+            >{/if}
         </div>
-        {#if tags.length > 6}<button
-            onclick={() => {
-              showTags = true;
-            }}>{t('shell.showAllTags', { count: tags.length })}</button
-          >{/if}
       {:else}<p class="help">{t('shell.noTags')}</p>{/if}
     </section>
   </div>
@@ -107,32 +106,6 @@
     </p>
   </nav>
 </div>
-
-<Modal bind:open={showTags} title={t('shell.allTagsTitle')}>
-  <label for={`${id}-query`}>{t('shell.findTag')}</label>
-  <input
-    id={`${id}-query`}
-    type="search"
-    bind:value={tagQuery}
-    data-initial-focus
-  />
-  <div class="tag-list">
-    <TagTree
-      nodes={filteredTags.nodes}
-      {filters}
-      {expanded}
-      revealed={filteredTags.expanded}
-      onNavigate={() => {
-        showTags = false;
-        onNavigate();
-      }}
-    />
-  </div>
-  {#if !filteredTags.nodes.length}<p class="muted">
-      {t('shell.noMatchingTags')}
-    </p>{/if}
-  <p class="help">{t('shell.tagHelp')}</p>
-</Modal>
 
 <style>
   .sidebar-content {
@@ -161,9 +134,6 @@
     display: block;
     font-size: 0.75rem;
     font-weight: 400;
-  }
-  input {
-    width: 100%;
   }
   nav {
     display: grid;
@@ -202,17 +172,26 @@
     margin: var(--space-2) 0;
     font-size: 0.9375rem;
   }
-  .section-heading {
-    display: flex;
-    justify-content: space-between;
+  h2 a {
+    display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
-  }
-  .section-heading a {
     min-height: var(--row-target);
-    display: flex;
+    color: var(--text);
+    text-decoration: none;
+  }
+  h2 a:hover {
+    color: var(--accent);
+  }
+  .more {
+    display: inline-flex;
     align-items: center;
-    font-size: 0.875rem;
+    min-height: var(--row-target);
+    margin-top: var(--space-1);
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .more:hover {
+    color: var(--accent);
   }
   .sidebar-bottom {
     margin: auto 0 0;

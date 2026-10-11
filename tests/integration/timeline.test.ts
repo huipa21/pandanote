@@ -112,19 +112,15 @@ describe('published timeline with actual SQLite', () => {
       const filtered = await timelinePage(
         p,
         identity,
-        params('tag=WORK&tag=香港&limit=10'),
+        params('tag=香港&limit=10'),
       );
       expect(filtered.anchor).toBeNull();
       expect(filtered.items).toHaveLength(10);
-      expect(
-        filtered.items.every(
-          (n) => n.tags.includes('work') && n.tags.includes('香港'),
-        ),
-      ).toBe(true);
+      expect(filtered.items.every((n) => n.tags.includes('香港'))).toBe(true);
       const next = await timelinePage(
         p,
         identity,
-        params(`tag=香港&tag=ｗｏｒｋ&cursor=${filtered.nextCursor}`),
+        params(`tag=香港&cursor=${filtered.nextCursor}`),
       );
       expect(next.items).toHaveLength(27);
       await expect(
@@ -134,6 +130,9 @@ describe('published timeline with actual SQLite', () => {
           params(`tag=work&cursor=${filtered.nextCursor}`),
         ),
       ).rejects.toThrow('different filters');
+      await expect(
+        timelinePage(p, identity, params(`tag=work&tag=香港&limit=10`)),
+      ).rejects.toThrow('Select only one tag.');
       await expect(
         timelinePage(p, identity, params('cursor=invalid')),
       ).rejects.toThrow('Invalid timeline cursor');

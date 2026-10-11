@@ -15,7 +15,7 @@ import {
   canonicalFilters,
   filterHref,
   parseTimelineQuery,
-  toggleTag,
+  selectTag,
 } from '../../src/lib/shared/timeline.ts';
 
 describe('IANA calendar boundaries and canonical navigation', () => {
@@ -94,8 +94,8 @@ describe('IANA calendar boundaries and canonical navigation', () => {
     ])
       expect(() => parseTimelineQuery(new URLSearchParams(query))).toThrow();
   });
-  it('round-trips selected local days, month anchors and AND filters without implicitly carrying month to tag/search mode', () => {
-    const filters = canonicalFilters(['Work'], '香港', undefined, '2024-02-29');
+  it('round-trips selected local days, month anchors and combined filters without implicitly carrying month to tag/search mode', () => {
+    const filters = canonicalFilters('Work', '香港', undefined, '2024-02-29');
     expect(filterHref(filters)).toBe(
       '/?tag=work&q=%22%E9%A6%99%E6%B8%AF%22&date=2024-02-29',
     );
@@ -103,10 +103,8 @@ describe('IANA calendar boundaries and canonical navigation', () => {
       parseTimelineQuery(new URLSearchParams(filterHref(filters).slice(2)))
         .filters,
     ).toEqual(filters);
-    expect(toggleTag({ tags: [], month: '2026-01' }, 'work')).toBe(
-      '/?tag=work',
-    );
-    expect(filterHref({ tags: [], month: '2026-01' })).toBe('/?month=2026-01');
+    expect(selectTag({ month: '2026-01' }, 'work')).toBe('/?tag=work');
+    expect(filterHref({ month: '2026-01' })).toBe('/?month=2026-01');
     expect([0, 1, 2, 3, 4, 7, 8, 100].map(activityLevel)).toEqual([
       0, 1, 2, 2, 3, 3, 4, 4,
     ]);

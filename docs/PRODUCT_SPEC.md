@@ -138,7 +138,7 @@ Left sidebar:
 1. App identity and search field.
 2. All notes navigation.
 3. Month activity calendar.
-4. Tags, with management access.
+4. Tags: the "Tags" heading links to the Tags page (no separate Manage link).
 5. Trash and Settings at the bottom.
 
 Main area:
@@ -149,7 +149,7 @@ Main area:
 - Single-column chronological cards. Not masonry, despite the conversational use of “waterfall.” Reading order must be unambiguous.
 - Sidebar, calendar, and search do not scroll away with notes. Drag the sidebar's right edge to adjust its desktop width; keyboard resizing is also available.
 
-Large tag collections use a Show all/searchable panel. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
+The sidebar lists the most-used tags as borderless flowing chips (a chevron on a chip reveals its subtags); a "+N" link and the heading open the Tags page for the rest. All search fields share one slim look: magnifier first, a (currently inert) filter icon last, no placeholder or help text. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
 
 ### 3.4 Mobile shell
 
@@ -238,16 +238,16 @@ Trash:
 
 - Inline hashtags, with autocomplete of existing tags.
 - Nested tags with `/` (up to 5 levels); a parent includes its subtags for counts and filters. See [nested-tags/SPEC.md](nested-tags/SPEC.md).
-- Sidebar tags form a collapsible tree ordered by published-note count (descending) at every level.
+- Sidebar tags are flowing chips ordered by published-note count (descending) at every level; a chevron expands subtags beneath the chip. Tags page: title "Tags", search directly below (Enter to search), flat list of every tag path as soft chips with counts, loaded lazily 60 at a time.
 - Unicode Chinese/Japanese/Cantonese characters supported.
 - English tag identity is case-insensitive: #Work and #work are the same tag.
 - Ignore code blocks, inline code, raw HTML, URLs/link destinations, and escaped hashtag markers when extracting tags.
 - Markdown heading markers are not tags.
 - Deduplicate tags per note.
-- Sidebar filtering with multiple selected tags means **match all**.
+- Tag selection is single: clicking a tag opens that tag's view (search/day filters are kept) and replaces any other tag. A tag view shows the tag's summary (notes, subtags, Trash) with a three-dot menu: Rename Tag, Merge Tag, Remove Tag. Rename edits the full path, so it can change the parent. The tag is named by the view's header (no filter chip repeats it), which has an "All notes" link that leaves the tag view and keeps search/day filters; the filter strip shows only search/day chips. A URL or API call with more than one `tag` value is refused with "Select only one tag."
 - A card's tag is clickable; filter state is visible/removable above the timeline.
 
-Manage tags includes:
+Tag management (from the tag view menu) includes:
 
 - Rename.
 - Merge into an existing tag.
@@ -377,7 +377,7 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 ## 12. Detail, edits, and conflicts
 
 - Show more expands an individual card.
-- Open note uses a centered detail dialog on desktop and full-screen view on mobile.
+- The date at the top left of each card (short form `Mon, Jul 21`, plus the year when it is not the current year; no timezone text) is a link that opens the note as a normal page. There is no Open note button and no popup detail window.
 - Stable private URL for each note; direct navigation/refresh works.
 - Closing returns to prior timeline filters and scroll position.
 - Detail always shows full content and metadata.

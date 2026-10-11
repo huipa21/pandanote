@@ -7,6 +7,7 @@
     type TimelineFilters,
   } from '#lib/shared/timeline.ts';
   import { parseSearch } from '#lib/shared/search.ts';
+  import SearchBox from './SearchBox.svelte';
   let {
     filters,
     active = '/',
@@ -82,7 +83,7 @@
     }
     timer = setTimeout(() => {
       const href = filterHref(
-        canonicalFilters(filters.tags, value, filters.day, filters.date),
+        canonicalFilters(filters.tag, value, filters.day, filters.date),
       );
       // Kit discards superseded navigation responses; timeline paging separately
       // aborts on beforeNavigate. Never adopt an old response's input while typing.
@@ -105,11 +106,9 @@
   }
 </script>
 
-<label class="search-label" for={id}>{t('search.label')}</label>
-<input
+<SearchBox
   {id}
-  type="search"
-  placeholder={t('search.placeholder')}
+  label={t('search.label')}
   disabled={!ready}
   bind:value
   oninput={changed}
@@ -124,29 +123,19 @@
     changed();
   }}
   aria-invalid={!!message}
-  aria-describedby={`${id}-help`}
+  aria-describedby={`${id}-message`}
 />
-<p
-  id={`${id}-help`}
-  class:search-error={!!message}
-  class="help"
-  aria-live="polite"
->
-  {message || t('search.help')}
+<p id={`${id}-message`} class="search-error" role="status" aria-live="polite">
+  {message}
 </p>
 
 <style>
-  input {
-    width: 100%;
-  }
-  .search-label {
-    font-size: 0.875rem;
-  }
-  .help {
-    font-size: 0.75rem;
-    margin: var(--space-1) 0;
-  }
   .search-error {
+    margin: var(--space-1) 0 0;
+    font-size: 0.75rem;
     color: var(--danger);
+  }
+  .search-error:empty {
+    display: none;
   }
 </style>

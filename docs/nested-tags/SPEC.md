@@ -48,10 +48,10 @@ Follows the user decisions recorded in [README.md](README.md).
   children. Leaves have no button. Indentation shows depth; long labels wrap.
 - Collapsed by default; ancestors of active filter tags auto-expand. Expansion state
   is in-memory per page session (no localStorage, no setting).
-- Compact list shows the top 6 roots (unchanged number); "Show all tags (N)" opens the
-  existing modal, where N is the number of root nodes.
-- Modal search matches the full path or any segment; matching nodes are shown with
-  their ancestors expanded; non-matching branches hidden.
+- **Superseded layout:** roots and expanded children are borderless chips that flow
+  and wrap (a chevron in the chip toggles subtags, shown on their own row). The top 12
+  roots are listed; the "Tags" heading and a "+N" link open the Tags page. The old
+  "Show all tags" modal no longer exists.
 - `aria-current` on any node whose key is an active filter. Calendar counts remain
   independent of tags (unchanged).
 
@@ -71,10 +71,10 @@ Follows the user decisions recorded in [README.md](README.md).
 
 ## 5. Management (`/tags`)
 
-- Inventory shows the tree in path order (indented by depth) with published/Trash
-  subtree counts, direct usage for groups, and "group only" for implicit parents.
-  Search matches the normalized path (any segment) and includes ancestors of matches;
-  the 100-row cap applies to nodes. Implicit nodes can be managed.
+- **Superseded UI:** `/tags` is a flat, lazily paged (60 per page via `GET /api/tags?q&offset&limit`) list of every path in path order, each opening its tag view;
+  search matches the normalized path only (no implied ancestors) and runs on Enter. Rename, merge and remove
+  live in the tag view's three-dot menu (`TagHeader`). The earlier inventory (below) describes the
+  service data: published/Trash subtree counts, direct usage, implicit parents; `list()` still caps at 100 nodes. Implicit nodes can be managed.
 - **Rename** `P → Q` (subtree): every span whose key is within `P` becomes
   `Q + suffix`, keeping the original spelling of the suffix. `Q` within `P`'s subtree
   (or equal after normalization, except case-only display change of `P` itself) is

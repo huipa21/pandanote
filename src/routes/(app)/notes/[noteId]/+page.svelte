@@ -9,6 +9,5 @@
 <NoteDetail
   note={data.detail}
   rendered={data.rendered}
-  direct
-  onClose={() => goto('/', { reset: false })}
+  onLeave={() => goto('/', { reset: false })}
 />

@@ -3,35 +3,41 @@
   import type { SvelteSet } from 'svelte/reactivity';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import type { TagNode } from '#lib/shared/tag-tree.ts';
-  import { toggleTag, type TimelineFilters } from '#lib/shared/timeline.ts';
+  import { selectTag, type TimelineFilters } from '#lib/shared/timeline.ts';
   let {
     nodes,
     filters,
     expanded,
-    revealed = new Set<string>(),
     nested = false,
     onNavigate = () => {},
   }: {
     nodes: readonly TagNode[];
     filters: TimelineFilters;
-    /** Keys the user expanded (shared by the compact list and the modal). */
+    /** Keys the user expanded. */
     expanded: SvelteSet<string>;
-    /** Extra keys shown expanded, e.g. ancestors of search matches. */
-    revealed?: ReadonlySet<string>;
     nested?: boolean;
     onNavigate?: () => void;
   } = $props();
   const t = useI18n().t;
 </script>
 
-<ul class="tag-tree" class:nested>
+<!-- Tags flow as borderless chips; a chevron reveals subtags on their own row. -->
+<ul class="tag-flow" class:nested>
   {#each nodes as node (node.key)}
-    {@const open =
-      node.children.length > 0 &&
-      (expanded.has(node.key) || revealed.has(node.key))}
-    <li>
-      <div class="tag-row">
-        {#if node.children.length}<button
+    {@const open = node.children.length > 0 && expanded.has(node.key)}
+    <li class:open>
+      <span class="tag" class:active={filters.tag === node.key}>
+        <a
+          href={selectTag(filters, node.key)}
+          title={t('shell.tagCount', { tag: node.display, count: node.count })}
+          aria-label={node.display === node.label
+            ? undefined
+            : `#${node.display} (${node.count})`}
+          aria-current={filters.tag === node.key ? 'true' : undefined}
+          onclick={onNavigate}
+          ><!-- Only the last level is shown; the accessible name keeps the full path. -->#{node.label}
+          <span class="count">({node.count})</span></a
+        >{#if node.children.length}<button
             type="button"
             class="disclosure"
             aria-expanded={open}
@@ -41,25 +47,16 @@
             onclick={() => {
               if (open) expanded.delete(node.key);
               else expanded.add(node.key);
-            }}><span aria-hidden="true">{open ? '▾' : '▸'}</span></button
-          >{:else}<span class="disclosure-space" aria-hidden="true"></span>{/if}
-        <a
-          href={toggleTag(filters, node.key)}
-          title={t('shell.tagCount', { tag: node.display, count: node.count })}
-          aria-label={node.display === node.label
-            ? undefined
-            : `#${node.display} (${node.count})`}
-          aria-current={filters.tags.includes(node.key) ? 'true' : undefined}
-          onclick={onNavigate}
-          ><!-- Only the last level is shown; the accessible name keeps the full path. -->#{node.label}
-          <span class="muted">({node.count})</span></a
-        >
-      </div>
+            }}
+            ><svg aria-hidden="true" viewBox="0 0 20 20" class:flipped={open}
+              ><path d="m5 8 5 5 5-5" /></svg
+            ></button
+          >{/if}
+      </span>
       {#if open}<TagTree
           nodes={node.children}
           {filters}
           {expanded}
-          {revealed}
           nested
           {onNavigate}
         />{/if}
@@ -68,46 +65,85 @@
 </ul>
 
 <style>
-  .tag-tree {
+  .tag-flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
     list-style: none;
     padding: 0;
     margin: 0;
   }
   .nested {
-    padding-inline-start: var(--space-4);
+    margin-block: var(--space-1);
+    padding-inline-start: var(--space-3);
   }
-  .tag-row {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-1);
+  li.open {
+    flex-basis: 100%;
   }
-  .disclosure,
-  .disclosure-space {
-    flex: none;
-    width: 2rem;
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
     min-height: var(--row-target);
+    padding-inline: var(--space-3);
+    border-radius: 999px;
+    background: var(--accent-soft);
   }
-  .disclosure {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--muted);
-    cursor: pointer;
+  .tag:has(.disclosure) {
+    padding-inline-end: var(--space-1);
   }
-  .disclosure:hover {
-    color: var(--accent);
+  .tag.active {
+    background: var(--accent);
+  }
+  .tag.active a,
+  .tag.active .count,
+  .tag.active .disclosure {
+    color: var(--on-accent);
+  }
+  .tag.active .disclosure:hover:not(:disabled) {
+    color: var(--on-accent);
   }
   a {
-    display: block;
-    flex: 1;
-    min-width: 0;
-    min-height: var(--row-target);
-    padding-block: var(--space-1);
     color: var(--accent);
+    text-decoration: none;
     overflow-wrap: anywhere;
+    min-width: 0;
   }
-  a[aria-current='true'] {
-    font-weight: 650;
-    background: var(--accent-soft);
+  a:hover {
+    text-decoration: underline;
+  }
+  .count {
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+  .disclosure {
+    display: grid;
+    place-items: center;
+    flex: none;
+    min-height: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-inline-start: var(--space-1);
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+  }
+  .disclosure:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+  }
+  .disclosure svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .disclosure svg.flipped {
+    transform: rotate(180deg);
   }
 </style>

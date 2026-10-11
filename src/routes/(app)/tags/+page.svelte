@@ -1,337 +1,168 @@
 <script lang="ts">
+  import { getContext, onMount, untrack } from 'svelte';
+  import { goto } from '$app/navigation';
   import PageTitle from '#lib/components/PageTitle.svelte';
-  import { getContext, onMount } from 'svelte';
-  import { invalidate } from '$app/navigation';
+  import PendingTagOps from '#lib/components/PendingTagOps.svelte';
+  import SearchBox from '#lib/components/SearchBox.svelte';
   import {
     EDITOR_WORKSPACE,
     type EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
+  import { TagOperations } from '#lib/client/tags/operations.svelte.ts';
   import type { ApiResult } from '#lib/shared/domain.ts';
-  import {
-    tagExecuteSchema,
-    type TagAction,
-    type TagExecute,
-    type TagPreview,
-    type ManagedTag,
-    type TagManagementResult,
-  } from '#lib/shared/tags.ts';
-  import Modal from '#lib/components/Modal.svelte';
+  import type { ManagedTag } from '#lib/shared/tags.ts';
+  import { filterHref } from '#lib/shared/timeline.ts';
   let { data } = $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
-  let source = $state<ManagedTag | null>(null),
-    action = $state<TagAction['action']>('rename'),
-    scope = $state<TagAction['scope']>('subtree'),
-    target = $state('');
-  let preview = $state<TagPreview | null>(null),
-    busy = $state(false),
-    ready = $state(false),
-    error = $state(''),
-    status = $state('');
-  let open = $state(false),
-    pending = $state<TagExecute[]>([]);
-  const prefix = `pandanote:tag-actions:v1:${workspace.accountId}:`;
-  function reloadRetries() {
-    const found: TagExecute[] = [];
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)!;
-        if (!key.startsWith(prefix)) continue;
-        const parsed = tagExecuteSchema.safeParse(
-          JSON.parse(localStorage.getItem(key)!),
-        );
-        if (parsed.success && key === prefix + parsed.data.mutationId)
-          found.push(parsed.data);
-        else
-          error =
-            'An unreadable tag retry was retained. Keep a copy and inspect browser storage.';
-      }
-      pending = found;
-    } catch {
-      error =
-        'Tag retry storage is unavailable. No new action can be sent safely.';
-    }
-  }
+  const ops = new TagOperations(workspace);
+  const id = $props.id();
+  type Page = { items: ManagedTag[]; nextOffset: number | null };
+  let items = $state<ManagedTag[]>(untrack(() => data.tagPage.items));
+  let nextOffset = $state<number | null>(
+    untrack(() => data.tagPage.nextOffset),
+  );
+  let query = $state(untrack(() => data.q));
+  let loading = $state(false);
+  let failed = $state(false);
+  let ready = $state(false);
+  let sentinel = $state<HTMLElement>();
+  let generation = 0;
+  // A new search or a tag change replaces the whole list.
+  $effect(() => {
+    const page: Page = data.tagPage;
+    const q: string = data.q;
+    untrack(() => {
+      generation++;
+      loading = false;
+      failed = false;
+      items = page.items;
+      nextOffset = page.nextOffset;
+      query = q;
+    });
+  });
   onMount(() => {
     ready = true;
-    reloadRetries();
-    const changed = () => reloadRetries();
-    window.addEventListener('storage', changed);
-    return () => window.removeEventListener('storage', changed);
+    const stop = ops.start();
+    return () => {
+      generation++;
+      stop();
+    };
   });
-  async function api<T>(path: string, command: unknown): Promise<T> {
-    const response = await fetch(path, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(command),
-      signal: AbortSignal.timeout(30000),
-    });
-    const result = (await response.json()) as ApiResult<T>;
-    if (!result.ok) throw new Error(result.error.message);
-    return result.data;
-  }
-  async function showPreview() {
-    if (!source || busy) return;
-    busy = true;
-    error = '';
-    preview = null;
+  async function loadMore() {
+    if (nextOffset === null || loading) return;
+    const current = ++generation;
+    loading = true;
+    failed = false;
     try {
-      preview = await api<TagPreview>('/api/tags/preview', {
-        source: source.key,
-        action,
-        target: action === 'remove' ? null : target,
-        // Rename/merge always move the whole subtree; removal states its scope.
-        scope: action === 'remove' ? scope : 'subtree',
+      const params = new URLSearchParams({
+        q: data.q,
+        offset: String(nextOffset),
+        limit: '60',
       });
-      open = true;
-    } catch (e) {
-      error =
-        e instanceof Error ? e.message : 'Preview failed. Nothing changed.';
+      const response = await fetch(`/api/tags?${params}`, {
+        signal: AbortSignal.timeout(15_000),
+      });
+      const result = (await response.json()) as ApiResult<Page>;
+      if (current !== generation) return;
+      if (!result.ok) throw new Error(result.error.message);
+      const seen = new Set(items.map((tag) => tag.key));
+      items = [...items, ...result.data.items.filter((t) => !seen.has(t.key))];
+      nextOffset = result.data.nextOffset;
+    } catch {
+      if (current === generation) failed = true;
     } finally {
-      busy = false;
+      if (current === generation) loading = false;
     }
   }
-  async function execute(command: TagExecute) {
-    if (busy) return;
-    busy = true;
-    error = '';
-    try {
-      // Persist exact identity before network. Independent records cannot overwrite
-      // another tab's action; response loss/reload retries resolve the original receipt.
-      localStorage.setItem(
-        prefix + command.mutationId,
-        JSON.stringify(command),
-      );
-      reloadRetries();
-      const result = await api<TagManagementResult>('/api/tags', command);
-      localStorage.removeItem(prefix + command.mutationId);
-      reloadRetries();
-      open = false;
-      preview = null;
-      source = null;
-      status = `Updated ${result.affected} notes.`;
-      workspace.tagsChanged++;
-      await invalidate('pandanote:tags');
-    } catch (e) {
-      error =
-        e instanceof Error && e.name === 'Error'
-          ? e.message
-          : 'Confirmation unavailable. Retry this exact operation; your notes are protected.';
-    } finally {
-      busy = false;
-    }
+  $effect(() => {
+    if (!ready || !sentinel || nextOffset === null || failed) return;
+    const root = sentinel.closest<HTMLElement>('#notes-pane');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { root, rootMargin: '0px 0px 300px 0px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
+  function submit(event: KeyboardEvent) {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    const q = query.trim();
+    void goto(q ? `/tags?q=${encodeURIComponent(q)}` : '/tags', {
+      reset: false,
+    });
   }
 </script>
 
-<PageTitle title="Manage tags" />
-<section class="surface">
-  <h1>Manage tags</h1>
-  <p class="help">
-    Rename, merge or remove actual hashtags in notes and Trash. Code, URLs and
-    unrelated formatting stay untouched. Nested tags use <code>/</code>, such as
-    <code>#work/meeting</code>; renaming or merging a tag also moves its
-    subtags.
-  </p>
-  <form method="GET">
-    <label>Find tags <input name="q" maxlength="256" /></label><button
-      >Search tags</button
-    >
-  </form>
-  <p class="help">
-    Up to 100 tags shown. Search to find more. Counts include subtags; published
-    counts exclude Trash.
-  </p>
-  {#if error}<p role="alert">{error}</p>{/if}
-  {#if status}<p role="status">{status}</p>{/if}
-  {#if pending.length}<section aria-label="Unconfirmed tag operations">
-      <h2>Unconfirmed tag operations · this browser</h2>
-      <p>
-        Retry to check the original result. Stopping a retry does not cancel or
-        undo a server operation.
-      </p>
-      {#each pending as command (command.mutationId)}<div>
-          <span>{command.operation.action} #{command.operation.source}</span
-          ><button disabled={busy} onclick={() => execute(command)}
-            >Check and retry tag operation</button
-          ><button
-            disabled={busy}
-            onclick={() => {
-              if (
-                confirm(
-                  'Stop retrying? This does not cancel or undo the server operation.',
-                )
-              ) {
-                localStorage.removeItem(prefix + command.mutationId);
-                reloadRetries();
-              }
-            }}>Stop retrying</button
+<PageTitle title="Tags" />
+<div class="tags-page">
+  <h1>Tags</h1>
+  <SearchBox
+    {id}
+    label="Search tags"
+    maxlength={256}
+    disabled={!ready}
+    bind:value={query}
+    onkeydown={submit}
+  />
+  <PendingTagOps {ops} />
+  {#if ops.error}<p role="alert">{ops.error}</p>{/if}
+  {#if items.length}
+    <ul class="tag-cloud">
+      {#each items as tag (tag.key)}
+        <li>
+          <a href={filterHref({ tag: tag.key })}
+            >#{tag.display}<span class="count">{tag.published}</span></a
           >
-        </div>{/each}
-    </section>{/if}
-  <ul class="tag-list">
-    {#each data.managedTags as tag (tag.key)}<li
-        style:padding-inline-start={`${(tag.depth - 1) * 1.25}rem`}
-      >
-        <button
-          disabled={!ready || busy}
-          onclick={() => {
-            source = tag;
-            target = tag.display;
-            action = 'rename';
-            scope = tag.explicit ? 'exact' : 'subtree';
-            preview = null;
-            error = '';
-          }}>#{tag.display}</button
-        ><span
-          >{tag.published} notes · {tag.trash} Trash{#if tag.hasChildren}
-            · {tag.explicit
-              ? `${tag.directPublished} directly tagged`
-              : 'group only'}{/if}</span
-        >
-      </li>{/each}
-  </ul>
-  {#if !data.managedTags.length}<p>No matching tags.</p>{/if}
-  {#if source}<form
-      onsubmit={(e) => {
-        e.preventDefault();
-        void showPreview();
-      }}
-    >
-      <h2>Manage #{source.display}</h2>
-      <label
-        >Action <select
-          bind:value={action}
-          disabled={busy}
-          aria-label="Tag action"
-          ><option value="rename">Rename (including case-only)</option><option
-            value="merge">Merge into an existing tag</option
-          ><option value="remove">Remove hashtag from notes</option></select
-        ></label
-      >
-      {#if action === 'remove' && source.hasChildren}<fieldset>
-          <legend>Remove which hashtags?</legend>
-          <label
-            ><input
-              type="radio"
-              bind:group={scope}
-              value="exact"
-              disabled={busy || !source.explicit}
-            />
-            Only #{source.display} (keep its subtags)</label
-          >
-          <label
-            ><input
-              type="radio"
-              bind:group={scope}
-              value="subtree"
-              disabled={busy}
-            />
-            #{source.display} and all its subtags</label
-          >
-        </fieldset>{/if}
-      {#if action !== 'remove'}<label
-          >Target tag spelling <input
-            bind:value={target}
-            maxlength="128"
-            required
-            disabled={busy}
-            list="existing-tag-targets"
-          /></label
-        ><datalist id="existing-tag-targets"
-          >{#each data.managedTags as tag (tag.key)}<option value={tag.display}
-            ></option>{/each}</datalist
-        >{/if}
-      <button disabled={busy}>Preview tag changes</button>
-    </form>{/if}
-</section>
-<Modal bind:open title="Confirm tag changes" dismissible={!busy}>
-  {#if preview}<p>
-      {preview.operation.action} #{preview.operation.source}{preview.operation
-        .target
-        ? ` → #${preview.operation.target}`
-        : ''}{preview.operation.action === 'remove' &&
-      preview.operation.scope === 'subtree'
-        ? ' and all subtags'
-        : ''}
-    </p>
-    {#if preview.mappings.length > 1 || preview.mappings.some((m) => m.collision)}<ul
-        aria-label="Affected tags"
-      >
-        {#each preview.mappings as mapping (mapping.from)}<li>
-            #{mapping.from} → {mapping.to === null
-              ? 'removed'
-              : `#${mapping.to}`}{#if mapping.collision}
-              (merged with existing tag){/if}
-          </li>{/each}
-      </ul>{/if}
-    <p>
-      {preview.counts.published} notes · {preview.counts.trash} Trash notes will receive
-      new revisions. In-progress editors will conflict.
-    </p>
-    {#if preview.operation.action === 'merge'}<p>
-        The existing target spelling is retained; duplicate note joins are
-        collapsed.
-      </p>{/if}
-    {#if preview.targetRetired}<p role="alert">
-        The target was retired before. Reusing it does not erase history; local
-        posts using it require explicit acknowledgement.
-      </p>{/if}
-    <p>
-      Removal deletes only the hashtag token, preserving adjacent spaces. Notes
-      are not deleted. Below are up to 10 source excerpts; all counted notes are
-      affected.
-    </p>
-    {#each preview.samples as sample (sample.id)}<details>
-        <summary
-          >{sample.status} · revision {sample.revision} ·
-          <a href={`/notes/${sample.id}`}>Inspect full note</a></summary
-        >
-        <pre>{sample.before}</pre>
-        <pre>{sample.after}</pre>
-      </details>{/each}
-    {#if error}<p role="alert">{error}</p>{/if}
-    <button
-      class:danger={preview.operation.action === 'remove'}
-      disabled={busy || pending.length > 0}
-      onclick={() =>
-        execute({
-          mutationId: crypto.randomUUID(),
-          operation: preview!.operation,
-          previewToken: preview!.previewToken,
-          confirmed: true,
-        })}>Confirm {preview.operation.action}</button
-    >
-  {/if}
-</Modal>
+        </li>
+      {/each}
+    </ul>
+  {:else}<p class="muted">No tags</p>{/if}
+  <div bind:this={sentinel} class="more" aria-live="polite">
+    {#if failed}<button onclick={loadMore}>Retry</button>
+    {/if}
+  </div>
+</div>
 
 <style>
-  .tag-list {
-    list-style: none;
-    padding: 0;
+  .tags-page {
+    display: grid;
+    gap: var(--space-4);
+    align-content: start;
   }
-  li {
+  h1 {
+    margin: var(--space-2) 0 0;
+  }
+  .tag-cloud {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
     gap: var(--space-2);
-    margin-block: var(--space-2);
+    list-style: none;
+    padding: 0;
+    margin: 0;
   }
-  label {
-    display: block;
-    margin-block: var(--space-2);
-  }
-  fieldset {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin-block: var(--space-2);
-  }
-  input,
-  select {
-    max-width: 100%;
-  }
-  pre {
-    white-space: pre-wrap;
+  .tag-cloud a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    text-decoration: none;
     overflow-wrap: anywhere;
-    padding: var(--space-2);
-    border: 1px solid var(--border);
+  }
+  .tag-cloud a:hover {
+    background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  }
+  .count {
+    color: var(--muted);
+    font-size: 0.8125rem;
+  }
+  .more {
+    min-height: 1px;
+    text-align: center;
   }
 </style>

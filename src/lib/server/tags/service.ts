@@ -11,6 +11,7 @@ import {
   type TagAction,
   type TagPreview,
   type ManagedTag,
+  type TagSummary,
   type StaleTag,
   type TagChange,
   type TagAcknowledgement,
@@ -94,73 +95,113 @@ export class TagService {
   constructor(p: Persistence) {
     this.p = p;
   }
-  /** Management inventory in tree order, including implicit parents. Counts are
+  /** Every tag path (explicit and implicit parents) in tree order. Counts are
    * distinct notes within each subtree; direct counts are exact-tag usage. */
-  list(identity: SessionIdentity, query = ''): ManagedTag[] {
-    if (query.length > 256)
-      throw new DomainError('validation', 'Tag search is too long.');
-    return this.p.db.transaction((tx) => {
-      assertSessionIdentity(tx, identity);
-      const rows = tx.all<{
-        key: string;
-        display: string;
-        published: number;
-        trash: number;
-      }>(sql`select t.normalized_key as key, t.display,
+  private inventory(tx: DomainTransaction): ManagedTag[] {
+    const rows = tx.all<{
+      key: string;
+      display: string;
+      published: number;
+      trash: number;
+    }>(sql`select t.normalized_key as key, t.display,
         coalesce(sum(n.status='published'),0) as published,
         coalesce(sum(n.status='trash'),0) as trash from tags t left join note_tags nt on nt.tag_id=t.id
         left join notes n on n.id=nt.note_id group by t.id`);
-      const parents = tagParentKeys(rows.map((row) => row.key));
-      // Distinct notes per status within each parent's subtree, aggregated in memory.
-      const parentSet = new Set(parents);
-      const subtree = new Map<
-        string,
-        { published: Set<string>; trash: Set<string> }
-      >();
-      if (parents.length)
-        for (const { note, key, status } of tx.all<{
-          note: string;
-          key: string;
-          status: 'published' | 'trash';
-        }>(sql`select nt.note_id as note, t.normalized_key as key, n.status as status
+    const parents = tagParentKeys(rows.map((row) => row.key));
+    // Distinct notes per status within each parent's subtree, aggregated in memory.
+    const parentSet = new Set(parents);
+    const subtree = new Map<
+      string,
+      { published: Set<string>; trash: Set<string> }
+    >();
+    if (parents.length)
+      for (const { note, key, status } of tx.all<{
+        note: string;
+        key: string;
+        status: 'published' | 'trash';
+      }>(sql`select nt.note_id as note, t.normalized_key as key, n.status as status
           from note_tags nt join tags t on t.id = nt.tag_id join notes n on n.id = nt.note_id`))
-          for (const path of [...tagAncestors(key), key])
-            if (parentSet.has(path)) {
-              let sets = subtree.get(path);
-              if (!sets)
-                subtree.set(
-                  path,
-                  (sets = { published: new Set(), trash: new Set() }),
-                );
-              sets[status].add(note);
-            }
-      const direct = new Map(rows.map((row) => [row.key, row]));
-      const displays = tagPathDisplays(rows);
-      const needle = tagKey(query);
+        for (const path of [...tagAncestors(key), key])
+          if (parentSet.has(path)) {
+            let sets = subtree.get(path);
+            if (!sets)
+              subtree.set(
+                path,
+                (sets = { published: new Set(), trash: new Set() }),
+              );
+            sets[status].add(note);
+          }
+    const direct = new Map(rows.map((row) => [row.key, row]));
+    const displays = tagPathDisplays(rows);
+    return [...displays.keys()].sort(compareTagPaths).map((key) => {
+      const own = direct.get(key);
+      const sub = subtree.get(key);
+      return {
+        key,
+        display: displays.get(key)!,
+        published: sub?.published.size ?? own?.published ?? 0,
+        trash: sub?.trash.size ?? own?.trash ?? 0,
+        directPublished: own?.published ?? 0,
+        directTrash: own?.trash ?? 0,
+        explicit: Boolean(own),
+        depth: tagDepth(key),
+        hasChildren: parentSet.has(key),
+      };
+    });
+  }
+  private static needle(query: string): string {
+    if (query.length > 256)
+      throw new DomainError('validation', 'Tag search is too long.');
+    return tagKey(query.trim().replace(/^#/, ''));
+  }
+  /** Management inventory in tree order: matches plus their ancestors, first 100. */
+  list(identity: SessionIdentity, query = ''): ManagedTag[] {
+    const needle = TagService.needle(query);
+    return this.p.db.transaction((tx) => {
+      assertSessionIdentity(tx, identity);
+      const all = this.inventory(tx);
       const matched = new Set<string>();
-      for (const key of displays.keys())
-        if (key.includes(needle)) {
-          matched.add(key);
-          for (const ancestor of tagAncestors(key)) matched.add(ancestor);
+      for (const tag of all)
+        if (tag.key.includes(needle)) {
+          matched.add(tag.key);
+          for (const ancestor of tagAncestors(tag.key)) matched.add(ancestor);
         }
-      return [...matched]
-        .sort(compareTagPaths)
-        .slice(0, 100)
-        .map((key) => {
-          const own = direct.get(key);
-          const sub = subtree.get(key);
-          return {
-            key,
-            display: displays.get(key)!,
-            published: sub?.published.size ?? own?.published ?? 0,
-            trash: sub?.trash.size ?? own?.trash ?? 0,
-            directPublished: own?.published ?? 0,
-            directTrash: own?.trash ?? 0,
-            explicit: Boolean(own),
-            depth: tagDepth(key),
-            hasChildren: parentSet.has(key),
-          };
-        });
+      return all.filter((tag) => matched.has(tag.key)).slice(0, 100);
+    });
+  }
+  /** Flat, alphabetical-by-path page of tags whose path contains `query`. */
+  page(
+    identity: SessionIdentity,
+    query = '',
+    offset = 0,
+    limit = 60,
+  ): { items: ManagedTag[]; nextOffset: number | null } {
+    const needle = TagService.needle(query);
+    return this.p.db.transaction((tx) => {
+      assertSessionIdentity(tx, identity);
+      const matches = this.inventory(tx).filter((tag) =>
+        tag.key.includes(needle),
+      );
+      const end = offset + limit;
+      return {
+        items: matches.slice(offset, end),
+        nextOffset: end < matches.length ? end : null,
+      };
+    });
+  }
+  /** One tag's usage and its number of descendant paths; null when it does not exist. */
+  summary(identity: SessionIdentity, key: string): TagSummary | null {
+    return this.p.db.transaction((tx) => {
+      assertSessionIdentity(tx, identity);
+      const all = this.inventory(tx);
+      const tag = all.find((entry) => entry.key === key);
+      if (!tag) return null;
+      return {
+        ...tag,
+        subtags: all.filter(
+          (entry) => entry.key !== key && isWithinTag(entry.key, key),
+        ).length,
+      };
     });
   }
   check(

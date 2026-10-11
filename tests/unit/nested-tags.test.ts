@@ -105,9 +105,9 @@ describe('path helpers', () => {
     expect(tagKeySchema.safeParse('work/meeting').success).toBe(true);
     for (const bad of ['work/', '/work', 'a//b', 'a/b/c/d/e/f', 'Work'])
       expect(tagKeySchema.safeParse(bad).success).toBe(false);
-    expect(canonicalFilters(['Work/Meeting']).tags).toEqual(['work/meeting']);
-    expect(() => canonicalFilters(['a//b'])).toThrow();
-    expect(() => canonicalFilters(['x'.repeat(129)])).toThrow();
+    expect(canonicalFilters('Work/Meeting').tag).toBe('work/meeting');
+    expect(() => canonicalFilters('a//b')).toThrow();
+    expect(() => canonicalFilters('x'.repeat(129))).toThrow();
     expect(
       tagActionSchema.safeParse({
         source: 'work',

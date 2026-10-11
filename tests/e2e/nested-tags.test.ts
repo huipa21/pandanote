@@ -71,43 +71,42 @@ test('NT-SIDEBAR/NT-UI: count-ordered nested tree, subtree filters, autocomplete
 
   await page.goto('/');
   const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
-  // Other suites may have created more than six roots; then use Show all.
-  const showAll = sidebar.getByRole('button', { name: /Show all tags/ });
-  let panel = sidebar;
-  if (await showAll.count()) {
-    await showAll.click();
-    panel = page.getByRole('dialog', { name: 'All tags', exact: true });
-    await panel.getByRole('searchbox', { name: 'Find a tag' }).fill(root);
+  const parent = sidebar.getByRole('link', { name: `#${root} (5)` });
+  // The sidebar lists only the most used tags; other suites may have created
+  // busier ones. The Tags page always reaches every tag.
+  if (await parent.count()) {
+    // Children stay collapsed until expanded.
+    const toggle = sidebar.getByRole('button', {
+      name: `Show subtags of #${root}`,
+    });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.click();
+    await expect(
+      sidebar.getByRole('button', { name: `Hide subtags of #${root}` }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    const children = sidebar.getByRole('link', {
+      name: new RegExp(`^#${root}/`),
+    });
+    await expect(children).toHaveText([/^#zeta\s+\(3\)$/, /^#alpha\s+\(1\)$/]);
+    // Keyboard expansion of a nested level.
+    await sidebar
+      .getByRole('button', { name: `Show subtags of #${root}/zeta` })
+      .press('Enter');
+    await expect(
+      sidebar.getByRole('link', { name: `#${root}/zeta/deep (3)` }),
+    ).toBeVisible();
+    expect(await axeViolations(page)).toEqual([]);
   }
-  const parent = panel.getByRole('link', { name: `#${root} (5)` });
-  await expect(parent).toBeVisible();
-  // Children stay collapsed until expanded.
-  const toggle = panel.getByRole('button', {
-    name: `Show subtags of #${root}`,
-  });
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await toggle.click();
-  await expect(
-    panel.getByRole('button', { name: `Hide subtags of #${root}` }),
-  ).toHaveAttribute('aria-expanded', 'true');
-  const children = panel.getByRole('link', { name: new RegExp(`^#${root}/`) });
-  await expect(children).toHaveText([/^#zeta\s+\(3\)$/, /^#alpha\s+\(1\)$/]);
-  // Keyboard expansion of a nested level.
-  await panel
-    .getByRole('button', { name: `Show subtags of #${root}/zeta` })
-    .press('Enter');
-  await expect(
-    panel.getByRole('link', { name: `#${root}/zeta/deep (3)` }),
-  ).toBeVisible();
-  expect(await axeViolations(page)).toEqual([]);
 
   // Parent filter includes subtags.
-  await parent.click();
+  await page.goto(`/?tag=${root}`);
   await expect(page.getByTestId('posted-note')).toHaveCount(5);
+  // The tag view is announced by its header, not by a filter chip.
   await expect(
     page.getByRole('region', { name: 'Active filters' }),
-  ).toContainText(`#${root}`);
-  // The active branch is revealed in the sidebar tree when it is listed there.
+  ).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`#${root}`);
+  // The active branch is revealed in the sidebar when it is listed there.
   await page.goto(`/?tag=${root}/zeta`);
   await expect(page.getByTestId('posted-note')).toHaveCount(3);
   if (await sidebar.getByRole('link', { name: `#${root} (5)` }).count())
@@ -131,18 +130,18 @@ test('NT-SIDEBAR/NT-UI: count-ordered nested tree, subtree filters, autocomplete
   await expect(text).toHaveValue(`x #${root}/zeta`);
   await text.fill(''); // Empty editors need no leave confirmation.
 
-  // Management: remove only the exact parent hashtag; subtags remain.
-  await page.goto(`/tags?q=${root}`);
-  await page.getByRole('button', { name: `#${root}`, exact: true }).click();
-  await page.getByLabel('Tag action').selectOption('remove');
+  // Management from the tag view: remove only the exact parent hashtag.
+  await page.goto(`/?tag=${root}`);
+  await page.getByRole('button', { name: 'Tag actions' }).click();
+  await page.getByRole('button', { name: 'Remove Tag' }).click();
   await expect(
     page.getByRole('radio', { name: new RegExp(`Only #${root}`) }),
   ).toBeChecked();
   await page.getByRole('button', { name: 'Preview tag changes' }).click();
-  const confirm = page.getByRole('dialog', { name: 'Confirm tag changes' });
+  const confirm = page.getByRole('dialog', { name: 'Remove Tag' });
   await expect(confirm).toContainText('1 notes');
   await confirm.getByRole('button', { name: 'Confirm remove' }).click();
-  await expect(page.getByText('Updated 1 notes.')).toBeVisible();
+  await expect(page).toHaveURL('/');
   await page.goto(`/?tag=${root}`);
   await expect(page.getByTestId('posted-note')).toHaveCount(4);
 });

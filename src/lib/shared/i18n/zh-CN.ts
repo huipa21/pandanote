@@ -17,14 +17,8 @@ export const zhCN: Partial<Catalog> = {
   'shell.monthActivity': '本月动态',
   'shell.calendarUnavailable': '日历暂时不可用。',
   'shell.tags': '标签',
-  'shell.manage': '管理',
-  'shell.showAllTags': '显示全部标签（{count}）',
+  'shell.allTags': '全部标签（{count}）',
   'shell.noTags': '还没有已发布的标签。',
-  'shell.allTagsTitle': '全部标签',
-  'shell.findTag': '查找标签',
-  'shell.noMatchingTags': '没有匹配的标签。',
-  'shell.tagHelp':
-    '选择多个标签，将显示同时包含这些标签的笔记。父标签包含其子标签。',
   'shell.expandTag': '展开 #{tag} 的子标签',
   'shell.collapseTag': '收起 #{tag} 的子标签',
   'shell.tagCount': '#{tag}，{count} 条笔记',
@@ -32,10 +26,9 @@ export const zhCN: Partial<Catalog> = {
   'shell.activeFilters': '当前筛选',
   'shell.noFilters': '全部笔记 · 无筛选',
   'shell.clearAll': '清除全部',
+  'shell.allNotes': '全部笔记',
 
   'search.label': '搜索笔记',
-  'search.placeholder': '词语或“精确短语”',
-  'search.help': '全部关键词 · 已发布笔记 · 所有月份',
   'search.failed': '无法加载搜索结果。请修改查询后重试。',
 
   'auth.signIn': '登录',

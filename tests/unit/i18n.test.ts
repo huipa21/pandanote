@@ -55,7 +55,7 @@ it('every translated key exists in English, keeps its placeholders and is non-em
 it('translates per key with English fallback and fills placeholders', () => {
   expect(translate('en', 'auth.signIn')).toBe('Sign in');
   expect(translate('zh-CN', 'auth.signIn')).toBe('登录');
-  expect(translate('zh-CN', 'shell.showAllTags', { count: 7 })).toContain('7');
+  expect(translate('zh-CN', 'shell.allTags', { count: 7 })).toContain('7');
   expect(translate('en', 'brand.home', { title: 'Mine' })).toBe('Mine home');
   expect(translate('en', 'brand.home')).toBe('{title} home');
   // A key missing from the partial catalog falls back to English individually.

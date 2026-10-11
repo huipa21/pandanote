@@ -159,11 +159,10 @@ test.describe('axe WCAG 2.x AA scans', () => {
         await scan(page, `quick year selector ${mode} ${size.name}`);
         await page.keyboard.press('Escape');
         if (size.name === 'phone') await page.keyboard.press('Escape');
-        await page.getByRole('link', { name: 'Open note' }).first().click();
-        await expect(page.getByRole('dialog').first()).toBeVisible();
-        await scan(page, `note dialog ${mode} ${size.name}`);
-        await page.keyboard.press('Escape');
+        await page.getByTestId('posted-note').first().locator('a.when').click();
+        await expect(page.getByTestId('note-detail')).toBeVisible();
         await expect(page.getByRole('dialog')).toHaveCount(0);
+        await scan(page, `note page ${mode} ${size.name}`);
       }
     });
   test('composer, image viewer and sensitive-action dialogs', async ({
@@ -322,24 +321,12 @@ test.describe('structure, reflow, motion and focus', () => {
       if (state && !state.visible) missing.push(state.label);
     }
     expect(missing).toEqual([]);
-    // Detail dialog: Tab stays inside, Escape closes and restores focus to the trigger.
-    const trigger = page.getByRole('link', { name: 'Open note' }).first();
+    // The card date is a keyboard-reachable link to the note page (not a dialog).
+    const trigger = page.getByTestId('posted-note').first().locator('a.when');
     await trigger.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('dialog').first()).toBeVisible();
-    for (let i = 0; i < 12; i++) {
-      await page.keyboard.press('Tab');
-      expect(
-        await page.evaluate(() => {
-          const open = [...document.querySelectorAll('dialog[open]')].at(-1);
-          return !!open && open.contains(document.activeElement);
-        }),
-      ).toBe(true);
-    }
-    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/notes\//);
+    await expect(page.getByTestId('note-detail')).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    expect(
-      await page.evaluate(() => document.activeElement?.getAttribute('href')),
-    ).toMatch(/^\/notes\//);
   });
 });

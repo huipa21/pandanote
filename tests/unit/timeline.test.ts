@@ -3,13 +3,15 @@ import {
   canonicalFilters,
   filterHref,
   filterKey,
-  toggleTag,
+  noteHasTag,
+  selectTag,
   parseTimelineQuery,
   currentMonthEnd,
   monthKey,
   mergeCards,
   boundedPreview,
   gridImages,
+  shortDate,
   type TimelineCard,
 } from '../../src/lib/shared/timeline.ts';
 
@@ -54,20 +56,30 @@ describe('canonical timeline state', () => {
       bodyTruncated: false,
     });
   });
-  it('normalizes, sorts, deduplicates and toggles tags without implicit month filters', () => {
-    const filters = canonicalFilters(['Work', '香港', 'ｗｏｒｋ']);
-    expect(filters.tags).toEqual(['work', '香港']);
-    expect(filterKey(filters)).toBe(
-      filterKey(canonicalFilters(['香港', 'work'])),
-    );
-    expect(filterHref(filters)).toBe('/?tag=work&tag=%E9%A6%99%E6%B8%AF');
-    expect(toggleTag(filters, 'WORK')).toBe('/?tag=%E9%A6%99%E6%B8%AF');
-    expect(toggleTag({ tags: [] }, '図書館')).toBe(
-      '/?tag=%E5%9B%B3%E6%9B%B8%E9%A4%A8',
-    );
-    expect(filterHref({ tags: [] })).toBe('/');
-    expect(canonicalFilters(['ﬃ'.repeat(20)]).tags).toEqual(['ffi'.repeat(20)]);
-    expect(canonicalFilters(['ﷺ']).tags).toEqual(['صلى الله عليه وسلم']);
+  it('normalizes a single tag filter and selecting replaces it without implicit month filters', () => {
+    const filters = canonicalFilters('Work');
+    expect(filters.tag).toBe('work');
+    expect(filterKey(canonicalFilters('ｗｏｒｋ'))).toBe(filterKey(filters));
+    expect(filterKey(canonicalFilters('home'))).not.toBe(filterKey(filters));
+    expect(filterKey({})).not.toBe(filterKey(filters));
+    expect(filterHref(filters)).toBe('/?tag=work');
+    expect(selectTag({}, '図書館')).toBe('/?tag=%E5%9B%B3%E6%9B%B8%E9%A4%A8');
+    // Tag views are single-tag: selecting replaces, and the search is kept.
+    expect(selectTag(filters, 'Home')).toBe('/?tag=home');
+    expect(selectTag({ tag: 'a', query: 'x' }, 'B')).toBe('/?tag=b&q=%22x%22');
+    expect(filterHref({})).toBe('/');
+    // Leaving the tag view keeps the other filters.
+    expect(filterHref({ tag: undefined, query: 'x' })).toBe('/?q=%22x%22');
+    expect(canonicalFilters('ﬃ'.repeat(20)).tag).toBe('ffi'.repeat(20));
+    expect(canonicalFilters('ﷺ').tag).toBe('صلى الله عليه وسلم');
+    expect(() => canonicalFilters('')).toThrow();
+  });
+  it('matches a note to a tag filter by the tag itself or any subtag', () => {
+    expect(noteHasTag(['work/meeting'], 'work')).toBe(true);
+    expect(noteHasTag(['work'], 'work')).toBe(true);
+    expect(noteHasTag(['workshop'], 'work')).toBe(false);
+    expect(noteHasTag(['home', 'x/work'], 'work')).toBe(false);
+    expect(noteHasTag([], 'work')).toBe(false);
   });
   it('rejects malformed and unbounded query parameters rather than silently changing meaning', () => {
     for (const query of [
@@ -84,13 +96,19 @@ describe('canonical timeline state', () => {
       `tag=${'港'.repeat(129)}`,
       'tag=a%2F%2Fb',
       'tag=a%2F',
-      Array.from({ length: 21 }, (_, n) => `tag=t${n}`).join('&'),
+      // A tag view has exactly one tag: repeated tag parameters are refused,
+      // identical or not, instead of silently meaning something else.
+      'tag=work&tag=home',
+      'tag=work&tag=work',
+      'tag=',
     ])
       expect(() => parseTimelineQuery(new URLSearchParams(query))).toThrow();
     expect(
-      parseTimelineQuery(new URLSearchParams('tag=WORK&tag=work&limit=100'))
-        .filters.tags,
-    ).toEqual(['work']);
+      parseTimelineQuery(new URLSearchParams('tag=WORK&limit=100')).filters.tag,
+    ).toBe('work');
+    expect(
+      parseTimelineQuery(new URLSearchParams('limit=100')).filters.tag,
+    ).toBeUndefined();
   });
   it('uses app timezone at month/year boundaries, not host timezone', () => {
     const at = Date.parse('2025-12-31T16:30:00Z');
@@ -117,5 +135,24 @@ describe('canonical timeline state', () => {
       ['b', 30],
       ['a', 10],
     ]);
+  });
+});
+
+describe('card short date', () => {
+  const now = Date.UTC(2026, 9, 12, 12);
+  it('omits the year in the current year', () => {
+    expect(shortDate(Date.UTC(2026, 6, 21, 12), 'UTC', now)).toBe(
+      'Tue, Jul 21',
+    );
+  });
+  it('adds the year for earlier years', () => {
+    expect(shortDate(Date.UTC(2020, 6, 21, 12), 'UTC', now)).toBe(
+      'Tue, Jul 21, 2020',
+    );
+  });
+  it('uses the account timezone for the day and the year boundary', () => {
+    const at = Date.UTC(2025, 11, 31, 20); // 2026-01-01 04:00 in Hong Kong
+    expect(shortDate(at, 'Asia/Hong_Kong', now)).toBe('Thu, Jan 1');
+    expect(shortDate(at, 'UTC', now)).toBe('Wed, Dec 31, 2025');
   });
 });

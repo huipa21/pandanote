@@ -306,16 +306,15 @@ test('actual shell independently scrolls synthetic notes; many tags stay reachab
   expect(await composer.boundingBox()).toEqual(before.composer);
   await expect(scroller).toBeFocused();
   await noOverflow(page);
-  await sidebar.getByRole('button', { name: 'Show all tags (200)' }).click();
-  const panel = page.getByRole('dialog', { name: 'All tags', exact: true });
-  await expect(panel.getByLabel('Find a tag')).toBeFocused();
-  await panel.getByLabel('Find a tag').fill('199');
-  await expect(panel.getByRole('listitem')).toHaveCount(1);
-  await expect(panel).toContainText('香港-図書館-199');
-  await page.keyboard.press('Escape');
+  // Only the first tags are listed; the rest live on the Tags page.
+  await expect(sidebar.getByRole('link', { name: /^#/ })).toHaveCount(12);
   await expect(
-    sidebar.getByRole('button', { name: 'Show all tags (200)' }),
-  ).toBeFocused();
+    sidebar.getByRole('link', { name: 'All tags (200)' }),
+  ).toHaveAttribute('href', '/tags');
+  await expect(
+    sidebar.getByRole('heading', { name: 'Tags' }).getByRole('link'),
+  ).toHaveAttribute('href', '/tags');
+  await expect(sidebar.getByRole('link', { name: 'Manage' })).toHaveCount(0);
   // Equivalent layout width at 200% browser zoom on a 1440px display.
   await page.setViewportSize({ width: 720, height: 450 });
   await noOverflow(page);
@@ -324,10 +323,9 @@ test('actual shell independently scrolls synthetic notes; many tags stay reachab
   await expect(
     drawer.getByRole('link', { name: 'Settings', exact: true }),
   ).toBeInViewport();
-  await drawer.getByRole('button', { name: 'Show all tags (200)' }).click();
-  await expect(panel).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(drawer).toBeVisible();
+  await expect(
+    drawer.getByRole('link', { name: 'All tags (200)' }),
+  ).toBeVisible();
   await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 1440, height: 280 });
   await expect(
@@ -544,7 +542,7 @@ test('touch-only private navigation and safe-area/keyboard-shrink scenarios expo
     );
     await noOverflow(page);
     for (const [label, path] of [
-      ['Manage', '/tags'],
+      ['Tags', '/tags'],
       ['Trash', '/trash'],
       ['Settings', '/settings'],
     ]) {

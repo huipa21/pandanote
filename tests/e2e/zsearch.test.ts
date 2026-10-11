@@ -162,14 +162,14 @@ test('superseded search/paging responses cannot replace newer results; AND tags,
     .first()
     .getByRole('link', { name: '#s10search', exact: true })
     .click();
-  await expect(page).toHaveURL('/?q=%22latestneedle%22'); // card-tag toggle retains search
+  await expect(page).toHaveURL('/?tag=s10search&q=%22latestneedle%22'); // card tag opens its tag view and retains search
   await page
     .getByRole('link', { name: 'Settings', exact: true })
     .first()
     .click();
   await expect(page).toHaveURL('/settings');
   await page.goBack();
-  await expect(page).toHaveURL('/?q=%22latestneedle%22');
+  await expect(page).toHaveURL('/?tag=s10search&q=%22latestneedle%22');
   await expect(page.getByTestId('posted-note')).toHaveCount(1);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Menu & search' }).click();
@@ -179,14 +179,10 @@ test('superseded search/paging responses cannot replace newer results; AND tags,
   await expect(page.getByTestId('posted-note')).toHaveCount(30);
   await page.getByRole('button', { name: 'Menu & search' }).click();
   const navigation = page.getByRole('dialog', { name: 'Notebook navigation' });
-  const even = navigation.getByRole('link', { name: '#S10even', exact: false });
-  if (await even.count()) await even.click();
-  else {
-    await navigation.getByRole('button', { name: /Show all tags/ }).click();
-    const panel = page.getByRole('dialog', { name: 'All tags', exact: true });
-    await panel.getByRole('searchbox', { name: 'Find a tag' }).fill('S10even');
-    await panel.getByRole('link', { name: '#S10even', exact: false }).click();
-  }
+  // A tag click selects that single tag; the search stays.
+  await navigation
+    .getByRole('link', { name: '#S10even', exact: false })
+    .click();
   await expect(page.getByTestId('posted-note')).toHaveCount(23);
   await expect(
     page.getByRole('region', { name: 'Active filters' }),

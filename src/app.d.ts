@@ -5,10 +5,6 @@ import type { SessionIdentity } from './lib/server/auth/service.ts';
 
 declare global {
   namespace App {
-    interface PageState {
-      detailId?: string;
-      detailImage?: string;
-    }
     interface Locals {
       runtime?: Runtime;
       identity: SessionIdentity | null;

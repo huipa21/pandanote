@@ -96,7 +96,7 @@ export async function timelinePage(
     ? decoded.anchor
     : month
       ? month.end
-      : filters.tags.length || units.length || filters.day
+      : filters.tag !== undefined || units.length || filters.day
         ? null
         : currentMonthEnd(timezone, now);
   const key = fingerprint(filterKey(filters), timezone, anchor);
@@ -106,7 +106,7 @@ export async function timelinePage(
       decoded.timezone !== timezone ||
       (month && anchor !== month.end) ||
       (!month &&
-        (filters.tags.length > 0 || units.length > 0 || filters.day) &&
+        (filters.tag !== undefined || units.length > 0 || filters.day) &&
         anchor !== null))
   )
     throw new DomainError(
@@ -132,11 +132,13 @@ export async function timelinePage(
           and(eq(notes.timelineAt, decoded.at), lt(notes.id, decoded.id)),
         )!,
       );
-    for (const tag of filters.tags)
+    if (filters.tag !== undefined) {
+      const tag = filters.tag;
       predicates.push(
         // Subtree match: the tag itself or any `tag/...` descendant (BINARY range).
         sql`exists (select 1 from ${noteTags} inner join ${tags} on ${tags.id} = ${noteTags.tagId} where ${noteTags.noteId} = ${notes.id} and (${tags.normalizedKey} = ${tag} or (${tags.normalizedKey} >= ${tag + '/'} and ${tags.normalizedKey} < ${tagSubtreeUpper(tag)})))`,
       );
+    }
     const rows = tx
       .select({
         ...getTableColumns(notes),

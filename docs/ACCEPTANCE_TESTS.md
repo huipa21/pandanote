@@ -175,7 +175,7 @@ Test `%`, `_`, quotes, `OR`, `NEAR`, asterisks, apostrophes, hyphens, emoji, wid
 
 ### SEARCH-03 — Filters/pagination/updates
 
-Published-only. Search AND all tags AND selected-day range. Sort timeline descending, not relevance. Calendar month never silently bounds search. Cursor from another filter rejected. Edit/publish/draft/trash/restore/tag/file-name changes reflected immediately. Reindex yields equivalent results. Stale browser responses cannot replace newer search query results.
+Published-only. Search AND the single selected tag (with subtags) AND selected-day range; several `tag` values are rejected. Sort timeline descending, not relevance. Calendar month never silently bounds search. Cursor from another filter rejected. Edit/publish/draft/trash/restore/tag/file-name changes reflected immediately. Reindex yields equivalent results. Stale browser responses cannot replace newer search query results.
 
 ### SEARCH-04 — Snippets
 

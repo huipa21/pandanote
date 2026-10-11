@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext, onMount, untrack, tick } from 'svelte';
+  import { getContext, onMount, tick } from 'svelte';
   import {
     EDITOR_WORKSPACE,
     type EditorWorkspace,
@@ -7,7 +7,6 @@
   import type { NoteSnapshot } from '#lib/shared/domain.ts';
   import type { RenderedMarkdown } from '#lib/shared/markdown/render.ts';
   import { cardImages, gridImages } from '#lib/shared/timeline.ts';
-  import Modal from './Modal.svelte';
   import ThumbnailGrid from './ThumbnailGrid.svelte';
   import LocationPopover from './LocationPopover.svelte';
   import Markdown from './Markdown.svelte';
@@ -15,19 +14,12 @@
   let {
     note,
     rendered,
-    error = '',
-    onClose,
-    onRetry = () => {},
-    initialImage,
-    direct = false,
+    onLeave,
   }: {
-    note: NoteSnapshot | null;
+    note: NoteSnapshot;
     rendered?: RenderedMarkdown;
-    error?: string;
-    onClose: () => void | Promise<void>;
-    onRetry?: () => void;
-    initialImage?: string;
-    direct?: boolean;
+    /** Leaves the note page (to the timeline) before the editor opens. */
+    onLeave: () => void | Promise<void>;
   } = $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   import {
@@ -35,30 +27,15 @@
     type LifecycleState,
   } from '#lib/client/editor/lifecycle.svelte.ts';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
-  let open = $state(true);
   let ready = $state(false);
   let editing = $state(false);
   let editError = $state('');
   let selected = $state<string | null>(null);
   const images = $derived(
-    (note?.attachments ?? []).filter((file) => file.kind === 'image'),
+    (note.attachments ?? []).filter((file) => file.kind === 'image'),
   );
-  let initialConsumed = false;
   onMount(() => {
     ready = true;
-  });
-  $effect(() => {
-    if (
-      ready &&
-      initialImage &&
-      images.some((file) => file.id === initialImage)
-    )
-      untrack(() => {
-        if (!initialConsumed) {
-          initialConsumed = true;
-          selected = initialImage!;
-        }
-      });
   });
   function date(value: number) {
     return new Date(value).toLocaleString('en', {
@@ -68,13 +45,13 @@
     });
   }
   async function edit() {
-    if (!note || editing) return;
+    if (editing) return;
     editing = true;
-    // Prepare a complete in-memory editor before closing detail.
+    // Prepare a complete in-memory editor before leaving the note page.
     if (await workspace.editNote(note, false)) {
       const conflict = workspace.postConflict;
       workspace.postConflict = null;
-      await onClose();
+      await onLeave();
       await tick();
       workspace.openEditor++;
       await tick();
@@ -87,106 +64,91 @@
   }
 </script>
 
-<Modal
-  bind:open
-  title="Note detail"
-  kind="detail"
-  ssrOpen={direct}
-  onDismiss={() => {
-    void onClose();
-  }}
-  dismissible={!editing}
->
-  {#if error}<p role="alert">{error}</p>
-    <button onclick={onRetry}>Retry note</button>
-  {:else if !note}<p role="status">Loading full note…</p>
-  {:else}
-    <article
-      data-testid="note-detail"
-      data-note-id={note.id}
-      data-revision={note.revision}
-    >
-      <div class="actions">
+<section class="note-page" aria-label="Note detail">
+  <p><a href="/">← All notes</a></p>
+  <article
+    class="surface"
+    data-testid="note-detail"
+    data-note-id={note.id}
+    data-revision={note.revision}
+  >
+    <div class="actions">
+      <button
+        disabled={!ready ||
+          !workspace.ready ||
+          workspace.busy ||
+          note.status === 'trash' ||
+          editing}
+        onclick={edit}>Edit note</button
+      >
+      {#if note.status === 'trash'}
         <button
-          disabled={!ready ||
-            !workspace.ready ||
-            workspace.busy ||
-            note.status === 'trash' ||
-            editing}
-          onclick={edit}>Edit note</button
+          disabled={!ready || !lifecycle.ready || lifecycle.busy}
+          onclick={() => lifecycle.choose(note, 'restore')}>Restore</button
         >
-        <a href={`/notes/${note.id}`}>Private permalink</a>
-        {#if note.status === 'trash'}
-          <button
-            disabled={!ready || !lifecycle.ready || lifecycle.busy}
-            onclick={() => lifecycle.choose(note!, 'restore')}>Restore</button
+        <button
+          class="danger"
+          disabled={!ready || !lifecycle.ready || lifecycle.busy}
+          onclick={() => lifecycle.choose(note, 'permanent-delete')}
+          >Permanently delete</button
+        >
+      {:else}
+        <button
+          disabled={!ready || !lifecycle.ready || lifecycle.busy}
+          onclick={() => lifecycle.choose(note, 'trash')}>Move to Trash</button
+        >
+      {/if}
+    </div>
+    {#if editError}<p role="alert">{editError}</p>{/if}
+    <Markdown
+      source={note.bodyMarkdown}
+      images={cardImages(note)}
+      initial={rendered}
+      foreground
+      onImage={(id) => {
+        selected = id;
+      }}
+    />
+    <ThumbnailGrid
+      images={gridImages(note)}
+      disabled={!ready}
+      onOpen={(id) => {
+        selected = id;
+      }}
+    />
+    <ul class="files" aria-label="Attachments">
+      {#each (note.attachments ?? []).filter((file) => file.kind === 'file') as file (file.id)}<li
+        >
+          <a href={`/api/attachments/${file.id}/file`} download
+            >{file.filename}</a
           >
-          <button
-            class="danger"
-            disabled={!ready || !lifecycle.ready || lifecycle.busy}
-            onclick={() => lifecycle.choose(note!, 'permanent-delete')}
-            >Permanently delete</button
-          >
-        {:else}
-          <button
-            disabled={!ready || !lifecycle.ready || lifecycle.busy}
-            onclick={() => lifecycle.choose(note!, 'trash')}
-            >Move to Trash</button
-          >
-        {/if}
-      </div>
-      {#if editError}<p role="alert">{editError}</p>{/if}
-      <Markdown
-        source={note.bodyMarkdown}
-        images={cardImages(note)}
-        initial={rendered}
-        foreground
-        onImage={(id) => {
-          selected = id;
-        }}
-      />
-      <ThumbnailGrid
-        images={gridImages(note)}
-        disabled={!ready}
-        onOpen={(id) => {
-          selected = id;
-        }}
-      />
-      <ul class="files" aria-label="Attachments">
-        {#each (note.attachments ?? []).filter((file) => file.kind === 'file') as file (file.id)}<li
-          >
-            <a href={`/api/attachments/${file.id}/file`} download
-              >{file.filename}</a
-            >
-            · {file.storedBytes} bytes
-          </li>{/each}
-      </ul>
-      <dl>
-        <dt>Status</dt>
+          · {file.storedBytes} bytes
+        </li>{/each}
+    </ul>
+    <dl>
+      <dt>Status</dt>
+      <dd>
+        {note.status}{note.priorStatus ? ` (was ${note.priorStatus})` : ''}
+      </dd>
+      <dt>Timeline</dt>
+      <dd>{date(note.timelineAt)}</dd>
+      <dt>Created</dt>
+      <dd>{date(note.createdAt)}</dd>
+      <dt>Last modified</dt>
+      <dd>{date(note.updatedAt)}</dd>
+      {#if note.contentEditedAt !== null}<dt>Content edited</dt>
+        <dd>{date(note.contentEditedAt)}</dd>{/if}
+      <dt>Revision</dt>
+      <dd>{note.revision}</dd>
+      {#if note.tags.length}<dt>Tags</dt>
+        <dd>{note.tags.map((tag) => `#${tag}`).join(' ')}</dd>{/if}
+      {#if note.location}<dt>Location</dt>
         <dd>
-          {note.status}{note.priorStatus ? ` (was ${note.priorStatus})` : ''}
-        </dd>
-        <dt>Timeline</dt>
-        <dd>{date(note.timelineAt)}</dd>
-        <dt>Created</dt>
-        <dd>{date(note.createdAt)}</dd>
-        <dt>Last modified</dt>
-        <dd>{date(note.updatedAt)}</dd>
-        {#if note.contentEditedAt !== null}<dt>Content edited</dt>
-          <dd>{date(note.contentEditedAt)}</dd>{/if}
-        <dt>Revision</dt>
-        <dd>{note.revision}</dd>
-        {#if note.tags.length}<dt>Tags</dt>
-          <dd>{note.tags.map((tag) => `#${tag}`).join(' ')}</dd>{/if}
-        {#if note.location}<dt>Location</dt>
-          <dd>
-            <LocationPopover location={note.location} />
-          </dd>{/if}
-      </dl>
-    </article>
-  {/if}
-  {#if direct}<a href="/">Return to All notes</a>{/if}
-</Modal>
+          <LocationPopover location={note.location} />
+        </dd>{/if}
+    </dl>
+  </article>
+</section>
 {#if selected && images.some((image) => image.id === selected)}
   <ImageViewer
     {images}

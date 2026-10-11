@@ -7,15 +7,28 @@ export const GET: RequestHandler = ({ locals, url }) => {
       throw new DomainError('unauthorized', 'Sign in to continue.');
     if (
       url.search.length > 2048 ||
-      [...url.searchParams.keys()].some((k) => k !== 'q') ||
-      url.searchParams.getAll('q').length > 1
+      [...url.searchParams.keys()].some(
+        (k) => !['q', 'offset', 'limit'].includes(k),
+      ) ||
+      ['q', 'offset', 'limit'].some(
+        (k) => url.searchParams.getAll(k).length > 1,
+      )
     )
       throw new DomainError('validation', 'Invalid tag search.');
+    const number = (name: string, fallback: number, max: number) => {
+      const raw = url.searchParams.get(name);
+      if (raw === null) return fallback;
+      if (!/^\d{1,6}$/.test(raw) || Number(raw) > max)
+        throw new DomainError('validation', 'Invalid tag search.');
+      return Number(raw);
+    };
     return Response.json({
       ok: true,
-      data: locals.runtime!.tags.list(
+      data: locals.runtime!.tags.page(
         locals.identity,
         url.searchParams.get('q') ?? '',
+        number('offset', 0, 100_000),
+        Math.max(1, number('limit', 60, 200)),
       ),
     });
   } catch (error) {

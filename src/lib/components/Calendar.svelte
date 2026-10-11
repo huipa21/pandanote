@@ -57,14 +57,14 @@
   );
   function jump(value: string) {
     return filterHref({
-      tags: filters.tags,
+      tag: filters.tag,
       query: filters.query,
       month: value,
     });
   }
   function dayHref(date: string) {
     return filterHref({
-      tags: filters.tags,
+      tag: filters.tag,
       query: filters.query,
       ...(filters.date === date ? {} : { date }),
     });

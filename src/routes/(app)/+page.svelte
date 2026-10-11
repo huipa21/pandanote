@@ -17,19 +17,20 @@
   import { localDate } from '#lib/shared/calendar.ts';
   import PageTitle from '#lib/components/PageTitle.svelte';
   import NoteCard from '#lib/components/NoteCard.svelte';
+  import TagHeader from '#lib/components/TagHeader.svelte';
   import {
     READING,
     type ReadingState,
   } from '#lib/client/timeline/reading.svelte.ts';
   import { matchesSearch, parseSearch } from '#lib/shared/search.ts';
-  import type { TimelineFilters } from '#lib/shared/timeline.ts';
+  import { noteHasTag, type TimelineFilters } from '#lib/shared/timeline.ts';
   function matchesFilters(
     note: NoteSnapshot,
     filters: TimelineFilters,
   ): boolean {
     return (
       note.status === 'published' &&
-      filters.tags.every((tag) => note.tags.includes(tag)) &&
+      (filters.tag === undefined || noteHasTag(note.tags, filters.tag)) &&
       (!filters.day ||
         (note.timelineAt >= filters.day.start &&
           note.timelineAt < filters.day.end)) &&
@@ -81,7 +82,7 @@
   let nextCursor = $state<string | null>(
     untrack(() => data.timeline?.nextCursor ?? null),
   );
-  let filters = $state(untrack(() => data.timeline?.filters ?? { tags: [] }));
+  let filters = $state(untrack(() => data.timeline?.filters ?? {}));
   let expanded = $state<string[]>([]);
   let loading = $state(false);
   let error = $state('');
@@ -438,7 +439,9 @@
   }
 </script>
 
-<PageTitle title="All notes" />
+<PageTitle
+  title={data.tagSummary ? `#${data.tagSummary.display}` : 'All notes'}
+/>
 <svelte:head
   ><meta
     name="description"
@@ -446,7 +449,10 @@
   /></svelte:head
 >
 <div class="timeline-status" data-top-month={topMonth}>
-  <h1 class="sr-only">All notes</h1>
+  {#if data.tagSummary}{#key data.tagSummary.key}<TagHeader
+        summary={data.tagSummary}
+        leaveHref={filterHref({ ...filters, tag: undefined })}
+      />{/key}{:else}<h1 class="sr-only">All notes</h1>{/if}
   <span class="sr-only">You are signed in.</span>
   {#if workspace.status === 'Saved on server.'}<p role="status">
       Saved on server.
@@ -469,7 +475,7 @@
     {#if nextCursor}<button onclick={loadOlder}>Load older notes</button>{/if}
     <a
       href={filterHref({
-        tags: filters.tags,
+        tag: filters.tag,
         query: filters.query,
         month: localDate(Date.now(), data.timezone).slice(0, 7),
       })}>Return to Today</a
@@ -478,12 +484,12 @@
 {:else if !items.length && !data.timelineError}
   <section class="surface">
     <h2>
-      {filters.tags.length || filters.query || filters.day
+      {filters.tag !== undefined || filters.query || filters.day
         ? 'No matching notes'
         : 'A quiet place to begin'}
     </h2>
     <p>
-      {filters.tags.length || filters.query || filters.day
+      {filters.tag !== undefined || filters.query || filters.day
         ? 'No published notes match every search term and selected filter. Remove a filter or clear all.'
         : 'Write your first note above. Published notes will appear here.'}
     </p>
