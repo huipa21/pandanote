@@ -157,6 +157,35 @@ operator-managed NTFS ACLs; POSIX mode bits are not ACL protection. Missing keys
 alongside an existing database fail closed. `/health` reveals only readiness:
 `ok`, `maintenance`, or HTTP 503 `unavailable`, never paths or account state.
 
+### Startup fails with “Applied migration history does not match”
+
+The selected data folder does not match this build's trusted SQL/data-step history.
+The approved no-drafts change replaced the fresh-install baseline without an old-data
+migration. Earlier development databases remain incompatible even when both report
+schema version 2. A mismatch can also mean altered migration files; do not assume
+that changing the stored hash makes the database compatible.
+
+No reset or upgrade is performed on this refusal. **Keep the entire old data folder**
+(database, keys, files, and any WAL/SHM sidecars). To access its data, use the matching
+older PandaNote build; older-baseline archives cannot be restored into this build.
+Do not delete individual database/key files or edit the migration ledger.
+
+To start the current build fresh, stop PandaNote and select a **new, unused private
+folder**. For local PowerShell development:
+
+```powershell
+$env:DATA_DIR = Join-Path $PWD 'data-current'
+npm run dev -- --host 127.0.0.1
+```
+
+Use a different name if `data-current` already contains data. This leaves `./data`
+untouched and starts browser setup again. Keep the same `DATA_DIR` on subsequent
+starts (or save it in your private `.env`); otherwise startup selects the old folder.
+For Compose, stop the service, set `DATA_PATH` in `.env` to a new unused private host
+folder, then recreate the service with `docker compose up -d`. An existing production
+folder needing migration requires a separate compatibility plan, not this fresh-start
+workaround. Recovery reference: [migrations/README.md](migrations/README.md).
+
 ## Authentication and Settings
 
 - Username: trimmed/lowercased, 3–32 ASCII letters/digits/`.`/`_`/`-`.

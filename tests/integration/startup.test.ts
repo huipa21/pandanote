@@ -18,6 +18,7 @@ import { initializeApplication } from '../../src/lib/server/initialize.ts';
 import {
   applyMigrations,
   loadMigrations,
+  HISTORY_MISMATCH_DATABASE_MESSAGE,
   SCHEMA_VERSION,
 } from '../../src/lib/server/db/migrations.ts';
 import { connectDatabase } from '../../src/lib/server/db/connection.ts';
@@ -188,6 +189,11 @@ it('built npm-start path defaults local origin/storage, ignores legacy values on
         }
         expect(response?.status, output).toBe(200);
         expect(await response?.json()).toEqual({ status: 'ok' });
+        const setup = await fetch(`http://127.0.0.1:${port}/`, {
+          redirect: 'manual',
+        });
+        expect(setup.status).toBe(303);
+        expect(setup.headers.get('location')).toBe('/setup');
         expect(
           output.match(/Legacy SETUP_TOKEN\/TRUSTED_PROXY_IPS/g),
         ).toHaveLength(1);
@@ -292,6 +298,69 @@ it('real Vite dev startup initializes before responding and uses the dev origin 
     rmSync(root, { recursive: true, force: true, maxRetries: 10 });
   }
 }, 30_000);
+
+it('incompatible baseline startup gives safe recovery instructions without changing the ledger, notes or keys', () => {
+  const root = mkdtempSync(join(tmpdir(), 'pandanote-incompatible-startup-'));
+  try {
+    const storage = new PrivateStorage({ dataDir: root });
+    storage.initializeKeys();
+    const keys = readFileSync(join(root, 'private/key-material.json'));
+    const db = connectDatabase(storage.databasePath);
+    applyMigrations(db);
+    db.prepare(
+      "INSERT INTO notes (id, body_markdown, status, timeline_at, created_at, updated_at) VALUES (?, ?, 'published', 1, 1, 1)",
+    ).run(
+      '12345678-1234-4123-8123-123456789012',
+      'synthetic-private-note-never-logged',
+    );
+    db.prepare(
+      'UPDATE __pandanote_migrations SET hash = ? WHERE version = 1',
+    ).run('0'.repeat(64));
+    const ledger = db
+      .prepare('SELECT * FROM __pandanote_migrations ORDER BY version')
+      .all();
+    const notes = db.prepare('SELECT * FROM notes').all();
+    db.close();
+
+    const refused = spawnSync(process.execPath, ['build/index.js'], {
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        DATA_DIR: root,
+        ORIGIN: 'https://notes.example.test',
+        HOST: '127.0.0.1',
+        PORT: '0',
+      },
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain(HISTORY_MISMATCH_DATABASE_MESSAGE);
+    expect(refused.stdout).not.toContain('Listening');
+    expect(refused.stderr).not.toContain(root);
+    expect(refused.stderr).not.toContain('synthetic-private-note-never-logged');
+    expect(refused.stderr).not.toContain('0'.repeat(64));
+    expect(readFileSync(join(root, 'private/key-material.json'))).toEqual(keys);
+    expect(existsSync(join(root, 'pre-upgrade'))).toBe(false);
+    const inspector = connectDatabase(storage.databasePath, true);
+    try {
+      expect(inspector.pragma('user_version', { simple: true })).toBe(
+        SCHEMA_VERSION,
+      );
+      expect(
+        inspector
+          .prepare('SELECT * FROM __pandanote_migrations ORDER BY version')
+          .all(),
+      ).toEqual(ledger);
+      expect(inspector.prepare('SELECT * FROM notes').all()).toEqual(notes);
+      expect(inspector.pragma('integrity_check', { simple: true })).toBe('ok');
+    } finally {
+      inspector.close();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 it('production missing origin and failed initialization never listen, and logs disclose no paths or native content', async () => {
   const root = mkdtempSync(join(tmpdir(), 'pandanote-refused-startup-'));

@@ -17,12 +17,14 @@ text/files, never deletes an existing note or undoes a possibly committed uncert
 save. Desktop focus X returns to the same compact editor. Actual tab close/refresh
 uses the standard browser Leave/Stay warning.
 
-The bold month/year heading opens twelve **miniature monthly heatmaps in 4 columns
-× 3 rows**, not month-name buttons. Each entire month tile is one navigation link;
-miniature days are noninteractive. Counts use the configured timezone/week start,
-include all ordinary notes independent of filters, and exclude Trash. Year arrows,
-quick-year scrolling/direct entry remain. Browsing alone does not change filters;
-month selection clears day and retains search/tags. Loading/error/retry is visible.
+**Superseded by the user's later request:** the bold month/year heading opens a
+compact year/month picker in the calendar's own position (not a modal): a bold year
+between ◀ ▶ arrows (previous/next year) above twelve month-name links (Jan–Dec) in
+4 columns × 3 rows. Clicking the year turns it into a text box for entering a year
+(1969–9998; Enter applies, Esc cancels, invalid input shows an error). Escape or an
+outside click closes it. Browsing alone does not change filters; month selection
+clears day and retains search/tags. Miniature heatmaps, the quick-year list and
+year-activity loading were removed from the picker.
 
 Trash restores to ordinary notes. Tags and full archives cover notes/Trash only;
 unsaved editors are never backed up. Authorization, attachment staging, optimistic
@@ -279,8 +281,8 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 - Counts include all published notes, regardless of current tags/search.
 - Three-letter weekday labels (Mon, Tue, Wed, Thu, Fri, Sat, Sun).
 - Bold month/year heading on the left with no obvious border; previous/next month arrows grouped on the right.
-- Clicking the heading opens a year view of 12 miniature monthly heatmaps in **4 columns × 3 rows**. Clicking a month jumps immediately and clears the selected day while retaining search/tags.
-- The picker's bold top year opens a scrollable quick-year selector with direct year entry. Top-right previous/next arrows move one year in month view (20-year windows in quick-year view). Browsing the picker alone never changes timeline filters.
+- Clicking the heading opens an inline year/month picker over the calendar (see the approved-change note at the top): 12 month names in **4 columns × 3 rows** under a year header with previous/next-year arrows; clicking the year allows typing a year. Clicking a month jumps immediately and clears the selected day while retaining search/tags.
+- Browsing the picker alone never changes timeline filters.
 - Today returns to current month and clears the selected-day filter; retain search/tags unless Clear all is chosen.
 - Week-start preference can be placed in Settings; initial default Monday.
 

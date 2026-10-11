@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import MonthPicker from './MonthPicker.svelte';
   import {
     activityLevel,
@@ -20,6 +20,12 @@
   } = $props();
   let ready = $state(false);
   let picker = $state(false);
+  let heading = $state<HTMLButtonElement>(null!);
+  async function closePicker() {
+    picker = false;
+    await tick();
+    heading?.focus();
+  }
   onMount(() => {
     ready = true;
   });
@@ -68,10 +74,13 @@
 <div class="calendar" data-calendar-month={calendar.month}>
   <div class="calendar-heading">
     <button
+      bind:this={heading}
+      data-month-heading
       disabled={!ready}
       aria-haspopup="dialog"
+      aria-expanded={picker}
       onclick={() => {
-        picker = true;
+        picker = !picker;
       }}>{monthLabel(calendar.month)}</button
     >
     <div class="month-arrows">
@@ -84,6 +93,11 @@
         onclick={onNavigate}>‹</a
       >
       <a
+        class="today-link"
+        href={jump((activity?.today ?? calendar.month).slice(0, 7))}
+        onclick={onNavigate}>Today</a
+      >
+      <a
         aria-label="Next month"
         aria-disabled={calendar.month === '9998-12'}
         href={calendar.month === '9998-12'
@@ -93,6 +107,14 @@
       >
     </div>
   </div>
+  {#if picker}
+    <MonthPicker
+      month={calendar.month}
+      href={jump}
+      {onNavigate}
+      onClose={() => void closePicker()}
+    />
+  {/if}
   <table
     aria-label={`Activity in ${monthLabel(calendar.month)}`}
     aria-busy={calendar.loading}
@@ -127,28 +149,18 @@
         </tr>{/each}</tbody
     >
   </table>
-  <div class="calendar-footer">
-    <a
-      href={jump((activity?.today ?? calendar.month).slice(0, 7))}
-      onclick={onNavigate}>Today</a
-    ><span class="help">{activity?.timezone ?? 'UTC'}</span>
-  </div>
   {#if calendar.loading}<p class="help" role="status">
       Loading activity…
     </p>{:else if calendar.error}<p class="help" role="alert">
       {calendar.error}
     </p>
     <button onclick={() => calendar.refresh()}>Retry activity</button>{/if}
-  <p class="help legend">All published notes · darker means more</p>
 </div>
-<MonthPicker
-  bind:open={picker}
-  month={calendar.month}
-  href={jump}
-  {onNavigate}
-/>
 
 <style>
+  .calendar {
+    position: relative;
+  }
   .calendar-heading {
     display: flex;
     align-items: center;
@@ -239,24 +251,10 @@
     border-radius: 50%;
     background: currentColor;
   }
-  .calendar-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-  }
-  .calendar-footer a {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--target);
-  }
-  .calendar-footer span {
-    overflow-wrap: anywhere;
-    text-align: right;
-  }
-  .legend {
-    margin: 0;
-    font-size: 0.6875rem;
+  .month-arrows .today-link {
+    width: auto;
+    padding-inline: 6px;
+    font-size: 0.8125rem;
   }
   @media (max-width: 899px) {
     td a {
@@ -266,7 +264,7 @@
       width: 32px;
       height: 32px;
     }
-    .month-arrows a {
+    .month-arrows a:not(.today-link) {
       width: var(--target);
     }
   }

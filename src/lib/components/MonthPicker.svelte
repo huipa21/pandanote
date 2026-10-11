@@ -1,384 +1,257 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import Modal from './Modal.svelte';
-  import {
-    activityLevel,
-    calendarYears,
-    monthCells,
-    monthLabel,
-    type YearActivity,
-  } from '#lib/shared/calendar.ts';
-  import type { ApiResult } from '#lib/shared/domain.ts';
+  import { monthLabel } from '#lib/shared/calendar.ts';
 
   let {
-    open = $bindable(false),
     month,
     href,
     onNavigate,
+    onClose,
   }: {
-    open?: boolean;
     month: string;
     href: (month: string) => string;
     onNavigate: () => void;
+    onClose: () => void;
   } = $props();
   const id = $props.id();
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  let year = $state(2026);
-  let choosingYear = $state(false);
-  let yearInput = $state<number | undefined>();
+  const shortNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  const MIN_YEAR = 1969;
+  const MAX_YEAR = 9998;
+  // The browsed year is local; it never changes filters until a month is chosen.
+  // svelte-ignore state_referenced_locally
+  let year = $state(Number(month.slice(0, 4)));
+  let editing = $state(false);
+  let draft = $state('');
   let error = $state('');
-  let yearHeading = $state<HTMLButtonElement>(null!);
-  let yearList = $state<HTMLDivElement>(null!);
-  const years = $derived(calendarYears(year));
+  let panel = $state<HTMLDivElement>(null!);
+  let yearButton = $state<HTMLButtonElement>(null!);
+  let yearField = $state<HTMLInputElement>(null!);
 
-  let yearActivityData = $state<YearActivity | null>(null);
-  let loading = $state(false);
-  let activityError = $state('');
-  let retry = $state(0);
-  $effect(() => {
-    if (open) {
-      year = Number(month.slice(0, 4));
-      choosingYear = false;
-      error = '';
-    }
-  });
-  $effect(() => {
-    const targetYear = year;
-    void retry;
-    if (!open || choosingYear) return;
-    const controller = new AbortController();
-    let live = true;
-    const timer = setTimeout(() => controller.abort(), 15_000);
-    loading = true;
-    activityError = '';
-    yearActivityData = null;
-    void fetch(`/api/calendar?year=${targetYear}`, {
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const result = (await response.json()) as ApiResult<YearActivity>;
-        if (!live) return;
-        if (!response.ok || !result.ok)
-          throw new Error(
-            result.ok ? 'Activity unavailable.' : result.error.message,
-          );
-        if (result.data.year !== targetYear)
-          throw new Error('Unexpected calendar year.');
-        yearActivityData = result.data;
-      })
-      .catch(() => {
-        if (live) activityError = 'Year activity could not be loaded. Retry.';
-      })
-      .finally(() => {
-        clearTimeout(timer);
-        if (live) loading = false;
-      });
-    return () => {
-      live = false;
-      controller.abort();
-      clearTimeout(timer);
-    };
-  });
-
-  async function showYears() {
-    yearInput = year;
-    choosingYear = true;
+  async function startEditing() {
+    draft = String(year);
     error = '';
+    editing = true;
     await tick();
-    if (!open || !choosingYear) return;
-    const selected = yearList?.querySelector<HTMLButtonElement>(
-      `[data-year="${year}"]`,
-    );
-    selected?.scrollIntoView({ block: 'center' });
-    selected?.focus({ preventScroll: true });
+    yearField?.focus();
+    yearField?.select();
   }
 
-  async function chooseYear(value: number | undefined) {
+  async function stopEditing() {
+    editing = false;
+    error = '';
+    await tick();
+    yearButton?.focus();
+  }
+
+  function commit(): boolean {
+    const value = Number(draft.trim());
     if (
-      typeof value !== 'number' ||
-      !Number.isInteger(value) ||
-      value < 1969 ||
-      value > 9998
+      !/^\d{1,4}$/.test(draft.trim()) ||
+      value < MIN_YEAR ||
+      value > MAX_YEAR
     ) {
-      error = 'Choose a year between 1969 and 9998.';
-      return;
+      error = `Enter a year between ${MIN_YEAR} and ${MAX_YEAR}.`;
+      return false;
     }
     year = value;
-    choosingYear = false;
     error = '';
-    await tick();
-    if (open) yearHeading?.focus();
+    return true;
   }
 
-  function monthCounts(targetMonth: string): number[] | undefined {
-    if (!yearActivityData || yearActivityData.year !== year) return undefined;
-    const found = yearActivityData.months.find((m) => m.month === targetMonth);
-    return found?.counts;
+  async function submitYear() {
+    if (commit()) await stopEditing();
+    else yearField?.focus();
+  }
+
+  function onYearBlur() {
+    if (!editing) return;
+    if (commit()) editing = false;
+    else {
+      editing = false;
+      error = '';
+    }
+  }
+
+  function step(delta: number) {
+    year = Math.min(MAX_YEAR, Math.max(MIN_YEAR, year + delta));
+  }
+
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (editing) void stopEditing();
+    else onClose();
+  }
+
+  function onPointerDown(event: PointerEvent) {
+    const target = event.target as Node | null;
+    if (!panel || (target && panel.contains(target))) return;
+    // Let the month heading button handle its own toggle.
+    if (target instanceof Element && target.closest('[data-month-heading]'))
+      return;
+    onClose();
   }
 </script>
 
-<Modal bind:open title="Choose year and month" customHeader>
+<svelte:window onkeydown={onKeydown} onpointerdown={onPointerDown} />
+
+<div
+  bind:this={panel}
+  class="month-picker"
+  role="dialog"
+  aria-label="Choose year and month"
+>
   <div class="picker-heading">
     <button
-      bind:this={yearHeading}
-      class="year-heading"
-      aria-label={choosingYear
-        ? `Show months in ${year}`
-        : `Choose year, ${year}`}
-      aria-expanded={choosingYear}
-      aria-controls={`${id}-years`}
-      data-initial-focus
-      onclick={() => {
-        if (choosingYear) void chooseYear(year);
-        else void showYears();
-      }}>{choosingYear ? `${years[0]}–${years.at(-1)}` : year}</button
+      class="arrow"
+      aria-label="Previous year"
+      disabled={year <= MIN_YEAR}
+      onclick={() => step(-1)}>◀</button
     >
-    <div class="year-arrows">
-      <button
-        aria-label={choosingYear ? 'Previous 20 years' : 'Previous year'}
-        disabled={choosingYear ? years[0] === 1969 : year === 1969}
-        onclick={() => {
-          const next = Math.max(1969, year - (choosingYear ? 20 : 1));
-          if (choosingYear) year = next;
-          else void chooseYear(next);
-        }}>‹</button
+    {#if editing}
+      <form
+        class="year-form"
+        onsubmit={(event) => {
+          event.preventDefault();
+          void submitYear();
+        }}
       >
-      <button
-        aria-label={choosingYear ? 'Next 20 years' : 'Next year'}
-        disabled={choosingYear ? years.at(-1) === 9998 : year === 9998}
-        onclick={() => {
-          const next = Math.min(9998, year + (choosingYear ? 20 : 1));
-          if (choosingYear) year = next;
-          else void chooseYear(next);
-        }}>›</button
-      >
-      <button
-        aria-label="Close Choose year and month"
-        onclick={() => (open = false)}>×</button
-      >
-    </div>
-  </div>
-  <div id={`${id}-years`} hidden={!choosingYear}>
-    <p class="help">
-      Scroll to a year, browse with the arrows, or jump directly.
-    </p>
-    <div bind:this={yearList} class="year-list" aria-label="Years">
-      {#each years as value (value)}
-        <button
-          data-year={value}
-          class:current={value === year}
-          aria-pressed={value === year}
-          onclick={() => void chooseYear(value)}>{value}</button
-        >
-      {/each}
-    </div>
-    <form
-      onsubmit={(event) => {
-        event.preventDefault();
-        void chooseYear(yearInput);
-      }}
-    >
-      <label for={`${id}-year`}>Jump to year</label>
-      <div class="year-jump">
         <input
-          id={`${id}-year`}
-          type="number"
-          min="1969"
-          max="9998"
-          step="1"
-          bind:value={yearInput}
+          bind:this={yearField}
+          bind:value={draft}
+          class="year-input"
+          type="text"
+          inputmode="numeric"
+          maxlength="4"
+          aria-label="Year"
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
+          onblur={onYearBlur}
         />
-        <button type="submit">Show months</button>
-      </div>
-    </form>
-    {#if error}<p id={`${id}-error`} role="alert">{error}</p>{/if}
+      </form>
+    {:else}
+      <button
+        bind:this={yearButton}
+        class="year-heading"
+        aria-label={`Enter year, ${year}`}
+        data-initial-focus
+        onclick={() => void startEditing()}>{year}</button
+      >
+    {/if}
+    <button
+      class="arrow"
+      aria-label="Next year"
+      disabled={year >= MAX_YEAR}
+      onclick={() => step(1)}>▶</button
+    >
   </div>
-  <div
-    class="month-grid"
-    hidden={choosingYear}
-    aria-label={`Months in ${year}`}
-    aria-busy={loading}
-  >
-    {#each months as value (value)}
-      {@const key = `${year}-${String(value).padStart(2, '0')}`}
-      {@const counts = monthCounts(key)}
-      {@const cells = monthCells(key, yearActivityData?.weekStart ?? 1)}
+  {#if error}<p id={`${id}-error`} class="error" role="alert">{error}</p>{/if}
+  <div class="month-grid" aria-label={`Months in ${year}`}>
+    {#each shortNames as name, i (name)}
+      {@const key = `${year}-${String(i + 1).padStart(2, '0')}`}
       <a
         href={href(key)}
         aria-label={monthLabel(key)}
         aria-current={key === month ? 'date' : undefined}
-        class="month-card"
+        class="month-cell"
         class:current={key === month}
         onclick={() => {
-          open = false;
+          onClose();
           onNavigate();
-        }}
+        }}>{name}</a
       >
-        <div class="month-title">{monthLabel(key).split(' ')[0]}</div>
-        <div class="mini-heatmap" aria-hidden="true">
-          {#each cells as date, idx (`${key}-${idx}`)}
-            {#if date}
-              {@const dayNum = Number(date.slice(8))}
-              {@const count = counts ? counts[dayNum - 1] : 0}
-              <span
-                class="mini-cell"
-                data-date={date}
-                data-level={counts === undefined ? 0 : activityLevel(count)}
-              ></span>
-            {:else}
-              <span class="mini-cell empty"></span>
-            {/if}
-          {/each}
-        </div>
-      </a>
     {/each}
   </div>
-  {#if !choosingYear}
-    {#if loading}<p role="status">Loading year activity…</p>{/if}
-    {#if activityError}<p role="alert">{activityError}</p>
-      <button onclick={() => retry++}>Retry year activity</button>{/if}
-  {/if}
-</Modal>
+</div>
 
 <style>
-  .picker-heading,
-  .year-arrows,
-  .year-jump {
+  .month-picker {
+    position: absolute;
+    inset: 0;
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    z-index: 5;
+    box-sizing: border-box;
+    padding: var(--space-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.15);
   }
   .picker-heading {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
   }
-  .picker-heading button {
+  .arrow {
+    width: var(--target);
+    min-height: var(--target);
+    padding: 0;
+    font-size: 0.875rem;
+    color: var(--accent);
     border-color: transparent;
     background: transparent;
   }
   .year-heading {
+    font-size: 1.125rem;
     font-weight: 700;
-    padding-inline: var(--space-1);
+    min-height: var(--target);
+    padding-inline: var(--space-2);
+    border-color: transparent;
+    background: transparent;
   }
-  .year-arrows {
-    gap: 0;
+  .year-form {
+    display: flex;
+    justify-content: center;
   }
-  .year-arrows button {
-    width: var(--target);
-    padding: 0;
-    font-size: 1.5rem;
+  .year-input {
+    width: 6ch;
+    box-sizing: content-box;
+    text-align: center;
+    font-size: 1.125rem;
+    font-weight: 700;
   }
-  .month-grid,
-  .year-list {
+  .error {
+    margin: 0 0 var(--space-2);
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+  .month-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-2);
+    gap: 2px;
+    flex: 1;
   }
-  [hidden] {
-    display: none;
-  }
-  .month-card,
-  .year-list button {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  .month-cell {
+    display: grid;
+    place-items: center;
     min-height: var(--target);
-    min-width: 0;
-    padding: var(--space-2) var(--space-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--page);
+    border-radius: 6px;
     color: var(--text);
     text-decoration: none;
-    box-sizing: border-box;
+    font-size: 0.9375rem;
   }
-  .month-card {
-    min-height: 5.5rem;
-    font-size: 0.8125rem;
-    overflow-wrap: anywhere;
-    gap: 4px;
-    justify-content: flex-start;
-  }
-  .month-title {
-    font-weight: 600;
-  }
-  .mini-heatmap {
-    display: grid;
-    grid-template-columns: repeat(7, 6px);
-    gap: 2px;
-    justify-content: center;
-    margin-top: 2px;
-  }
-  .mini-cell {
-    width: 6px;
-    height: 6px;
-    border-radius: 1px;
-    background: var(--border);
-  }
-  .mini-cell.empty {
-    visibility: hidden;
-  }
-  .mini-cell[data-level='1'] {
-    background: var(--heat-1);
-  }
-  .mini-cell[data-level='2'] {
-    background: var(--heat-2);
-  }
-  .mini-cell[data-level='3'] {
-    background: var(--heat-3);
-  }
-  .mini-cell[data-level='4'] {
-    background: var(--accent);
-  }
-  .month-card:hover,
-  .year-list button:hover,
-  .month-card.current,
-  .year-list button.current {
+  .month-cell:hover {
     background: var(--accent-soft);
   }
-  .month-card.current,
-  .year-list button.current {
-    border-color: var(--accent);
-  }
-  .month-card.current .month-title {
-    color: var(--accent);
+  .month-cell.current {
+    background: var(--accent);
+    color: var(--on-accent);
     font-weight: 700;
-  }
-  .year-list {
-    max-height: 10rem;
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding: var(--space-1);
-    margin-bottom: var(--space-3);
-  }
-  .year-jump {
-    margin-top: var(--space-1);
-  }
-  .year-jump input {
-    min-width: 0;
-    width: 8rem;
-  }
-  .year-jump button {
-    flex: none;
-  }
-  @media (max-width: 480px) {
-    .month-grid,
-    .year-list {
-      gap: var(--space-1);
-    }
-    .month-card {
-      padding: var(--space-1);
-      min-height: 4.5rem;
-    }
-    .mini-heatmap {
-      grid-template-columns: repeat(7, 4px);
-      gap: 1.5px;
-    }
-    .mini-cell {
-      width: 4px;
-      height: 4px;
-    }
   }
 </style>

@@ -47,6 +47,15 @@ pre-release data migration. Unknown databases, modified SQL/step history and new
 schemas are also refused. Migrations are forward-only; failure rollback is not a
 destructive down-migration feature.
 
+The approved no-drafts change intentionally replaced the fresh-install baseline
+without an importer or upgrade for earlier development data. Those folders/archives
+fail trust even though their numeric schema version can still be 2. A SQL hash or
+data-step mismatch reports safe recovery instructions: use the matching build for
+old data, or stop the app and select a new unused private folder (`DATA_DIR` locally,
+`DATA_PATH` in Compose) for fresh setup. Preserve the whole old folder, including keys,
+files and SQLite sidecars; never rewrite the ledger to bypass compatibility checks.
+See [local startup troubleshooting](../README.md#startup-fails-with-applied-migration-history-does-not-match).
+
 ## Live pre-upgrade copy and staged restore
 
 The shared container/dev/built startup uses `upgradeDatabase` before applying

@@ -249,20 +249,17 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
   await expect(side.locator('[data-date="2025-01-31"]')).toHaveClass(
     /selected/,
   );
+  await expect(picker).toHaveCount(0);
   await heading.click();
+  await expect(picker).toBeVisible();
   await expect(picker.getByRole('link')).toHaveCount(12);
-  await expect(picker.locator('.mini-heatmap')).toHaveCount(12);
-  for (const [day, level] of [
-    [27, 0],
-    [28, 1],
-    [29, 2],
-    [30, 3],
-    [31, 4],
-  ]) {
-    await expect(
-      picker.locator(`.mini-cell[data-date="2025-01-${day}"]`),
-    ).toHaveAttribute('data-level', String(level));
-  }
+  await expect(picker.locator('.mini-heatmap')).toHaveCount(0);
+  const calendarBox = (await side
+    .locator('[data-calendar-month]')
+    .boundingBox())!;
+  const pickerBox = (await picker.boundingBox())!;
+  expect(Math.abs(pickerBox.x - calendarBox.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(pickerBox.y - calendarBox.y)).toBeLessThanOrEqual(1);
   const boxes = await picker.getByRole('link').evaluateAll((links) =>
     links.map((link) => {
       const r = link.getBoundingClientRect();
@@ -274,9 +271,9 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
   await expect(
     picker.getByRole('link', { name: 'January 2025' }),
   ).toHaveAttribute('aria-current', 'date');
-  await expect(
-    picker.getByRole('button', { name: 'Choose year, 2025' }),
-  ).toBeFocused();
+  await expect(picker.getByRole('link', { name: 'January 2025' })).toHaveText(
+    'Jan',
+  );
   await picker.getByRole('button', { name: 'Next year', exact: true }).click();
   await expect(
     picker.getByRole('link', { name: 'January 2026' }),
@@ -291,79 +288,54 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
     }),
     contentType: 'image/png',
   });
-  await picker.getByRole('button', { name: 'Choose year, 2025' }).click();
-  await expect(picker.locator('[data-year="2025"]')).toBeFocused();
-  await expect(picker.getByRole('link')).toHaveCount(0);
-  expect(
-    await picker
-      .locator('.year-list')
-      .evaluate((el) => el.scrollHeight > el.clientHeight && el.scrollTop > 0),
-  ).toBe(true);
-  await picker
-    .getByRole('button', { name: 'Previous 20 years', exact: true })
-    .click();
-  await expect(picker.locator('[data-year="2005"]')).toBeVisible();
-  await picker
-    .getByRole('button', { name: 'Next 20 years', exact: true })
-    .click();
-  await picker.getByLabel('Jump to year', { exact: true }).fill('1968');
-  await picker
-    .getByRole('button', { name: 'Show months', exact: true })
-    .click();
-  expect(
-    await picker
-      .getByLabel('Jump to year')
-      .evaluate((el) => (el as HTMLInputElement).validity.rangeUnderflow),
-  ).toBe(true);
-  await picker.getByLabel('Jump to year').fill('1969');
-  await picker
-    .getByRole('button', { name: 'Show months', exact: true })
-    .click();
+  // Clicking the year enters a year manually; invalid values are rejected.
+  await picker.getByRole('button', { name: 'Enter year, 2025' }).click();
+  const yearInput = picker.getByRole('textbox', { name: 'Year' });
+  await expect(yearInput).toBeFocused();
+  await yearInput.fill('1968');
+  await yearInput.press('Enter');
+  await expect(picker.getByRole('alert')).toContainText('1969');
+  await yearInput.fill('2031');
+  await yearInput.press('Enter');
+  await expect(
+    picker.getByRole('button', { name: 'Enter year, 2031' }),
+  ).toBeFocused();
+  await expect(picker.getByRole('link', { name: 'March 2031' })).toBeVisible();
+  await picker.getByRole('button', { name: 'Enter year, 2031' }).click();
+  await yearInput.fill('1969');
+  await page.keyboard.press('Escape'); // cancels the edit only
+  await expect(picker).toBeVisible();
+  await expect(
+    picker.getByRole('button', { name: 'Enter year, 2031' }),
+  ).toBeFocused();
+  await picker.getByRole('button', { name: 'Enter year, 2031' }).click();
+  await yearInput.fill('1969');
+  await yearInput.press('Enter');
   await expect(
     picker.getByRole('button', { name: 'Previous year', exact: true }),
   ).toBeDisabled();
-  await expect(
-    picker.getByRole('button', { name: 'Choose year, 1969' }),
-  ).toBeFocused();
-  await picker.getByRole('button', { name: 'Choose year, 1969' }).click();
-  await expect(
-    picker.getByRole('button', { name: 'Previous 20 years' }),
-  ).toBeDisabled();
-  await picker.getByLabel('Jump to year').fill('9998');
-  await picker
-    .getByRole('button', { name: 'Show months', exact: true })
-    .click();
+  await picker.getByRole('button', { name: 'Enter year, 1969' }).click();
+  await yearInput.fill('9998');
+  await yearInput.press('Enter');
   await expect(
     picker.getByRole('button', { name: 'Next year', exact: true }),
   ).toBeDisabled();
-  await picker.getByRole('button', { name: 'Choose year, 9998' }).click();
-  await expect(
-    picker.getByRole('button', { name: 'Next 20 years' }),
-  ).toBeDisabled();
   await page.keyboard.press('Escape');
-  await expect(picker).not.toBeVisible();
+  await expect(picker).toHaveCount(0);
   await expect(heading).toBeFocused();
   expect(page.url()).toBe(url);
   // Reopening resets from the displayed calendar, not the last browsed year.
   await heading.click();
   await expect(
-    picker.getByRole('button', { name: 'Choose year, 2025' }),
-  ).toBeFocused();
-  await page.keyboard.press('Shift+Tab');
-  await expect(
-    picker.getByRole('link', { name: 'December 2025' }),
-  ).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(
-    picker.getByRole('button', { name: 'Choose year, 2025' }),
-  ).toBeFocused();
-  await page.keyboard.press('Escape');
+    picker.getByRole('button', { name: 'Enter year, 2025' }),
+  ).toBeVisible();
+  await page.mouse.click(5, 5); // outside click closes
+  await expect(picker).toHaveCount(0);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.getByRole('button', { name: 'Menu & search' }).click();
   const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
   await drawer.getByRole('button', { name: 'January 2025' }).click();
-  await picker.getByRole('button', { name: 'Choose year, 2025' }).click();
-  await picker.locator('[data-year="2024"]').click();
+  await picker.getByRole('button', { name: 'Previous year' }).click();
   await testInfo.attach('month-picker-mobile', {
     body: await page.screenshot({
       path: testInfo.outputPath('month-picker-mobile.png'),
@@ -372,13 +344,6 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
   });
   expect(await picker.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
     true,
-  );
-  const mobileHeading = (await picker
-    .locator('.picker-heading')
-    .boundingBox())!;
-  const mobileGrid = (await picker.locator('.month-grid').boundingBox())!;
-  expect(mobileGrid.y).toBeGreaterThanOrEqual(
-    mobileHeading.y + mobileHeading.height,
   );
   const mobileMonths = await picker.getByRole('link').evaluateAll((links) =>
     links.map((link) => {
@@ -394,14 +359,12 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
   await picker
     .getByRole('link', { name: 'February 2024', exact: true })
     .click();
-  await expect(picker).not.toBeVisible();
   await expect(drawer).not.toBeVisible();
   await expect(page).toHaveURL(
     '/?tag=s11calendar&q=%22%E9%A6%99%E6%B8%AF%22&month=2024-02',
   );
   await expect(page.getByTestId('posted-note')).toHaveCount(1);
 });
-
 test('top visible tall/Mermaid cards track year boundaries without scroll reset/flicker or history spam; stale counts cannot win', async ({
   page,
 }) => {

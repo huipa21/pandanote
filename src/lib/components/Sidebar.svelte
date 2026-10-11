@@ -34,7 +34,6 @@
   const t = i18n.t;
   let showTags = $state(false);
   let tagQuery = $state('');
-  const nav = $derived([{ href: '/', label: t('shell.allNotes') }]);
   const filteredTags = $derived(
     tags.filter((tag) =>
       tag.label.toLocaleLowerCase().includes(tagQuery.toLocaleLowerCase()),
@@ -55,15 +54,6 @@
       {onSearch}
       {onNavigate}
     />
-    <nav aria-label={t('shell.notebook')}>
-      {#each nav as item (item.href)}
-        <a
-          href={item.href}
-          aria-current={active === item.href ? 'page' : undefined}
-          onclick={onNavigate}>{item.label}</a
-        >
-      {/each}
-    </nav>
   </div>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to the independently scrollable sidebar section.) -->
   <div
@@ -72,8 +62,7 @@
     role="region"
     aria-label={t('shell.calendarAndTags')}
   >
-    <section aria-labelledby={`${id}-calendar`}>
-      <h2 id={`${id}-calendar`}>{t('shell.monthActivity')}</h2>
+    <section aria-label={t('shell.monthActivity')}>
       {#if calendar}<Calendar {calendar} {filters} {onNavigate} />{:else}<p
           class="help"
         >

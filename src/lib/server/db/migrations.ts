@@ -15,6 +15,8 @@ export const PRE_RELEASE_DATABASE_MESSAGE =
   'This data folder was created by a pre-release PandaNote and cannot be upgraded. Move it away and start with an empty folder.';
 export const NEWER_DATABASE_MESSAGE =
   'This data was upgraded by a newer PandaNote. Use that version, or roll back with the pre-upgrade copy (see OPERATIONS.md).';
+export const HISTORY_MISMATCH_DATABASE_MESSAGE =
+  'Applied migration history does not match trusted application migrations (SQL hash or data step changed). This data folder is incompatible with this build, possibly from an older development baseline. No migration or reset was performed. Use the matching PandaNote build to access it. To start fresh, stop PandaNote and select a new empty private folder using DATA_DIR locally or DATA_PATH in Compose; keep the entire old folder. Do not edit the migration ledger or hashes.';
 const journalSchema = z.object({
   dialect: z.literal('sqlite'),
   entries: z.array(
@@ -157,9 +159,7 @@ export function migrationState(
       row.name !== known.name ||
       row.data_step !== (steps.get(known.version)?.name ?? null)
     )
-      throw new DatabaseUpgradeError(
-        'Applied migration history does not match trusted application migrations (SQL hash or data step changed)',
-      );
+      throw new DatabaseUpgradeError(HISTORY_MISMATCH_DATABASE_MESSAGE);
   }
   return {
     existing: true,

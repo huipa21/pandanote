@@ -2,6 +2,17 @@
 
 ## Current state
 
+- **Startup incompatibility diagnosis / recovery guidance — host verified.** At
+  clean user HEAD `8cb3dbd`, local `data/db/pandanote.sqlite` matches the previous
+  commit's pre-no-drafts baseline, not current SQL (same numeric schema 2). Read-only
+  inspection found one account/one ordinary note; no data reset, migration, ledger
+  rewrite or folder switch performed. Startup now gives safe matching-build or
+  new-private-folder instructions; README documents PowerShell `DATA_DIR` and
+  Compose `DATA_PATH`. Check/lint/build, 134 unit, 214 integration + 7 existing
+  Linux-only skips, and 4 affected Chromium auth/setup tests PASS. Linux socket
+  unavailable; no new Linux/full-browser/release claim. User must select a new
+  unused folder for fresh setup or retain/use the matching old build for old data.
+
 - **Active user change: year miniature heatmaps / remove drafts — done / locally
   verified.** `client/editor` replaces all browser draft
   storage/recovery; no Drafts UI/status/actions; memory-only text/files, explicit
@@ -102,6 +113,14 @@ Read VERSIONING_PLAN and current operations guide; never promote a synthetic clo
 or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
+
+**Reported local startup refusal:** use README's “Applied migration history does
+not match” troubleshooting. Do not wipe `data`, rewrite hashes or add an old-baseline
+importer without approval. In PowerShell, set `DATA_DIR` to a new unused private
+folder before `npm run dev`; retain that setting on later starts. Existing data
+requires its matching build, or a separately approved compatibility plan. Read the
+latest appended handoff, `server/db/migrations.ts` and `integration/startup.test.ts`.
+First validation: `npm run check && npm run test:integration -- startup migrations`.
 
 **Approved no-drafts/year-miniature-heatmaps change is locally verified.**
 Next is user visual review; commit/deploy/build an exact clean release only with
@@ -4255,3 +4274,71 @@ validation `npm run check && npm run lint && npm run test:unit`; keep integratio
 build and Playwright sequential. No unfinished requested functionality. Independent
 SS01 atomic exchange/S18 realVPS/publicHTTPS/physicaldevice/IME/screenreader/Linux
 visual/ARM64/exactrelease limits stay open; overall release not declared.
+
+### Session 2026-10-10 — Reported GET / startup migration refusal
+
+**State: diagnosis/recovery guidance done / host verified; existing folder still
+incompatible by design.** Started clean at user HEAD `8cb3dbd`. Read all required
+main documents; inspected startup/migration contracts and baseline diff. Read-only
+SQLite metadata comparison proves local version-1 ledger hash `ad4c5130…` matches
+`HEAD^` (`6619a94`), whereas current no-drafts baseline is `07010b08…`; version 2
+hash/data-step match. One account and one published note remain. No note bodies,
+credentials or keys were printed; no user data deleted/converted/moved, no commit.
+
+Implemented/touched:
+
+- `src/lib/server/db/migrations.ts`: retain strict SQL/data-step/history refusal,
+  add safe instructions explaining incompatible builds, matching-build access,
+  fresh unused `DATA_DIR`/`DATA_PATH`, full old-folder retention and no ledger edits.
+  No new compatibility exception/importer or migration behavior change.
+- `tests/integration/startup.test.ts`: real built-server hash-mismatch failure
+  verifies exit before listening, exact safe message/no paths/content/hash leakage,
+  unchanged ledger/notes/keys/version and no pre-upgrade capture. Repeated fresh
+  local-start test now also verifies `/` redirects to `/setup`.
+- `README.md`, `migrations/README.md`: explain same-version baseline incompatibility,
+  preserve DB/files/keys/WAL/SHM and matching-build access, PowerShell fresh-folder
+  startup, persistent environment selection and Compose recreation. Main handoff
+  current summary/next task updated; previous history retained.
+
+Commands actually run (explicit Node24.21.0 executable + PATH and npm CLI from S00,
+`NODE_TLS_REJECT_UNAUTHORIZED=1`, build-mutating suites sequential):
+
+- `git status --short`, `git log -5`, baseline diff, read-only SQLite ledger/hash
+  comparison: PASS; initial tree clean, prior-baseline match confirmed. Default
+  system `node --version` is 24.15.0, so validation used the pinned executable.
+- `npm exec -- prettier --write <touched files>`: PASS.
+- `npm run check`: PASS, zero errors/warnings.
+- `npm run test:integration -- startup migrations pre-upgrade`: **24 PASS**.
+- `npm run lint`: PASS. `npm run test:unit`: **134 PASS**.
+- `npm run test:integration`: **214 PASS + 7 existing Linux-only skips**, 36 files,
+  275.65 seconds; synthetic low-disk refusal/benchmark output expected.
+- `npm run build`: PASS; existing large lazy-library chunk warnings retained.
+- `npm run test:e2e -- tests/e2e/auth.test.ts`: **4 Chromium PASS**, 37.6 seconds,
+  actual fresh browser setup/resume/login/MFA/hydration/Account regression.
+- `podman info --format '{{.Host.Arch}}'`: **unavailable / exit125**, stopped socket.
+  No VM restart/Linux/native-image run or new Linux pass. Full browser not rerun;
+  changes concern refusal text only, no successful-path/UI/schema/native alteration.
+- Final read-only local ledger/account/note recheck: unchanged old hash, 1/1 counts.
+  `git diff --check` and `.e2e-data`/`NUL` absence PASS (autocrlf warnings only).
+  `python --version`: unavailable; not used for code or tests.
+
+Remaining/next:
+
+- App cannot use this old folder under the approved no-importer contract. User
+  selects a new unused folder and repeats setup, or uses the matching older build
+  for old data. Retain the full old folder; fresh start does not preserve its account
+  or note in the new instance. Persistent `DATA_DIR` selection is required afterwards.
+- If retaining data in the current app is now required, obtain explicit approval
+  for a compatibility/migration plan; never fix this by changing hashes or silently
+  wiping/rewriting storage. No automatic switch performed by this session.
+- Read README troubleshooting, migration runner and startup test. First command:
+  `npm run check && npm run test:integration -- startup migrations`. Independent
+  SS01/S18/Linux/exact-release/manual gates stay open; no final release claim.
+
+### Session 2026-10-11 — inline year/month picker
+
+**State: done.** User-requested change replaced the modal miniature-heatmap picker with an inline picker in the calendar's position: ◀ year ▶ header, 12 month names (Jan–Dec, 4×3), click the year to type one (1969–9998, Enter/Esc/invalid error); Esc/outside click closes. Month link still clears day and keeps search/tags; browsing changes no filters.
+
+Touched: `src/lib/components/MonthPicker.svelte` (rewritten, inline, no modal/heatmap/year-activity fetch), `Calendar.svelte` (toggle, focus return), `tests/e2e/calendar.test.ts` (picker test rewritten), `docs/PRODUCT_SPEC.md`. `/api/calendar?year=` is now unused by the UI but retained.
+
+Commands: `npm run check` PASS; eslint/prettier on touched files PASS; `vite build` PASS; `playwright test tests/e2e/calendar.test.ts` 7/7 PASS (openssl taken from Git for Windows on PATH). `tests/e2e/shell.test.ts`: 2 screenshot-snapshot tests fail (settings-dark-compact, shell-light-390x844); not investigated against a clean tree. Full lint/unit/integration suites and Linux image not run.

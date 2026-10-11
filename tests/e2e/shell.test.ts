@@ -526,7 +526,6 @@ test('touch-only private navigation and safe-area/keyboard-shrink scenarios expo
       ['Manage', '/tags'],
       ['Trash', '/trash'],
       ['Settings', '/settings'],
-      ['All notes', '/'],
     ]) {
       await page.getByRole('button', { name: 'Menu & search' }).tap();
       const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
