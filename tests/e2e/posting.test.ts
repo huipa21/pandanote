@@ -7,10 +7,6 @@ import {
 async function start(page: import('@playwright/test').Page, text: string) {
   await browserSession(page);
   await page.goto('/');
-  await page
-    .getByTestId('composer')
-    .getByRole('button', { name: 'Write a note…' })
-    .click();
   await page.getByTestId('composer').getByRole('textbox').fill(text);
 }
 const composer = (page: import('@playwright/test').Page) =>

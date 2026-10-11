@@ -29,7 +29,6 @@ test('restarted source keeps its session with an empty editor; restarted restore
   const sourcePage = await source.newPage();
   await sourcePage.goto(`${A}/`);
   await expect(sourcePage).toHaveURL(`${A}/`);
-  await sourcePage.getByRole('button', { name: 'Write a note…' }).click();
   await expect(
     sourcePage.getByRole('textbox', { name: 'Note text' }),
   ).toHaveValue('');

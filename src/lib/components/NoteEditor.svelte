@@ -231,8 +231,7 @@
         }}
         data-initial-focus={focus || undefined}
         rows="4"
-        aria-describedby={focus ? 'expanded-help' : 'composer-help'}
-        placeholder="A thought, a small discovery…"></textarea>
+        aria-describedby={focus ? 'expanded-help' : 'composer-help'}></textarea>
       {#if workspace}<TagAutocomplete
           textarea={focus ? expandedTextarea : textarea}
           {workspace}
@@ -246,7 +245,7 @@
           >{workspace.status ||
             (workspace.active?.kind === 'edit'
               ? 'Editing note · save with Save changes.'
-              : 'New note · publish with Post.')}</span
+              : '')}</span
         >
       {:else}Not saved yet. Keep a copy before leaving.{/if}
     </p>

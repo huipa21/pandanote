@@ -99,9 +99,6 @@ test('IMG-UI: built Alpine SSR/preview deferred grammar, lazy Mermaid and hostil
     );
     expect(extraBytes).toBeGreaterThan(300 * 1024); // Library not eagerly fetched on no-diagram page.
     await page
-      .getByRole('button', { name: 'Write a note…', exact: true })
-      .click();
-    await page
       .getByRole('textbox', { name: 'Note text' })
       .fill(
         '```sql\nSELECT 1 AS deferred_grammar;\n```\n\n```mermaid\ngraph TD; A-->B\n```\n\n```mermaid\ngraph TD; A-->B; click A "https://attacker.invalid"\n```',

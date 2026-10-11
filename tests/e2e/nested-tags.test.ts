@@ -117,7 +117,6 @@ test('NT-SIDEBAR/NT-UI: count-ordered nested tree, subtree filters, autocomplete
   // Autocomplete lists children after a trailing slash.
   await page.goto('/');
   const composer = page.getByTestId('composer');
-  await composer.getByRole('button', { name: 'Write a note…' }).click();
   const text = composer.getByRole('textbox');
   await text.pressSequentially(`x #${root}/`);
   const suggestions = composer.getByRole('listbox', { name: 'Existing tags' });

@@ -508,13 +508,12 @@
         leaveHref={filterHref({ ...filters, tag: undefined })}
       />{/key}{:else}<h1 class="sr-only">All notes</h1>{/if}
   <span class="sr-only">You are signed in.</span>
-  {#if workspace.status === 'Saved on server.'}<p role="status">
-      Saved on server.
-    </p>
-    {#if savedOutsideRange}<p class="help">
-        This note is outside the current filters or loaded dates. Clear filters
-        or load older notes to find it.
-      </p>{/if}{/if}
+  {#if workspace.status === 'Saved on server.' && savedOutsideRange}<p
+      class="help"
+    >
+      This note is outside the current filters or loaded dates. Clear filters or
+      load older notes to find it.
+    </p>{/if}
   {#if data.timelineError}<section class="surface">
       <p role="alert">{data.timelineError}</p>
       <button onclick={() => invalidate('pandanote:timeline')}

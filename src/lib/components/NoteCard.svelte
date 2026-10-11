@@ -253,11 +253,6 @@
           >{shortDate(note.timelineAt, timezone)}</time
         ></a
       >
-      {#if note.contentEditedAt !== null}<span
-          class="help"
-          title={`Content edited ${new Date(note.contentEditedAt).toLocaleString('en', { timeZone: timezone })}`}
-          >Edited</span
-        >{/if}
       <div class="header-actions">
         {#if pinned}<button
             type="button"
@@ -396,6 +391,19 @@
     display: flex;
     align-items: center;
   }
+  /* Actions use the same pill as the date and tag chips, not a circle. */
+  .header-actions :global(.icon-button) {
+    width: auto;
+    height: auto;
+    min-height: var(--target);
+    padding-inline: var(--space-3);
+    border-radius: 999px;
+  }
+  @media (pointer: fine) {
+    .header-actions :global(.icon-button) {
+      min-height: 1.75rem;
+    }
+  }
   .unpin {
     color: var(--accent);
   }
@@ -411,11 +419,35 @@
   .unpin .when-rest {
     display: inline-grid;
   }
-  .when {
+  .when,
+  .when:hover,
+  .when time {
     color: inherit;
+    text-decoration: none;
     display: inline-flex;
     align-items: center;
+  }
+  .when {
     min-height: var(--target);
+  }
+  /* Same pill geometry as .card-tags a so the hover chips line up. */
+  .when {
+    padding-inline: var(--space-3);
+    border-radius: 999px;
+  }
+  @media (pointer: fine) {
+    .when {
+      min-height: 1.75rem;
+    }
+  }
+  .when time {
+    /* Optically centred on the ••• trigger: text boxes include descender space. */
+    position: relative;
+    top: -0.0625rem;
+  }
+  .when:hover,
+  .when:focus-visible {
+    background: var(--accent-soft);
   }
   .search-snippets {
     overflow-wrap: anywhere;
@@ -437,6 +469,10 @@
     overflow: hidden;
     min-width: 0;
   }
+  /* Hashtags are shown as the chips above; the card does not repeat their text. */
+  .card-content :global(.tag-text) {
+    display: none;
+  }
   .card-content.expanded {
     max-height: none;
     overflow: visible;
@@ -449,12 +485,21 @@
     padding: 0;
     margin: 0 0 var(--space-2);
   }
+  /* Same pill chip as the Tags menu: no underline until hovered. */
   .card-tags a {
     display: flex;
     align-items: center;
     min-height: var(--target);
+    max-width: 100%;
+    padding-inline: var(--space-3);
+    border-radius: 999px;
+    background: var(--accent-soft);
     color: var(--accent);
+    text-decoration: none;
     overflow-wrap: anywhere;
+  }
+  .card-tags a:hover {
+    text-decoration: underline;
   }
   @media (pointer: fine) {
     /* Desktop: a tighter row; touch keeps the full --target hit area. */
@@ -463,6 +508,8 @@
     }
   }
   .card-tags a[aria-current='true'] {
+    background: var(--accent);
+    color: var(--on-accent);
     font-weight: 650;
   }
   .files {

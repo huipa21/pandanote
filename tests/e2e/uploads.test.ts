@@ -178,15 +178,11 @@ test('private resumable uploads, processed variants, safe active-file download a
     });
     try {
       await page.goto('/', { waitUntil: 'commit' });
-      await expect(
-        page.getByRole('button', { name: 'Write a note…' }),
-      ).toBeDisabled();
       await expect(page.getByLabel('Choose local files')).toBeDisabled();
     } finally {
       resumeModules();
       await page.unrouteAll({ behavior: 'wait' });
     }
-    await page.getByRole('button', { name: 'Write a note…' }).click();
     const downloadEvent = page.waitForEvent('download');
     await page.evaluate((path) => {
       const a = document.createElement('a');

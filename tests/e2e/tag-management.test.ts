@@ -38,7 +38,6 @@ test('tag management rewrites notes and Trash; open unsaved source receives expl
     },
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   const text = page.getByTestId('composer').getByRole('textbox');
   await text.fill(`Unsaved #${key}`);
   const operation = {

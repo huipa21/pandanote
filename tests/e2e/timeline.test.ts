@@ -291,9 +291,6 @@ test('bounded 300-card DOM growth is measured before virtualization; menu lifecy
     'data-revision',
     '2',
   );
-  await expect(page.locator(`[data-note-id="${raceId}"]`)).toContainText(
-    'Edited',
-  );
   await expect(page.getByTestId('posted-note')).toHaveCount(300);
   const last = page.getByTestId('posted-note').last();
   await last.getByRole('button', { name: 'Note actions' }).click();

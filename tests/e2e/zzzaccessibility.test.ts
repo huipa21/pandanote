@@ -172,7 +172,6 @@ test.describe('axe WCAG 2.x AA scans', () => {
     await theme(page, 'light');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Write a note…' }).click();
     await page
       .getByRole('textbox', { name: 'Note text' })
       .fill('Accessible image post #a11y');

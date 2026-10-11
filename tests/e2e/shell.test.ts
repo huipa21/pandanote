@@ -384,12 +384,12 @@ test('sidebar edge supports captured dragging, bounds, keyboard resizing and mob
   ).not.toBeVisible();
 });
 
-test('desktop composer expands on focus without publishing and reduced motion uses the token policy', async ({
+test('desktop composer shows the editor directly without publishing and reduced motion uses the token policy', async ({
   page,
 }) => {
   await page.goto('http://127.0.0.1:4174/shell.html');
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
-  await page.getByRole('button', { name: 'Write a note…' }).focus();
+  await page.getByRole('textbox', { name: 'Note text' }).focus();
   await expect(page.getByRole('textbox', { name: 'Note text' })).toBeFocused();
   await page.getByRole('textbox', { name: 'Note text' }).fill('In-memory only');
   await page.getByRole('button', { name: 'Enter focus mode' }).click();

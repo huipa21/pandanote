@@ -4469,3 +4469,31 @@ Commands: `npm run check` PASS (1 pre-existing unused-CSS warning); `npm run lin
 - Tests: unit `card short date`; e2e `detail` (new date-link test), `zzzaccessibility` and `tests/release/benchmark.test.ts` updated from dialog to page.
 
 Commands: `npm run check` PASS (1 pre-existing warning); `npm run lint` PASS; `npm run test:unit` 152 PASS; `npm run build` PASS; `playwright test detail status-notes timeline tag-management posting` 13 PASS (+ new test, accessibility "composer, image viewer…" PASS). Full e2e and the axe light/dark loop (edited) not re-run. Unused `kind="detail"` CSS remains in `Modal.svelte`.
+
+### Session 2026-10-14 — desktop editor shown directly; status text under editor removed
+
+**State: done for the requested UI change (host-verified; Linux image not run).** User request: no collapsed one-line "Write a note…" mode on the timeline; show the editor with its buttons directly. Also removed the text under the editor: the "All notes · no active filters" strip and the duplicate "Saved on server." line.
+
+- `Composer.svelte`: collapsed button and expand/focus logic removed; `NoteEditor` renders inline with `showInline={!editing}` (hidden while a card/note edit is open). Mobile still uses the "Compose a note" button and full-screen editor.
+- `AppShell.svelte`: the filter strip renders only for search/day filters; the "no active filters" text is removed.
+- `(app)/+page.svelte`: "Saved on server." paragraph removed; the "outside the current filters" help still shows after a save outside the view.
+- Spec: PRODUCT_SPEC §3 main area updated. The editor's own save status inside the editor box is kept.
+- Tests: removed the "Write a note…" click steps (e2e and release); `shell` focus test now focuses the textarea; `note-edit` asserts no top composer while a card is edited; `uploads` drops the button-disabled check (file-input check kept).
+
+Commands: `npm run check` PASS (0 errors; 1 pre-existing unused-CSS warning in AppShell); `npm run lint` PASS; `npm run test:unit` 152 PASS; `npm run build` PASS; `playwright test` on editor, editor-session, posting, shell, note-edit, calendar, markdown, uploads, location-storage, nested-tags, tag-management, zzzaccessibility: 46 pass / 5 fail.
+- calendar "posting from the composer…" and shell "appearance…" / "viewport/screenshot matrix" also FAIL on the original code (checked via stash), so they are pre-existing.
+- shell screenshot baselines (`settings-dark-compact.png`, `shell-light-390x844.png`) now differ because the strip and collapsed composer are gone. Not regenerated; owner should review and update them.
+- zzzaccessibility light/dark loops time out at "Choose year, …" in the month picker. Not checked on the original code.
+
+Remaining: review/update screenshot baselines; re-run the full e2e suite; `tests/release` not run.
+
+### Session — card hashtag text and date alignment (user-reported)
+
+**State: done (unit/integration/lint/check PASS; one unrelated e2e failure noted below).** User report: a `#tag` added in the composer shows as a chip after posting, but its text also remained in the card body.
+- Decision: the Markdown source is NOT changed (hashtags remain inline per PRODUCT_SPEC §7, and tag management rewrites those spans). `renderMarkdown` now wraps each hashtag span in `<span class="tag-text">`; `NoteCard` hides `.tag-text` so the card shows only the chip row. The note page, editor preview and search snippets still show the hashtag text. If the user wants tag text stripped from stored bodies instead, that is a data-model change and needs approval.
+- Date: the timestamp `<time>` in the card header is nudged up 1px (`top: -0.0625rem`) so its glyphs centre on the ••• trigger (box centres were already equal; text box descender space made the text look low).
+- Measured in Chromium before/after with a temporary Playwright test (removed afterwards).
+
+Touched: `src/lib/shared/markdown/render.ts`, `src/lib/components/NoteCard.svelte`, `docs/PROGRESS.md`.
+Commands: `npm run check` PASS (0 errors, pre-existing AppShell CSS warning); `npx eslint` on touched files PASS; `npm run lint` shows only the pre-existing prettier warnings on other files (touched files pass prettier); `npm run test:unit` 152 PASS; `npm run test:integration -- markdown timeline nested-tags` 18 PASS; `npx playwright test markdown timeline tag-management` 10 pass / 1 fail: timeline "older loading…" test waits for the "Active filters" region with "no active filters", which the fix doesn't touch; baseline not re-run, so the cause is unverified.
+Next: run `npm run test:e2e -- timeline` on a clean state to confirm that failure is pre-existing or regressed; review the card header visually.

@@ -616,10 +616,6 @@ test('posting from the composer invalidates calendar counts and a delayed image 
     /0 published notes/,
   );
   await page
-    .getByTestId('composer')
-    .getByRole('button', { name: 'Write a note…' })
-    .click();
-  await page
     .getByRole('textbox', { name: 'Note text' })
     .fill('S11 delayed image #S11image');
   const png = await sharp({

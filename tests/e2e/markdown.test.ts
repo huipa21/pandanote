@@ -17,7 +17,6 @@ test('built private composer previews highlighted code and Mermaid under the pro
       violations.push(message.text());
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await page
     .getByRole('textbox', { name: 'Note text' })
     .fill(
@@ -259,7 +258,6 @@ test('composer preview switch keeps text and has no keyboard publishing shortcut
   page,
 }) => {
   await page.goto(`${fixture}/shell.html`);
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await page
     .getByRole('textbox', { name: 'Note text' })
     .fill('# 香港\n\n**A quiet note**');

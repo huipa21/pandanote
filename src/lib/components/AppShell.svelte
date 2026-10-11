@@ -36,9 +36,7 @@
   );
   // A tag view is announced by its own header (with a way back to all notes),
   // so the chip strip appears only for the search and day filters.
-  const showStrip = $derived(
-    !hasFilters || Boolean(filters.query || filters.day),
-  );
+  const showStrip = $derived(Boolean(filters.query || filters.day));
   const i18n = useI18n();
   const t = i18n.t;
   let drawerOpen = $state(false);
@@ -170,7 +168,7 @@
                   >{/if}
               </div>
               <a href="/">{t('shell.clearAll')}</a>
-            {:else}<span class="muted">{t('shell.noFilters')}</span>{/if}
+            {/if}
           </section>{/if}
       </div>
     {/snippet}

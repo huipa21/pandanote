@@ -2,9 +2,10 @@ import { unified } from 'unified';
 import remarkRehype from 'remark-rehype';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
-import type { Code, Nodes } from 'mdast';
+import type { Code, Nodes, Text as MdText } from 'mdast';
 import type { Element, Root, Text } from 'hast';
 import { parseMarkdown } from './parse.ts';
+import { tagSpans, type TagSpan } from './tags.ts';
 import { highlight } from './highlight.ts';
 
 export interface ImageReference {
@@ -134,10 +135,58 @@ export async function renderMarkdown(
             ],
           };
     }
-    if ('children' in node) node.children.forEach(prepare);
+    if ('children' in node) {
+      const parent = node as { children: Nodes[] };
+      parent.children = parent.children.flatMap((child) =>
+        child.type === 'text' ? splitTags(child) : [child],
+      );
+      parent.children.forEach(prepare);
+    }
+  }
+  // Hashtag text is wrapped in a span (never removed from the source) so note
+  // cards can show the tag chips instead of repeating the text.
+  let tags: TagSpan[] = [];
+  try {
+    tags = tagSpans(source);
+  } catch {
+    // Over-limit notes still render; only the tag-text wrapping is skipped.
+  }
+  function splitTags(node: MdText): Nodes[] {
+    const start = node.position?.start.offset;
+    if (start === undefined || !tags.length) return [node];
+    const inside = tags.filter(
+      (span) =>
+        span.start >= start &&
+        span.end <= start + node.value.length &&
+        node.value.slice(span.start - start, span.end - start) ===
+          source.slice(span.start, span.end),
+    );
+    if (!inside.length) return [node];
+    const parts: Nodes[] = [];
+    let cursor = 0;
+    for (const span of inside) {
+      const from = span.start - start;
+      if (from > cursor)
+        parts.push({ type: 'text', value: node.value.slice(cursor, from) });
+      parts.push({
+        type: 'tagText',
+        value: node.value.slice(from, span.end - start),
+      } as unknown as Nodes);
+      cursor = span.end - start;
+    }
+    if (cursor < node.value.length)
+      parts.push({ type: 'text', value: node.value.slice(cursor) });
+    return parts;
   }
   prepare(tree);
-  const hast = (await unified().use(remarkRehype).run(tree)) as Root;
+  const hast = (await unified()
+    .use(remarkRehype, {
+      handlers: {
+        tagText: (_state: unknown, node: { value: string }) =>
+          element('span', { className: ['tag-text'] }, [text(node.value)]),
+      },
+    } as never)
+    .run(tree)) as Root;
   async function transform(parent: Root | Element): Promise<void> {
     for (let i = 0; i < parent.children.length; i++) {
       const node = parent.children[i];

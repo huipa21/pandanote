@@ -731,7 +731,6 @@ test('browser memory/DOM growth: long timeline scrolling plus repeated detail op
 test('multi-image post (4 × 12 MP photos + file): upload/processing time, writing stays responsive, RSS peak', async () => {
   test.setTimeout(600_000);
   await page.goto(`${C}/`);
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await page
     .getByRole('textbox', { name: 'Note text' })
     .fill('Benchmark multi-image post #Media');
@@ -795,7 +794,6 @@ test('multi-image post (4 × 12 MP photos + file): upload/processing time, writi
 test('worst-case allowed image (49 MP) is processed within the container limits without OOM; app stays healthy', async () => {
   test.setTimeout(300_000);
   await page.goto(`${C}/`);
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await page
     .getByRole('textbox', { name: 'Note text' })
     .fill('Benchmark worst-case image #Media');

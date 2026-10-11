@@ -120,7 +120,6 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
 
   // Multi-image/file post through the real composer.
   await page.goto(`${A}/`);
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await page
     .getByRole('textbox', { name: 'Note text' })
     .fill('Drill image post 圖片 #Media');
@@ -153,8 +152,6 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
   notes.image = 'Drill image post 圖片 #Media';
 
   // A note holds photos or one video; the video is stored as an unchanged file.
-  const startWriting = page.getByRole('button', { name: 'Write a note…' });
-  if (await startWriting.isVisible()) await startWriting.click();
   await page
     .getByRole('textbox', { name: 'Note text' })
     .fill('Drill video post #Media');

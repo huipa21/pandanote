@@ -8,7 +8,6 @@ test('timeline date picker is themed with site tokens and picks a day and time',
   await browserSession(page);
   await page.goto('/');
   const composer = page.getByTestId('composer');
-  await composer.getByRole('button', { name: 'Write a note…' }).click();
   await composer
     .getByRole('textbox', { name: 'Note text' })
     .fill('Dated thought');
@@ -56,7 +55,6 @@ test('media picker accepts only photos or one video and limits a note to nine ph
   await browserSession(page);
   await page.goto('/');
   const composer = page.getByTestId('composer');
-  await composer.getByRole('button', { name: 'Write a note…' }).click();
   const input = page.getByLabel('Choose local files');
   await expect(input).toHaveAttribute('accept', 'image/*,video/*');
   const png = await sharp({
@@ -117,7 +115,6 @@ test('photos show as a 3-column thumbnail grid, reorder by drag, remove with X a
   await browserSession(page);
   await page.goto('/');
   const composer = page.getByTestId('composer');
-  await composer.getByRole('button', { name: 'Write a note…' }).click();
   await composer.getByRole('textbox', { name: 'Note text' }).fill('Grid');
   const uploads: string[] = [];
   page.on('request', (request) => {
@@ -191,7 +188,6 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   await browserSession(page);
   await page.goto('/');
   const composer = page.getByTestId('composer');
-  await composer.getByRole('button', { name: 'Write a note…' }).click();
   const text = composer.getByRole('textbox', { name: 'Note text' });
   await text.fill('**Quiet writing**');
   const mutations: string[] = [];

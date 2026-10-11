@@ -19,8 +19,8 @@ test('NA-EDIT: card Edit opens an in-place editor; Save changes keeps position; 
   const text = editor.getByRole('textbox', { name: 'Note text' });
   await expect(text).toBeFocused();
   await expect(text).toHaveValue(`Inline original ${tag}`);
-  // The top composer stays collapsed while a card is edited.
-  await expect(page.getByTestId('composer')).toContainText('Write a note…');
+  // The top composer is replaced by the inline editor while a card is edited.
+  await expect(page.getByTestId('composer')).toHaveCount(0);
   // Unchanged Cancel closes silently and returns focus to the trigger.
   await editor.getByRole('button', { name: 'Cancel' }).click();
   await expect(editor).toHaveCount(0);
@@ -42,7 +42,6 @@ test('NA-EDIT: card Edit opens an in-place editor; Save changes keeps position; 
   await text.fill(`Inline saved ${tag}`);
   await editor.getByRole('button', { name: 'Save changes' }).click();
   await expect(c).toContainText(`Inline saved ${tag}`);
-  await expect(c).toContainText('Edited');
   await expect(c.getByTestId('inline-editor')).toHaveCount(0);
   await expect(page).toHaveURL(/\/$/);
   expect(await index()).toBe(before);
@@ -76,7 +75,6 @@ test('NA-EDIT: typed composer text prompts before a card edit opens', async ({
 }) => {
   const id = await create(page, `Composer guard ${randomUUID()}`);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await page
     .getByTestId('composer')
     .getByRole('textbox')

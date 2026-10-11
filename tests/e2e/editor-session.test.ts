@@ -7,10 +7,6 @@ import {
 async function start(page: import('@playwright/test').Page) {
   await browserSession(page);
   await page.goto('/');
-  await page
-    .getByTestId('composer')
-    .getByRole('button', { name: 'Write a note…' })
-    .click();
   return page
     .getByTestId('composer')
     .getByRole('textbox', { name: 'Note text' });
@@ -45,7 +41,6 @@ test('no drafts or recovery storage; navigation supports cancel, discard and pos
     .click();
   await expect(page).toHaveURL(/\/settings$/);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await text.fill('Post before leaving unique session');
   await page
     .getByRole('complementary')
@@ -102,7 +97,6 @@ test('tab refresh warns, Stay retains work and Leave drops text/files without po
   });
   await (await leave).accept();
   await page.waitForLoadState('domcontentloaded');
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await expect(text).toHaveValue('');
   await expect(page.getByTestId('composer').getByText('only.mp4')).toHaveCount(
     0,

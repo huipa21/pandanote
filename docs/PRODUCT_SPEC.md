@@ -158,7 +158,7 @@ Left sidebar:
 
 Main area:
 
-- Compact composer above the timeline within the notes scroller; expands on focus and scrolls away with the notes.
+- Desktop editor above the timeline within the notes scroller, shown directly with its buttons (no collapsed one-line "Write a note…" mode); scrolls away with the notes. The filter strip shows only search/day chips, and the duplicate "Saved on server." line under the editor is removed (the editor footer keeps its own save status).
 - Back to Top button below the timeline returns the notes pane to the composer.
 - Visible active filters and Clear all.
 - Single-column chronological cards. Not masonry, despite the conversational use of “waterfall.” Reading order must be unambiguous.

@@ -13,10 +13,6 @@ async function start(page: Page) {
   await page.goto('/');
   await page
     .getByTestId('composer')
-    .getByRole('button', { name: 'Write a note…' })
-    .click();
-  await page
-    .getByTestId('composer')
     .getByRole('textbox')
     .fill(`Location ${randomUUID()}`);
 }
@@ -149,7 +145,6 @@ test('native explicit geolocation preserves accuracy; manual coordinates clear i
     .click();
   page.once('dialog', (d) => d.accept());
   await page.reload();
-  await page.getByRole('button', { name: 'Write a note…' }).click();
   await expect(page.getByTestId('composer').getByRole('textbox')).toHaveValue(
     '',
   );
