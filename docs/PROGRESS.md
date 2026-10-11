@@ -4368,3 +4368,11 @@ Remaining/next:
 Touched: `src/lib/components/MonthPicker.svelte` (rewritten, inline, no modal/heatmap/year-activity fetch), `Calendar.svelte` (toggle, focus return), `tests/e2e/calendar.test.ts` (picker test rewritten), `docs/PRODUCT_SPEC.md`. `/api/calendar?year=` is now unused by the UI but retained.
 
 Commands: `npm run check` PASS; eslint/prettier on touched files PASS; `vite build` PASS; `playwright test tests/e2e/calendar.test.ts` 7/7 PASS (openssl taken from Git for Windows on PATH). `tests/e2e/shell.test.ts`: 2 screenshot-snapshot tests fail (settings-dark-compact, shell-light-390x844); not investigated against a clean tree. Full lint/unit/integration suites and Linux image not run.
+
+### Session 2026-10-11 — tighter sidebar rows and themed timeline date picker
+
+**State: done.** (1) Sidebar menu links, tag rows and "Manage" use new token `--row-target` (2.75rem on touch, 2rem with `pointer: fine`; PRODUCT_SPEC requires ~44 px only on touch) with smaller vertical padding and section gaps. (2) Chrome's native datetime popup cannot follow design tokens (`accent-color` does not apply), so `TimelineOptions.svelte` now uses new `DateTimeField.svelte`: the native `datetime-local` text input stays (typing, tests), its native indicator is hidden, and a token-styled inline panel (month nav, day grid, hour/minute/second inputs, Esc closes only the panel) replaces the popup. Future days are disabled; the existing "now or earlier" validation is unchanged.
+
+Touched: `src/lib/styles/tokens.css`, `Sidebar.svelte`, `TagTree.svelte`, `TimelineOptions.svelte`, `DateTimeField.svelte` (new), `tests/e2e/editor.test.ts` (new picker test).
+
+Commands: `npm run check` PASS; `npm run lint` PASS; `npm run test:unit` 147/147 PASS; `npm run build` PASS; `playwright test editor calendar` PASS (openssl from Git for Windows on PATH; e2e server runs `build/`, so rebuild first). `shell.test.ts` 2 tests (appearance, viewport matrix) fail identically on a clean stash — pre-existing. Integration suite, Linux image not run. Spacing visually unverified by screenshot comparison; shell screenshot snapshots may need review.

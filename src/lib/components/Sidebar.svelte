@@ -152,7 +152,7 @@
     font-weight: 650;
     color: var(--text);
     text-decoration: none;
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--space-4);
   }
   .identity .site-title {
     display: block;
@@ -173,8 +173,8 @@
   nav a {
     display: flex;
     align-items: center;
-    min-height: var(--target);
-    padding: var(--space-2) var(--space-3);
+    min-height: var(--row-target);
+    padding: var(--space-1) var(--space-3);
     text-decoration: none;
     border-radius: var(--radius);
     color: var(--text);
@@ -195,8 +195,8 @@
   }
   section + section {
     border-top: 1px solid var(--border);
-    margin-top: var(--space-5);
-    padding-top: var(--space-3);
+    margin-top: var(--space-4);
+    padding-top: var(--space-2);
   }
   h2 {
     margin: var(--space-2) 0;
@@ -209,7 +209,7 @@
     gap: var(--space-2);
   }
   .section-heading a {
-    min-height: var(--target);
+    min-height: var(--row-target);
     display: flex;
     align-items: center;
     font-size: 0.875rem;

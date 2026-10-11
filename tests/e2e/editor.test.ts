@@ -1,6 +1,52 @@
 import { expect, test } from '@playwright/test';
 import { browserSession } from '../helpers/browser-session.ts';
 
+test('timeline date picker is themed with site tokens and picks a day and time', async ({
+  page,
+}) => {
+  await browserSession(page);
+  await page.goto('/');
+  const composer = page.getByTestId('composer');
+  await composer.getByRole('button', { name: 'Write a note…' }).click();
+  await composer
+    .getByRole('textbox', { name: 'Note text' })
+    .fill('Dated thought');
+  await composer.getByRole('button', { name: 'Set date', exact: true }).click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Timeline date',
+    exact: true,
+  });
+  const input = dialog.getByLabel(/Timeline date\/time/);
+  await dialog.getByRole('button', { name: 'Choose date and time' }).click();
+  const panel = dialog.getByRole('group', { name: 'Date and time picker' });
+  await panel.getByRole('button', { name: 'Previous month' }).click();
+  await panel.getByRole('button', { name: /-15$/ }).click();
+  await expect(panel.getByRole('button', { name: /-15$/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(
+    await panel
+      .getByRole('button', { name: /-15$/ })
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).toBe(
+    await page.evaluate(() => {
+      const probe = document.createElement('i');
+      probe.style.color = 'var(--accent)';
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    }),
+  );
+  await panel.getByLabel('Hour').fill('7');
+  await panel.getByLabel('Hour').dispatchEvent('change');
+  await expect(input).toHaveValue(/-15T07:/);
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+});
+
 test('one editor surface keeps secondary actions in +, switches preview and enters/leaves focus without uploading', async ({
   page,
 }, info) => {

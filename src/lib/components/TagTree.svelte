@@ -85,7 +85,7 @@
   .disclosure-space {
     flex: none;
     width: 2rem;
-    min-height: var(--target);
+    min-height: var(--row-target);
   }
   .disclosure {
     padding: 0;
@@ -101,8 +101,8 @@
     display: block;
     flex: 1;
     min-width: 0;
-    min-height: var(--target);
-    padding-block: var(--space-2);
+    min-height: var(--row-target);
+    padding-block: var(--space-1);
     color: var(--accent);
     overflow-wrap: anywhere;
   }

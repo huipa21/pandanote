@@ -31,6 +31,7 @@
   --space-8: 2rem;
   --radius: 0.625rem;
   --target: 2.75rem;
+  --row-target: 2.75rem;
   --sidebar-width: 17rem;
   --column-width: 47.5rem;
   --outer-gap: 1.5rem;
@@ -84,6 +85,11 @@
 }
 :root[data-collapse='false'] {
   --collapsed-height: none;
+}
+@media (pointer: fine) {
+  :root {
+    --row-target: 2rem;
+  }
 }
 @media (max-width: 899px) {
   :root {
