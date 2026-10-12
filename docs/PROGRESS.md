@@ -4786,3 +4786,9 @@ Final documentation validation (this session):
 - Rate-limiter primitives `countFailure` and `isBlocked` added (fixed windows, never extended; protected `mfa-failures-day:account` survives eviction). Test: `tests/integration/rate-limit-counters.test.ts`. Detail and commands: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 8.
 - Validation: unit 162 passed; integration 238 passed, 7 skipped; build passed; check 0 errors; lint fails only on the pre-existing `NoteEditor.svelte:64`.
 - Not committed. Next: SH3.2.
+
+### Security hardening SH3.2 (session 9)
+
+- MFA limits (Issue 3, Decision 3): untrusted `mfa` account bucket 10/15 min; 5 wrong codes per challenge (then 401 `mfa_restart`); 30 wrong codes per account per 24 h block the untrusted path (`rate-limited`, Retry-After = remaining window). Failures commit before the error is thrown; fresh-auth wrong codes count toward the daily cap. Detail: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 9.
+- Validation: check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; unit 162 passed; integration 244 passed, 7 skipped; build passed; `tests/e2e/auth.test.ts` 5 passed.
+- Not committed. Next: SH3.3 (sign-in page MFA messages; the form does not yet handle `mfa_restart`).

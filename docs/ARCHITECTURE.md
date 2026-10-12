@@ -1263,6 +1263,7 @@ archived credentials replace temporary ones.
   it. Holders use a per-device bucket (30/15 min) plus the IP bucket, so anonymous
   floods cannot block known devices. New devices stay limited during a flood;
   `reset-password` deletes all `auth_rate_limits` rows as operator recovery.
+- MFA guessing (SH3.2): the untrusted `mfa` account bucket is 10/15 min; each sign-in challenge allows 5 wrong codes (then `mfa_restart`, 401); 30 wrong codes per account per 24 h block the untrusted path (`rate-limited`, Retry-After = remaining daily window). Failures are committed before the error is thrown.
 - TOTP drift small and explicit; reject replay of an already consumed step. Recovery-code consumption atomic.
 - TOTP secret encrypted at rest with a random server key kept in private persistent key material. Full backups include the key needed for portability; therefore unencrypted archives remain sensitive.
 - Security changes rotate session/security revision and revoke appropriate sessions.

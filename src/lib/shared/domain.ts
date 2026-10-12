@@ -86,6 +86,7 @@ export type ErrorCode =
   | 'unauthorized'
   | 'rate-limited'
   | 'fresh-auth-required'
+  | 'mfa_restart'
   | 'conflict'
   | 'mutation-mismatch'
   | 'storage-full'

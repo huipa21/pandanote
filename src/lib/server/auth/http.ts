@@ -2,6 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { DomainError, type ApiError } from '../../shared/domain.ts';
 import type { SessionCredential } from './service.ts';
 import { DEVICE_COOKIE } from './device-trust.ts';
+import { RateLimitError } from './rate-limits.ts';
 
 export const SESSION_COOKIE = 'pandanote_session';
 export function setSessionCookie(
@@ -81,6 +82,8 @@ export function authErrorResponse(error: unknown): Response {
         code: 'busy',
         message: 'Authentication is temporarily unavailable. Please retry.',
       };
+  const retryAfter =
+    error instanceof RateLimitError ? error.retryAfterSeconds : 900;
   const status = ['setup_required', 'already_set_up'].includes(body.code)
     ? 409
     : body.code === 'setup_closed'
@@ -89,7 +92,7 @@ export function authErrorResponse(error: unknown): Response {
         ? 403
         : body.code === 'conflict'
           ? 409
-          : body.code === 'unauthorized'
+          : body.code === 'unauthorized' || body.code === 'mfa_restart'
             ? 401
             : body.code === 'rate-limited'
               ? 429
@@ -102,7 +105,7 @@ export function authErrorResponse(error: unknown): Response {
       status,
       headers: {
         'cache-control': 'no-store',
-        ...(status === 429 ? { 'retry-after': '900' } : {}),
+        ...(status === 429 ? { 'retry-after': String(retryAfter) } : {}),
       },
     },
   );

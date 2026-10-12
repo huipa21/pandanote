@@ -21,6 +21,40 @@ const actions: CredentialAction[] = [
 ];
 /** Account-wide daily count of wrong second-factor codes (SH3.2 writes it). */
 export const DAILY_MFA_FAILURES = 'mfa-failures-day:account';
+/** Wrong codes allowed per MFA challenge; the challenge is deleted at the limit. */
+export const MFA_CHALLENGE_FAILURES = {
+  limit: 5,
+  windowMs: 5 * 60_000,
+} as const;
+/** Wrong second-factor codes per account per day on the untrusted path. */
+export const MFA_DAILY_FAILURES = {
+  limit: 30,
+  windowMs: 24 * 60 * 60_000,
+} as const;
+// Per-action attempt limits (fixed 15-minute windows). `device` applies to callers
+// holding a verified trusted-device token instead of `account`; `ip` always applies.
+interface AttemptLimits {
+  account: number;
+  device: number;
+  ip: number;
+}
+const defaultLimits: AttemptLimits = { account: 30, device: 30, ip: 10 };
+const actionLimits: Record<CredentialAction, AttemptLimits> = {
+  setup: defaultLimits,
+  login: defaultLimits,
+  mfa: { ...defaultLimits, account: 10 },
+  'fresh-auth': defaultLimits,
+  enrollment: defaultLimits,
+};
+/** A rate-limited error that tells the caller how long to wait (seconds). */
+export class RateLimitError extends DomainError {
+  readonly retryAfterSeconds: number;
+  constructor(message: string, retryAfterSeconds: number) {
+    super('rate-limited', message);
+    this.name = 'RateLimitError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
 // Account-wide buckets are never evicted: they bound expensive work and
 // account-level lockouts even when IP buckets rotate or are evicted.
 const protectedNames = [
@@ -83,11 +117,12 @@ export class AuthRateLimiter {
     deviceId: string | null = null,
   ): void {
     const digest = (value: string): string => this.digest(value);
+    const limits = actionLimits[action];
     const buckets = [
       deviceId
-        ? { key: digest(`${action}:device:${deviceId}`), limit: 30 }
-        : { key: digest(`${action}:account`), limit: 30 },
-      { key: digest(`${action}:ip:${ip}`), limit: 10 },
+        ? { key: digest(`${action}:device:${deviceId}`), limit: limits.device }
+        : { key: digest(`${action}:account`), limit: limits.account },
+      { key: digest(`${action}:ip:${ip}`), limit: limits.ip },
     ];
     // Denials commit too. Never throw inside the transaction and roll back an
     // attempt. A blocked caller cannot prolong an existing fixed window.
@@ -130,9 +165,9 @@ export class AuthRateLimiter {
       return true;
     });
     if (!allowed)
-      throw new DomainError(
-        'rate-limited',
+      throw new RateLimitError(
         'Too many attempts. Try again in 15 minutes.',
+        WINDOW_MS / 1000,
       );
   }
   /**
@@ -177,13 +212,24 @@ export class AuthRateLimiter {
       .run();
     return 1;
   }
-  /** True while the fixed window `name` is live and has reached `limit`. */
-  isBlocked(db: Reader, name: string, limit: number, now: number): boolean {
+  /** Epoch ms when the live window `name` ends, if it has reached `limit`; else null. */
+  blockedUntil(
+    db: Reader,
+    name: string,
+    limit: number,
+    now: number,
+  ): number | null {
     const row = db
       .select()
       .from(authRateLimits)
       .where(eq(authRateLimits.keyHash, this.digest(name)))
       .get();
-    return row !== undefined && row.expiresAt > now && row.attempts >= limit;
+    return row && row.expiresAt > now && row.attempts >= limit
+      ? row.expiresAt
+      : null;
+  }
+  /** True while the fixed window `name` is live and has reached `limit`. */
+  isBlocked(db: Reader, name: string, limit: number, now: number): boolean {
+    return this.blockedUntil(db, name, limit, now) !== null;
   }
 }

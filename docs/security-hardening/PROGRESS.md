@@ -2,23 +2,23 @@
 
 ## Current state
 
-| Sub-task | Title                                           | State                                                                                    |
-| -------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| SH1.1    | Verify staged lockout fix, add MFA-path test    | done (verified; gate and e2e auth green; see session 2)                                  |
-| SH1.2    | Re-issue device token after security changes    | done (gate and e2e auth green; see session 3)                                            |
-| SH1.3    | Issue 1 docs and reset-password message         | done (gate green; PTY reset test Linux-only, not run)                                    |
-| SH2.1    | Setup code: server, log line, integration tests | done (server; standard gate green; e2e auth expected to fail until SH2.2; see session 5) |
-| SH2.2    | Setup page field and e2e harness                | done for setup flows (session 6); full e2e has 9 non-setup failures, not all baselined   |
+| Sub-task | Title                                           | State                                                                                                 |
+| -------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| SH1.1    | Verify staged lockout fix, add MFA-path test    | done (verified; gate and e2e auth green; see session 2)                                               |
+| SH1.2    | Re-issue device token after security changes    | done (gate and e2e auth green; see session 3)                                                         |
+| SH1.3    | Issue 1 docs and reset-password message         | done (gate green; PTY reset test Linux-only, not run)                                                 |
+| SH2.1    | Setup code: server, log line, integration tests | done (server; standard gate green; e2e auth expected to fail until SH2.2; see session 5)              |
+| SH2.2    | Setup page field and e2e harness                | done for setup flows (session 6); full e2e has 9 non-setup failures, not all baselined                |
 | SH2.3    | Setup code docs and Linux release harness       | **partial**: docs and harness done; Linux release drill **blocked** (no Linux Docker host; session 7) |
-| SH3.1    | Rate-limiter failure-count primitives           | done (standard gate green; see session 8)                                                |
-| SH3.2    | MFA per-challenge cap, lower limit, daily cap   | not started                                                                              |
-| SH3.3    | Sign-in page MFA messages                       | not started                                                                              |
-| SH3.4    | Optional owner notice (needs user approval)     | not approved                                                                             |
-| SH4.1    | `TRUSTED_PROXIES` configuration                 | not started                                                                              |
-| SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                              |
-| SH4.3    | Issue 4 docs                                    | not started                                                                              |
+| SH3.1    | Rate-limiter failure-count primitives           | done (standard gate green; see session 8)                                                             |
+| SH3.2    | MFA per-challenge cap, lower limit, daily cap   | done (standard gate and e2e auth green; see session 9)                                                |
+| SH3.3    | Sign-in page MFA messages                       | not started                                                                                           |
+| SH3.4    | Optional owner notice (needs user approval)     | not approved                                                                                          |
+| SH4.1    | `TRUSTED_PROXIES` configuration                 | not started                                                                                           |
+| SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                                           |
+| SH4.3    | Issue 4 docs                                    | not started                                                                                           |
 
-**Next task:** SH3.2 (MFA per-challenge cap, lower MFA limit, daily failure cap). Read [PLAN.md](PLAN.md) SH3.2, `src/lib/server/auth/service.ts` (`completeMfa`, `freshAuth`), `src/lib/server/auth/rate-limits.ts` (`countFailure`, `isBlocked`, `DAILY_MFA_FAILURES`), `tests/integration/auth-mfa.test.ts`. Run `git status` first. Validation: the standard gate + `npx playwright test tests/e2e/auth.test.ts`. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
+**Next task:** SH3.3 (sign-in page MFA messages: `auth.mfaInvalid`, `mfa_restart` → password step). Read [PLAN.md](PLAN.md) SH3.3, `src/lib/components/AuthForm.svelte`, `src/lib/shared/i18n/{en,zh-CN}.ts`, `tests/e2e/auth.test.ts`. Validation: standard gate + `npx playwright test tests/e2e/auth.test.ts`. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
 
 ## Session log
 
@@ -163,3 +163,17 @@
 - Test: new `tests/integration/rate-limit-counters.test.ts` (4 cases): fixed windows and non-extension; expiry and restart; persistence across a reopened `Persistence`; eviction keeps the protected daily bucket and evicts an unprotected row; a counted failure rolls back when an outer transaction throws. SEC-MFA-6 covered.
 - Commands and real results (Windows): prettier and eslint on touched files: pass. `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte). `npm run lint`: fails only on the pre-existing `NoteEditor.svelte:64`. `npm run test:unit`: 32 files, 162 passed. `npm run test:integration`: 40 files, 238 passed, 7 skipped (Linux-only PTY). `npm run build`: passed. E2E not run (no UI change).
 - Not committed (per README rules). Next: SH3.2.
+
+### Session 9 — SH3.2 (per-challenge cap, lower MFA limit, daily failure cap)
+
+- Limits: `rate-limits.ts` has a per-action table (`actionLimits`); `mfa` account bucket is 10 per 15 min (device 30 and IP 10 unchanged; other actions unchanged). Constants `MFA_CHALLENGE_FAILURES` (5 wrong codes, 5 min) and `MFA_DAILY_FAILURES` (30, 24 h). `blockedUntil()` added; `isBlocked()` wraps it.
+- `completeMfa`: the write transaction returns an outcome (`ok` / `wrong` / `restart` / `limited`); errors are thrown after commit. A wrong code counts `mfa-challenge:<challenge hash>`; the 5th deletes the challenge. Untrusted callers (no verified device) also count `mfa-failures-day:account` and are refused before the code check while that count is at 30. Unknown, expired, consumed or non-MFA challenges return `mfa_restart` (new `ErrorCode`, HTTP 401, "Enter your password again.").
+- `freshAuth`: a wrong TOTP/recovery code counts the daily cap, committed before the `unauthorized` error. It does not check the cap before the code (decision: fresh auth needs an active session, and blocking it would stop the owner's own sensitive actions for a day).
+- Retry-After: new `RateLimitError` (`rate-limited` with `retryAfterSeconds`). The 15-minute `attempt()` limit still sends 900; the daily cap sends the remaining seconds. `authErrorResponse` reads it.
+- Test updates: `tests/integration/auth-mfa.test.ts` flood test loops 9 times instead of 29 (the limit is 10 now). New cases: 5th wrong code → challenge deleted, next valid code → `mfa_restart`, with the count surviving a new `AuthService` (SEC-MFA-1, -2, -5); 11th untrusted MFA in 15 min → rate-limited (retry 900), window reopens after 15 min (SEC-MFA-3); 30 wrong codes → daily block, trusted device completes, block survives a new instance (SEC-MFA-4, -5); fresh-auth wrong code counts toward the cap (SEC-MFA-7); recovery code once and TOTP replay rejected (SEC-MFA-8); `mfa_restart` → 401 and `Retry-After` from `RateLimitError` (SEC-MFA-2).
+- Docs: `docs/PRODUCT_SPEC.md` §13 sign-in limits paragraph (MFA limits); `docs/ARCHITECTURE.md` anti-lockout section (MFA bullet); `docs/security-hardening/ACCEPTANCE_TESTS.md` "Covered by" for SEC-MFA-1…5, -7, -8.
+- Touched: `src/lib/server/auth/{rate-limits,service,http}.ts`, `src/lib/shared/domain.ts`, `tests/integration/auth-mfa.test.ts`, the docs above, this file, `docs/PROGRESS.md`.
+- Commands and real results (Windows): `npx prettier --check` and `npx eslint` on touched TS: pass. `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte). `npm run lint`: fails only on the pre-existing `NoteEditor.svelte:64`. `npm run test:unit`: 32 files, 162 passed. `npm run test:integration`: 40 files, 244 passed, 7 skipped (Linux-only PTY). `npm run build`: passed. `npx playwright test tests/e2e/auth.test.ts`: 5 passed.
+- Not run: full e2e suite (this sub-task only changes the server and the MFA response for `mfa_restart`); Linux image.
+- Known gaps / for SH3.3: the 5th wrong code still returns `unauthorized` (per the plan), and the 6th returns `mfa_restart`. The current sign-in form does not handle `mfa_restart` yet (generic error until SH3.3). SEC-MFA-9 and -10 stay open for SH3.3.
+- Not committed (per README rules). Next: SH3.3.

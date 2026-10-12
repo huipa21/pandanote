@@ -33,7 +33,13 @@ import { JournalStore } from '../maintenance/journal.ts';
 import { readSettings } from '../settings/repository.ts';
 import { hashPassword, verifyPassword } from './passwords.ts';
 import { newAuthToken, tokenHash } from './tokens.ts';
-import { AuthRateLimiter } from './rate-limits.ts';
+import {
+  AuthRateLimiter,
+  DAILY_MFA_FAILURES,
+  MFA_CHALLENGE_FAILURES,
+  MFA_DAILY_FAILURES,
+  RateLimitError,
+} from './rate-limits.ts';
 import { DeviceTrust, type DeviceToken } from './device-trust.ts';
 import {
   SETUP_CODE_BUCKET,
@@ -62,6 +68,15 @@ export interface PendingMfaCredential {
   mfaRequired: true;
 }
 export type LoginResult = SessionCredential | PendingMfaCredential;
+// Result of the MFA write transaction; errors are thrown after it commits.
+type MfaOutcome =
+  | { kind: 'ok'; credential: SessionCredential }
+  | { kind: 'limited'; retryAfterSeconds: number }
+  | { kind: 'restart' }
+  | { kind: 'wrong' };
+type FreshAuthOutcome =
+  | { kind: 'ok'; grant: { token: string; expiresAt: number } }
+  | { kind: 'failed' };
 const failedLogin = (): DomainError =>
   new DomainError('unauthorized', 'Invalid username or password.');
 const alreadySetUp = (): DomainError =>
@@ -482,35 +497,80 @@ export class AuthService {
   ): SessionCredential {
     const deviceId = this.trustedDeviceId(deviceToken);
     this.limiter.attempt('mfa', ip, this.clock(), deviceId);
-    return this.persistence.write((tx) => {
+    // Failures are counted and COMMITTED in this transaction; the matching error is
+    // thrown only after it returns, so a rollback can never undo a counted failure.
+    const outcome = this.persistence.write((tx): MfaOutcome => {
+      const now = this.clock();
       const owner = tx.select().from(account).get();
       const challenge =
         owner && this.challenge(tx, token, 'mfa', owner, null, 'login');
-      if (
-        !owner ||
-        owner.totpEnabled !== 1 ||
-        !challenge ||
-        !this.consumeFactor(tx, owner, code)
-      )
-        throw failedLogin();
-      tx.delete(authChallenges)
-        .where(eq(authChallenges.tokenHash, challenge.tokenHash))
-        .run();
-      return {
-        ...this.createSession(
+      if (!owner || owner.totpEnabled !== 1 || !challenge)
+        return { kind: 'restart' };
+      if (deviceId === null) {
+        const blockedUntil = this.limiter.blockedUntil(
           tx,
-          owner.id,
-          owner.securityRevision,
-          this.clock(),
-        ),
-        device: this.devices.issue(
-          owner.id,
-          owner.securityRevision,
-          this.clock(),
-          deviceId ?? undefined,
-        ),
-      };
+          DAILY_MFA_FAILURES,
+          MFA_DAILY_FAILURES.limit,
+          now,
+        );
+        if (blockedUntil !== null)
+          return {
+            kind: 'limited',
+            retryAfterSeconds: Math.max(
+              1,
+              Math.ceil((blockedUntil - now) / 1000),
+            ),
+          };
+      }
+      if (this.consumeFactor(tx, owner, code)) {
+        tx.delete(authChallenges)
+          .where(eq(authChallenges.tokenHash, challenge.tokenHash))
+          .run();
+        return {
+          kind: 'ok',
+          credential: {
+            ...this.createSession(tx, owner.id, owner.securityRevision, now),
+            device: this.devices.issue(
+              owner.id,
+              owner.securityRevision,
+              now,
+              deviceId ?? undefined,
+            ),
+          },
+        };
+      }
+      const failures = this.limiter.countFailure(
+        tx,
+        `mfa-challenge:${challenge.tokenHash}`,
+        MFA_CHALLENGE_FAILURES.windowMs,
+        now,
+      );
+      if (failures >= MFA_CHALLENGE_FAILURES.limit)
+        tx.delete(authChallenges)
+          .where(eq(authChallenges.tokenHash, challenge.tokenHash))
+          .run();
+      if (deviceId === null)
+        this.limiter.countFailure(
+          tx,
+          DAILY_MFA_FAILURES,
+          MFA_DAILY_FAILURES.windowMs,
+          now,
+        );
+      return { kind: 'wrong' };
     });
+    switch (outcome.kind) {
+      case 'ok':
+        return outcome.credential;
+      case 'limited':
+        throw new RateLimitError(
+          'Too many incorrect codes today. Sign in from a device you used before, or try again tomorrow.',
+          outcome.retryAfterSeconds,
+        );
+      case 'restart':
+        throw new DomainError('mfa_restart', 'Enter your password again.');
+      case 'wrong':
+        throw failedLogin();
+    }
   }
   async freshAuth(
     identity: SessionIdentity,
@@ -527,22 +587,36 @@ export class AuthService {
       );
       if (!(await verifyPassword(snapshot.passwordHash, password)))
         throw failedLogin();
-      return this.persistence.write((tx) => {
+      // Wrong second factors are committed before the error is thrown (see completeMfa).
+      const outcome = this.persistence.write((tx): FreshAuthOutcome => {
         const owner = this.currentIdentity(tx, identity);
+        if (owner.passwordHash !== snapshot.passwordHash)
+          return { kind: 'failed' };
         if (
-          owner.passwordHash !== snapshot.passwordHash ||
-          (owner.totpEnabled === 1 &&
-            !this.consumeFactor(tx, owner, code ?? ''))
-        )
-          throw failedLogin();
-        return this.createChallenge(
-          tx,
-          owner,
-          'fresh-auth',
-          scope,
-          identity.sessionHash,
-        );
+          owner.totpEnabled === 1 &&
+          !this.consumeFactor(tx, owner, code ?? '')
+        ) {
+          this.limiter.countFailure(
+            tx,
+            DAILY_MFA_FAILURES,
+            MFA_DAILY_FAILURES.windowMs,
+            this.clock(),
+          );
+          return { kind: 'failed' };
+        }
+        return {
+          kind: 'ok',
+          grant: this.createChallenge(
+            tx,
+            owner,
+            'fresh-auth',
+            scope,
+            identity.sessionHash,
+          ),
+        };
       });
+      if (outcome.kind === 'failed') throw failedLogin();
+      return outcome.grant;
     });
   }
   // Sensitive domain handlers must call this INSIDE their coordinated mutation

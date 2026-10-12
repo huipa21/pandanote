@@ -489,6 +489,11 @@ Concurrent edit handling:
 - Domain/origin configurable through deployment environment.
 - Password securely hashed; secure sessions. Sign-in limits are fixed 15-minute windows:
   untrusted callers share 30 password attempts per account and 10 per IP address.
+  Second-factor codes: 10 MFA attempts per account per 15 minutes (untrusted), at most
+  5 wrong codes per sign-in challenge (then "Enter your password again."), and at most
+  30 wrong second-factor codes per account per 24 hours on the untrusted path (then
+  "Too many incorrect codes today…" until the day window ends). Trusted devices skip the
+  account caps and the daily cap.
   A browser that signed in before holds an HttpOnly `pandanote_device` cookie (180
   days, reissued after security changes) that moves it to its own 30-attempt bucket,
   so anonymous floods cannot lock it out. The cookie never authenticates a request.

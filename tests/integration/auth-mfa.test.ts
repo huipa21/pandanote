@@ -16,7 +16,14 @@ import {
   encryptSecret,
 } from '../../src/lib/server/auth/factors.ts';
 import { newAuthToken, tokenHash } from '../../src/lib/server/auth/tokens.ts';
-import { AuthRateLimiter } from '../../src/lib/server/auth/rate-limits.ts';
+import {
+  AuthRateLimiter,
+  DAILY_MFA_FAILURES,
+  MFA_DAILY_FAILURES,
+  RateLimitError,
+} from '../../src/lib/server/auth/rate-limits.ts';
+import { authErrorResponse } from '../../src/lib/server/auth/http.ts';
+import { DomainError } from '../../src/lib/shared/domain.ts';
 import type { FreshAuthScope } from '../../src/lib/shared/auth.ts';
 const password = 'synthetic-mfa-only 密碼 password';
 const replacement = 'synthetic-new-only 密碼 password';
@@ -626,9 +633,9 @@ it('MFA honors the trusted device: a flooded mfa account bucket blocks no-device
     const deviceId = device.split('.')[1];
     f.advance(); // the sign-in consumed this TOTP step (replay is rejected)
     // Anonymous junk from rotating addresses fills the shared mfa account bucket
-    // (the sign-in above already counted one attempt there).
+    // (the sign-in above already counted one attempt there; the limit is 10).
     const limiter = new AuthRateLimiter(p);
-    for (let i = 0; i < 29; i++)
+    for (let i = 0; i < 9; i++)
       limiter.attempt('mfa', `198.51.100.${i + 1}`, f.time);
     const pending = await f.auth.login('fixture', password, ip);
     const code = otp(f.enrollment.secret, f.time);
@@ -759,3 +766,207 @@ it('every security change re-issues the same trusted device at the new revision;
     ).rejects.toThrow(/Too many/);
   });
 }, 60_000);
+
+// SH3.2: per-challenge cap, lower MFA account limit, daily failure cap.
+const wrongCode = '000000';
+const fromIp = (n: number) => `198.51.100.${n}`;
+function thrown(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('expected the call to throw');
+}
+
+it('the 5th wrong code deletes the challenge; the next code gets mfa_restart even when valid, and a new sign-in works (SEC-MFA-1, SEC-MFA-2, SEC-MFA-5)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    f.enable();
+    const pending = await f.auth.login('fixture', password, ip);
+    for (let i = 1; i <= 3; i++)
+      expect(
+        thrown(() => f.auth.completeMfa(pending.token, wrongCode, fromIp(i))),
+      ).toMatchObject({ code: 'unauthorized' });
+    // A new service instance shares the persisted per-challenge count.
+    const restarted = new AuthService(p, () => f.time);
+    for (let i = 4; i <= 5; i++)
+      expect(
+        thrown(() =>
+          restarted.completeMfa(pending.token, wrongCode, fromIp(i)),
+        ),
+      ).toMatchObject({ code: 'unauthorized' });
+    const tokenKey = tokenHash('challenge', pending.token);
+    expect(
+      p.db
+        .select()
+        .from(authChallenges)
+        .all()
+        .some((row) => row.tokenHash === tokenKey),
+    ).toBe(false);
+    const valid = otp(f.enrollment.secret, f.time);
+    expect(
+      thrown(() => f.auth.completeMfa(pending.token, valid, fromIp(6))),
+    ).toMatchObject({
+      code: 'mfa_restart',
+      message: 'Enter your password again.',
+    });
+    const again = await f.auth.login('fixture', password, fromIp(7));
+    const credential = f.auth.completeMfa(again.token, valid, fromIp(8));
+    expect(f.auth.authenticate(credential.token)).not.toBeNull();
+  });
+});
+
+it('the mfa account bucket allows 10 untrusted attempts per 15 minutes; the 11th is rate-limited with Retry-After 900 (SEC-MFA-3)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    f.enable();
+    const pending = await f.auth.login('fixture', password, ip);
+    for (let i = 1; i <= 10; i++)
+      expect(() =>
+        f.auth.completeMfa(pending.token, wrongCode, fromIp(i)),
+      ).toThrow();
+    const valid = otp(f.enrollment.secret, f.time);
+    const limited = thrown(() =>
+      f.auth.completeMfa(pending.token, valid, fromIp(11)),
+    );
+    expect(limited).toBeInstanceOf(RateLimitError);
+    expect(limited).toMatchObject({
+      code: 'rate-limited',
+      retryAfterSeconds: 900,
+    });
+    // The fixed window ends 15 minutes after its first attempt.
+    f.advance(15 * 60_000);
+    const later = await f.auth.login('fixture', password, fromIp(12));
+    const next = otp(f.enrollment.secret, f.time);
+    expect(
+      f.auth.authenticate(
+        f.auth.completeMfa(later.token, next, fromIp(13)).token,
+      ),
+    ).not.toBeNull();
+  });
+});
+
+it('30 failed codes in 24 hours block the untrusted MFA path with the daily message; a trusted device still completes MFA; the cap survives a new instance (SEC-MFA-4, SEC-MFA-5)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    f.enable();
+    const first = await f.auth.login('fixture', password, ip);
+    const device = f.auth.completeMfa(
+      first.token,
+      otp(f.enrollment.secret, f.time),
+      ip,
+    ).device!.token;
+    let attempts = 0;
+    for (let window = 0; window < 3; window++) {
+      f.advance(16 * 60_000); // each window holds 10 mfa attempts (two challenges)
+      for (let challenge = 0; challenge < 2; challenge++) {
+        const pending = await f.auth.login('fixture', password, ip);
+        for (let i = 0; i < 5; i++) {
+          attempts += 1;
+          expect(
+            thrown(() =>
+              f.auth.completeMfa(pending.token, wrongCode, fromIp(attempts)),
+            ),
+          ).toMatchObject({ code: 'unauthorized' });
+        }
+      }
+    }
+    expect(attempts).toBe(30);
+    f.advance(16 * 60_000);
+    const pending = await f.auth.login('fixture', password, ip);
+    const valid = otp(f.enrollment.secret, f.time);
+    const blocked = thrown(() =>
+      f.auth.completeMfa(pending.token, valid, fromIp(200)),
+    );
+    expect(blocked).toMatchObject({
+      code: 'rate-limited',
+      message:
+        'Too many incorrect codes today. Sign in from a device you used before, or try again tomorrow.',
+    });
+    expect((blocked as RateLimitError).retryAfterSeconds).toBeGreaterThan(900);
+    const restarted = new AuthService(p, () => f.time);
+    expect(
+      thrown(() => restarted.completeMfa(pending.token, valid, fromIp(201))),
+    ).toMatchObject({ code: 'rate-limited' });
+    const done = f.auth.completeMfa(pending.token, valid, fromIp(202), device);
+    expect(f.auth.authenticate(done.token)).not.toBeNull();
+  });
+});
+
+it('wrong second factors in fresh authentication count toward the daily cap (SEC-MFA-7)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    f.enable();
+    const limiter = new AuthRateLimiter(p);
+    p.write((tx) => {
+      for (let i = 0; i < 29; i++)
+        limiter.countFailure(
+          tx,
+          DAILY_MFA_FAILURES,
+          MFA_DAILY_FAILURES.windowMs,
+          f.time,
+        );
+    });
+    await expect(
+      f.auth.freshAuth(
+        f.identity,
+        'mfa-enroll',
+        password,
+        wrongCode,
+        fromIp(1),
+      ),
+    ).rejects.toMatchObject({ code: 'unauthorized' });
+    const pending = await f.auth.login('fixture', password, ip);
+    expect(
+      thrown(() =>
+        f.auth.completeMfa(
+          pending.token,
+          otp(f.enrollment.secret, f.time),
+          fromIp(2),
+        ),
+      ),
+    ).toMatchObject({ code: 'rate-limited' });
+  });
+});
+
+it('a recovery code completes MFA exactly once and a used TOTP step cannot be replayed (SEC-MFA-8)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    const enabled = f.enable();
+    const first = await f.auth.login('fixture', password, fromIp(1));
+    const session = f.auth.completeMfa(
+      first.token,
+      enabled.codes[0].toUpperCase(),
+      fromIp(2),
+    );
+    expect(f.auth.authenticate(session.token)).not.toBeNull();
+    const reused = await f.auth.login('fixture', password, fromIp(3));
+    expect(
+      thrown(() =>
+        f.auth.completeMfa(reused.token, enabled.codes[0], fromIp(4)),
+      ),
+    ).toMatchObject({ code: 'unauthorized' });
+    const code = otp(f.enrollment.secret, f.time);
+    const totp = await f.auth.login('fixture', password, fromIp(5));
+    expect(
+      f.auth.authenticate(
+        f.auth.completeMfa(totp.token, code, fromIp(6)).token,
+      ),
+    ).not.toBeNull();
+    const replay = await f.auth.login('fixture', password, fromIp(7));
+    expect(
+      thrown(() => f.auth.completeMfa(replay.token, code, fromIp(8))),
+    ).toMatchObject({ code: 'unauthorized' });
+  });
+});
+
+it('mfa_restart maps to 401 and rate-limit errors carry their own Retry-After (SEC-MFA-2)', () => {
+  const restart = authErrorResponse(
+    new DomainError('mfa_restart', 'Enter your password again.'),
+  );
+  expect(restart.status).toBe(401);
+  const limited = authErrorResponse(new RateLimitError('Too many.', 86_000));
+  expect(limited.status).toBe(429);
+  expect(limited.headers.get('retry-after')).toBe('86000');
+});
