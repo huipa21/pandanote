@@ -61,6 +61,8 @@ export const zhCN: Partial<Catalog> = {
   'auth.wait': '请稍候…',
   'auth.mfaPrompt': '请输入验证器代码或一次性恢复码。此验证将在五分钟后失效。',
   'auth.invalid': '用户名或密码无效。',
+  'auth.mfaInvalid': '验证码不正确，请重试。',
+  'auth.mfaRestart': '错误验证码次数过多或验证步骤已过期。请重新输入密码。',
   'auth.failed': '无法登录，请重试。',
   'auth.network': '无法连接服务器。已输入的内容仍保留，请重试。',
   'auth.noscript': '提交登录表单需要启用 JavaScript。',

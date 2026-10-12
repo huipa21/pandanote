@@ -12,13 +12,13 @@
 | SH2.3    | Setup code docs and Linux release harness       | **partial**: docs and harness done; Linux release drill **blocked** (no Linux Docker host; session 7) |
 | SH3.1    | Rate-limiter failure-count primitives           | done (standard gate green; see session 8)                                                             |
 | SH3.2    | MFA per-challenge cap, lower limit, daily cap   | done (standard gate and e2e auth green; see session 9)                                                |
-| SH3.3    | Sign-in page MFA messages                       | not started                                                                                           |
+| SH3.3    | Sign-in page MFA messages                       | done (standard gate, build and e2e auth 6/6 green; see session 10)                                    |
 | SH3.4    | Optional owner notice (needs user approval)     | not approved                                                                                          |
 | SH4.1    | `TRUSTED_PROXIES` configuration                 | not started                                                                                           |
 | SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                                           |
 | SH4.3    | Issue 4 docs                                    | not started                                                                                           |
 
-**Next task:** SH3.3 (sign-in page MFA messages: `auth.mfaInvalid`, `mfa_restart` → password step). Read [PLAN.md](PLAN.md) SH3.3, `src/lib/components/AuthForm.svelte`, `src/lib/shared/i18n/{en,zh-CN}.ts`, `tests/e2e/auth.test.ts`. Validation: standard gate + `npx playwright test tests/e2e/auth.test.ts`. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
+**Next task:** SH4.1 (`TRUSTED_PROXIES`, Issue 4; read [PLAN.md](PLAN.md) SH4.1 and `src/lib/server/auth/policy.ts`). SH3.4 needs explicit user approval first. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
 
 ## Session log
 
@@ -177,3 +177,16 @@
 - Not run: full e2e suite (this sub-task only changes the server and the MFA response for `mfa_restart`); Linux image.
 - Known gaps / for SH3.3: the 5th wrong code still returns `unauthorized` (per the plan), and the 6th returns `mfa_restart`. The current sign-in form does not handle `mfa_restart` yet (generic error until SH3.3). SEC-MFA-9 and -10 stay open for SH3.3.
 - Not committed (per README rules). Next: SH3.3.
+
+### Session 10 — SH3.3 (sign-in page MFA messages)
+
+- Sign-in form (`src/lib/components/AuthForm.svelte`): on the code step, `unauthorized` shows `auth.mfaInvalid` ("Incorrect code. Try again."); the password step keeps `auth.invalid`. `mfa_restart` clears the challenge and the code, returns to the password step (username kept, password cleared) and shows `auth.mfaRestart`. `rate-limited` keeps the server message. Keys added in `en.ts` and `zh-CN.ts`.
+- Deviation from PLAN SH3.3 step E2E ("5 wrong codes → restart"): the server (SH3.2, SEC-MFA-1) deletes the challenge on the 5th wrong code but still answers that request with `unauthorized`; the next submission (the 6th) gets `mfa_restart`. The form follows the server, so the restart message appears on the 6th submission. The e2e test asserts exactly that. Spec wording in ACCEPTANCE SEC-MFA-10 was updated to match.
+- E2E test "MFA sign-in messages…" (`tests/e2e/auth.test.ts`, runs before the security test): enrolls MFA through the API, confirms it (the device cookie then makes the context trusted), checks 5 × `Incorrect code`, the 6th submission's restart message and cleared password field, then a new sign-in with a not-yet-used TOTP step, and finally disables MFA with a recovery code so the next test starts with MFA off. The existing security test's code-step expectation changed to `Incorrect code. Try again.`.
+- Test-harness change (test only): `scripts/e2e-server.mjs` rewrote every request on the security port (4175) to `X-Forwarded-For: 192.0.2.44`, so all security-server tests shared one IP bucket (10 MFA attempts per 15 min). The harness now honors `x-e2e-client-address` only when it is a 192.0.2.0/24 address; everything else still uses 192.0.2.44. Production code is unchanged. The new test uses 192.0.2.243 for its API calls and for browser requests to `/api/auth/**` (via `page.route`).
+- Found while debugging (not a product defect): `context.browser.newContext({ extraHTTPHeaders })` XFF did not isolate the page's form posts; the route rewrite is what works. Debug logging in `rate-limits.ts` was added and removed again; `git diff` for that file is empty.
+- Commands and real results (Windows): `npx prettier --check` and `npx eslint` on touched files (`AuthForm.svelte`, i18n, `tests/e2e/auth.test.ts`, `scripts/e2e-server.mjs`): pass. `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte). `npm run lint`: fails only on the pre-existing `NoteEditor.svelte:64`. `npm run test:unit`: 32 files, 162 passed. `npm run test:integration`: first run hit a Windows worker crash (exit 3221226505) in `runtime-server.test.ts`; a second run crashed in `startup.test.ts`; a third run: 40 files, 244 passed, 7 skipped. `npm run build`: passed. `npx playwright test tests/e2e/auth.test.ts`: 6 passed (run on the rebuilt output after the debug log was removed).
+- Also ran `npx playwright test tests/e2e/smoke.test.ts`: 2 passed. `tests/e2e/language.test.ts` "language and site title…" fails at the zh-CN sidebar link (`全部笔记` in `侧边栏`). This is the pre-existing failure listed in the top-level PROGRESS history; I did not re-baseline it against HEAD in this session.
+- Not run: full `npm run test:e2e`; Linux image. Not committed (per README rules).
+- Known limits: the 5th wrong code still shows "Incorrect code" and the form keeps the challenge until the next submission; that is the server contract (SEC-MFA-1). Recovery-code entry uses the same message.
+- Next: SH4.1 (`TRUSTED_PROXIES`). SH3.4 needs user approval.

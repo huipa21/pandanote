@@ -286,6 +286,163 @@ test('two-step first run, field retention, resume, routing, secure sessions and 
   expect(await loginDto.json()).toEqual({ ok: true });
 });
 
+test('MFA sign-in messages: wrong codes say "Incorrect code", the 6th submission returns to the password step, and a new sign-in works', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  // Runs before the security test (which expects MFA off) and switches MFA back off
+  // at the end. A dedicated forwarded client address keeps the IP buckets separate, and
+  // the trusted-device cookie from confirmation uses the per-device MFA bucket. The
+  // account-wide fresh-auth bucket is shared with the security test, so only two grants
+  // are spent here (enroll and disable, using a recovery code).
+  const origin = 'https://127.0.0.1:4175';
+  const context = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+  const api = page.request;
+  const apiHeaders = { origin, 'x-e2e-client-address': '192.0.2.243' };
+  // Browser form posts use the same synthetic client address.
+  await page.route('**/api/auth/**', (route) =>
+    route.continue({
+      headers: {
+        ...route.request().headers(),
+        'x-e2e-client-address': '192.0.2.243',
+      },
+    }),
+  );
+  try {
+    const first = await api.post('/api/auth/login', {
+      data: { username: 'fixture', password },
+      headers: apiHeaders,
+    });
+    if (first.status() === 409) {
+      expect(
+        (
+          await api.post('/api/setup/account', {
+            data: {
+              username: 'fixture',
+              email: 'fixture@example.invalid',
+              password,
+              passwordConfirm: password,
+              setupCode: await readSetupCode(origin),
+            },
+            headers: apiHeaders,
+          })
+        ).status(),
+      ).toBe(200);
+      expect(
+        (
+          await api.post('/api/setup/preferences', {
+            data: { siteTitle: 'PandaNote', language: 'en', timezone: 'UTC' },
+            headers: apiHeaders,
+          })
+        ).status(),
+      ).toBe(200);
+    } else expect(first.status()).toBe(200);
+    const grant = (
+      await (
+        await api.post('/api/auth/fresh', {
+          data: { scope: 'mfa-enroll', password },
+          headers: apiHeaders,
+        })
+      ).json()
+    ).grant;
+    const enrollment = (
+      await (
+        await api.post('/api/auth/security', {
+          data: { action: 'enroll', grant },
+          headers: apiHeaders,
+        })
+      ).json()
+    ).enrollment;
+    const confirmed = await api.post('/api/auth/security', {
+      data: {
+        action: 'confirm',
+        challenge: enrollment.challenge,
+        code: generateSync({ secret: enrollment.secret }),
+      },
+      headers: apiHeaders,
+    });
+    expect(confirmed.status()).toBe(200);
+    const recoveryCodes: string[] = (await confirmed.json()).codes;
+    expect(
+      (await api.post('/api/auth/logout', { headers: apiHeaders })).status(),
+    ).toBe(200);
+
+    await page.goto('/login');
+    const codeField = page.getByLabel('Authenticator or recovery code', {
+      exact: true,
+    });
+    const submitCode = async (value: string) => {
+      const response = page.waitForResponse('/api/auth/mfa');
+      await codeField.fill(value);
+      await page
+        .getByRole('button', { name: 'Verify code', exact: true })
+        .click();
+      // A successful code navigates away, so its body may be unavailable.
+      return (await response).json().catch(() => null);
+    };
+    await page.getByLabel('Username', { exact: true }).fill('fixture');
+    await page.getByLabel('Password', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(codeField).toBeVisible();
+
+    // Five wrong codes: each says "Incorrect code" and stays on the code step.
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      expect((await submitCode('000000'))?.error?.code).toBe('unauthorized');
+      await expect(page.getByRole('alert')).toHaveText(
+        'Incorrect code. Try again.',
+      );
+      await expect(codeField).toBeVisible();
+    }
+    // The 5th wrong code deleted the challenge; the next submission restarts.
+    expect((await submitCode('000000'))?.error?.code).toBe('mfa_restart');
+    await expect(page.getByRole('alert')).toHaveText(
+      'Too many incorrect codes or the code step expired. Enter your password again.',
+    );
+    await expect(codeField).toHaveCount(0);
+    await expect(page.getByLabel('Username', { exact: true })).toHaveValue(
+      'fixture',
+    );
+    await expect(page.getByLabel('Password', { exact: true })).toHaveValue('');
+
+    // A new sign-in issues a fresh challenge; a not-yet-used TOTP step works.
+    await page.getByLabel('Password', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(codeField).toBeVisible();
+    await submitCode(
+      generateSync({
+        secret: enrollment.secret,
+        epoch: Date.now() / 1000 + 30,
+      }),
+    );
+    await expect(page).toHaveURL(`${origin}/`);
+
+    // Switch MFA off again (a recovery code is the fresh factor) so the security
+    // test starts from the state it expects.
+    const disableGrant = (
+      await (
+        await api.post('/api/auth/fresh', {
+          data: { scope: 'mfa-disable', password, code: recoveryCodes[0] },
+          headers: apiHeaders,
+        })
+      ).json()
+    ).grant;
+    expect(
+      (
+        await api.post('/api/auth/security', {
+          data: { action: 'disable', grant: disableGrant },
+          headers: apiHeaders,
+        })
+      ).status(),
+    ).toBe(200);
+  } finally {
+    await context.close();
+  }
+});
+
 test('confirmed MFA, recovery download/regeneration, fresh scopes, security changes and revoke-all work in the built security UI', async ({
   browser,
 }) => {
@@ -496,7 +653,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     await page.getByLabel('Authenticator or recovery code').fill('invalid');
     await page.getByRole('button', { name: 'Verify code' }).click();
     await expect(page.getByRole('alert')).toContainText(
-      'Invalid username or password',
+      'Incorrect code. Try again.',
     );
     // Confirmation consumed the current step. A next-step code is within the
     // explicit one-step drift and avoids a 30-second wall-clock test sleep.

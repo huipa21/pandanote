@@ -59,6 +59,9 @@ export const en = {
   'auth.mfaPrompt':
     'Enter your authenticator code or a single-use recovery code. This challenge expires in five minutes.',
   'auth.invalid': 'Invalid username or password.',
+  'auth.mfaInvalid': 'Incorrect code. Try again.',
+  'auth.mfaRestart':
+    'Too many incorrect codes or the code step expired. Enter your password again.',
   'auth.failed': 'Unable to sign in. Please retry.',
   'auth.network':
     'Could not reach the server. Your inputs remain here; please retry.',

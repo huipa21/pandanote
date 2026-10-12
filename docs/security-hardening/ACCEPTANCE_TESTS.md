@@ -36,18 +36,18 @@ until its test runs green and the result is recorded in [PROGRESS.md](PROGRESS.m
 
 ## Issue 3 — TOTP guessing (SEC-MFA)
 
-| ID         | Case                                                                                                                    | Sub-task | Covered by                                                |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
-| SEC-MFA-1  | The 5th wrong code deletes the challenge; the next request returns 401 `mfa_restart` even with a valid code.            | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)        |
-| SEC-MFA-2  | A new password sign-in after a restart issues a new challenge that accepts a valid code.                                | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)        |
-| SEC-MFA-3  | The `mfa` account bucket allows 10 attempts per 15 minutes for untrusted callers.                                       | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)        |
-| SEC-MFA-4  | 30 failed codes in 24 h block the untrusted MFA path with a rate-limited message; a trusted device still completes MFA. | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)        |
-| SEC-MFA-5  | Failure counts are committed (survive the thrown error and a new `AuthService` instance).                               | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)        |
-| SEC-MFA-6  | Limiter fixed windows do not extend; protected account buckets survive eviction.                                        | SH3.1    | `tests/integration/rate-limit-counters.test.ts` (4 tests) |
-| SEC-MFA-7  | Wrong second-factor codes in fresh authentication count toward the daily cap.                                           | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)        |
-| SEC-MFA-8  | Existing guarantees hold: TOTP step replay rejected; each recovery code works once.                                     | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)        |
-| SEC-MFA-9  | Browser: a wrong code says "Incorrect code" (not the password message).                                                 | SH3.3    |                                                           |
-| SEC-MFA-10 | Browser: after 5 wrong codes the form returns to the password step with the restart message; a new sign-in then works.  | SH3.3    |                                                           |
+| ID         | Case                                                                                                                             | Sub-task | Covered by                                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------- |
+| SEC-MFA-1  | The 5th wrong code deletes the challenge; the next request returns 401 `mfa_restart` even with a valid code.                     | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)               |
+| SEC-MFA-2  | A new password sign-in after a restart issues a new challenge that accepts a valid code.                                         | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)               |
+| SEC-MFA-3  | The `mfa` account bucket allows 10 attempts per 15 minutes for untrusted callers.                                                | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)               |
+| SEC-MFA-4  | 30 failed codes in 24 h block the untrusted MFA path with a rate-limited message; a trusted device still completes MFA.          | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)               |
+| SEC-MFA-5  | Failure counts are committed (survive the thrown error and a new `AuthService` instance).                                        | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)               |
+| SEC-MFA-6  | Limiter fixed windows do not extend; protected account buckets survive eviction.                                                 | SH3.1    | `tests/integration/rate-limit-counters.test.ts` (4 tests)        |
+| SEC-MFA-7  | Wrong second-factor codes in fresh authentication count toward the daily cap.                                                    | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)               |
+| SEC-MFA-8  | Existing guarantees hold: TOTP step replay rejected; each recovery code works once.                                              | SH3.2    | `tests/integration/auth-mfa.test.ts` (SH3.2 cases)               |
+| SEC-MFA-9  | Browser: a wrong code says "Incorrect code" (not the password message).                                                          | SH3.3    | `tests/e2e/auth.test.ts` "MFA sign-in messages…" (5 wrong codes) |
+| SEC-MFA-10 | Browser: the 6th submission after 5 wrong codes returns to the password step with the restart message; a new sign-in then works. | SH3.3    | `tests/e2e/auth.test.ts` "MFA sign-in messages…"                 |
 
 ## Issue 4 — Forwarded-address trust (SEC-XFF)
 

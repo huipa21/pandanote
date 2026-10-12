@@ -27,6 +27,19 @@ const env = {
 // test accounts through the same public flow as production. No CLI token/seed.
 // Synthetic, short-lived TLS key/certificate: never a production credential.
 // Exercise the real HTTPS edge and overwritten trusted-proxy header in S02.
+/**
+ * Client address the security proxy reports. Tests may pick one of the documentation
+ * addresses (192.0.2.0/24) with x-e2e-client-address to get a separate rate-limit
+ * bucket; everything else shares 192.0.2.44. Test harness only.
+ * @param {import('node:http').IncomingHttpHeaders} headers
+ */
+function e2eClientAddress(headers) {
+  const requested = headers['x-e2e-client-address'];
+  return typeof requested === 'string' && /^192\.0\.2\.\d{1,3}$/.test(requested)
+    ? requested
+    : '192.0.2.44';
+}
+
 /** @type {import('node:https').Server | undefined} */
 let proxy;
 if (security) {
@@ -62,7 +75,10 @@ if (security) {
           port: Number(port),
           path: incoming.url,
           method: incoming.method,
-          headers: { ...incoming.headers, 'x-forwarded-for': '192.0.2.44' },
+          headers: {
+            ...incoming.headers,
+            'x-forwarded-for': e2eClientAddress(incoming.headers),
+          },
         },
         (response) => {
           outgoing.writeHead(response.statusCode ?? 502, response.headers);

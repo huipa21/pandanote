@@ -34,9 +34,19 @@
       );
       const result = await response.json();
       if (!response.ok || result.ok !== true) {
+        const errorCode = result.error?.code;
+        if (challenge && errorCode === 'mfa_restart') {
+          // The challenge is gone (too many wrong codes or expired): start over.
+          challenge = '';
+          code = '';
+          message = t('auth.mfaRestart');
+          return;
+        }
         message =
-          result.error?.code === 'unauthorized'
-            ? t('auth.invalid')
+          errorCode === 'unauthorized'
+            ? challenge
+              ? t('auth.mfaInvalid')
+              : t('auth.invalid')
             : (result.error?.message ?? t('auth.failed'));
         return;
       }
