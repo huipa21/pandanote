@@ -224,8 +224,8 @@ docker compose run --rm pandanote reset-password
 
 Requires an interactive terminal, no arguments or piped input. It displays the
 username and asks twice **without echo**. One transaction changes the password,
-disables MFA/recovery codes and revokes sessions/challenges, preserving notes,
-files and settings. It works with the app running; old sessions fail on their next
+disables MFA/recovery codes, revokes sessions/challenges and clears all sign-in rate
+limits, preserving notes, files and settings. It works with the app running; old sessions fail on their next
 request, without restart. Missing accounts or pending recovery journals refuse.
 Re-enable MFA afterwards. There is no public reset endpoint. See the
 [restore/recovery runbook](ops/RESTORE_RUNBOOK.md) for an app that cannot start.

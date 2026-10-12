@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { beforeAll, expect, it } from 'vitest';
 import { withPersistence } from '../helpers/persistence.ts';
+import { setupCodesIn, waitForSetupCode } from '../helpers/setup-code.ts';
 beforeAll(() => {
   const build = spawnSync(
     process.execPath,
@@ -124,7 +125,16 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
       password: '12345678',
       passwordConfirm: '12345678',
     };
+    // The setup code is the newest logged code; `signed` always uses the current one.
+    let code = '';
+    const signed = (data: object) => ({ ...data, setupCode: code });
     let stop = await launch();
+    // SEC-SETUP-9: one code line and one link line on a fresh start with no account.
+    code = await waitForSetupCode(() => output);
+    expect(setupCodesIn(output)).toEqual([code]);
+    expect(output).toContain(
+      `PandaNote setup link: ${origin}/setup#code=${code}`,
+    );
     try {
       for (const path of pages) {
         const response = await get(path);
@@ -136,11 +146,29 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
       writeFileSync(marker, 'advance');
       const expired = await get('/setup');
       expect(await expired.text()).toContain('Setup has timed out');
-      expect((await post('/api/setup/account', details)).status).toBe(403);
+      // SEC-SETUP-6: after the window even a correct code is setup_closed.
+      expect((await post('/api/setup/account', signed(details))).status).toBe(
+        403,
+      );
       expect((await post('/api/setup/account', {})).status).toBe(403);
       await stop();
       rmSync(marker);
       stop = await launch();
+      // A restart prints a new code; the old one now fails with the field error.
+      const restarted = await waitForSetupCode(() => output, 2);
+      expect(restarted).not.toBe(code);
+      const stale = await post(
+        '/api/setup/account',
+        signed(details),
+        '',
+        '192.0.2.3',
+      );
+      expect(stale.status).toBe(400);
+      expect((await stale.json()).error.fields).toEqual({
+        setupCode:
+          'Setup code is incorrect. Use the newest code from the server log.',
+      });
+      code = restarted;
       expect(await (await get('/setup')).text()).toContain('Create account');
       // LANG-03: before setup completes the browser's Accept-Language decides.
       const localized = (path: string, language?: string, cookie = '') =>
@@ -169,35 +197,71 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
       expect(
         htmlLang(await localized('/setup', 'fr;q=0.9, zh-Hans-CN;q=0.2')),
       ).toBe('zh-CN');
-      const mismatched = await post('/api/setup/account', {
-        ...details,
-        passwordConfirm: 'mismatch',
-      });
+      const mismatched = await post(
+        '/api/setup/account',
+        signed({
+          ...details,
+          passwordConfirm: 'mismatch',
+        }),
+      );
       expect(mismatched.status).toBe(400);
       expect(await mismatched.text()).not.toContain(details.password);
+      // SEC-SETUP-2: a missing or wrong code is a 400 setupCode field error, no account.
+      const missing = await post(
+        '/api/setup/account',
+        details,
+        '',
+        '192.0.2.4',
+      );
+      expect(missing.status).toBe(400);
+      expect((await missing.json()).error.fields).toEqual({
+        setupCode:
+          'Setup code is incorrect. Use the newest code from the server log.',
+      });
       for (let i = 0; i < 10; i++)
         expect(
           (
             await post(
               '/api/setup/account',
-              { ...details, username: '!' },
+              signed({ ...details, username: '!' }),
               '',
               '192.0.2.2',
             )
           ).status,
         ).toBe(400);
       expect(
-        (await post('/api/setup/account', details, '', '192.0.2.2')).status,
+        (await post('/api/setup/account', signed(details), '', '192.0.2.2'))
+          .status,
       ).toBe(429);
       const race = await Promise.all([
-        post('/api/setup/account', details),
-        post('/api/setup/account', details),
+        post('/api/setup/account', signed(details)),
+        post('/api/setup/account', signed(details)),
       ]);
       expect(race.map((r) => r.status).sort()).toEqual([200, 409]);
       const cookie = race
         .find((r) => r.status === 200)!
         .headers.get('set-cookie')!
         .split(';')[0];
+      // SEC-LOCK-7 / SEC-LOCK-3: the device marker is scoped, HttpOnly and never a session.
+      const deviceCookie = race
+        .find((r) => r.status === 200)!
+        .headers.getSetCookie()
+        .find((c) => c.startsWith('pandanote_device='))!;
+      expect(deviceCookie).toMatch(/; Path=\/api\/auth(;|$)/);
+      expect(deviceCookie).toMatch(/; HttpOnly/);
+      expect(deviceCookie).toMatch(/; SameSite=Strict/);
+      expect(deviceCookie).toMatch(/; Secure/);
+      const expires = /; Expires=([^;]+)/.exec(deviceCookie)?.[1];
+      expect(Date.parse(expires!) - Date.now()).toBeLessThanOrEqual(
+        180 * 86_400_000 + 60_000,
+      );
+      const deviceValue = deviceCookie
+        .split(';')[0]
+        .slice('pandanote_device='.length);
+      expect(
+        (await get('/api/auth/security', `pandanote_device=${deviceValue}`))
+          .status,
+      ).toBe(401);
       for (const path of pages) {
         const out = await get(path);
         expect(out.status).toBe(path === '/login' ? 200 : 303);
@@ -338,6 +402,13 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
       ).toBe(429);
       expect(output).not.toContain(details.password);
       expect(output).not.toContain(cookie.split('=')[1]);
+      expect(output).not.toContain(deviceValue);
+      // SEC-SETUP-7: with an account present, a restart logs no setup code.
+      await stop();
+      stop = await launch();
+      await delay(200);
+      expect(setupCodesIn(output)).toHaveLength(2);
+      expect(output.match(/PandaNote setup link: /g)).toHaveLength(2);
     } finally {
       await stop();
     }

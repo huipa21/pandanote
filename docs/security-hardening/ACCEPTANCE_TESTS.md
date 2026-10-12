@@ -1,0 +1,63 @@
+# Security hardening — acceptance tests
+
+Each case is verified by a real automated test unless marked _manual_. Fill in
+"Covered by" (file + test name) when a sub-task adds the test. A case is not passed
+until its test runs green and the result is recorded in [PROGRESS.md](PROGRESS.md).
+
+## Issue 1 — Login lockout (SEC-LOCK)
+
+| ID         | Case                                                                                                                                               | Sub-task | Covered by                                                                                                                    |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| SEC-LOCK-1 | After 30 anonymous login attempts from rotating IPs, a caller without a device cookie is rate-limited even with the correct password.              | SH1.1    | `tests/integration/auth.test.ts` "anonymous attempt floods cannot lock out a trusted device…" (verified)                      |
+| SEC-LOCK-2 | During that flood, a valid `pandanote_device` holder signs in with the correct password and keeps the same device id.                              | SH1.1    | same test (verified)                                                                                                          |
+| SEC-LOCK-3 | Junk and forged device cookies are treated as no cookie; the device cookie alone never authenticates any request.                                  | SH1.1    | same test (junk/forged); `tests/integration/setup-server.test.ts` "real HTTP covers…" (cookie `GET /api/auth/security` → 401) |
+| SEC-LOCK-4 | The MFA step honors the device cookie: flooded `mfa` account bucket blocks untrusted callers but not a trusted device.                             | SH1.1    | `tests/integration/auth-mfa.test.ts` "MFA honors the trusted device…" (verified)                                              |
+| SEC-LOCK-5 | After password change / MFA enable / MFA disable / recovery regeneration / lifetime change, the device stays trusted at the new security revision. | SH1.2    | `tests/integration/auth-mfa.test.ts` "every security change re-issues the same trusted device…" (verified)                    |
+| SEC-LOCK-6 | `reset-password` deletes all rate-limit rows and invalidates every device token.                                                                   | SH1.1    | same `auth.test.ts` test (rows cleared; token revision invalidation also in `tests/unit/device-trust.test.ts`)                |
+| SEC-LOCK-7 | Cookie attributes: `HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, `Secure` in production, ≤ 180 days.                                            | SH1.1    | `tests/integration/setup-server.test.ts` "real HTTP covers…" (real server Set-Cookie)                                         |
+
+## Issue 2 — Setup code (SEC-SETUP)
+
+| ID           | Case                                                                                                                                | Sub-task | Covered by                                                                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-SETUP-1  | Code format: 20 symbols from the 31-character alphabet, shown in 4 groups of 5; input accepts lowercase, spaces and hyphens.        | SH2.1    | `tests/integration/auth.test.ts` "setup code: …" (3 cases, verified)                                                                                                                                                   |
+| SEC-SETUP-2  | Setup without a code, with a wrong code, or with another process's code is rejected with a 400 `setupCode` field error; no account. | SH2.1    | `auth.test.ts` "setup code: missing, wrong and another instance…" (verified)                                                                                                                                           |
+| SEC-SETUP-3  | Correct code + valid details creates the account (existing setup flow continues to `/setup/preferences`).                           | SH2.1    | `auth.test.ts` "setup code: missing, wrong…" and `setup-server.test.ts` (verified)                                                                                                                                     |
+| SEC-SETUP-4  | 30 wrong-code attempts from rotating IPs do not prevent the correct code from succeeding.                                           | SH2.1    | `auth.test.ts` "setup code: 30 wrong codes…" (verified)                                                                                                                                                                |
+| SEC-SETUP-5  | Wrong codes count toward the setup account and IP buckets (rate-limited after the limit).                                           | SH2.1    | `auth.test.ts` "setup code: 30 wrong codes…" (second case; verified)                                                                                                                                                   |
+| SEC-SETUP-6  | After the 60-minute window, a correct code still gets `setup_closed`; a restart prints a new code and the old one fails.            | SH2.1    | `auth.test.ts` "setup code: a correct code still gets setup_closed…" (verified)                                                                                                                                        |
+| SEC-SETUP-7  | `setupCode()` returns null and no log line is printed when an account exists.                                                       | SH2.1    | `auth.test.ts` "setup code: missing, wrong…" (null after account) and `setup-server.test.ts` (verified)                                                                                                                |
+| SEC-SETUP-8  | The code never appears in SQLite, files under `DATA_DIR`, HTTP responses or any other log line.                                     | SH2.2    | `tests/integration/auth.test.ts` "setup code: SEC-SETUP-8 …" (scans every DATA_DIR file and the result; verified). Log line is the sole allowed exception; e2e harness file lives outside DATA_DIR.                    |
+| SEC-SETUP-9  | Real server prints exactly one `PandaNote setup code:` line and one link line using `ORIGIN`.                                       | SH2.1    | `setup-server.test.ts` "real HTTP covers…" (one code line, one link line; verified)                                                                                                                                    |
+| SEC-SETUP-10 | Concurrent creations with the correct code still produce exactly one account.                                                       | SH2.1    | `auth.test.ts` "concurrent setup across two SQLite connections…" (verified)                                                                                                                                            |
+| SEC-SETUP-11 | Browser: `/setup#code=…` prefills the field and the address bar no longer shows the fragment.                                       | SH2.2    | `tests/e2e/auth.test.ts` first test (prefill and empty `hash`; verified)                                                                                                                                               |
+| SEC-SETUP-12 | Browser: wrong code shows the field error (en and zh-CN strings exist); correct code reaches preferences.                           | SH2.2    | `tests/e2e/auth.test.ts` "setup rejects a wrong setup code…" (en error; verified) + first test (correct code reaches preferences). zh-CN page keys exist; zh-CN browser run not added; server field message is English |
+| SEC-SETUP-13 | Linux image/release drill completes setup using the code read from `docker logs`. _Linux only._                                     | SH2.3    |                                                                                                                                                                                                                        |
+
+## Issue 3 — TOTP guessing (SEC-MFA)
+
+| ID         | Case                                                                                                                    | Sub-task | Covered by |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| SEC-MFA-1  | The 5th wrong code deletes the challenge; the next request returns 401 `mfa_restart` even with a valid code.            | SH3.2    |            |
+| SEC-MFA-2  | A new password sign-in after a restart issues a new challenge that accepts a valid code.                                | SH3.2    |            |
+| SEC-MFA-3  | The `mfa` account bucket allows 10 attempts per 15 minutes for untrusted callers.                                       | SH3.2    |            |
+| SEC-MFA-4  | 30 failed codes in 24 h block the untrusted MFA path with a rate-limited message; a trusted device still completes MFA. | SH3.2    |            |
+| SEC-MFA-5  | Failure counts are committed (survive the thrown error and a new `AuthService` instance).                               | SH3.2    |            |
+| SEC-MFA-6  | Limiter fixed windows do not extend; protected account buckets survive eviction.                                        | SH3.1    |            |
+| SEC-MFA-7  | Wrong second-factor codes in fresh authentication count toward the daily cap.                                           | SH3.2    |            |
+| SEC-MFA-8  | Existing guarantees hold: TOTP step replay rejected; each recovery code works once.                                     | SH3.2    |            |
+| SEC-MFA-9  | Browser: a wrong code says "Incorrect code" (not the password message).                                                 | SH3.3    |            |
+| SEC-MFA-10 | Browser: after 5 wrong codes the form returns to the password step with the restart message; a new sign-in then works.  | SH3.3    |            |
+
+## Issue 4 — Forwarded-address trust (SEC-XFF)
+
+| ID        | Case                                                                                                                   | Sub-task | Covered by |
+| --------- | ---------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
+| SEC-XFF-1 | `TRUSTED_PROXIES` unset: all existing `clientIp` behavior unchanged.                                                   | SH4.1    |            |
+| SEC-XFF-2 | `TRUSTED_PROXIES=none`: XFF ignored even from loopback/private peers.                                                  | SH4.1    |            |
+| SEC-XFF-3 | List mode: XFF read only from listed addresses/CIDRs; other private peers use their own address.                       | SH4.1    |            |
+| SEC-XFF-4 | IPv4-mapped IPv6 peers match IPv4 entries.                                                                             | SH4.1    |            |
+| SEC-XFF-5 | Invalid values (bad IP, bad prefix, > 32 entries) stop startup with the documented message; legacy name still ignored. | SH4.1    |            |
+| SEC-XFF-6 | IPv6 rate-limit key is the /64; IPv4-mapped IPv6 uses the IPv4 address.                                                | SH4.2    |            |
+| SEC-XFF-7 | 10 attempts from different addresses in one /64 exhaust that IP bucket; another /64 is unaffected.                     | SH4.2    |            |
+| SEC-XFF-8 | DEPLOYMENT documents the variable, how to find/fix Caddy's address, and `none` for direct exposure. _Docs review._     | SH4.3    |            |

@@ -69,7 +69,10 @@ export const zhCN: Partial<Catalog> = {
   'setup.heading': '设置你的笔记本',
   'setup.timedOut': '设置已超时。请在服务器上重启 PandaNote 以重新开放设置：',
   'setup.intro':
-    '第 1 步，共 2 步。服务器启动后 60 分钟内可进行设置。第一个创建账号的访问者将拥有此笔记本。',
+    '第 1 步，共 2 步。请输入服务器日志中的设置码。服务器启动后 60 分钟内可进行设置；设置码仅在尚未创建账号时有效。',
+  'setup.code': '设置码',
+  'setup.codeHelp':
+    '请在服务器日志中查找。使用最新的一行，或打开其中打印的设置链接。',
   'setup.username': '用户名',
   'setup.email': '电子邮箱',
   'setup.emailHelp': '供今后使用，不会验证，也不会发送邮件。',

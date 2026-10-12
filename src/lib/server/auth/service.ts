@@ -16,6 +16,7 @@ import {
   account,
   sessions,
   authChallenges,
+  authRateLimits,
   recoveryCodes,
   appSettings,
 } from '../db/schema.ts';
@@ -33,6 +34,14 @@ import { readSettings } from '../settings/repository.ts';
 import { hashPassword, verifyPassword } from './passwords.ts';
 import { newAuthToken, tokenHash } from './tokens.ts';
 import { AuthRateLimiter } from './rate-limits.ts';
+import { DeviceTrust, type DeviceToken } from './device-trust.ts';
+import {
+  SETUP_CODE_BUCKET,
+  SetupCodeError,
+  newSetupCode,
+  setupCodeDigest,
+  setupCodeMatches,
+} from './setup-code.ts';
 
 export interface SessionIdentity {
   account: AccountDto;
@@ -44,6 +53,8 @@ export interface SessionCredential {
   token: string; // Server-only; returned only to the cookie boundary.
   expiresAt: number;
   mfaRequired?: false;
+  // Trusted-device rate-limit marker for the cookie boundary; not a credential.
+  device?: DeviceToken;
 }
 export interface PendingMfaCredential {
   token: string; // Pending challenge, NOT a session or cookie credential.
@@ -67,11 +78,19 @@ const dummyHash =
 export class AuthService {
   private readonly persistence: Persistence;
   private readonly limiter: AuthRateLimiter;
+  private readonly devices: DeviceTrust;
   private readonly clock: () => number;
   private readonly startedAt: number;
+  // Setup code (SH2): plaintext only in memory for the startup log line; the digest
+  // is what verification compares. Both are absent once an account exists.
+  private setupCodePlain?: string;
+  private setupCodeDigest?: string;
   constructor(persistence: Persistence, clock = Date.now, startedAt = clock()) {
     this.persistence = persistence;
     this.limiter = new AuthRateLimiter(persistence);
+    this.devices = new DeviceTrust(
+      persistence.storage.readKeys().totpEncryptionKey,
+    );
     this.clock = clock;
     this.startedAt = startedAt;
   }
@@ -93,9 +112,35 @@ export class AuthService {
         'Setup has timed out. Restart PandaNote on the server to open it again (docker compose restart pandanote).',
       );
   }
+  // Generated lazily while no account exists and stable for this instance. A new
+  // process gets a new code. Returns null once an account exists.
+  setupCode(): string | null {
+    if (this.setupState() !== 'new') {
+      this.setupCodePlain = undefined;
+      this.setupCodeDigest = undefined;
+      return null;
+    }
+    if (this.setupCodePlain === undefined) {
+      this.setupCodePlain = newSetupCode();
+      this.setupCodeDigest = setupCodeDigest(this.setupCodePlain);
+    }
+    return this.setupCodePlain;
+  }
   async createAccount(value: unknown, ip: string): Promise<SessionCredential> {
     this.assertSetupOpen();
-    this.limiter.attempt('setup', ip, this.clock());
+    const now = this.clock();
+    // Verify the code before any other input. A wrong or missing code is a guess and
+    // counts toward the account and IP buckets. A correct code is counted only in its
+    // own bucket (plus the IP bucket) so wrong-code floods cannot block the owner.
+    const supplied =
+      typeof value === 'object' && value !== null
+        ? (value as { setupCode?: unknown }).setupCode
+        : undefined;
+    if (!setupCodeMatches(this.setupCodeDigest, supplied)) {
+      this.limiter.attempt('setup', ip, now);
+      throw new SetupCodeError();
+    }
+    this.limiter.attempt('setup', ip, now, SETUP_CODE_BUCKET);
     const input = setupAccountSchema.parse(value);
     if (creatingAccount) {
       try {
@@ -120,7 +165,10 @@ export class AuthService {
             createdAt: this.clock(),
           })
           .run();
-        return this.createSession(tx, id, 1, this.clock());
+        return {
+          ...this.createSession(tx, id, 1, this.clock()),
+          device: this.devices.issue(id, 1, this.clock()),
+        };
       });
     });
     creatingAccount = work;
@@ -167,8 +215,10 @@ export class AuthService {
     username: unknown,
     password: unknown,
     ip: string,
+    deviceToken?: string,
   ): Promise<LoginResult> {
-    this.limiter.attempt('login', ip, this.clock());
+    const deviceId = this.trustedDeviceId(deviceToken);
+    this.limiter.attempt('login', ip, this.clock(), deviceId);
     return this.persistence.coordinator.writeAsync(async () => {
       const snapshot = this.persistence.db.select().from(account).get();
       const parsedUsername = usernameSchema.safeParse(username);
@@ -205,14 +255,28 @@ export class AuthService {
           );
           return { ...challenge, mfaRequired: true as const };
         }
-        return this.createSession(
-          tx,
-          current.id,
-          current.securityRevision,
-          this.clock(),
-        );
+        return {
+          ...this.createSession(
+            tx,
+            current.id,
+            current.securityRevision,
+            this.clock(),
+          ),
+          device: this.devices.issue(
+            current.id,
+            current.securityRevision,
+            this.clock(),
+            deviceId ?? undefined,
+          ),
+        };
       });
     });
+  }
+  // Verified trusted-device id for the current account/revision, else null.
+  private trustedDeviceId(token: string | undefined): string | null {
+    if (!token) return null;
+    const owner = this.persistence.db.select().from(account).get();
+    return this.devices.verify(token, owner, this.clock());
   }
   private createSession(
     tx: DomainTransaction,
@@ -410,8 +474,14 @@ export class AuthService {
         .run().changes === 1
     );
   }
-  completeMfa(token: string, code: string, ip: string): SessionCredential {
-    this.limiter.attempt('mfa', ip, this.clock());
+  completeMfa(
+    token: string,
+    code: string,
+    ip: string,
+    deviceToken?: string,
+  ): SessionCredential {
+    const deviceId = this.trustedDeviceId(deviceToken);
+    this.limiter.attempt('mfa', ip, this.clock(), deviceId);
     return this.persistence.write((tx) => {
       const owner = tx.select().from(account).get();
       const challenge =
@@ -426,12 +496,20 @@ export class AuthService {
       tx.delete(authChallenges)
         .where(eq(authChallenges.tokenHash, challenge.tokenHash))
         .run();
-      return this.createSession(
-        tx,
-        owner.id,
-        owner.securityRevision,
-        this.clock(),
-      );
+      return {
+        ...this.createSession(
+          tx,
+          owner.id,
+          owner.securityRevision,
+          this.clock(),
+        ),
+        device: this.devices.issue(
+          owner.id,
+          owner.securityRevision,
+          this.clock(),
+          deviceId ?? undefined,
+        ),
+      };
     });
   }
   async freshAuth(
@@ -552,7 +630,13 @@ export class AuthService {
     tx: DomainTransaction,
     owner: typeof account.$inferSelect,
     keepCurrent = true,
+    deviceToken?: string,
   ): SessionCredential | null {
+    // Verify the request's device token against the pre-rotation revision so the
+    // same device id survives the revision bump. Never issued when !keepCurrent.
+    const deviceId = keepCurrent
+      ? this.devices.verify(deviceToken, owner, this.clock())
+      : null;
     const revision = owner.securityRevision + 1;
     tx.update(account)
       .set({ securityRevision: revision })
@@ -561,7 +645,15 @@ export class AuthService {
     tx.delete(authChallenges).run();
     tx.delete(sessions).run();
     return keepCurrent
-      ? this.createSession(tx, owner.id, revision, this.clock())
+      ? {
+          ...this.createSession(tx, owner.id, revision, this.clock()),
+          device: this.devices.issue(
+            owner.id,
+            revision,
+            this.clock(),
+            deviceId ?? undefined,
+          ),
+        }
       : null;
   }
   confirmEnrollment(
@@ -569,6 +661,7 @@ export class AuthService {
     token: string,
     code: string,
     ip: string,
+    deviceToken?: string,
   ) {
     this.limiter.attempt('enrollment', ip, this.clock());
     return this.persistence.write((tx) => {
@@ -603,11 +696,11 @@ export class AuthService {
         .where(eq(account.id, owner.id))
         .run();
       const codes = this.generateRecoveryCodes(tx, owner);
-      const credential = this.rotateSecurity(tx, owner)!;
+      const credential = this.rotateSecurity(tx, owner, true, deviceToken)!;
       return { codes, credential };
     });
   }
-  disableMfa(identity: SessionIdentity, grant: string) {
+  disableMfa(identity: SessionIdentity, grant: string, deviceToken?: string) {
     return this.persistence.write((tx) => {
       this.consumeFreshGrant(tx, identity, grant, 'mfa-disable');
       const owner = this.currentIdentity(tx, identity);
@@ -616,23 +709,31 @@ export class AuthService {
         .where(eq(account.id, owner.id))
         .run();
       tx.delete(recoveryCodes).run();
-      return this.rotateSecurity(tx, owner)!;
+      return this.rotateSecurity(tx, owner, true, deviceToken)!;
     });
   }
-  regenerateRecoveryCodes(identity: SessionIdentity, grant: string) {
+  regenerateRecoveryCodes(
+    identity: SessionIdentity,
+    grant: string,
+    deviceToken?: string,
+  ) {
     return this.persistence.write((tx) => {
       this.consumeFreshGrant(tx, identity, grant, 'recovery-regenerate');
       const owner = this.currentIdentity(tx, identity);
       if (owner.totpEnabled !== 1)
         throw new DomainError('conflict', 'Enable MFA first.');
       const codes = this.generateRecoveryCodes(tx, owner);
-      return { codes, credential: this.rotateSecurity(tx, owner)! };
+      return {
+        codes,
+        credential: this.rotateSecurity(tx, owner, true, deviceToken)!,
+      };
     });
   }
   async changePassword(
     identity: SessionIdentity,
     grant: string,
     password: unknown,
+    deviceToken?: string,
   ) {
     passwordSchema.parse(password);
     return this.persistence.coordinator.writeAsync(async () => {
@@ -662,7 +763,7 @@ export class AuthService {
           .set({ passwordHash })
           .where(eq(account.id, owner.id))
           .run();
-        return this.rotateSecurity(tx, owner)!;
+        return this.rotateSecurity(tx, owner, true, deviceToken)!;
       });
     });
   }
@@ -676,6 +777,7 @@ export class AuthService {
     identity: SessionIdentity,
     grant: string,
     days: number,
+    deviceToken?: string,
   ) {
     if (!Number.isInteger(days) || days < 1 || days > 30)
       throw new DomainError('validation', 'Use 1–30 days.');
@@ -689,7 +791,7 @@ export class AuthService {
           updatedAt: this.clock(),
         })
         .run();
-      return this.rotateSecurity(tx, owner)!;
+      return this.rotateSecurity(tx, owner, true, deviceToken)!;
     });
   }
   securityStatus(identity: SessionIdentity) {
@@ -756,6 +858,9 @@ export class AuthService {
           .run();
         tx.delete(recoveryCodes).run();
         this.rotateSecurity(tx, owner, false);
+        // Operator recovery: clear any attempt-flood lockout. Trusted-device tokens
+        // are already invalidated by the security revision change.
+        tx.delete(authRateLimits).run();
       });
     });
   }

@@ -1,5 +1,18 @@
 # PandaNote — Product specification
 
+## Approved change — security hardening (planned)
+
+From a security review the user approved: (1) known devices are not locked out by
+anonymous sign-in floods, and operator `reset-password` clears sign-in limits;
+(2) **a setup code is required for first setup** — it is printed once to the server
+log at start (with a `/setup#code=…` link) and is valid only while no account exists
+and within the 60-minute window; this supersedes "Approved first-visitor ownership:
+no setup secret" in section 13; (3) stricter limits on second-factor guessing;
+(4) optional `TRUSTED_PROXIES` for forwarded-address trust. Details, order and status:
+[security-hardening/README.md](security-hardening/README.md) and
+[PLAN](security-hardening/PLAN.md). Until each sub-task is done, the current
+behavior below still describes the running code.
+
 ## Approved change — note card actions
 
 The user approved a tidier card and direct note actions. Tags sit in their own row
@@ -467,7 +480,13 @@ Concurrent edit handling:
   malformed/chained returns 400. Public peers ignore XFF; adapter forwarding
   overrides remain forbidden.
 - Domain/origin configurable through deployment environment.
-- Password securely hashed; secure sessions and login rate limits.
+- Password securely hashed; secure sessions. Sign-in limits are fixed 15-minute windows:
+  untrusted callers share 30 password attempts per account and 10 per IP address.
+  A browser that signed in before holds an HttpOnly `pandanote_device` cookie (180
+  days, reissued after security changes) that moves it to its own 30-attempt bucket,
+  so anonymous floods cannot lock it out. The cookie never authenticates a request.
+  Operator `reset-password` clears every sign-in limit. A new device during an attack
+  gets "Too many attempts. Try again in 15 minutes." until the window ends.
 - TOTP MFA optional, managed in Settings.
 - MFA enrollment requires confirmation code before activation.
 - Generate 10 single-use recovery codes when MFA is enabled; show/download at generation only.
@@ -479,7 +498,8 @@ Concurrent edit handling:
 - Lost password/MFA requires VPS access: `docker compose run --rm pandanote
 reset-password` (local `npm run reset-password`). Interactive terminal/no echo,
   double prompt, no arguments/pipes; atomically reset password, disable MFA/codes
-  and revoke sessions/challenges without changing notes/files/settings. Live-app safe,
+  and revoke sessions/challenges and clear sign-in rate limits, without changing
+  notes/files/settings. Live-app safe,
   pending recovery journal/no-account refusal; never a public bypass.
 
 ## 14. Settings and manual full backup/restore

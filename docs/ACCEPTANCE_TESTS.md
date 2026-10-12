@@ -1,5 +1,12 @@
 # PandaNote — Acceptance and verification matrix
 
+## Security hardening (approved change)
+
+Cases SEC-LOCK, SEC-SETUP, SEC-MFA and SEC-XFF in
+[security-hardening/ACCEPTANCE_TESTS.md](security-hardening/ACCEPTANCE_TESTS.md).
+When SEC-SETUP lands, setup acceptance that assumes "first visitor owns the instance"
+without a code is superseded.
+
 ## Note card actions (approved change)
 
 Cases NA-LAYOUT, NA-MENU, NA-PIN, NA-EDIT, NA-DELETE in

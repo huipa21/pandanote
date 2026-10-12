@@ -11,6 +11,7 @@ export async function createFixtureAccount(
       email: 'fixture@example.invalid',
       password,
       passwordConfirm: password,
+      setupCode: auth.setupCode()!,
     },
     ip,
   );

@@ -1,11 +1,49 @@
 import { readFileSync } from 'node:fs';
 import { scanSetup } from '../helpers/setup-accessibility.ts';
 import { browserSession } from '../helpers/browser-session.ts';
+import { readSetupCode } from '../helpers/setup-code.ts';
 import { generateSync } from 'otplib';
 import { expect, test, request as playwrightRequest } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:4173';
 const password = 'synthetic-e2e-only-secret 密碼';
+
+// Runs first in this file (single worker, file order): no account exists yet.
+test('setup rejects a wrong setup code and keeps the form without creating an account', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/setup');
+  await expect(page.getByLabel('Setup code', { exact: true })).toHaveValue('');
+  await page
+    .getByLabel('Setup code', { exact: true })
+    .fill('22222-22222-22222-22222');
+  await page.getByLabel('Username', { exact: true }).fill('FIXTURE');
+  await page
+    .getByLabel('Email', { exact: true })
+    .fill('fixture@example.invalid');
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Re-enter password').fill(password);
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('#setup-code-error')).toContainText(
+    'Setup code is incorrect',
+  );
+  await expect(page.getByLabel('Setup code', { exact: true })).toHaveValue(
+    '22222-22222-22222-22222',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Create account' }),
+  ).toBeEnabled();
+  // Login still reports that no account exists (409), so nothing was created.
+  expect(
+    (
+      await request.post('/api/auth/login', {
+        headers: { origin },
+        data: { username: 'fixture', password },
+      })
+    ).status(),
+  ).toBe(409);
+});
 
 test('two-step first run, field retention, resume, routing, secure sessions and username login work in the built app', async ({
   page,
@@ -14,11 +52,13 @@ test('two-step first run, field retention, resume, routing, secure sessions and 
   browser,
 }) => {
   test.setTimeout(90_000);
+  const setupCode = await readSetupCode(origin);
   const account = {
     username: 'FIXTURE',
     email: 'fixture@example.invalid',
     password,
     passwordConfirm: password,
+    setupCode,
   };
   for (const path of [
     '/',
@@ -60,7 +100,12 @@ test('two-step first run, field retention, resume, routing, secure sessions and 
   });
   expect(invalid.status()).toBe(400);
   expect(await invalid.text()).not.toContain(password);
-  await page.goto('/');
+  await page.goto(`/setup#code=${setupCode}`);
+  // The fragment prefills the field and is removed from the address bar.
+  await expect(page.getByLabel('Setup code', { exact: true })).toHaveValue(
+    setupCode,
+  );
+  expect(new URL(page.url()).hash).toBe('');
   await expect(
     page.getByRole('button', { name: 'Create account' }),
   ).toBeEnabled();
@@ -270,6 +315,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
             email: 'fixture@example.invalid',
             password,
             passwordConfirm: password,
+            setupCode: await readSetupCode(origin),
           },
           headers: { origin },
         })

@@ -33,12 +33,30 @@ export const accountDetailsSchema = z.strictObject({
   username: usernameSchema,
   email: emailSchema,
 });
+// Setup code (security-hardening SH2): 20 symbols from a 31-symbol alphabet with no
+// I, L, O, 0 or 1. Shown as XXXXX-XXXXX-XXXXX-XXXXX; input may use any case, spaces
+// and hyphens. Client and server share this normalization.
+export const normalizeSetupCode = (value: string): string =>
+  value.replace(/[\s-]/g, '').toUpperCase();
+export const setupCodeSchema = z
+  .string()
+  .max(100, 'Enter the setup code from the server log.')
+  .transform(normalizeSetupCode)
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{20}$/,
+        'Enter the setup code from the server log.',
+      ),
+  );
 export const setupAccountSchema = z
   .strictObject({
     username: usernameSchema,
     email: emailSchema,
     password: passwordSchema,
     passwordConfirm: passwordSchema,
+    setupCode: setupCodeSchema,
   })
   .refine((value) => value.password === value.passwordConfirm, {
     path: ['passwordConfirm'],

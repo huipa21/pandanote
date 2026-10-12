@@ -12,6 +12,11 @@ migration, hardened-Compose and fixed-proxy-IP parts of earlier documents (see
 [SPEC §10](SPEC.md#10-documentation-reconciliation)). It does not close S18's outstanding
 real-VPS/device/accessibility gates.
 
+> **Superseded in part (2026-10 security review, user approved):** setup will require
+> a one-time setup code printed to the server log at start. This replaces "No token
+> exists" / D5 / D16 for setup only; zero-config deployment otherwise stays. See
+> [security-hardening/README.md](../security-hardening/README.md) Decision 2.
+
 ## Goal
 
 Setting up PandaNote should be easy:

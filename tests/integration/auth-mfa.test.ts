@@ -611,3 +611,151 @@ it('operator reset on a second connection is atomic and immediately invalidates 
     }
   });
 });
+it('MFA honors the trusted device: a flooded mfa account bucket blocks no-device and forged-device callers but not the real device token (SEC-LOCK-4)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    f.enable();
+    // Full sign-in at the current security revision issues the device token.
+    const first = await f.auth.login('fixture', password, ip);
+    const signedIn = f.auth.completeMfa(
+      first.token,
+      otp(f.enrollment.secret, f.time),
+      ip,
+    );
+    const device = signedIn.device!.token;
+    const deviceId = device.split('.')[1];
+    f.advance(); // the sign-in consumed this TOTP step (replay is rejected)
+    // Anonymous junk from rotating addresses fills the shared mfa account bucket
+    // (the sign-in above already counted one attempt there).
+    const limiter = new AuthRateLimiter(p);
+    for (let i = 0; i < 29; i++)
+      limiter.attempt('mfa', `198.51.100.${i + 1}`, f.time);
+    const pending = await f.auth.login('fixture', password, ip);
+    const code = otp(f.enrollment.secret, f.time);
+    // The rate-limited attempts do not consume the challenge.
+    expect(() => f.auth.completeMfa(pending.token, code, ip)).toThrow(
+      /Too many/,
+    );
+    const forged = device.replace(/[^.]+$/, 'A'.repeat(43));
+    expect(() => f.auth.completeMfa(pending.token, code, ip, forged)).toThrow(
+      /Too many/,
+    );
+    const done = f.auth.completeMfa(pending.token, code, ip, device);
+    expect(f.auth.authenticate(done.token)).not.toBeNull();
+    expect(done.device!.token.split('.')[1]).toBe(deviceId);
+  });
+});
+it('every security change re-issues the same trusted device at the new revision; revokeAll issues none (SEC-LOCK-5)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    const limiter = new AuthRateLimiter(p);
+    const revisionOf = () =>
+      (
+        p.native
+          .prepare('SELECT security_revision AS r FROM account')
+          .get() as { r: number }
+      ).r;
+    let device = f.initial.device!.token;
+    const deviceId = device.split('.')[1];
+    let pw = password;
+    let n = 0;
+    // Flood the account-wide login bucket once; only a trusted device may sign in.
+    for (let i = 0; i < 30; i++)
+      limiter.attempt('login', `198.51.100.${i + 1}`, f.time);
+    const check = async (
+      credential: { token: string; device?: { token: string } },
+      note: string,
+    ) => {
+      const next = credential.device!;
+      expect(next.token.split('.')[1], note).toBe(deviceId);
+      expect(next.token.split('.')[3], note).toBe(String(revisionOf()));
+      expect(next.token, note).not.toBe(device);
+      // The old token is stale; the re-issued one passes the flooded bucket.
+      await expect(
+        f.auth.login('fixture', pw, `203.0.113.${++n}`, device),
+        note,
+      ).rejects.toThrow(/Too many/);
+      await expect(
+        f.auth.login('fixture', pw, `203.0.113.${++n}`, next.token),
+        note,
+      ).resolves.toBeDefined();
+      device = next.token;
+      return f.auth.authenticate(credential.token)!;
+    };
+    const fresh = async (
+      identity: NonNullable<ReturnType<typeof f.auth.authenticate>>,
+      scope: FreshAuthScope,
+      code?: string,
+    ) => {
+      const g = await f.auth.freshAuth(identity, scope, pw, code, ip);
+      f.advance();
+      return g.token;
+    };
+
+    // MFA enable (confirmEnrollment)
+    const enabled = f.auth.confirmEnrollment(
+      f.identity,
+      f.enrollment.challenge,
+      otp(f.enrollment.secret, f.time),
+      ip,
+      device,
+    );
+    f.advance();
+    let identity = await check(enabled.credential, 'enable');
+    const code = () => otp(f.enrollment.secret, f.time);
+    // Recovery regeneration
+    const regenerated = f.auth.regenerateRecoveryCodes(
+      identity,
+      await fresh(identity, 'recovery-regenerate', code()),
+      device,
+    );
+    identity = await check(regenerated.credential, 'regenerate');
+    // Session lifetime
+    identity = await check(
+      f.auth.changeSessionLifetime(
+        identity,
+        await fresh(identity, 'session-lifetime', code()),
+        3,
+        device,
+      ),
+      'lifetime',
+    );
+    // MFA disable
+    identity = await check(
+      f.auth.disableMfa(
+        identity,
+        await fresh(identity, 'mfa-disable', code()),
+        device,
+      ),
+      'disable',
+    );
+    // Password change
+    const grant = await fresh(identity, 'password-change');
+    const changed = await f.auth.changePassword(
+      identity,
+      grant,
+      replacement,
+      device,
+    );
+    pw = replacement;
+    identity = await check(changed, 'password');
+    // A request without a valid device token still gets a new trusted device id.
+    const noDevice = f.auth.changeSessionLifetime(
+      identity,
+      await fresh(identity, 'session-lifetime'),
+      4,
+    );
+    expect(noDevice.device!.token.split('.')[1]).not.toBe(deviceId);
+    expect(noDevice.device!.token.split('.')[3]).toBe(String(revisionOf()));
+    identity = f.auth.authenticate(noDevice.token)!;
+    // revokeAll issues no device token and invalidates the old one.
+    const revoked = f.auth.revokeAll(
+      identity,
+      await fresh(identity, 'sessions-revoke'),
+    );
+    expect(revoked).toBeUndefined();
+    await expect(
+      f.auth.login('fixture', pw, `203.0.113.${++n}`, noDevice.device!.token),
+    ).rejects.toThrow(/Too many/);
+  });
+}, 60_000);

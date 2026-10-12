@@ -1,6 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { DomainError, type ApiError } from '../../shared/domain.ts';
 import type { SessionCredential } from './service.ts';
+import { DEVICE_COOKIE } from './device-trust.ts';
 
 export const SESSION_COOKIE = 'pandanote_session';
 export function setSessionCookie(
@@ -15,6 +16,15 @@ export function setSessionCookie(
     secure: production,
     expires: new Date(credential.expiresAt),
   });
+  // Rate-limit marker only, never authentication. Scoped to the credential endpoints.
+  if (credential.device)
+    cookies.set(DEVICE_COOKIE, credential.device.token, {
+      path: '/api/auth',
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: production,
+      expires: new Date(credential.device.expiresAt),
+    });
 }
 export function clearSessionCookie(
   cookies: Cookies,

@@ -2,6 +2,13 @@
 
 ## Current state
 
+- **Security hardening (security review; user approved setup code) — planned.**
+  Four issues and sub-tasks SH1.1–SH4.3 in
+  [security-hardening/PLAN.md](security-hardening/PLAN.md); status in
+  [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md). Issue 1
+  (lockout) is implemented in staged/unstaged, uncommitted work; SH1.1, SH1.2 and
+  SH1.3 done. SH2.1 done (server; e2e auth fails until SH2.2). Next: SH2.2.
+
 - **Trash search, selection and lazy list (user request) — done for the requested UI.**
   Trash search under the title; 10 rows then lazy load; note-card rows at one fixed
   height with checkbox; Select all icon; restore/delete-permanently icons appear on the
@@ -4723,3 +4730,47 @@ Final documentation validation (this session):
 - Files touched: `src/lib/components/StatusNoteList.svelte`, `src/lib/shared/status-notes.ts`, `tests/e2e/status-notes.test.ts`, `tests/e2e/note-actions.test.ts`, `docs/PRODUCT_SPEC.md` (Trash list paragraph).
 - Validation: `npm run check` 0 errors (1 pre-existing warning in AppShell.svelte); eslint + prettier clean on touched files; `npm run test:unit` 158/158; `tests/integration/trash-search.test.ts` passes; `npx playwright test tests/e2e/status-notes.test.ts tests/e2e/note-actions.test.ts` 9/9 on rerun (one earlier run had a single unexplained timeout in NA-DELETE that did not reproduce in two later runs).
 - Not visually inspected by a human; layout verified only through e2e assertions. Index/staged changes from the other session were left untouched; these edits are unstaged in the working tree.
+
+### Auth lockout fix: trusted-device cookie + reset-password clears limits (security review)
+- Issue: the account-wide login/MFA bucket (30/15 min) let anyone lock the owner out by flooding junk attempts. Exempting correct passwords was rejected (it removes the brute-force cap and Argon2 cost bound).
+- Fix (user approved): stateless HMAC `pandanote_device` cookie (`src/lib/server/auth/device-trust.ts`; HttpOnly, SameSite=Strict, path `/api/auth`, 180 days, bound to account id + security revision, not an auth credential). Verified holders use a per-device bucket (30/15 min) plus the IP bucket instead of the account-wide bucket (`rate-limits.ts` `attempt(..., deviceId)`). Issued on setup, login and MFA completion. `AuthService.resetPassword` now also deletes all `auth_rate_limits` rows. Touched: `auth/{device-trust,rate-limits,service,http}.ts`, `routes/api/auth/{login,mfa}/+server.ts`, `docs/ARCHITECTURE.md` (anti-lockout bullet), tests `tests/unit/device-trust.test.ts`, `tests/integration/auth.test.ts`.
+- Results (Windows): check 0 errors (1 pre-existing warning); eslint/prettier clean on touched files; `npm run lint` still fails only on pre-existing `NoteEditor.svelte:64`; test:unit and test:integration pass (228 passed, 7 skipped); build ok. Not run: e2e, Linux image.
+- Known limits: a new device (no cookie) stays blocked during an active flood until the window expires or the operator runs reset-password; an attacker sharing the owner's IP can still exhaust the 10/15 min IP bucket; IPv6 /64 bucketing not reviewed. The MFA stage with a cookie has no dedicated test (shares the same code path).
+- Next: run `npx playwright test tests/e2e/auth.test.ts`; consider IPv6 /64 bucketing and an MFA trusted-device test.
+
+### Security hardening SH1.1 — staged lockout fix verified, MFA and HTTP tests added
+- Sub-task SH1.1 of `docs/security-hardening/PLAN.md` (state and details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 2). No application code changed.
+- Added `tests/integration/auth-mfa.test.ts` (trusted device on the MFA path, SEC-LOCK-4) and HTTP checks in `tests/integration/setup-server.test.ts` (device cookie attributes, device cookie alone is 401). Both are unstaged.
+- Reworded the security-hardening README and PLAN so they avoid the retired variable names that `release-hygiene.test.ts` forbids.
+- Results (Windows): check 0 errors; lint fails only on pre-existing `NoteEditor.svelte:64`; unit 159 passed; integration passed on the final run (229 passed, 7 skipped) after two intermittent Windows worker crashes in unrelated files; build passed; `npx playwright test tests/e2e/auth.test.ts` 4 passed. Linux not run.
+- Next: SH1.2 (device token re-issue after security changes).
+
+### Security review and hardening plan (docs only)
+- Review found four exploitable issues: login lockout DoS, first-visitor setup takeover, slow TOTP guessing after password compromise, broad `X-Forwarded-For` trust. User approved re-introducing a setup secret (in-memory setup code printed to the server log).
+- Created `docs/security-hardening/{README,PLAN,ACCEPTANCE_TESTS,PROGRESS}.md` with small ordered sub-tasks for separate sessions; added pointer notes to `docs/PRODUCT_SPEC.md`, `docs/ARCHITECTURE.md`, `docs/ACCEPTANCE_TESTS.md`, `docs/simplify-setup/README.md`.
+- The staged "Auth lockout fix" work above was recorded as SH1.1 in progress; its files were not changed. No application code changed; no tests run.
+- Next: SH1.1 per `docs/security-hardening/PLAN.md`.
+
+### Security hardening SH1.2 — device token re-issued after security changes
+- Sub-task SH1.2 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 3). `rotateSecurity` now verifies the request's device token against the pre-rotation revision and returns `credential.device` at the new revision with the same device id (new id if the token is missing/invalid). `confirmEnrollment`, `disableMfa`, `regenerateRecoveryCodes`, `changePassword`, `changeSessionLifetime` take an optional `deviceToken`; `api/auth/security/+server.ts` passes the `pandanote_device` cookie. `revokeAll` and `resetPassword` issue no device token.
+- Touched: `src/lib/server/auth/service.ts`, `src/routes/api/auth/security/+server.ts`, `tests/integration/auth-mfa.test.ts` (new SEC-LOCK-5 test), acceptance table.
+- Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`, touched files pass eslint/prettier; unit 159 passed; integration 230 passed, 7 skipped; build passed; `npx playwright test tests/e2e/auth.test.ts` 4 passed. Linux not run. Not committed.
+- Next: SH1.3 (issue 1 docs and operator recovery text).
+
+### Security hardening SH1.3 — issue 1 docs and reset-password message
+- Sub-task SH1.3 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 4). `reset-password` success message now says "sign-in limits cleared" (no secrets). Docs: `PRODUCT_SPEC.md` §13 (trusted-device bullet, flood behavior, reset clears limits), `ops/DEPLOYMENT.md` §7 and troubleshooting row for "Too many attempts. Try again in 15 minutes.", `README.md` reset section. `docs/ACCEPTANCE_TESTS.md` already had the security-hardening pointer; unchanged.
+- Touched: `scripts/reset-password.ts`, `tests/integration/reset-password.test.ts` (assertion in the Linux-only PTY test), `docs/PRODUCT_SPEC.md`, `ops/DEPLOYMENT.md`, `README.md`, `docs/security-hardening/PROGRESS.md`, this file.
+- Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; eslint and prettier pass on touched code and docs; unit 31 files / 159 passed; integration 39 files, 230 passed, 7 skipped; build passed. The reset-password PTY test (including the new assertion) is Linux-only and skipped on Windows, so the new message assertion is **not verified** here. `docs/PROGRESS.md` already failed prettier before this session (not reformatted, to avoid touching other sessions' work).
+- Not committed. Next: SH2.1 (setup code, server side).
+
+### Security hardening SH2.1 — setup code, server side
+- Sub-task SH2.1 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 5). Setup requires a 20-symbol code generated in memory per process and logged once (`PandaNote setup code:` and `PandaNote setup link:` lines). Wrong or missing codes count toward the setup buckets; correct codes use their own bucket plus the IP bucket. Route maps a wrong code to a 400 `setupCode` field error.
+- Touched: `src/lib/server/auth/setup-code.ts` (new), `src/lib/shared/auth.ts`, `src/lib/server/auth/service.ts`, `src/lib/server/runtime.ts`, `src/routes/api/setup/account/+server.ts`, `scripts/backups-benchmark.ts`, `tests/helpers/{auth,setup-code}.ts`, `tests/unit/{setup,setup-code,auth-policy}.test.ts`, `tests/integration/{auth,setup-server,runtime-server}.test.ts`, security-hardening PROGRESS and ACCEPTANCE_TESTS.
+- Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; prettier and eslint pass on touched files; unit 32 files / 162 passed; integration 39 files, 233 passed, 7 skipped; build passed. `tests/e2e/auth.test.ts` 4 failed as expected: the setup page has no code field until SH2.2.
+- Not committed. Next: SH2.2 (setup page field and e2e harness).
+
+### Security hardening SH2.2 — setup page field and e2e harness
+- Sub-task SH2.2 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 6). The setup page has a "Setup code" field, prefills from `#code=`, and strips the fragment. The e2e server captures the logged code into a private fixture file that tests read.
+- Touched: `src/routes/setup/+page.svelte`, `src/lib/shared/i18n/{en,zh-CN}.ts`, `scripts/e2e-server.mjs`, `tests/helpers/{setup-code,browser-session}.ts`, `tests/e2e/auth.test.ts`, `tests/integration/auth.test.ts`, security-hardening PROGRESS and ACCEPTANCE_TESTS.
+- Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; unit 32 files / 162 passed; integration 39 files, 234 passed, 7 skipped; build passed; `tests/e2e/auth.test.ts` 6 passed, smoke 2 passed. Full e2e: 82 passed, 9 failed. Two are the known axe "Choose year" timeouts; the rest are UI/screenshot tests that earlier entries record as pre-existing (calendar, language, shell) or that this session has not baselined (detail card date, tag-management, timeline). No setup-related test failed.
+- Not committed. Next: SH2.3 (setup-code docs and Linux release harness).

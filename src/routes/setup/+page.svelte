@@ -8,8 +8,15 @@
   let { data } = $props();
   let ready = $state(false);
   onMount(() => {
+    // The setup link carries the code in the fragment (#code=…). Browsers do not send
+    // a fragment to the server or in Referer. Read it, then remove it from the URL.
+    const code = new URLSearchParams(location.hash.slice(1)).get('code');
+    if (code) setupCode = code;
+    if (location.hash)
+      history.replaceState(null, '', location.pathname + location.search);
     ready = true;
   });
+  let setupCode = $state('');
   let username = $state('');
   let email = $state('');
   let password = $state('');
@@ -24,7 +31,7 @@
     if (busy) return;
     fields = {};
     message = '';
-    const value = { username, email, password, passwordConfirm };
+    const value = { username, email, password, passwordConfirm, setupCode };
     const parsed = setupAccountSchema.safeParse(value);
     if (!parsed.success) {
       for (const issue of parsed.error.issues)
@@ -73,6 +80,23 @@
     <p>{t('setup.intro')}</p>
     <form onsubmit={submit} novalidate>
       <fieldset disabled={busy || !ready || already}>
+        <label for="setup-code">{t('setup.code')}</label>
+        <input
+          id="setup-code"
+          name="setupCode"
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          bind:value={setupCode}
+          aria-invalid={!!fields.setupCode}
+          aria-describedby="setup-code-error setup-code-help"
+        />
+        <p id="setup-code-error" class="field-error">
+          {fields.setupCode ?? ''}
+        </p>
+        <p id="setup-code-help">
+          {t('setup.codeHelp')} <code>docker compose logs pandanote</code>
+        </p>
         <label for="setup-username">{t('setup.username')}</label>
         <input
           id="setup-username"

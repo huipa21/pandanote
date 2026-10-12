@@ -82,6 +82,17 @@ async function openRuntime(development: boolean): Promise<void> {
     // development/tools without installing competing SIGTERM/SIGINT handlers.
     process.once('sveltekit:shutdown', onShutdown);
     process.once('beforeExit', onShutdown);
+    // The only allowed logging of a secret (security-hardening Decision 2): one code
+    // while no account exists. The format is parsed by test harnesses; do not change it.
+    const setupCode = auth.setupCode();
+    if (setupCode) {
+      console.info(
+        `PandaNote setup code: ${setupCode} (valid for 60 minutes while no account exists)`,
+      );
+      console.info(
+        `PandaNote setup link: ${policy.origin}/setup#code=${setupCode}`,
+      );
+    }
   } catch (error) {
     await persistence.close();
     throw new ApplicationInitializationError(

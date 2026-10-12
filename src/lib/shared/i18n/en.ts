@@ -69,7 +69,10 @@ export const en = {
   'setup.timedOut':
     'Setup has timed out. Restart PandaNote on the server to open it again:',
   'setup.intro':
-    'Step 1 of 2. Setup is open for 60 minutes after the server starts. The first visitor to create an account owns this notebook.',
+    'Step 1 of 2. Enter the setup code from the server log. Setup is open for 60 minutes after the server starts; the code is shown only until an account exists.',
+  'setup.code': 'Setup code',
+  'setup.codeHelp':
+    'Find it in the server log. Use the newest line, or open the setup link printed there.',
   'setup.username': 'Username',
   'setup.email': 'Email',
   'setup.emailHelp': 'Required for future use; not verified. No email is sent.',

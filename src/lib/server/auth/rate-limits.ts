@@ -26,13 +26,24 @@ export class AuthRateLimiter {
       'base64',
     );
   }
-  attempt(action: CredentialAction, ip: string, now: number): void {
+  // `deviceId` must come from a verified trusted-device token. Such a caller is
+  // counted against its own device bucket instead of the shared account-wide one,
+  // so anonymous attempts cannot exhaust the owner's allowance. The IP bucket
+  // always applies.
+  attempt(
+    action: CredentialAction,
+    ip: string,
+    now: number,
+    deviceId: string | null = null,
+  ): void {
     const digest = (value: string): string =>
       createHmac('sha256', this.key)
         .update(`auth-rate-v1\0${value}`)
         .digest('hex');
     const buckets = [
-      { key: digest(`${action}:account`), limit: 30 },
+      deviceId
+        ? { key: digest(`${action}:device:${deviceId}`), limit: 30 }
+        : { key: digest(`${action}:account`), limit: 30 },
       { key: digest(`${action}:ip:${ip}`), limit: 10 },
     ];
     // Denials commit too. Never throw inside the transaction and roll back an

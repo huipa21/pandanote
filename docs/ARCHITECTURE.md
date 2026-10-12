@@ -1,5 +1,15 @@
 # PandaNote — Architecture and technical contracts
 
+## Planned override — security hardening
+
+Approved changes to authentication contracts (trusted-device rate buckets, an
+in-memory setup code printed to the log and required by `POST /api/setup/account`,
+per-challenge/daily second-factor failure caps, optional `TRUSTED_PROXIES` and IPv6
+/64 rate keys) are specified in [security-hardening/PLAN.md](security-hardening/PLAN.md).
+They supersede conflicting lines in sections 12–13 and the simplify-setup "no setup
+secret" contract as each sub-task lands; status in
+[security-hardening/PROGRESS.md](security-hardening/PROGRESS.md).
+
 ## Current override — note card actions
 
 `notes.pinned_at` (nullable UTC ms, published only, partial index) is added to the
@@ -1241,6 +1251,15 @@ setup, then restores via Settings; archived credentials replace temporary ones.
 - Trust exactly one XFF only from private-network/loopback/link-local TCP peers;
   absent uses peer, malformed/chained returns 400. Public peers ignore XFF.
   Account-wide limits complement IP limits; no permanent lockout.
+- Anti-lockout: the account-wide login/MFA bucket counts only callers without a
+  valid trusted-device cookie (`pandanote_device`, HttpOnly, SameSite=Strict,
+  path `/api/auth`, 180 days, refreshed on each full sign-in). The cookie is a
+  stateless HMAC (key derived with a domain-separated prefix from the TOTP key)
+  over account id, device id, expiry and security revision. It is NOT an
+  authentication credential; password/MFA changes and `reset-password` invalidate
+  it. Holders use a per-device bucket (30/15 min) plus the IP bucket, so anonymous
+  floods cannot block known devices. New devices stay limited during a flood;
+  `reset-password` deletes all `auth_rate_limits` rows as operator recovery.
 - TOTP drift small and explicit; reject replay of an already consumed step. Recovery-code consumption atomic.
 - TOTP secret encrypted at rest with a random server key kept in private persistent key material. Full backups include the key needed for portability; therefore unencrypted archives remain sensitive.
 - Security changes rotate session/security revision and revoke appropriate sessions.

@@ -6,8 +6,10 @@ import {
   readAuthJson,
   setSessionCookie,
 } from '#lib/server/auth/http.ts';
+import { DEVICE_COOKIE } from '#lib/server/auth/device-trust.ts';
 
 export const POST: RequestHandler = async ({ request, locals, cookies }) => {
+  const deviceToken = cookies.get(DEVICE_COOKIE);
   try {
     // Service validation keeps invalid and unknown usernames inside the same
     // verification/rate-limit boundary as incorrect passwords.
@@ -19,6 +21,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
       parsed.data.username,
       parsed.data.password,
       locals.clientIp!,
+      deviceToken,
     );
     if (credential.mfaRequired)
       return Response.json({

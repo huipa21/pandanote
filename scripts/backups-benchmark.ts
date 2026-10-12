@@ -48,6 +48,7 @@ try {
       email: 'benchmark@example.invalid',
       password,
       passwordConfirm: password,
+      setupCode: auth.setupCode()!,
     },
     '192.0.2.71',
   );

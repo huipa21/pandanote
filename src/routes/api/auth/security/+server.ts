@@ -7,6 +7,7 @@ import {
   setSessionCookie,
   clearSessionCookie,
 } from '#lib/server/auth/http.ts';
+import { DEVICE_COOKIE } from '#lib/server/auth/device-trust.ts';
 import type { SessionCredential } from '#lib/server/auth/service.ts';
 
 export const GET: RequestHandler = ({ locals }) => {
@@ -32,6 +33,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
     const input = parsed.data;
     const runtime = locals.runtime!;
     const auth = runtime.auth;
+    const deviceToken = cookies.get(DEVICE_COOKIE);
     let credential: SessionCredential | undefined;
     let codes: string[] | undefined;
     switch (input.action) {
@@ -49,15 +51,17 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
           input.challenge,
           input.code,
           locals.clientIp!,
+          deviceToken,
         ));
         break;
       case 'disable':
-        credential = auth.disableMfa(identity, input.grant);
+        credential = auth.disableMfa(identity, input.grant, deviceToken);
         break;
       case 'regenerate':
         ({ credential, codes } = auth.regenerateRecoveryCodes(
           identity,
           input.grant,
+          deviceToken,
         ));
         break;
       case 'password':
@@ -65,6 +69,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
           identity,
           input.grant,
           input.password,
+          deviceToken,
         );
         break;
       case 'lifetime':
@@ -72,6 +77,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
           identity,
           input.grant,
           input.days,
+          deviceToken,
         );
         break;
       case 'revoke':

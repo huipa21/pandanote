@@ -42,6 +42,7 @@ it('validates identity, exact 8–128 codepoint passwords and confirmation with 
     email: 'a@example.invalid',
     password: '12345678',
     passwordConfirm: '12345678',
+    setupCode: 'ABCDE-FGHJK-MNPQR-STUVW',
   };
   expect(setupAccountSchema.safeParse(value).success).toBe(true);
   expect(

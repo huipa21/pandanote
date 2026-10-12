@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, type Cookie, type Page } from '@playwright/test';
+import { readSetupCode } from './setup-code.ts';
 const origin = 'http://127.0.0.1:4173';
 const cache = '.e2e-data/browser-session.json';
 /** Reuse only real server-issued synthetic credentials across Playwright workers.
@@ -39,6 +40,7 @@ export async function browserSession(page: Page): Promise<Cookie[]> {
         email: 'fixture@example.invalid',
         password,
         passwordConfirm: password,
+        setupCode: await readSetupCode(origin),
       },
     });
     expect(response.status()).toBe(200);

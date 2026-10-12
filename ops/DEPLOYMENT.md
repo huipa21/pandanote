@@ -213,7 +213,8 @@ docker compose run --rm pandanote reset-password
 
 Interactive terminal required; no arguments or piped input. Shows username, asks
 twice without echo (8–128 characters), atomically changes password, disables MFA/
-recovery codes and revokes sessions/challenges. Notes/files/settings stay intact.
+recovery codes, revokes sessions/challenges and clears all sign-in rate limits.
+Notes/files/settings stay intact.
 Works with the app running, invalidating old sessions on their next request without
 restart. Maintenance verifies DATA_PATH ownership against PUID/PGID without walking
 or re-owning live files; mismatched ownership refuses. Pending recovery journals or
@@ -256,17 +257,18 @@ Argument-free, stopped-app-only; changes derived search, not notes/revisions/fil
 
 ## 11. Troubleshooting
 
-| Log message / symptom                            | Fix                                                                                       |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `ORIGIN must be set` / `must be https`           | Set canonical HTTPS ORIGIN in `.env`, then `docker compose up -d`.                        |
-| Network `proxynet` not found                     | Use Caddy's existing network; change both network references.                             |
-| `Database upgrade failed at migration N`         | DB transaction rolled back; use the compatible previous image and report only safe logs.  |
-| `Not enough free space for the pre-upgrade copy` | Free disk space (needed size is logged), restart.                                         |
-| `upgraded by a newer PandaNote`                  | Use newer image or immediate copy rollback (section 6).                                   |
-| `created by a pre-release PandaNote`             | Move the old private data folder away and start empty.                                    |
-| Setup timed out                                  | `docker compose restart pandanote`.                                                       |
-| 502 from Caddy                                   | Check health/logs and shared network/upstream name.                                       |
-| Missing/corrupt keys or recovery journal         | Stop, preserve entire data tree, follow restore runbook; never regenerate/delete blindly. |
+| Log message / symptom                            | Fix                                                                                                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ORIGIN must be set` / `must be https`           | Set canonical HTTPS ORIGIN in `.env`, then `docker compose up -d`.                                                                                                                                           |
+| Network `proxynet` not found                     | Use Caddy's existing network; change both network references.                                                                                                                                                |
+| `Database upgrade failed at migration N`         | DB transaction rolled back; use the compatible previous image and report only safe logs.                                                                                                                     |
+| `Not enough free space for the pre-upgrade copy` | Free disk space (needed size is logged), restart.                                                                                                                                                            |
+| `upgraded by a newer PandaNote`                  | Use newer image or immediate copy rollback (section 6).                                                                                                                                                      |
+| `created by a pre-release PandaNote`             | Move the old private data folder away and start empty.                                                                                                                                                       |
+| Too many attempts. Try again in 15 minutes.      | Likely an attack on sign-in limits. Wait 15 minutes, or sign in from a browser used before. Last resort: `reset-password` (section 7), which also clears limits but signs out all devices and turns off MFA. |
+| Setup timed out                                  | `docker compose restart pandanote`.                                                                                                                                                                          |
+| 502 from Caddy                                   | Check health/logs and shared network/upstream name.                                                                                                                                                          |
+| Missing/corrupt keys or recovery journal         | Stop, preserve entire data tree, follow restore runbook; never regenerate/delete blindly.                                                                                                                    |
 
 ## 12. Notes for advanced users
 

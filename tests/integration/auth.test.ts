@@ -1,4 +1,6 @@
 import Database from 'better-sqlite3';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
 import { expect, it } from 'vitest';
 import { withPersistence } from '../helpers/persistence.ts';
@@ -6,6 +8,7 @@ import { createFixtureAccount } from '../helpers/auth.ts';
 import { Persistence } from '../../src/lib/server/db/connection.ts';
 import { account, sessions } from '../../src/lib/server/db/schema.ts';
 import { AuthService } from '../../src/lib/server/auth/service.ts';
+import { SetupCodeError } from '../../src/lib/server/auth/setup-code.ts';
 import {
   AuthRateLimiter,
   MAX_RATE_BUCKETS,
@@ -33,6 +36,12 @@ const preferences = {
   language: 'zh-CN',
   timezone: 'Asia/Hong_Kong',
 };
+// The setup code belongs to one AuthService instance (SH2.1).
+const withCode = (auth: AuthService) => ({
+  ...details,
+  setupCode: auth.setupCode()!,
+});
+const wrongCode = 'ABCDE-FGHJK-MNPQR-STUVW';
 
 it('uses real salted bounded Argon2id, exact password bytes and one in-flight operation', async () => {
   const pending = hashPassword(password);
@@ -52,7 +61,7 @@ it('creates the sole account and hashed session atomically, normalizes identity 
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => now);
     expect(auth.setupState()).toBe('new');
-    const credential = await auth.createAccount(details, ip);
+    const credential = await auth.createAccount(withCode(auth), ip);
     expect(credential.expiresAt).toBe(now + 7 * 86_400_000);
     const identity = auth.authenticate(credential.token)!;
     expect(Object.keys(identity.account).sort()).toEqual(['id', 'mfaEnabled']);
@@ -61,7 +70,7 @@ it('creates the sole account and hashed session atomically, normalizes identity 
       username: 'notebook.owner',
       email: 'Owner@example.invalid',
     });
-    await expect(auth.createAccount(details, ip)).rejects.toMatchObject({
+    await expect(auth.createAccount(withCode(auth), ip)).rejects.toMatchObject({
       code: 'already_set_up',
     });
     auth.finishSetup(identity, preferences);
@@ -109,8 +118,8 @@ it('concurrent setup across two SQLite connections creates one account; loser ge
       const a = new AuthService(p, () => now),
         b = new AuthService(second, () => now);
       const results = await Promise.allSettled([
-        a.createAccount(details, ip),
-        b.createAccount(details, '192.0.2.2'),
+        a.createAccount(withCode(a), ip),
+        b.createAccount(withCode(b), '192.0.2.2'),
       ]);
       expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
       expect(results.find((r) => r.status === 'rejected')).toMatchObject({
@@ -133,21 +142,22 @@ it('setup window closes at 60 minutes, rechecks after hashing and reopens on pro
     const auth = new AuthService(p, () => time, now);
     time += 61 * 60_000;
     expect(auth.setupWindowOpen()).toBe(false);
-    await expect(auth.createAccount(details, ip)).rejects.toMatchObject({
+    await expect(auth.createAccount(withCode(auth), ip)).rejects.toMatchObject({
       code: 'setup_closed',
     });
     const restarted = new AuthService(p, () => time);
     expect(restarted.setupWindowOpen()).toBe(true);
-    const pending = restarted.createAccount(details, ip);
+    const pending = restarted.createAccount(withCode(restarted), ip);
     time += 60 * 60_000;
     await expect(pending).rejects.toMatchObject({ code: 'setup_closed' });
     expect(p.native.prepare('SELECT * FROM account').all()).toEqual([]);
     expect(p.native.prepare('SELECT * FROM sessions').all()).toEqual([]);
-    await new AuthService(p, () => time).createAccount(details, ip);
+    const reopened = new AuthService(p, () => time);
+    await reopened.createAccount(withCode(reopened), ip);
   });
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => now + 59 * 60_000, now);
-    await auth.createAccount(details, ip);
+    await auth.createAccount(withCode(auth), ip);
   });
 });
 it('failed first-session commit rolls back the account; retry succeeds; failed preferences preserve all settings', async () => {
@@ -158,11 +168,13 @@ it('failed first-session commit rolls back the account; retry succeeds; failed p
         sql`CREATE TRIGGER synthetic_fail_session BEFORE INSERT ON sessions BEGIN SELECT RAISE(ABORT, 'synthetic'); END`,
       ),
     );
-    await expect(auth.createAccount(details, ip)).rejects.toThrow(/synthetic/);
+    await expect(auth.createAccount(withCode(auth), ip)).rejects.toThrow(
+      /synthetic/,
+    );
     expect(p.native.prepare('SELECT * FROM account').all()).toEqual([]);
     p.write((tx) => tx.run(sql`DROP TRIGGER synthetic_fail_session`));
     const identity = auth.authenticate(
-      (await auth.createAccount(details, ip)).token,
+      (await auth.createAccount(withCode(auth), ip)).token,
     )!;
     const before = readSettings(p);
     p.write((tx) =>
@@ -420,3 +432,173 @@ it('setup and login limits persist, have fixed expiry, complement rotating IPs a
     }
   });
 });
+it('anonymous attempt floods cannot lock out a trusted device; reset-password clears the lockout', async () => {
+  await withPersistence(async (p) => {
+    const auth = new AuthService(p, () => now);
+    const limiter = new AuthRateLimiter(p);
+    const setup = await auth.createAccount(withCode(auth), ip);
+    const device = setup.device!.token;
+    const username = 'notebook.owner';
+    const flood = () => {
+      for (let i = 0; i < 30; i++)
+        limiter.attempt('login', `198.51.100.${i + 1}`, now);
+    };
+    flood(); // anonymous junk from rotating IPs fills the account-wide bucket
+    // Anonymous, junk-cookie and forged-cookie callers are denied even with the right password.
+    const forged = device.replace(/[^.]+$/, 'A'.repeat(43));
+    for (const token of [undefined, 'v1.junk', forged])
+      await expect(
+        auth.login(username, password, '203.0.113.5', token),
+      ).rejects.toThrow(/Too many/);
+    // A trusted device still signs in and keeps its device id.
+    const ok = await auth.login(username, password, '203.0.113.5', device);
+    expect(auth.authenticate(ok.token)).not.toBeNull();
+    expect(
+      (ok as { device: { token: string } }).device.token.split('.')[1],
+    ).toBe(device.split('.')[1]);
+    // The per-device bucket still bounds guessing with a stolen token.
+    const id = device.split('.')[1];
+    for (let i = 0; i < 29; i++)
+      limiter.attempt('login', `203.0.113.${100 + i}`, now, id);
+    await expect(
+      auth.login(username, password, '203.0.113.9', device),
+    ).rejects.toThrow(/Too many/);
+    // Reset clears every bucket and invalidates old tokens (revision changes).
+    await auth.resetPassword('a brand new password');
+    expect(
+      p.native.prepare('SELECT count(*) AS n FROM auth_rate_limits').get(),
+    ).toEqual({ n: 0 });
+    flood();
+    await expect(
+      auth.login(username, 'a brand new password', ip, device),
+    ).rejects.toThrow(/Too many/);
+    await auth.resetPassword('another new password');
+  });
+}, 30_000);
+
+it('setup code: missing, wrong and another instance code create no account; a correct code in any case or spacing creates exactly one', async () => {
+  await withPersistence(async (p) => {
+    const auth = new AuthService(p, () => now);
+    const other = new AuthService(p, () => now);
+    const code = auth.setupCode()!;
+    // SEC-SETUP-1: 4 groups of 5 from the 31-symbol alphabet, stable per instance.
+    expect(code).toMatch(
+      /^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{5}(-[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{5}){3}$/,
+    );
+    expect(auth.setupCode()).toBe(code);
+    expect(other.setupCode()).not.toBe(code);
+    // SEC-SETUP-2: missing, wrong, ambiguous (0/O/I/1) and another process's code.
+    await expect(auth.createAccount(details, ip)).rejects.toBeInstanceOf(
+      SetupCodeError,
+    );
+    await expect(
+      auth.createAccount({ ...details, setupCode: wrongCode }, ip),
+    ).rejects.toBeInstanceOf(SetupCodeError);
+    await expect(
+      auth.createAccount({ ...details, setupCode: '0' + code.slice(1) }, ip),
+    ).rejects.toBeInstanceOf(SetupCodeError);
+    await expect(
+      auth.createAccount({ ...details, setupCode: other.setupCode()! }, ip),
+    ).rejects.toBeInstanceOf(SetupCodeError);
+    expect(p.native.prepare('SELECT * FROM account').all()).toEqual([]);
+    // SEC-SETUP-3: lowercase, spaces and hyphens are accepted.
+    const variant = code.toLowerCase().split('-').join(' ');
+    await auth.createAccount({ ...details, setupCode: variant }, ip);
+    expect(p.native.prepare('SELECT count(*) AS n FROM account').get()).toEqual(
+      { n: 1 },
+    );
+    // SEC-SETUP-7: no code once an account exists; the code is cleared from memory.
+    expect(auth.setupCode()).toBeNull();
+    expect(other.setupCode()).toBeNull();
+  });
+}, 30_000);
+
+it('setup code: SEC-SETUP-8 the code never reaches SQLite, DATA_DIR files or service results', async () => {
+  await withPersistence(async (p, root) => {
+    const auth = new AuthService(p, () => now);
+    const code = auth.setupCode()!;
+    const bare = code.replace(/-/g, '');
+    const rejected = await auth
+      .createAccount({ ...details, setupCode: wrongCode }, ip)
+      .catch((error: unknown) => error);
+    expect(rejected).toBeInstanceOf(SetupCodeError);
+    const credential = await auth.createAccount(
+      { ...details, setupCode: code },
+      ip,
+    );
+    expect(JSON.stringify(credential)).not.toContain(bare);
+    expect(JSON.stringify(credential)).not.toContain(code);
+    // Every file under DATA_DIR (SQLite main/WAL, keys, settings) is scanned while open.
+    const names = readdirSync(root, { recursive: true }) as string[];
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) {
+      const path = join(root, name);
+      if (!statSync(path).isFile()) continue;
+      const bytes = readFileSync(path);
+      expect(bytes.includes(Buffer.from(bare)), name).toBe(false);
+      expect(bytes.includes(Buffer.from(code)), name).toBe(false);
+    }
+  });
+}, 30_000);
+
+it('setup code: 30 wrong codes from rotating IPs do not block the correct code; wrong codes hit the account and IP buckets', async () => {
+  await withPersistence(async (p) => {
+    const auth = new AuthService(p, () => now);
+    const code = auth.setupCode()!;
+    // SEC-SETUP-4: the account bucket (30) fills, the correct code still succeeds.
+    for (let i = 0; i < 30; i++)
+      await expect(
+        auth.createAccount(
+          { ...details, setupCode: wrongCode },
+          `198.51.100.${i + 1}`,
+        ),
+      ).rejects.toBeInstanceOf(SetupCodeError);
+    await expect(
+      auth.createAccount({ ...details, setupCode: wrongCode }, '198.51.100.99'),
+    ).rejects.toMatchObject({ code: 'rate-limited' });
+    await auth.createAccount({ ...details, setupCode: code }, ip);
+    expect(p.native.prepare('SELECT count(*) AS n FROM account').get()).toEqual(
+      { n: 1 },
+    );
+  });
+  await withPersistence(async (p) => {
+    // SEC-SETUP-5: one IP is limited to 10 wrong codes, then rate-limited.
+    const auth = new AuthService(p, () => now);
+    for (let i = 0; i < 10; i++)
+      await expect(
+        auth.createAccount(
+          { ...details, setupCode: wrongCode },
+          '198.51.100.200',
+        ),
+      ).rejects.toBeInstanceOf(SetupCodeError);
+    await expect(
+      auth.createAccount(
+        { ...details, setupCode: wrongCode },
+        '198.51.100.200',
+      ),
+    ).rejects.toMatchObject({ code: 'rate-limited' });
+    expect(p.native.prepare('SELECT * FROM account').all()).toEqual([]);
+  });
+}, 30_000);
+
+it('setup code: a correct code still gets setup_closed after the window; a restart prints a new code and the old one fails', async () => {
+  await withPersistence(async (p) => {
+    let time = now;
+    const auth = new AuthService(p, () => time, now);
+    const old = auth.setupCode()!;
+    time += 61 * 60_000;
+    await expect(
+      auth.createAccount({ ...details, setupCode: old }, ip),
+    ).rejects.toMatchObject({ code: 'setup_closed' });
+    const restarted = new AuthService(p, () => time);
+    const fresh = restarted.setupCode()!;
+    expect(fresh).not.toBe(old);
+    await expect(
+      restarted.createAccount({ ...details, setupCode: old }, ip),
+    ).rejects.toBeInstanceOf(SetupCodeError);
+    await restarted.createAccount({ ...details, setupCode: fresh }, ip);
+    expect(p.native.prepare('SELECT count(*) AS n FROM account').get()).toEqual(
+      { n: 1 },
+    );
+  });
+}, 30_000);

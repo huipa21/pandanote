@@ -25,6 +25,7 @@ it('preserves Unicode password bytes and validates bounded credentials without e
       email: 'fixture@example.invalid',
       password: 'a'.repeat(8),
       passwordConfirm: 'a'.repeat(8),
+      setupCode: 'ABCDE-FGHJK-MNPQR-STUVW',
       admin: true,
     }).success,
   ).toBe(false);

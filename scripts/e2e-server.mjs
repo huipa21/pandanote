@@ -80,9 +80,34 @@ if (security) {
     proxy?.listen(4175, '127.0.0.1', () => done(undefined)),
   );
 }
+// Test harness only: the app prints its setup code once to stdout. Capture it so
+// the browser/API tests can read it from a private, mode-0600 fixture file.
+const setupCodeFile = resolve(parent, 'setup-code');
+const setupCodePattern =
+  /PandaNote setup code: ([A-Z2-9]{5}(?:-[A-Z2-9]{5}){3})/;
+await rm(setupCodeFile, { force: true });
+let written = '';
+let tail = '';
+/** @param {Buffer} chunk */
+function captureSetupCode(chunk) {
+  tail = (tail + chunk.toString('utf8')).slice(-4096);
+  const match = tail.match(setupCodePattern);
+  if (match && match[1] !== written) {
+    written = match[1];
+    void writeFile(setupCodeFile, written, { mode: 0o600 });
+  }
+}
 const child = spawn(process.execPath, ['build/index.js'], {
-  stdio: 'inherit',
+  stdio: ['inherit', 'pipe', 'pipe'],
   env,
+});
+child.stdout.on('data', (chunk) => {
+  process.stdout.write(chunk);
+  captureSetupCode(chunk);
+});
+child.stderr.on('data', (chunk) => {
+  process.stderr.write(chunk);
+  captureSetupCode(chunk);
 });
 await writeFile(resolve(parent, 'server.pid'), String(child.pid));
 for (const signal of ['SIGTERM', 'SIGINT']) {
@@ -93,6 +118,7 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
  */
 async function cleanup(exitCode) {
   proxy?.close();
+  await rm(setupCodeFile, { force: true });
   try {
     await rm(data, {
       recursive: true,

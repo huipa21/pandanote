@@ -105,7 +105,7 @@ try {
   );
   password = '';
   process.stdout.write(
-    `Password reset. MFA/recovery codes removed; all sessions revoked.\nSign in at ${origin}/login and enroll MFA again.\n`,
+    `Password reset. MFA/recovery codes removed; all sessions revoked; sign-in limits cleared.\nSign in at ${origin}/login and enroll MFA again.\n`,
   );
 } catch (error) {
   // Do not print native causes, paths, SQL or schema-validator input.

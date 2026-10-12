@@ -193,6 +193,7 @@ it.skipIf(!linux)(
         expect(await tool.exit()).toBe(0);
         expect(tool.output).toContain('Username: fixture');
         expect(tool.output).toContain(`${origin}/login`);
+        expect(tool.output).toContain('sign-in limits cleared');
         for (const secret of [
           replacement,
           'x'.repeat(129),

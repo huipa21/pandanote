@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, it } from 'vitest';
 import { withPersistence } from '../helpers/persistence.ts';
+import { setupCodesIn, waitForSetupCode } from '../helpers/setup-code.ts';
 
 async function unusedPort(): Promise<number> {
   const server = createServer();
@@ -102,6 +103,12 @@ it('one production build honors two runtime origins, keeps data private, logs ou
           await delay(50);
         }
         expect(ready, output).toBe(true);
+        // Only the first (no-account) deployment logs a setup code; the HTTPS run reuses the account.
+        const setupCode =
+          deployment === 'loopback' ? await waitForSetupCode(() => output) : '';
+        expect(setupCodesIn(output)).toHaveLength(
+          deployment === 'loopback' ? 1 : 0,
+        );
         const denied = await fetch(`${base}/files/private`, {
           redirect: 'manual',
         });
@@ -123,6 +130,7 @@ it('one production build honors two runtime origins, keeps data private, logs ou
                     email: 'fixture@example.invalid',
                     password,
                     passwordConfirm: password,
+                    setupCode,
                   }
                 : { username: 'fixture', password },
             ),
