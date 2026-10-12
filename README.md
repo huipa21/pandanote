@@ -61,13 +61,22 @@ notes.example.com {
 }
 ```
 
-Open the domain within **60 minutes of process start** and complete setup:
-username, required email, password + confirmation, then site title, language and
-timezone. **The first visitor owns the empty instance**; claim it promptly or keep
-public access restricted until you are ready. If setup expires, restart PandaNote.
-There is no setup secret or manual database initialization command. An unfinished
-preferences step resumes after login. An existing account cannot be replaced by
-setup. Email is not verified and no email is sent.
+Open the domain within **60 minutes of process start** and complete setup. Setup needs a
+**setup code** that PandaNote prints once to its log each time it starts while no
+account exists:
+
+```sh
+docker compose logs pandanote | grep "setup"
+```
+
+Use the newest `PandaNote setup code:` line. Opening the `PandaNote setup link:` URL
+fills in the code. Then enter the username, required email, password + confirmation,
+and site title, language and timezone. Anyone who can read the Docker logs can read the
+code, so keep log access private until setup is finished. If the code is rejected or
+setup expires, run `docker compose restart pandanote` to print a new code. There is no
+manual database initialization command. An unfinished preferences step resumes after
+login. An existing account cannot be replaced by setup. Email is not verified and no
+email is sent.
 
 Full install, environment, upgrade, immediate database-copy rollback, password
 reset and troubleshooting instructions: **[ops/DEPLOYMENT.md](ops/DEPLOYMENT.md)**.

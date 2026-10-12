@@ -11,6 +11,7 @@ import {
   type Page,
 } from '@playwright/test';
 import { DIR, api, setup, signIn } from './support.ts';
+import { readSetupCode } from './setup-code.ts';
 
 // S18 measured workloads against ONE running production deployment (compose
 // project "pnc", see ops/release-benchmark.sh). Everything is synthetic. Results
@@ -324,7 +325,14 @@ test('setup and seed the realistic 10k dataset through the real API', async () =
     await ensureDiagramNote();
     return;
   }
-  await setup(page, C, PASSWORD);
+  await setup(
+    page,
+    C,
+    PASSWORD,
+    await readSetupCode(
+      async () => (await run(DOCKER, ['logs', CONTAINER])).stdout,
+    ),
+  );
   const cookie = (await context.cookies()).find(
     (c) => c.name === 'pandanote_session',
   )!;

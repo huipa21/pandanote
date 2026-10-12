@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { expect, test } from '@playwright/test';
+import { composePandanoteStdout, readSetupCode } from './setup-code.ts';
 import {
   A,
   B,
@@ -36,7 +37,12 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
   const health = await api(page, A, 'get', '/health');
   expect(await health.json()).toEqual({ status: 'ok' });
   expect(health.headers()['x-content-type-options']).toBe('nosniff');
-  await setup(page, A, PASSWORD);
+  await setup(
+    page,
+    A,
+    PASSWORD,
+    await readSetupCode(() => composePandanoteStdout('pna')),
+  );
   const cookie = (await context.cookies()).find(
     (c) => c.name === 'pandanote_session',
   )!;
@@ -332,7 +338,12 @@ test('independent deployment B (different domain): temporary setup, uploaded web
   const context = await signedInContext(browser);
   const page = await context.newPage();
   expect(new URL(A).host).not.toBe(new URL(B).host);
-  await setup(page, B, TEMP_PASSWORD);
+  await setup(
+    page,
+    B,
+    TEMP_PASSWORD,
+    await readSetupCode(() => composePandanoteStdout('pnb')),
+  );
   // Empty destination: no source data or unsaved editor content from A.
   const empty = (await (await api(page, B, 'get', '/api/notes')).json()).data;
   expect(empty.items).toHaveLength(0);

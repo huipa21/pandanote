@@ -61,6 +61,8 @@ Fields, in order: **Username**, **Email**, **Password**, **Re-enter password**, 
   "Setup has timed out. Restart PandaNote on the server to open it again
   (`docker compose restart pandanote`)." and the API answers 403 `setup_closed`.
   The window is in memory; every restart opens a new window. No token exists.
+  _Superseded in part by [security-hardening Decision 2](../security-hardening/README.md#decisions):
+  setup now requires the one-time setup code printed to the server log._
 - Field errors appear next to the field; nothing typed is cleared on error except
   that a server error never echoes the password.
 

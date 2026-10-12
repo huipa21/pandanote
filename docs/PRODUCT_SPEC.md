@@ -436,10 +436,17 @@ Concurrent edit handling:
   `/setup/preferences`: site title, language and timezone (browser defaults,
   explicit Finish setup, no skip/theme/week-start). Leaving after account creation
   resumes preferences after login; normal data APIs are blocked until completion.
-- **Approved first-visitor ownership:** no setup secret. Account creation is open
-  for 60 minutes from process start while no account exists; restart reopens that
-  window only for an unclaimed instance. Claim promptly or restrict access until
-  ready. A concurrent second creation cannot replace the singleton account.
+- **Setup code (approved in the 2026-10 security review; supersedes "no setup
+  secret"):** account creation requires a one-time setup code. The server generates
+  it in memory at process start while no account exists and prints it once to the
+  server log, with a `/setup#code=…` link (`docker compose logs pandanote`). Entry
+  ignores case, spaces and hyphens. The code is never stored in SQLite, files or
+  environment variables, and it is shown only until an account exists. Account
+  creation is open for 60 minutes from process start while no account exists; a
+  restart prints a new code and reopens that window only for an unclaimed instance.
+  Wrong or missing codes count toward the setup limits, and a flood of wrong codes
+  does not block the correct one. A concurrent second creation cannot replace the
+  singleton account. Claim promptly or restrict access until ready.
 - Username is trimmed/lowercased, 3–32 ASCII letters/digits/`.`/`_`/`-`; login is
   case-insensitive with generic credential errors and equivalent unknown-name work.
   Email is trimmed, required, basic `local@domain` syntax and at most 254 characters;

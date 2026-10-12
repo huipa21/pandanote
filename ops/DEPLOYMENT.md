@@ -86,17 +86,26 @@ notes.example.com {
 }
 ```
 
-Open `https://notes.example.com`. You are sent to **Setup**:
+Open `https://notes.example.com`. You are sent to **Setup**. First get the setup code from
+the server log:
 
-1. Username, email, password (8–128 Unicode characters), re-enter password → **Create account**.
+```sh
+docker compose logs pandanote | grep "setup"
+```
+
+The output has two lines: `PandaNote setup code: XXXXX-XXXXX-XXXXX-XXXXX (valid for 60 minutes
+while no account exists)` and `PandaNote setup link: https://notes.example.com/setup#code=…`.
+Open the link (it fills in the code) or type the code into the form. Then:
+
+1. Setup code, username, email, password (8–128 Unicode characters), re-enter password → **Create account**.
 2. Site title, language, timezone → **Finish setup**.
 
-**First visitor owns an empty instance.** Claim it promptly or restrict public
-access until ready. Setup is open for 60 minutes after the server process starts.
-If timed out: `docker compose restart pandanote` and open the site again. Once an
-account exists, setup cannot replace it. Leaving after step one resumes preferences
-after username/password login. Completed instances open Login when signed out,
-the timeline when signed in. Email is required metadata, not verified; no email is sent.
+**Setup code.** It is valid while no account exists, for 60 minutes after the server process
+starts. Anyone who can read the Docker logs can read it, so keep log access private until setup
+is finished. Use the newest `PandaNote setup code:` line; a restart prints a new code.
+Setup cannot replace an existing account. Leaving after step one resumes preferences after
+username/password login. Completed instances open Login when signed out, the timeline when
+signed in. Email is required metadata, not verified; no email is sent.
 Recommended next: enable TOTP in Settings and download a full backup.
 
 ### What is where
@@ -232,7 +241,8 @@ sudo rm -rf data                # default DATA_PATH only; irreversible
 docker compose up -d
 ```
 
-Open the site and claim setup within 60 minutes. Existing browser drafts are not
+Open the site and complete setup within 60 minutes, using the setup code from
+`docker compose logs pandanote | grep "setup"` (section 2). Existing browser drafts are not
 server data and remain on their browser/device.
 
 ## 9. Move to a new server
@@ -266,7 +276,8 @@ Argument-free, stopped-app-only; changes derived search, not notes/revisions/fil
 | `upgraded by a newer PandaNote`                  | Use newer image or immediate copy rollback (section 6).                                                                                                                                                      |
 | `created by a pre-release PandaNote`             | Move the old private data folder away and start empty.                                                                                                                                                       |
 | Too many attempts. Try again in 15 minutes.      | Likely an attack on sign-in limits. Wait 15 minutes, or sign in from a browser used before. Last resort: `reset-password` (section 7), which also clears limits but signs out all devices and turns off MFA. |
-| Setup timed out                                  | `docker compose restart pandanote`.                                                                                                                                                                          |
+| Setup timed out                                  | `docker compose restart pandanote`, then use the newest setup code from `docker compose logs pandanote`.                                                                                                     |
+| Setup code is incorrect                          | Use the newest `PandaNote setup code:` line from `docker compose logs pandanote`. A restart prints a new code (only while no account exists). Never paste codes into public places.                          |     |
 | 502 from Caddy                                   | Check health/logs and shared network/upstream name.                                                                                                                                                          |
 | Missing/corrupt keys or recovery journal         | Stop, preserve entire data tree, follow restore runbook; never regenerate/delete blindly.                                                                                                                    |
 

@@ -25,6 +25,10 @@ prior synthetic drill results untouched). Caddy's ordinary
 forwarding/body-size/timeout behavior is **not** overridden. Optional
 `BENCH_CPUS=2 BENCH_MEMORY=3g` constrains only the benchmark container via the engine.
 
+Setup posts use the one-time setup code exactly as an operator would: the harness reads
+the newest `PandaNote setup code:` line from the container log (`setup-code.ts`, the
+SH2.1 contract). It never stores or prints the code or the log text.
+
 ## Copied-folder deployment gate (DEP-01–08)
 
 `deployment.test.ts` copies the **real root** Compose into a fresh Linux

@@ -4774,3 +4774,9 @@ Final documentation validation (this session):
 - Touched: `src/routes/setup/+page.svelte`, `src/lib/shared/i18n/{en,zh-CN}.ts`, `scripts/e2e-server.mjs`, `tests/helpers/{setup-code,browser-session}.ts`, `tests/e2e/auth.test.ts`, `tests/integration/auth.test.ts`, security-hardening PROGRESS and ACCEPTANCE_TESTS.
 - Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; unit 32 files / 162 passed; integration 39 files, 234 passed, 7 skipped; build passed; `tests/e2e/auth.test.ts` 6 passed, smoke 2 passed. Full e2e: 82 passed, 9 failed. Two are the known axe "Choose year" timeouts; the rest are UI/screenshot tests that earlier entries record as pre-existing (calendar, language, shell) or that this session has not baselined (detail card date, tag-management, timeline). No setup-related test failed.
 - Not committed. Next: SH2.3 (setup-code docs and Linux release harness).
+
+### Security hardening SH2.3 (session 7)
+
+- Setup-code docs (PRODUCT_SPEC §13, ARCHITECTURE §12.1/§12.6, README, DEPLOYMENT, RESTORE_RUNBOOK, ACCEPTANCE_TESTS AUTH-01, simplify-setup SPEC note) and the release harness (`tests/release/setup-code.ts`, drill/image/deployment/benchmark read the code from container logs) are updated. Detail and commands: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 7.
+- Validation: check, unit, integration (234 passed, 7 skipped) and build pass; lint fails only on the pre-existing `NoteEditor.svelte:64`. Release tests and SEC-SETUP-13 are **blocked** on a Linux Docker host, not passed.
+- Not committed. Next: SH3.1.

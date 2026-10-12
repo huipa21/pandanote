@@ -9,7 +9,7 @@
 | SH1.3    | Issue 1 docs and reset-password message         | done (gate green; PTY reset test Linux-only, not run)                                    |
 | SH2.1    | Setup code: server, log line, integration tests | done (server; standard gate green; e2e auth expected to fail until SH2.2; see session 5) |
 | SH2.2    | Setup page field and e2e harness                | done for setup flows (session 6); full e2e has 9 non-setup failures, not all baselined   |
-| SH2.3    | Setup code docs and Linux release harness       | not started                                                                              |
+| SH2.3    | Setup code docs and Linux release harness       | **partial**: docs and harness done; Linux release drill **blocked** (no Linux Docker host; session 7) |
 | SH3.1    | Rate-limiter failure-count primitives           | not started                                                                              |
 | SH3.2    | MFA per-challenge cap, lower limit, daily cap   | not started                                                                              |
 | SH3.3    | Sign-in page MFA messages                       | not started                                                                              |
@@ -18,11 +18,7 @@
 | SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                              |
 | SH4.3    | Issue 4 docs                                    | not started                                                                              |
 
-**Next task:** SH2.3 (setup-code docs and Linux release harness). Read [PLAN.md](PLAN.md) SH2.3 and
-the files it lists; `tests/release/drill.test.ts` and `image.test.ts` still post setup without a code.
-Run `git status` first: earlier sub-tasks are still uncommitted, so do not revert them. Validation: the
-standard gate, plus `npx prettier --check docs ops README.md tests/release`; release tests only on Linux
-(otherwise record them as blocked).
+**Next task:** SH3.1 (rate-limiter failure-count primitives). Read [PLAN.md](PLAN.md) SH3.1 and `src/lib/server/auth/rate-limits.ts`, `src/lib/server/db/schema.ts`, `tests/integration/auth.test.ts` (limit cases). Run `git status` first. Validation: the standard gate. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
 
 ## Session log
 
@@ -138,3 +134,22 @@ standard gate, plus `npx prettier --check docs ops README.md tests/release`; rel
 - Not run: Linux image and release tests (no Linux host). SH2.3 owns `tests/release/*`, which still post setup without a code.
 - Gate status: SH2.2 setup-specific e2e cases pass; the full e2e run is not green, so SH2.2 is recorded as done for setup flows only.
 - Next: SH2.3 (see the "Next task" above).
+
+### Session 7 — SH2.3 (setup-code docs and Linux release harness)
+
+- Starting state: `git status` was clean; earlier sub-tasks are committed in `1c37a8b`. Nothing to preserve or revert.
+- Docs (setup code, Decision 2): `docs/PRODUCT_SPEC.md` §13 bullet replaced ("Approved first-visitor ownership" → setup-code rule, supersedes "no setup secret"). `docs/ARCHITECTURE.md` §12.1 paragraph and new §12.6 setup-code bullet (generation, storage, verification order, log-line exception, `#code=` fragment never sent). `README.md` setup section (`docker compose logs pandanote | grep "setup"`, restart prints a new code, log access is sensitive). `ops/DEPLOYMENT.md` §2 setup steps, §8 start-over, §11 rows "Setup code is incorrect" and "Setup timed out" (updated). `ops/RESTORE_RUNBOOK.md` temporary setup needs the code. `docs/ACCEPTANCE_TESTS.md` AUTH-01 now points to SEC-SETUP-1…13. `docs/simplify-setup/SPEC.md` one "superseded in part" note. `docs/simplify-setup/README.md` already had its note, unchanged.
+- Release harness (test only): new `tests/release/setup-code.ts` (contract regex, newest line wins, polls the container stdout, no logging of logs or codes). `support.ts` `setup()` takes a `setupCode` and fills `#setup-code` by label. `drill.test.ts` reads A's code from compose project `pna` and B's from `pnb`. `image.test.ts` reads the code from `docker logs <app>` and posts it. `deployment.test.ts` and `benchmark.test.ts` also post setup in the browser, so they read the code too (not named in PLAN, but they would fail without it). `tests/release/README.md` note.
+- Test contract fix: `tests/integration/release-hygiene.test.ts` pinned the removed sentence "First visitor owns an empty instance" in DEPLOYMENT.md. It now pins `docker compose logs pandanote | grep "setup"` and "Setup code".
+- Commands and real results (Windows host, this session):
+  - `npx eslint` on all touched TS files: pass. `npx prettier --check` on touched docs/ops/tests/README: pass (only `tests/release/content.test.ts` and `restart.test.ts` warn; both untouched, pre-existing). Ran `prettier --write` on touched files only.
+  - `npx tsc --noEmit -p tsconfig.json` (includes `tests/`): exit 0.
+  - `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte).
+  - `npm run lint`: fails only on pre-existing `NoteEditor.svelte:64`.
+  - `npm run test:unit`: 32 files, 162 passed.
+  - `npm run test:integration`: first run had 1 failure (`release-hygiene` DEPLOYMENT wording, fixed above); final run 39 files, 234 passed, 7 skipped (Linux-only PTY cases).
+  - `npm run build`: passed.
+  - Not run: e2e (SH2.3 is not user-facing; no UI changed).
+- **Blocked, not passed:** `tests/release/*` (drill, image, deployment, benchmark, restart) and SEC-SETUP-13. No Docker/Podman on this host and no Linux host. Required before release: `bash ops/release-drill.sh` and `IMAGE_UNDER_TEST=… npx playwright test --config playwright.release.config.ts tests/release/image.test.ts` on Linux. Those runs should also confirm the code-reading path (`docker logs`) with a real container.
+- Known gaps: `docs/simplify-setup/ACCEPTANCE_TESTS.md` (SET-01, SET-05) still describes "no token". The PLAN named only SPEC/README for the note, so I left it. `docs/simplify-setup/PROGRESS.md` and root `docs/PROGRESS.md` history are untouched on purpose.
+- Next: SH3.1 (rate-limiter failure-count primitives; see PLAN).

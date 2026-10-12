@@ -1235,12 +1235,15 @@ h1–h4 margins to `0.6em 0.2em`. These are rendering changes, not schema change
 
 ### 12.1 Initialization
 
-Approved first-visitor ownership: empty deployments expose browser setup for 60
-minutes from process start, without a secret. Restart reopens only unclaimed setup;
-singleton transaction prevents replacement. Claim promptly or restrict access.
-Incomplete preferences gate normal pages/APIs until completion; no registration
-after setup. Section 12.6 records routing/validation. A new VPS completes temporary
-setup, then restores via Settings; archived credentials replace temporary ones.
+Setup code (security hardening, user approved; supersedes the earlier "no setup
+secret" text): `POST /api/setup/account` requires a one-time code that is generated
+in memory at process start while no account exists and printed once to the server
+log with a `/setup#code=…` link. The contract (format, storage, verification order,
+log-line exception) is in §12.6. The 60-minute window and singleton transaction
+limit it. Claim promptly or restrict access. Incomplete preferences gate normal
+pages/APIs until completion; no registration after setup. Section 12.6 records
+routing/validation. A new VPS completes temporary setup, then restores via Settings;
+archived credentials replace temporary ones.
 
 ### 12.2 Sessions and login
 
@@ -1362,8 +1365,24 @@ LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects serv
 
 ### 12.6 SS03 current account/setup/login contracts (implemented / common gates pass)
 
-The user approved first-visitor ownership with a 60-minute process-start window;
-there is no setup secret, public registration after setup or default credential.
+The user approved first-visitor ownership with a 60-minute process-start window,
+now guarded by a setup code (below). There is no public registration after setup or
+default credential.
+
+- **Setup code (security-hardening Decision 2):** `src/lib/server/auth/setup-code.ts`
+  generates 20 characters from the 31-symbol alphabet `ABCDEFGHJKMNPQRSTUVWXYZ23456789`
+  with `crypto.randomInt`. Input is normalized (spaces and hyphens removed, uppercased).
+  `AuthService.setupCode()` creates the code lazily while setup state is `new`, keeps it
+  for that process, and returns null once an account exists. Only
+  `tokenHash('setup', code)` is retained; the plaintext lives in the instance memory and
+  is never written to SQLite, files, environment or HTTP responses. Verification order in
+  `createAccount`: window check (`setup_closed`) → constant-time digest comparison →
+  wrong or missing code: setup limiter (may return rate-limited), then 400 `validation`
+  with `fields.setupCode` → correct code: limiter charged to the per-key `setup-code`
+  bucket → normal validation, hashing and insert. The only logging exception is the two
+  startup `console.info` lines (`PandaNote setup code: …` and `PandaNote setup link: …`),
+  printed only while setup is open. The browser reads `#code=` and removes the fragment
+  before any request, so the code never reaches the server or `Referer`.
 
 - `AuthService.createAccount` validates normalized 3–32 ASCII username, trimmed
   required email, exact 8–128 Unicode-codepoint/1024-byte password and confirmation.

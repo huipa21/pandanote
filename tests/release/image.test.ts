@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID, createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { readSetupCode } from './setup-code.ts';
 
 // Explicit external-image gate, synthetic anonymous volume only. No fixed aliases.
 const engine = process.env.IMAGE_ENGINE ?? 'docker';
@@ -146,11 +147,14 @@ test('IMG: real live PTY reset, immediate revocation/MFA reset and stopped sourc
   test.setTimeout(240_000);
   const password = 'synthetic-image-password';
   const next = 'synthetic-new-password ✓';
+  // The code is read from the container's own log, as an operator would.
+  const setupCode = await readSetupCode(() => cli(['logs', app]));
   const setup = request('/api/setup/account', {
     username: 'image.owner',
     email: 'image@example.invalid',
     password,
     passwordConfirm: password,
+    setupCode,
   });
   expect(setup.status).toBe(200);
   let cookie = setup.cookie!;

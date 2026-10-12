@@ -4,8 +4,8 @@
 
 Cases SEC-LOCK, SEC-SETUP, SEC-MFA and SEC-XFF in
 [security-hardening/ACCEPTANCE_TESTS.md](security-hardening/ACCEPTANCE_TESTS.md).
-When SEC-SETUP lands, setup acceptance that assumes "first visitor owns the instance"
-without a code is superseded.
+SEC-SETUP-1 to -13 are in force: account creation requires the setup code printed to
+the server log, so the old "first visitor owns the instance" wording no longer applies.
 
 ## Note card actions (approved change)
 
@@ -74,11 +74,14 @@ Maintain deterministic fixtures with expected matches/statuses/dates:
 
 ### AUTH-01 — First-account setup
 
-Empty deployment redirects to browser setup. Approved first visitor owns the instance:
-username/email/password/confirmation creates exactly one account/session within the
-60-minute process-start window. No setup secret/default credential/registration after
-setup. Concurrent second creation returns already_set_up; closed window returns
-setup_closed and restart reopens only unclaimed setup. Step two saves title/language/
+Empty deployment redirects to browser setup. Account creation requires the setup code
+printed to the server log (SEC-SETUP-1 to -13 in
+[security-hardening/ACCEPTANCE_TESTS.md](security-hardening/ACCEPTANCE_TESTS.md)).
+The correct code with username/email/password/confirmation creates exactly one
+account/session within the 60-minute process-start window. Missing or wrong codes
+create nothing. No default credential or registration after setup. Concurrent second
+creation returns already_set_up; closed window returns setup_closed and restart issues
+a new code and reopens only unclaimed setup. Step two saves title/language/
 timezone atomically; unfinished setup resumes after login and blocks normal app APIs.
 After completion, signed-out pages redirect to username login; setup cannot replace
 an existing/restored account. SET-01–09/ACC-01–05 below extend this gate.

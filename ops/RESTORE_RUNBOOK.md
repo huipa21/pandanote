@@ -35,7 +35,8 @@ Follow [DEPLOYMENT.md](DEPLOYMENT.md): load the compatible image, copy root
 `docker-compose.yml`/`.env.example`, set destination ORIGIN and join the existing
 Caddy network. DATA_PATH defaults to `./data`; container DATA_DIR is always `/data`.
 Run docker compose up -d; startup initializes/migrates before HTTP.
-Complete two-step browser setup within 60 minutes with a temporary account/preferences,
+Complete two-step browser setup within 60 minutes with a temporary account/preferences
+(setup code from `docker compose logs pandanote`),
 then follow the same uploaded restore workflow. Do not copy the source
 machine's `.env`, domain, TLS keys or app binaries from an archive; they are not
 included. After replacement use the archived credentials, not the temporary ones.

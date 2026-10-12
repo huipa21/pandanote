@@ -152,7 +152,8 @@ describe('current documentation contracts (DOC-01–03)', () => {
       'sudo cp data/pre-upgrade/pandanote.sqlite data/db/pandanote.sqlite',
     ])
       expect(guide, command).toContain(command);
-    expect(guide).toContain('First visitor owns an empty instance');
+    expect(guide).toContain('docker compose logs pandanote | grep "setup"');
+    expect(guide).toContain('Setup code');
     expect(guide).toContain('60 minutes');
     expect(guide).toContain('8–128');
     expect(guide).toContain('not a single atomic directory exchange');

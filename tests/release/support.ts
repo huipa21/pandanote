@@ -93,8 +93,14 @@ export async function action(
   );
   expect(response.status(), name).toBe(200);
 }
-export async function setup(page: Page, origin: string, pw: string) {
+export async function setup(
+  page: Page,
+  origin: string,
+  pw: string,
+  setupCode: string,
+) {
   await page.goto(`${origin}/setup`);
+  await page.getByLabel('Setup code', { exact: true }).fill(setupCode);
   await page.getByLabel('Username', { exact: true }).fill(USERNAME);
   await page.getByLabel('Email', { exact: true }).fill('drill@example.invalid');
   await page.getByLabel('Password', { exact: true }).fill(pw);

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { readSetupCode } from './setup-code.ts';
 
 // Explicit opt-in Linux production-image gate. Never run on a production engine:
 // requires the fixed app name and proxynet to be unused, and restores image aliases.
@@ -261,6 +262,9 @@ test('DEP-01–05: copied minimal deployment, default private bind, browser setu
     .toBe(200);
   await page.goto(origin);
   await expect(page).toHaveURL(`${origin}/setup`);
+  await page
+    .getByLabel('Setup code', { exact: true })
+    .fill(await readSetupCode(() => cli(['logs', 'pandanote'])));
   await page.getByLabel('Username', { exact: true }).fill('deployment.owner');
   await page
     .getByLabel('Email', { exact: true })
