@@ -7,8 +7,8 @@
   [security-hardening/PLAN.md](security-hardening/PLAN.md); status in
   [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md). Issue 1
   (lockout) is implemented in staged/unstaged, uncommitted work; SH1.1–SH3.4 done
-  (SH3.4 in session 11, user-approved owner notice in Settings → Security; SH2.3 Linux
-  release gates still blocked). Next: SH4.1 (`TRUSTED_PROXIES`).
+  (SH4.1 in session 12: `TRUSTED_PROXIES` parsing, `none`/list trust, startup log; SH3.4 user-approved
+  owner notice; SH2.3 Linux release gates still blocked). Next: SH4.2 (IPv6 /64 rate-limit buckets).
 
 - **Trash search, selection and lazy list (user request) — done for the requested UI.**
   Trash search under the title; 10 rows then lazy load; note-card rows at one fixed
@@ -4806,3 +4806,11 @@ Final documentation validation (this session):
 - Owner notice of failed second-factor attempts (user-approved): a protected 30-day counter of wrong sign-in and fresh-auth codes; Settings → Security shows "N incorrect second-factor codes since your last sign-in. Someone may know your password — change it." until the next successful sign-in. Detail: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 11.
 - Validation: check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; unit 162 passed; integration 246 passed, 7 skipped; build passed; e2e auth 6/6, smoke + backups 5/5.
 - Not committed. Next: SH4.1 (`TRUSTED_PROXIES`).
+
+### Security hardening SH4.1 (session 12)
+
+- `TRUSTED_PROXIES` (Issue 4): unset/blank keeps the private-peer default; `none` ignores X-Forwarded-For; a comma-separated list of IPv4/IPv6 addresses or CIDRs (max 32) trusts XFF only from those peers. Invalid values stop startup with the documented message. The retired `TRUSTED_PROXY_IPS` name is still scrubbed and never read. One startup log line gives the entry count only.
+- Files: `src/lib/server/auth/policy.ts`, `src/hooks.server.ts`, `src/lib/server/runtime.ts`, `tests/unit/auth-policy.test.ts`, `tests/integration/startup.test.ts`, `tests/integration/release-hygiene.test.ts` (env allowlist), `docs/security-hardening/{PLAN,PROGRESS,ACCEPTANCE_TESTS}.md`, `docs/PROGRESS.md`.
+- Validation (Windows): prettier and eslint pass on touched TS files; check 0 errors (1 pre-existing warning); unit 167 passed; integration 247 passed, 7 skipped; build passed; lint fails only on pre-existing `NoteEditor.svelte:64`.
+- Not run: e2e (no user-facing change; server-only), Linux image.
+- Not committed. Next: SH4.2.

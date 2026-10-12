@@ -14,11 +14,11 @@
 | SH3.2    | MFA per-challenge cap, lower limit, daily cap   | done (standard gate and e2e auth green; see session 9)                                                |
 | SH3.3    | Sign-in page MFA messages                       | done (standard gate, build and e2e auth 6/6 green; see session 10)                                    |
 | SH3.4    | Optional owner notice of failed second factors  | done (user-approved; gates green incl. e2e auth 6/6 and backups/smoke; see session 11)                |
-| SH4.1    | `TRUSTED_PROXIES` configuration                 | not started                                                                                           |
+| SH4.1    | `TRUSTED_PROXIES` configuration                 | done (standard gate green; e2e and Linux not run; see session 12)                                     |
 | SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                                           |
 | SH4.3    | Issue 4 docs                                    | not started                                                                                           |
 
-**Next task:** SH4.1 (`TRUSTED_PROXIES`, Issue 4; read [PLAN.md](PLAN.md) SH4.1 and `src/lib/server/auth/policy.ts`). Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
+**Next task:** SH4.2 (IPv6 /64 rate-limit bucketing, Issue 4; read [PLAN.md](PLAN.md) SH4.2, `src/lib/server/auth/rate-limits.ts` and `tests/integration/auth.test.ts`). Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
 
 ## Session log
 
@@ -213,3 +213,17 @@
 - Not run: full `npm run test:e2e` (not a milestone gate for this sub-task); Linux image (no Linux host; SH3.4 has no Linux-specific behavior).
 - Not committed (per README rules).
 - Next: SH4.1 (`TRUSTED_PROXIES`).
+
+### Session 12 — SH4.1 (`TRUSTED_PROXIES` configuration)
+
+- Implemented: `TRUSTED_PROXIES` is parsed once in `authPolicy` (`src/lib/server/auth/policy.ts`) into `AuthPolicy.trustedPeers`: unset/blank → `'private'` (the existing private/loopback list, unchanged); `none` (case-insensitive) → `null` (XFF never read); otherwise a `BlockList` of IPv4/IPv6 addresses and CIDRs. Invalid entries, empty entries, zone IDs, out-of-range or non-canonical prefixes, and more than 32 entries throw `StartupConfigurationError` with "TRUSTED_PROXIES must be none or a comma-separated list of IP addresses/CIDRs".
+- `clientIp(peer, headers, policy)` now takes the policy. Trusted-peer behavior is unchanged (absent → peer; one valid IP → it; otherwise 400). Unlisted peers ignore XFF entirely, including malformed values.
+- `src/hooks.server.ts` passes `runtime.policy`. `src/lib/server/runtime.ts` logs once at startup: "Trusting X-Forwarded-For only from N configured proxy entries." or "X-Forwarded-For is ignored (TRUSTED_PROXIES=none)." Addresses are never logged.
+- The legacy `TRUSTED_PROXY_IPS` name is still scrubbed by `ignoreLegacyEnvironment` and never read by `authPolicy` (covered by a unit assertion).
+- Deviation from PLAN: none in behavior. Shape: `trustedPeers` is `'private' | BlockList | null` as the PLAN describes. The startup log is also emitted for `none` (short, no addresses).
+- Test changes: `tests/unit/auth-policy.test.ts` (existing clientIp cases pass a policy; new SEC-XFF-1…5 cases). `tests/integration/startup.test.ts` new case: built server refuses `*`, `10.0.0.0/33` and `none, 10.0.0.1` with the documented message and no listen/db; a valid list starts and logs only the count. `tests/integration/release-hygiene.test.ts`: `TRUSTED_PROXIES` added to the reviewed `process.env` allowlist (the test failed without it).
+- Docs: `docs/security-hardening/{PLAN,PROGRESS,ACCEPTANCE_TESTS}.md` (SEC-XFF-1…5 covered, SH4.1 done), `docs/PROGRESS.md`.
+- Validation (Windows): `npx prettier --check` and `npx eslint` on touched TS files pass. `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte). `npm run test:unit`: 32 files, 167 passed. `npm run test:integration`: 40 files, 247 passed, 7 skipped (Linux-only PTY). `npm run build`: passed. `npm run lint`: fails only on the pre-existing `NoteEditor.svelte:64` (`_value`); prettier step not reached.
+- Not run: `npm run test:e2e` and the Linux image. The change is server-only and the e2e harness uses the unchanged default; no user-facing behavior changed. Native Linux validation is still required before the milestone gate.
+- Not committed (per README rules).
+- Next: SH4.2 (IPv6 /64 rate-limit bucketing). See [PLAN.md](PLAN.md).

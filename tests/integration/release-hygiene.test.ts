@@ -79,6 +79,7 @@ describe('production surface hygiene', () => {
       'HOST_HEADER',
       'PROTOCOL_HEADER',
       'PORT_HEADER',
+      'TRUSTED_PROXIES',
       'SETUP_TOKEN',
       'TRUSTED_PROXY_IPS',
     ]);

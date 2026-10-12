@@ -92,6 +92,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.clientIp = clientIp(
       event.getClientAddress(),
       event.request.headers,
+      runtime.policy,
     );
     const cookie = event.cookies.get(SESSION_COOKIE);
     event.locals.identity = runtime.auth.authenticate(cookie);

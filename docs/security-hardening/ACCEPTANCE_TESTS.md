@@ -55,11 +55,11 @@ until its test runs green and the result is recorded in [PROGRESS.md](PROGRESS.m
 
 | ID        | Case                                                                                                                   | Sub-task | Covered by |
 | --------- | ---------------------------------------------------------------------------------------------------------------------- | -------- | ---------- |
-| SEC-XFF-1 | `TRUSTED_PROXIES` unset: all existing `clientIp` behavior unchanged.                                                   | SH4.1    |            |
-| SEC-XFF-2 | `TRUSTED_PROXIES=none`: XFF ignored even from loopback/private peers.                                                  | SH4.1    |            |
-| SEC-XFF-3 | List mode: XFF read only from listed addresses/CIDRs; other private peers use their own address.                       | SH4.1    |            |
-| SEC-XFF-4 | IPv4-mapped IPv6 peers match IPv4 entries.                                                                             | SH4.1    |            |
-| SEC-XFF-5 | Invalid values (bad IP, bad prefix, > 32 entries) stop startup with the documented message; legacy name still ignored. | SH4.1    |            |
+| SEC-XFF-1 | `TRUSTED_PROXIES` unset: all existing `clientIp` behavior unchanged.                                                   | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-1…" (verified) |
+| SEC-XFF-2 | `TRUSTED_PROXIES=none`: XFF ignored even from loopback/private peers.                                                  | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-2…" (verified) |
+| SEC-XFF-3 | List mode: XFF read only from listed addresses/CIDRs; other private peers use their own address.                       | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-3…" (verified) |
+| SEC-XFF-4 | IPv4-mapped IPv6 peers match IPv4 entries.                                                                             | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-4…" (verified) |
+| SEC-XFF-5 | Invalid values (bad IP, bad prefix, > 32 entries) stop startup with the documented message; legacy name still ignored. | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-5…" + `tests/integration/startup.test.ts` "TRUSTED_PROXIES: invalid…" (verified) |
 | SEC-XFF-6 | IPv6 rate-limit key is the /64; IPv4-mapped IPv6 uses the IPv4 address.                                                | SH4.2    |            |
 | SEC-XFF-7 | 10 attempts from different addresses in one /64 exhaust that IP bucket; another /64 is unaffected.                     | SH4.2    |            |
 | SEC-XFF-8 | DEPLOYMENT documents the variable, how to find/fix Caddy's address, and `none` for direct exposure. _Docs review._     | SH4.3    |            |

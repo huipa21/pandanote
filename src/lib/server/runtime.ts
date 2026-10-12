@@ -5,7 +5,11 @@ import { AttachmentService } from './attachments/service.ts';
 import { NoteService } from './notes/service.ts';
 import { TagService } from './tags/service.ts';
 import { runAttachmentCleanup } from './attachments/cleanup.ts';
-import { authPolicy, type AuthPolicy } from './auth/policy.ts';
+import {
+  authPolicy,
+  trustedProxyEntries,
+  type AuthPolicy,
+} from './auth/policy.ts';
 import { BackupService } from './backups/service.ts';
 import { DiskBudget } from './attachments/resources.ts';
 import { RestoreService } from './backups/restore.ts';
@@ -39,6 +43,15 @@ async function openRuntime(development: boolean): Promise<void> {
   ignoreLegacyEnvironment(process.env);
   const policy = authPolicy(process.env, development);
   process.env.ORIGIN = policy.origin;
+  // Count only: proxy addresses are not logged.
+  if (process.env.TRUSTED_PROXIES?.trim()) {
+    const entries = trustedProxyEntries(process.env.TRUSTED_PROXIES).length;
+    console.info(
+      entries === 0
+        ? 'X-Forwarded-For is ignored (TRUSTED_PROXIES=none).'
+        : `Trusting X-Forwarded-For only from ${entries} configured proxy entries.`,
+    );
+  }
   const storage = await initializeApplication();
   const persistence = new Persistence(storage);
   try {

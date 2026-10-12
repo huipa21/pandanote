@@ -362,6 +362,66 @@ it('incompatible baseline startup gives safe recovery instructions without chang
   }
 });
 
+it('TRUSTED_PROXIES: invalid values refuse startup; a valid list logs only its entry count', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'pandanote-trusted-proxies-'));
+  try {
+    const base: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: 'production',
+      ORIGIN: 'https://notes.example.test',
+      DATA_DIR: root,
+      HOST: '127.0.0.1',
+    };
+    for (const value of ['*', '10.0.0.0/33', 'none, 10.0.0.1']) {
+      const port = await unusedPort();
+      const refused = spawnSync(process.execPath, ['build/index.js'], {
+        env: { ...base, PORT: String(port), TRUSTED_PROXIES: value },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      expect(refused.status, value).toBe(1);
+      expect(refused.stderr, value).toContain(
+        'TRUSTED_PROXIES must be none or a comma-separated list of IP addresses/CIDRs',
+      );
+      expect(refused.stdout, value).not.toContain('Listening');
+      expect(existsSync(join(root, 'db')), value).toBe(false);
+    }
+    const port = await unusedPort();
+    const listed = '10.0.5.2,172.18.0.0/16';
+    const child = spawn(process.execPath, ['build/index.js'], {
+      env: { ...base, PORT: String(port), TRUSTED_PROXIES: listed },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    const exit = new Promise<void>((done) => child.once('exit', () => done()));
+    try {
+      let response: Response | undefined;
+      for (let i = 0; i < 100 && !response; i++) {
+        try {
+          response = await fetch(`http://127.0.0.1:${port}/health`, {
+            signal: AbortSignal.timeout(500),
+          });
+        } catch {
+          await delay(50);
+        }
+      }
+      expect(response?.status, output).toBe(200);
+      expect(output).toContain(
+        'Trusting X-Forwarded-For only from 2 configured proxy entries.',
+      );
+      expect(output).not.toContain('10.0.5.2');
+      expect(output).not.toContain('172.18.0.0');
+    } finally {
+      child.kill();
+      await exit;
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 it('production missing origin and failed initialization never listen, and logs disclose no paths or native content', async () => {
   const root = mkdtempSync(join(tmpdir(), 'pandanote-refused-startup-'));
   try {

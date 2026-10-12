@@ -66,6 +66,7 @@ it('defaults local origins, requires production ORIGIN and retains HTTPS/forward
   ).toBe('https://notes.example.org');
 });
 it('trusts exactly private peer ranges, including mapped v4, with single-IP XFF only', () => {
+  const policy = authPolicy({});
   const privateIps = [
     '127.0.0.1',
     '127.255.255.254',
@@ -105,8 +106,8 @@ it('trusts exactly private peer ranges, including mapped v4, with single-IP XFF 
     'x-forwarded-host': 'attacker.invalid',
   });
   for (const peer of privateIps) {
-    expect(clientIp(peer, headers), peer).toBe('198.51.100.20');
-    expect(clientIp(peer, new Headers()), peer).toBe(peer);
+    expect(clientIp(peer, headers, policy), peer).toBe('198.51.100.20');
+    expect(clientIp(peer, new Headers(), policy), peer).toBe(peer);
     for (const invalid of [
       '',
       'not-an-ip',
@@ -116,21 +117,127 @@ it('trusts exactly private peer ranges, including mapped v4, with single-IP XFF 
       '001.2.3.4',
     ])
       expect(
-        () => clientIp(peer, new Headers({ 'x-forwarded-for': invalid })),
+        () =>
+          clientIp(peer, new Headers({ 'x-forwarded-for': invalid }), policy),
         peer,
       ).toThrow(/proxy/);
     expect(
-      clientIp(peer, new Headers({ 'x-forwarded-for': '2001:db8::2' })),
+      clientIp(peer, new Headers({ 'x-forwarded-for': '2001:db8::2' }), policy),
     ).toBe('2001:db8::2');
   }
   for (const peer of publicIps) {
-    expect(clientIp(peer, headers), peer).toBe(peer);
+    expect(clientIp(peer, headers, policy), peer).toBe(peer);
     expect(
-      clientIp(peer, new Headers({ 'x-forwarded-for': 'invalid, chain' })),
+      clientIp(
+        peer,
+        new Headers({ 'x-forwarded-for': 'invalid, chain' }),
+        policy,
+      ),
     ).toBe(peer);
   }
   for (const peer of ['', 'invalid', '[::1]', '127.0.0.1:80'])
-    expect(() => clientIp(peer, headers)).toThrow(/client address/);
+    expect(() => clientIp(peer, headers, policy)).toThrow(/client address/);
+});
+it('SEC-XFF-1: TRUSTED_PROXIES unset or blank keeps the private-peer default', () => {
+  const headers = new Headers({ 'x-forwarded-for': '198.51.100.20' });
+  for (const value of [undefined, '', '   ']) {
+    const policy = authPolicy({ TRUSTED_PROXIES: value });
+    expect(policy.trustedPeers).toBe('private');
+    expect(clientIp('10.1.2.3', headers, policy)).toBe('198.51.100.20');
+    expect(clientIp('192.0.2.3', headers, policy)).toBe('192.0.2.3');
+  }
+});
+it('SEC-XFF-2: TRUSTED_PROXIES=none never reads X-Forwarded-For, even from loopback or private peers', () => {
+  for (const value of ['none', 'NONE', ' None ']) {
+    const policy = authPolicy({ TRUSTED_PROXIES: value });
+    expect(policy.trustedPeers).toBe(null);
+    for (const peer of ['127.0.0.1', '10.0.0.5', '::1', 'fd00::1'])
+      expect(
+        clientIp(
+          peer,
+          new Headers({ 'x-forwarded-for': '198.51.100.20' }),
+          policy,
+        ),
+        peer,
+      ).toBe(peer);
+    // Invalid or chained values are ignored rather than rejected.
+    expect(
+      clientIp(
+        '10.0.0.5',
+        new Headers({ 'x-forwarded-for': 'invalid, chain' }),
+        policy,
+      ),
+    ).toBe('10.0.0.5');
+  }
+});
+it('SEC-XFF-3: list mode reads X-Forwarded-For only from listed addresses and CIDRs', () => {
+  const policy = authPolicy({
+    TRUSTED_PROXIES: '10.0.5.2, 172.18.0.0/16,fd00::/8',
+  });
+  const headers = new Headers({ 'x-forwarded-for': '198.51.100.20' });
+  for (const peer of ['10.0.5.2', '172.18.0.1', '172.18.255.254', 'fd12::7'])
+    expect(clientIp(peer, headers, policy), peer).toBe('198.51.100.20');
+  // Private but unlisted peers, and addresses just outside the CIDR, use their own address.
+  for (const peer of [
+    '10.0.5.3',
+    '10.0.0.1',
+    '172.19.0.1',
+    '172.17.255.255',
+    '127.0.0.1',
+    '::1',
+    'fe80::1',
+    '203.0.113.9',
+  ])
+    expect(clientIp(peer, headers, policy), peer).toBe(peer);
+  // Unlisted peers are not validated: malformed XFF is ignored for them.
+  expect(
+    clientIp('10.0.5.3', new Headers({ 'x-forwarded-for': 'bad' }), policy),
+  ).toBe('10.0.5.3');
+  expect(() =>
+    clientIp('10.0.5.2', new Headers({ 'x-forwarded-for': 'bad' }), policy),
+  ).toThrow(/proxy/);
+});
+it('SEC-XFF-4: IPv4-mapped IPv6 peers match IPv4 entries', () => {
+  const policy = authPolicy({ TRUSTED_PROXIES: '10.0.5.2,172.18.0.0/16' });
+  const headers = new Headers({ 'x-forwarded-for': '198.51.100.20' });
+  for (const peer of ['::ffff:10.0.5.2', '::ffff:a00:502', '::ffff:172.18.4.4'])
+    expect(clientIp(peer, headers, policy), peer).toBe('198.51.100.20');
+  for (const peer of ['::ffff:10.0.5.3', '::ffff:172.19.0.1', '::10.0.5.2'])
+    expect(clientIp(peer, headers, policy), peer).toBe(peer);
+});
+it('SEC-XFF-5: invalid TRUSTED_PROXIES values stop startup with the documented message', () => {
+  const message =
+    /TRUSTED_PROXIES must be none or a comma-separated list of IP addresses\/CIDRs/;
+  const invalid = [
+    '*',
+    'example.org',
+    'none, 10.0.0.1',
+    '10.0.0.1,',
+    ',10.0.0.1',
+    '10.0.0.1 10.0.0.2',
+    '10.0.0.1/33',
+    '10.0.0.1/-1',
+    '10.0.0.1/+8',
+    '10.0.0.0/08',
+    '10.0.0.0/8/8',
+    '10.0.0.0/',
+    'fd00::/129',
+    '300.1.1.1',
+    '001.2.3.4',
+    'fe80::1%eth0',
+    '10.0.0.1:443',
+    Array.from({ length: 33 }, (_, i) => `10.0.0.${i}`).join(','),
+  ];
+  for (const value of invalid)
+    expect(() => authPolicy({ TRUSTED_PROXIES: value }), value).toThrow(
+      message,
+    );
+  const thirtyTwo = Array.from({ length: 32 }, (_, i) => `10.0.0.${i}`).join(
+    ',',
+  );
+  expect(authPolicy({ TRUSTED_PROXIES: thirtyTwo }).trustedPeers).toBeDefined();
+  // The retired name is never parsed, so it cannot reactivate old trust.
+  expect(authPolicy({ TRUSTED_PROXY_IPS: '*' }).trustedPeers).toBe('private');
 });
 it('rejects missing/foreign/null origins and cross-site mutations, including login/setup/uploads', () => {
   const policy = authPolicy({ ORIGIN: 'https://notes.example.org' });

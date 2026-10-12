@@ -424,7 +424,7 @@ rate-limit rows. Cases SEC-MFA-11/-12.
 
 ## Issue 4 — Forwarded-address trust
 
-### SH4.1 — `TRUSTED_PROXIES` configuration
+### SH4.1 — `TRUSTED_PROXIES` configuration (done in session 12)
 
 Read first: `src/lib/server/auth/policy.ts` (`authPolicy`, `clientIp`,
 `privatePeers`), `src/hooks.server.ts` (call site), `src/lib/server/initialize.ts`
@@ -455,6 +455,14 @@ ignores XFF from loopback; list trusts only listed peers (in and out of a CIDR,
 IPv4-mapped IPv6 peer); invalid values throw at startup; the retired `TRUSTED_PROXY_*` legacy name (exact name in `ignoreLegacyEnvironment`) still ignored.
 
 Gate: standard gate. Covers: SEC-XFF-1…5.
+
+Done (session 12). Implementation notes: `AuthPolicy.trustedPeers` is `'private' | BlockList | null`;
+the parser lives in `src/lib/server/auth/policy.ts` (`parseTrustedPeers`, `trustedProxyEntries`).
+Entries are trimmed; an empty entry, a zone ID (`%`), a leading-zero or signed prefix, or
+> 32 entries is rejected. Host bits in a CIDR are accepted and masked by `BlockList`.
+Startup log (runtime, once): `Trusting X-Forwarded-For only from N configured proxy entries.`
+or `X-Forwarded-For is ignored (TRUSTED_PROXIES=none).`; no addresses are logged. The
+`release-hygiene` env allowlist gained `TRUSTED_PROXIES`.
 
 ### SH4.2 — IPv6 /64 rate-limit bucketing
 

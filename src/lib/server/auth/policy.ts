@@ -2,9 +2,49 @@ import { BlockList, isIP } from 'node:net';
 import { DomainError } from '../../shared/domain.ts';
 
 export class StartupConfigurationError extends Error {}
+/** 'private': built-in private/loopback peers (default). null: never read XFF. */
+export type TrustedPeers = 'private' | BlockList | null;
 export interface AuthPolicy {
   origin: string;
   production: boolean;
+  trustedPeers: TrustedPeers;
+}
+export const MAX_TRUSTED_PROXY_ENTRIES = 32;
+const TRUSTED_PROXIES_MESSAGE =
+  'TRUSTED_PROXIES must be none or a comma-separated list of IP addresses/CIDRs';
+/** Splits a raw TRUSTED_PROXIES value into trimmed entries (empty array = default). */
+export function trustedProxyEntries(raw: string | undefined): string[] {
+  const value = raw?.trim() ?? '';
+  if (value === '' || value.toLowerCase() === 'none') return [];
+  return value.split(',').map((entry) => entry.trim());
+}
+export function parseTrustedPeers(raw: string | undefined): TrustedPeers {
+  const value = raw?.trim() ?? '';
+  if (value === '') return 'private';
+  if (value.toLowerCase() === 'none') return null;
+  const entries = trustedProxyEntries(value);
+  if (entries.length > MAX_TRUSTED_PROXY_ENTRIES)
+    throw new StartupConfigurationError(TRUSTED_PROXIES_MESSAGE);
+  const list = new BlockList();
+  for (const entry of entries) {
+    const [address, prefixText, ...extra] = entry.split('/');
+    const family = isIP(address ?? '');
+    if (!family || extra.length > 0 || entry.includes('%'))
+      throw new StartupConfigurationError(TRUSTED_PROXIES_MESSAGE);
+    const type = family === 4 ? 'ipv4' : 'ipv6';
+    if (prefixText === undefined) {
+      list.addAddress(address!, type);
+      continue;
+    }
+    const maxPrefix = family === 4 ? 32 : 128;
+    if (
+      !/^(0|[1-9]\d{0,2})$/.test(prefixText) ||
+      Number(prefixText) > maxPrefix
+    )
+      throw new StartupConfigurationError(TRUSTED_PROXIES_MESSAGE);
+    list.addSubnet(address!, Number(prefixText), type);
+  }
+  return list;
 }
 export function authPolicy(
   env: NodeJS.ProcessEnv,
@@ -60,6 +100,7 @@ export function authPolicy(
   return {
     origin: url.origin,
     production: env.NODE_ENV === 'production',
+    trustedPeers: parseTrustedPeers(env.TRUSTED_PROXIES),
   };
 }
 const privatePeers = new BlockList();
@@ -75,12 +116,19 @@ privatePeers.addAddress('::1', 'ipv6');
 privatePeers.addSubnet('fc00::', 7, 'ipv6');
 privatePeers.addSubnet('fe80::', 10, 'ipv6');
 
-export function clientIp(peer: string, headers: Headers): string {
+export function clientIp(
+  peer: string,
+  headers: Headers,
+  policy: Pick<AuthPolicy, 'trustedPeers'>,
+): string {
   const family = isIP(peer);
   if (!family) throw new DomainError('validation', 'Invalid client address.');
   // BlockList handles mapped IPv4 (including hex notation) against IPv4 ranges.
-  // A private peer must overwrite XFF: never guess a first/last hop from a chain.
-  if (!privatePeers.check(peer, family === 4 ? 'ipv4' : 'ipv6')) return peer;
+  // A trusted peer must overwrite XFF: never guess a first/last hop from a chain.
+  const trusted = policy.trustedPeers;
+  if (trusted === null) return peer;
+  const list = trusted === 'private' ? privatePeers : trusted;
+  if (!list.check(peer, family === 4 ? 'ipv4' : 'ipv6')) return peer;
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded === null) return peer;
   if (!isIP(forwarded))
