@@ -7,8 +7,9 @@
   [security-hardening/PLAN.md](security-hardening/PLAN.md); status in
   [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md). Issue 1
   (lockout) is implemented in staged/unstaged, uncommitted work; SH1.1–SH3.4 done
-  (SH4.1 in session 12: `TRUSTED_PROXIES` parsing, `none`/list trust, startup log; SH3.4 user-approved
-  owner notice; SH2.3 Linux release gates still blocked). Next: SH4.2 (IPv6 /64 rate-limit buckets).
+  (SH4.1 in session 12: `TRUSTED_PROXIES` parsing, `none`/list trust, startup log; SH4.2 in session 13:
+  IPv6 /64 IP-bucket keys; SH3.4 user-approved owner notice; SH2.3 Linux release gates still blocked).
+  Next: SH4.3 (issue 4 documentation).
 
 - **Trash search, selection and lazy list (user request) — done for the requested UI.**
   Trash search under the title; 10 rows then lazy load; note-card rows at one fixed
@@ -4814,3 +4815,11 @@ Final documentation validation (this session):
 - Validation (Windows): prettier and eslint pass on touched TS files; check 0 errors (1 pre-existing warning); unit 167 passed; integration 247 passed, 7 skipped; build passed; lint fails only on pre-existing `NoteEditor.svelte:64`.
 - Not run: e2e (no user-facing change; server-only), Linux image.
 - Not committed. Next: SH4.2.
+
+### Security hardening SH4.2 (session 13)
+
+- IPv6 rate-limit IP buckets are keyed per /64 (`rateLimitAddress` in `src/lib/server/auth/rate-limits.ts`); IPv4-mapped IPv6 uses its IPv4 address. Only the bucket key changes; `locals.clientIp` keeps the full address.
+- Files: `src/lib/server/auth/rate-limits.ts`, `tests/unit/rate-limit-address.test.ts` (new), `tests/integration/auth.test.ts`, `docs/ARCHITECTURE.md` (rate-limit bullet), `docs/security-hardening/{PLAN,PROGRESS,ACCEPTANCE_TESTS}.md`, `docs/PROGRESS.md`.
+- Validation (Windows): `npm run check` 0 errors (1 pre-existing warning); `npm run test:unit` 168 passed; `npm run test:integration` 248 passed, 7 skipped; `npm run build` passed; `npm run lint` fails only on pre-existing `NoteEditor.svelte:64`.
+- Not run: e2e (no UI change); Linux image.
+- Not committed. Next: SH4.3.

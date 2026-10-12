@@ -1285,7 +1285,8 @@ LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects serv
   bounded before verification. Unknown username still verifies the same account
   hash; credential/revision/name are rechecked afterwards. No dummy cheap path.
 - Setup/login and MFA/fresh/enrollment scopes have fixed 15-minute limits:
-  10/IP, 30/account, including successes. Denial never extends expiry. Persist
+  10/IP, 30/account, including successes. Denial never extends expiry. IP buckets
+  key IPv6 clients per /64 (IPv4-mapped IPv6 uses its IPv4 address; SH4.2). Persist
   keyed domain-separated IP digests, prune expired buckets, hard cap 1024 rows,
   protect account buckets, evict earliest non-account buckets.
 - Sessions: 32 random bytes, only domain-separated hashes stored. Host-only

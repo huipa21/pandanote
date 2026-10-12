@@ -15,7 +15,7 @@
 | SH3.3    | Sign-in page MFA messages                       | done (standard gate, build and e2e auth 6/6 green; see session 10)                                    |
 | SH3.4    | Optional owner notice of failed second factors  | done (user-approved; gates green incl. e2e auth 6/6 and backups/smoke; see session 11)                |
 | SH4.1    | `TRUSTED_PROXIES` configuration                 | done (standard gate green; e2e and Linux not run; see session 12)                                     |
-| SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                                           |
+| SH4.2    | IPv6 /64 rate-limit bucketing                   | done (standard gate green; see session 13)                                                            |
 | SH4.3    | Issue 4 docs                                    | not started                                                                                           |
 
 **Next task:** SH4.2 (IPv6 /64 rate-limit bucketing, Issue 4; read [PLAN.md](PLAN.md) SH4.2, `src/lib/server/auth/rate-limits.ts` and `tests/integration/auth.test.ts`). Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
@@ -227,3 +227,20 @@
 - Not run: `npm run test:e2e` and the Linux image. The change is server-only and the e2e harness uses the unchanged default; no user-facing behavior changed. Native Linux validation is still required before the milestone gate.
 - Not committed (per README rules).
 - Next: SH4.2 (IPv6 /64 rate-limit bucketing). See [PLAN.md](PLAN.md).
+
+### Session 13 — SH4.2 (IPv6 /64 rate-limit bucketing)
+
+- Implemented: `rateLimitAddress(ip)` in `src/lib/server/auth/rate-limits.ts` (node `isIP`, small hextet expansion helper, no dependency). IPv4 → unchanged; IPv4-mapped IPv6 → its IPv4 address; other IPv6 → `h1:h2:h3:h4::/64` in canonical lowercase. `AuthRateLimiter.attempt()` uses it for the `${action}:ip:` bucket only. `locals.clientIp`, the device/account buckets and `countFailure` are unchanged.
+- Behavior note: the key format changed, so existing IPv6 IP-bucket rows (keyed by full address) no longer match after upgrade. They expire within 15 minutes; no migration.
+- Tests: `tests/unit/rate-limit-address.test.ts` (new; SEC-XFF-6: compressed, uppercase, zero-padded, mapped hex and dotted forms, `::1`, ULA, NAT64-style dotted tail); `tests/integration/auth.test.ts` "SEC-XFF-7…" (10 addresses in one /64 exhaust the IP bucket, an 11th in that /64 is limited, another /64 and IPv4 are not affected, mapped IPv4 shares the IPv4 bucket).
+- Docs: `docs/security-hardening/{PLAN,PROGRESS,ACCEPTANCE_TESTS}.md` (SEC-XFF-6/-7 covered, SH4.2 done), `docs/ARCHITECTURE.md` (rate-limit bullet), `docs/PROGRESS.md`.
+- Commands and real results (Windows):
+  - `npx eslint` on touched TS files: pass. `npx prettier --check` on touched TS files: pass.
+  - `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte).
+  - `npm run lint`: fails only on the pre-existing `NoteEditor.svelte:64` (`_value`); prettier step not reached.
+  - `npm run test:unit`: 33 files, 168 passed.
+  - `npm run test:integration`: 40 files, 248 passed, 7 skipped (Linux-only PTY).
+  - `npm run build`: passed.
+- Not run: e2e (server-only change, no UI change); Linux image (pure JS parsing, no native code; still part of the milestone Linux gate).
+- Not committed (per README rules).
+- Next: SH4.3 (documentation for issue 4). Read [PLAN.md](PLAN.md) SH4.3, `ops/DEPLOYMENT.md`, `.env.example`, `docs/ARCHITECTURE.md` near the XFF bullets.

@@ -432,6 +432,24 @@ it('setup and login limits persist, have fixed expiry, complement rotating IPs a
     }
   });
 });
+it('SEC-XFF-7: IPv6 clients share one IP bucket per /64; other /64s and IPv4 are unaffected', async () => {
+  await withPersistence(async (p) => {
+    const limiter = new AuthRateLimiter(p);
+    for (let i = 1; i <= 10; i++)
+      limiter.attempt('login', `2001:db8:1:2::${i.toString(16)}`, now);
+    expect(() =>
+      limiter.attempt('login', '2001:db8:1:2:aaaa:bbbb:cccc:dddd', now),
+    ).toThrow(/Too many/);
+    limiter.attempt('login', '2001:db8:1:3::1', now);
+    limiter.attempt('login', '192.0.2.200', now);
+    // Mapped IPv4 shares the IPv4 bucket.
+    for (let i = 0; i < 9; i++)
+      limiter.attempt('login', '::ffff:192.0.2.200', now);
+    expect(() => limiter.attempt('login', '192.0.2.200', now)).toThrow(
+      /Too many/,
+    );
+  });
+});
 it('anonymous attempt floods cannot lock out a trusted device; reset-password clears the lockout', async () => {
   await withPersistence(async (p) => {
     const auth = new AuthService(p, () => now);

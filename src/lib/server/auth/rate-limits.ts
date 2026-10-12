@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { isIP } from 'node:net';
 import { asc, count, eq, lte, notInArray } from 'drizzle-orm';
 import { DomainError } from '../../shared/domain.ts';
 import type {
@@ -52,6 +53,58 @@ const actionLimits: Record<CredentialAction, AttemptLimits> = {
   'fresh-auth': defaultLimits,
   enrollment: defaultLimits,
 };
+/**
+ * Bucket key for a client address (SH4.2). IPv4 stays as is; an IPv4-mapped IPv6
+ * address (`::ffff:a.b.c.d`) uses its IPv4 address; any other IPv6 address uses its
+ * /64 prefix, so one subscriber cannot rotate through a /64 to get fresh buckets.
+ * Output is canonical lowercase, e.g. `2001:db8:1:2::/64`. Only the key changes:
+ * `locals.clientIp` keeps the full address. Input that is not an IP is returned as is.
+ */
+export function rateLimitAddress(ip: string): string {
+  if (isIP(ip) !== 6) return ip;
+  const groups = expandIPv6(ip);
+  const mapped =
+    groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff;
+  if (mapped)
+    return [
+      groups[6] >> 8,
+      groups[6] & 0xff,
+      groups[7] >> 8,
+      groups[7] & 0xff,
+    ].join('.');
+  return `${groups
+    .slice(0, 4)
+    .map((group) => group.toString(16))
+    .join(':')}::/64`;
+}
+
+// Expands a syntactically valid IPv6 address (checked by isIP) to eight 16-bit groups.
+function expandIPv6(ip: string): number[] {
+  let text = ip;
+  const dotted = text.lastIndexOf('.');
+  if (dotted !== -1) {
+    const split = text.lastIndexOf(':');
+    const [a, b, c, d] = text
+      .slice(split + 1)
+      .split('.')
+      .map(Number);
+    text = `${text.slice(0, split + 1)}${((a! << 8) | b!).toString(16)}:${((c! << 8) | d!).toString(16)}`;
+  }
+  let parts: string[];
+  if (text.includes('::')) {
+    const [head, tail] = text.split('::') as [string, string];
+    const headParts = head === '' ? [] : head.split(':');
+    const tailParts = tail === '' ? [] : tail.split(':');
+    const zeros = Array<string>(8 - headParts.length - tailParts.length).fill(
+      '0',
+    );
+    parts = [...headParts, ...zeros, ...tailParts];
+  } else {
+    parts = text.split(':');
+  }
+  return parts.map((part) => parseInt(part, 16));
+}
+
 /** A rate-limited error that tells the caller how long to wait (seconds). */
 export class RateLimitError extends DomainError {
   readonly retryAfterSeconds: number;
@@ -129,7 +182,7 @@ export class AuthRateLimiter {
       deviceId
         ? { key: digest(`${action}:device:${deviceId}`), limit: limits.device }
         : { key: digest(`${action}:account`), limit: limits.account },
-      { key: digest(`${action}:ip:${ip}`), limit: limits.ip },
+      { key: digest(`${action}:ip:${rateLimitAddress(ip)}`), limit: limits.ip },
     ];
     // Denials commit too. Never throw inside the transaction and roll back an
     // attempt. A blocked caller cannot prolong an existing fixed window.

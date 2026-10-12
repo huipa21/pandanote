@@ -464,7 +464,7 @@ Startup log (runtime, once): `Trusting X-Forwarded-For only from N configured pr
 or `X-Forwarded-For is ignored (TRUSTED_PROXIES=none).`; no addresses are logged. The
 `release-hygiene` env allowlist gained `TRUSTED_PROXIES`.
 
-### SH4.2 — IPv6 /64 rate-limit bucketing
+### SH4.2 — IPv6 /64 rate-limit bucketing (done in session 13)
 
 Read first: `src/lib/server/auth/rate-limits.ts`, `tests/integration/auth.test.ts`.
 
@@ -482,6 +482,8 @@ Tests (unit): mapping table incl. compressed forms (`2001:db8::1`,
 affected.
 
 Gate: standard gate. Covers: SEC-XFF-6, -7.
+
+Done (session 13). `rateLimitAddress(ip)` is exported from `rate-limits.ts`; `attempt()` uses it for the `:ip:` bucket only. Covers: `tests/unit/rate-limit-address.test.ts` "SEC-XFF-6…" and `tests/integration/auth.test.ts` "SEC-XFF-7…".
 
 ### SH4.3 — Documentation for issue 4
 

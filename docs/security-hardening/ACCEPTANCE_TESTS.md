@@ -60,6 +60,6 @@ until its test runs green and the result is recorded in [PROGRESS.md](PROGRESS.m
 | SEC-XFF-3 | List mode: XFF read only from listed addresses/CIDRs; other private peers use their own address.                       | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-3…" (verified) |
 | SEC-XFF-4 | IPv4-mapped IPv6 peers match IPv4 entries.                                                                             | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-4…" (verified) |
 | SEC-XFF-5 | Invalid values (bad IP, bad prefix, > 32 entries) stop startup with the documented message; legacy name still ignored. | SH4.1    | `tests/unit/auth-policy.test.ts` "SEC-XFF-5…" + `tests/integration/startup.test.ts` "TRUSTED_PROXIES: invalid…" (verified) |
-| SEC-XFF-6 | IPv6 rate-limit key is the /64; IPv4-mapped IPv6 uses the IPv4 address.                                                | SH4.2    |            |
-| SEC-XFF-7 | 10 attempts from different addresses in one /64 exhaust that IP bucket; another /64 is unaffected.                     | SH4.2    |            |
+| SEC-XFF-6 | IPv6 rate-limit key is the /64; IPv4-mapped IPv6 uses the IPv4 address.                                                | SH4.2    | `tests/unit/rate-limit-address.test.ts` "SEC-XFF-6…" (verified) |
+| SEC-XFF-7 | 10 attempts from different addresses in one /64 exhaust that IP bucket; another /64 is unaffected.                     | SH4.2    | `tests/integration/auth.test.ts` "SEC-XFF-7…" (verified) |
 | SEC-XFF-8 | DEPLOYMENT documents the variable, how to find/fix Caddy's address, and `none` for direct exposure. _Docs review._     | SH4.3    |            |
