@@ -13,12 +13,12 @@
 | SH3.1    | Rate-limiter failure-count primitives           | done (standard gate green; see session 8)                                                             |
 | SH3.2    | MFA per-challenge cap, lower limit, daily cap   | done (standard gate and e2e auth green; see session 9)                                                |
 | SH3.3    | Sign-in page MFA messages                       | done (standard gate, build and e2e auth 6/6 green; see session 10)                                    |
-| SH3.4    | Optional owner notice (needs user approval)     | not approved                                                                                          |
+| SH3.4    | Optional owner notice of failed second factors  | done (user-approved; gates green incl. e2e auth 6/6 and backups/smoke; see session 11)                |
 | SH4.1    | `TRUSTED_PROXIES` configuration                 | not started                                                                                           |
 | SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                                           |
 | SH4.3    | Issue 4 docs                                    | not started                                                                                           |
 
-**Next task:** SH4.1 (`TRUSTED_PROXIES`, Issue 4; read [PLAN.md](PLAN.md) SH4.1 and `src/lib/server/auth/policy.ts`). SH3.4 needs explicit user approval first. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
+**Next task:** SH4.1 (`TRUSTED_PROXIES`, Issue 4; read [PLAN.md](PLAN.md) SH4.1 and `src/lib/server/auth/policy.ts`). Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
 
 ## Session log
 
@@ -190,3 +190,26 @@
 - Not run: full `npm run test:e2e`; Linux image. Not committed (per README rules).
 - Known limits: the 5th wrong code still shows "Incorrect code" and the form keeps the challenge until the next submission; that is the server contract (SEC-MFA-1). Recovery-code entry uses the same message.
 - Next: SH4.1 (`TRUSTED_PROXIES`). SH3.4 needs user approval.
+
+### Session 11 — SH3.4 (owner notice of failed second-factor attempts; user-approved)
+
+- Approval: the user approved SH3.4 in this session (new visible UI in Settings → Security).
+- Server: `rate-limits.ts` adds `FAILURES_SINCE_SUCCESS = 'mfa-failures-since-success:account'` (fixed 30-day window from its first failure, protected from eviction), `failureCount()` (live count, 0 when absent/expired) and `reset()`. `service.ts`: a wrong code in `completeMfa` (trusted or not) and in `freshAuth` counts (committed before the error, like the daily cap); a correct MFA code and a password-only `login` (MFA off) clear it; `resetPassword` already clears all limiter rows. `securityStatus()` returns `failedSecondFactorAttempts`; the DTO is `SecurityStatusDto` in `src/lib/shared/auth.ts`.
+- UI: `SecuritySettings.svelte` shows the notice when the count is above 0 (`data-testid="second-factor-failures"`). en: `security.failedOne` / `security.failedMany`; zh-CN: same two keys with Chinese text (no plural forms in Chinese). Text follows the approved proposal.
+- Decisions (documented in PLAN SH3.4 and ARCHITECTURE/PRODUCT_SPEC): counts sign-in and fresh-auth codes, on both device paths; fresh-auth success does not clear it (it is not a sign-in); the window is fixed from the first failure (30 days), so a quiet owner sees the notice expire after 30 days; the notice never blocks anything.
+- Known limitation: an owner sign-in clears the count, including failures from an attacker who signed in with the password before the owner did. This follows the approved "since your last sign-in" rule. The count is a notice, not an audit log.
+- Tests: `tests/integration/auth-mfa.test.ts`: exact `securityStatus` keys updated; new SEC-MFA-11 (both paths, persistence across instances, clear on success) and SEC-MFA-12 (fresh-auth counts; 30-day window via `failureCount`). `tests/e2e/auth.test.ts` security-UI test: no notice after a sign-in; a wrong fresh-auth code (`lifetime` action) shows "Invalid username or password." and the notice "1 incorrect second-factor code…" after reload. The fresh-auth request is routed to 192.0.2.245 because that test already uses the shared per-address fresh-auth budget of 10 per 15 minutes; without the route the 11th attempt is rate-limited (found while testing).
+- Docs: `docs/PRODUCT_SPEC.md` §13 (notice bullet), `docs/ARCHITECTURE.md` anti-lockout list (SH3.4 bullet), `docs/security-hardening/{PLAN,README,ACCEPTANCE_TESTS}.md` (SEC-MFA-11/-12 rows, SH3.4 marked done).
+- Touched: `src/lib/server/auth/{rate-limits,service}.ts`, `src/lib/shared/auth.ts`, `src/lib/shared/i18n/{en,zh-CN}.ts`, `src/lib/components/SecuritySettings.svelte`, `tests/integration/auth-mfa.test.ts`, `tests/e2e/auth.test.ts`, the docs above, this file, `docs/PROGRESS.md`.
+- Commands and real results (Windows):
+  - `npx prettier --check` on all touched files: pass. `npx eslint` on touched TS/test files: pass.
+  - `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte).
+  - `npm run lint`: fails only on the pre-existing `NoteEditor.svelte:64` (`_value`); prettier step not reached because eslint fails first.
+  - `npm run test:unit`: 32 files, 162 passed.
+  - `npm run test:integration`: 40 files, 246 passed, 7 skipped (Linux-only PTY). Auth MFA file alone: 23 passed. Log included a pre-upgrade free-space message from an existing test (not a failure).
+  - `npm run build`: passed.
+  - `npx playwright test tests/e2e/auth.test.ts`: 6 passed (final run). Earlier runs failed on my own selector (two `role=alert` elements) and on the shared rate-limit budget; both fixed in the test, not the product.
+  - `npx playwright test tests/e2e/smoke.test.ts tests/e2e/backups.test.ts`: 5 passed.
+- Not run: full `npm run test:e2e` (not a milestone gate for this sub-task); Linux image (no Linux host; SH3.4 has no Linux-specific behavior).
+- Not committed (per README rules).
+- Next: SH4.1 (`TRUSTED_PROXIES`).

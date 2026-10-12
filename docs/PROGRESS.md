@@ -6,9 +6,9 @@
   Four issues and sub-tasks SH1.1–SH4.3 in
   [security-hardening/PLAN.md](security-hardening/PLAN.md); status in
   [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md). Issue 1
-  (lockout) is implemented in staged/unstaged, uncommitted work; SH1.1–SH3.3 done
-  (SH3.3 in session 10; SH2.3 Linux release gates still blocked). Next: SH4.1
-  (`TRUSTED_PROXIES`); SH3.4 needs user approval.
+  (lockout) is implemented in staged/unstaged, uncommitted work; SH1.1–SH3.4 done
+  (SH3.4 in session 11, user-approved owner notice in Settings → Security; SH2.3 Linux
+  release gates still blocked). Next: SH4.1 (`TRUSTED_PROXIES`).
 
 - **Trash search, selection and lazy list (user request) — done for the requested UI.**
   Trash search under the title; 10 rows then lazy load; note-card rows at one fixed
@@ -4800,3 +4800,9 @@ Final documentation validation (this session):
 - Test-only harness change: `scripts/e2e-server.mjs` honors `x-e2e-client-address` for 192.0.2.0/24 so the new test has its own rate-limit bucket. Detail: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 10.
 - Validation: check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; unit 162 passed; integration 244 passed, 7 skipped (after two Windows worker-crash reruns); build passed; auth e2e 6 passed; language e2e fails on the pre-existing zh-CN sidebar link (not re-baselined).
 - Not committed. Next: SH4.1 (`TRUSTED_PROXIES`). SH3.4 needs user approval.
+
+### Security hardening SH3.4 (session 11)
+
+- Owner notice of failed second-factor attempts (user-approved): a protected 30-day counter of wrong sign-in and fresh-auth codes; Settings → Security shows "N incorrect second-factor codes since your last sign-in. Someone may know your password — change it." until the next successful sign-in. Detail: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 11.
+- Validation: check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; unit 162 passed; integration 246 passed, 7 skipped; build passed; e2e auth 6/6, smoke + backups 5/5.
+- Not committed. Next: SH4.1 (`TRUSTED_PROXIES`).

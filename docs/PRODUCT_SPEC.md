@@ -494,6 +494,11 @@ Concurrent edit handling:
   30 wrong second-factor codes per account per 24 hours on the untrusted path (then
   "Too many incorrect codes today…" until the day window ends). Trusted devices skip the
   account caps and the daily cap.
+  Owner notice (security-hardening SH3.4, user-approved): while the count is live,
+  Settings → Security shows "N incorrect second-factor codes since your last sign-in.
+  Someone may know your password — change it." It counts every wrong sign-in or
+  fresh-authentication code (trusted device or not) in a 30-day fixed window from its
+  first failure, and the next successful sign-in clears it. The count never blocks sign-in.
   A browser that signed in before holds an HttpOnly `pandanote_device` cookie (180
   days, reissued after security changes) that moves it to its own 30-attempt bucket,
   so anonymous floods cannot lock it out. The cookie never authenticates a request.

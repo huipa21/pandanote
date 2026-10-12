@@ -21,6 +21,12 @@ const actions: CredentialAction[] = [
 ];
 /** Account-wide daily count of wrong second-factor codes (SH3.2 writes it). */
 export const DAILY_MFA_FAILURES = 'mfa-failures-day:account';
+/**
+ * Account-wide count of wrong second-factor codes since the last successful sign-in
+ * (SH3.4 owner notice). Fixed 30-day window from its first failure; cleared on success.
+ */
+export const FAILURES_SINCE_SUCCESS = 'mfa-failures-since-success:account';
+export const FAILURES_SINCE_SUCCESS_WINDOW_MS = 30 * 24 * 60 * 60_000;
 /** Wrong codes allowed per MFA challenge; the challenge is deleted at the limit. */
 export const MFA_CHALLENGE_FAILURES = {
   limit: 5,
@@ -60,6 +66,7 @@ export class RateLimitError extends DomainError {
 const protectedNames = [
   ...actions.map((action) => `${action}:account`),
   DAILY_MFA_FAILURES,
+  FAILURES_SINCE_SUCCESS,
 ];
 type Reader = Pick<DomainDatabase, 'select'>;
 
@@ -211,6 +218,21 @@ export class AuthRateLimiter {
       })
       .run();
     return 1;
+  }
+  /** Failures counted in the live window `name` (0 when absent or expired). */
+  failureCount(db: Reader, name: string, now: number): number {
+    const row = db
+      .select()
+      .from(authRateLimits)
+      .where(eq(authRateLimits.keyHash, this.digest(name)))
+      .get();
+    return row && row.expiresAt > now ? row.attempts : 0;
+  }
+  /** Deletes the bucket `name` (any state). Call inside the caller's write transaction. */
+  reset(tx: DomainTransaction, name: string): void {
+    tx.delete(authRateLimits)
+      .where(eq(authRateLimits.keyHash, this.digest(name)))
+      .run();
   }
   /** Epoch ms when the live window `name` ends, if it has reached `limit`; else null. */
   blockedUntil(

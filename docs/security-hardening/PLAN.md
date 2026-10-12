@@ -4,7 +4,7 @@ Read [README.md](README.md) first (issues, decisions, agent rules).
 
 **One sub-task per session**, in this order unless the user names another:
 SH1.1 → SH1.2 → SH1.3 → SH2.1 → SH2.2 → SH2.3 → SH3.1 → SH3.2 → SH3.3 → SH4.1 →
-SH4.2 → SH4.3. (SH3.4 only after explicit user approval.) Several sub-tasks edit
+SH4.2 → SH4.3. (SH3.4 was approved and is done.) Several sub-tasks edit
 `rate-limits.ts`/`service.ts`; doing them in order avoids conflicts.
 
 ## Standard gate (every sub-task)
@@ -405,14 +405,20 @@ message; the following full sign-in works.
 Gate: standard gate + build + `npx playwright test tests/e2e/auth.test.ts`.
 Covers: SEC-MFA-9, -10.
 
-### SH3.4 — Optional: owner notice of failed second-factor attempts (needs user approval)
+### SH3.4 — Optional: owner notice of failed second-factor attempts (user-approved; done in session 11)
 
-Do not start without explicit user approval (new visible UI). Proposal: keep a
+Approved by the user (new visible UI). Plan: keep a
 protected bucket `mfa-failures-since-success:account` (30-day expiry, reset on
 successful MFA); expose `failedSecondFactorAttempts` in `securityStatus()`; show in
 Settings → Security: "N incorrect second-factor codes since your last sign-in.
 Someone may know your password — change it." Files: `service.ts`, security DTO in
 `src/lib/shared/`, `SecuritySettings.svelte`, i18n, tests.
+
+As built: counter `mfa-failures-since-success:account` (protected, fixed 30-day window
+from its first failure). Counted: wrong codes in completeMfa (both paths) and in
+freshAuth. Cleared: successful completeMfa and password-only login (`login` with MFA off).
+Not cleared by fresh-auth success (not a sign-in). `resetPassword` clears it with all
+rate-limit rows. Cases SEC-MFA-11/-12.
 
 ---
 

@@ -674,6 +674,39 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
       ).status(),
     ).toBe(401);
     await page.goto('/settings');
+    // SH3.4 owner notice: no notice after a successful sign-in; a wrong code in fresh
+    // authentication is counted and the notice appears on the next Settings load.
+    await expect(page.getByTestId('second-factor-failures')).toHaveCount(0);
+    // This test already spends the shared per-address fresh-auth budget (10 per 15 min),
+    // so this one browser request uses its own synthetic address (as the MFA sign-in test does).
+    await page.route('**/api/auth/fresh', (route) =>
+      route.continue({
+        headers: {
+          ...route.request().headers(),
+          'x-e2e-client-address': '192.0.2.245',
+        },
+      }),
+    );
+    await page
+      .getByLabel('Security action', { exact: true })
+      .selectOption('lifetime');
+    await page.getByLabel('Current password', { exact: true }).fill(password);
+    await page
+      .getByLabel('Authenticator or recovery code', { exact: true })
+      .fill('000000');
+    await page
+      .getByRole('button', { name: 'Authenticate and continue' })
+      .click();
+    await expect(
+      page
+        .getByRole('alert')
+        .filter({ hasText: 'Invalid username or password.' }),
+    ).toBeVisible();
+    await page.unroute('**/api/auth/fresh');
+    await page.goto('/settings');
+    await expect(page.getByTestId('second-factor-failures')).toHaveText(
+      '1 incorrect second-factor code since your last sign-in. Someone may know your password — change it.',
+    );
     expect(
       (
         await post('/api/auth/fresh', { scope: 'backup-download', password })

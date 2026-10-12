@@ -5,7 +5,9 @@
     type EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
   const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
-  import type { FreshAuthScope } from '#lib/shared/auth.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import type { FreshAuthScope, SecurityStatusDto } from '#lib/shared/auth.ts';
+  const t = useI18n().t;
   type Action =
     'enroll' | 'disable' | 'regenerate' | 'password' | 'revoke' | 'lifetime';
   const scopes: Record<Action, FreshAuthScope> = {
@@ -18,6 +20,7 @@
   };
   let mfa = $state(false);
   let remaining = $state(0);
+  let failed = $state(0);
   let days = $state(7);
   let loaded = $state(false);
   let busy = $state(false);
@@ -58,8 +61,10 @@
     try {
       const status = await request('/api/auth/security');
       mfa = status.mfaEnabled;
-      remaining = status.recoveryCodesRemaining;
-      days = status.sessionLifetimeDays;
+      const summary = status as SecurityStatusDto;
+      remaining = summary.recoveryCodesRemaining;
+      failed = summary.failedSecondFactorAttempts;
+      days = summary.sessionLifetimeDays;
       loaded = true;
     } catch {
       error = 'Could not load security settings. Retry loading.';
@@ -202,6 +207,13 @@
     ±one step clock drift; accepted codes cannot be reused. Wait for the next
     code after enrollment.
   </p>
+  {#if failed > 0}
+    <p class="notice" data-testid="second-factor-failures">
+      {failed === 1
+        ? t('security.failedOne')
+        : t('security.failedMany', { count: failed })}
+    </p>
+  {/if}
   {#if !enrollment}
     <form onsubmit={submit}>
       <fieldset disabled={busy}>
@@ -376,5 +388,9 @@
   }
   [role='alert'] {
     color: var(--danger);
+  }
+  .notice {
+    color: var(--danger);
+    font-weight: 600;
   }
 </style>

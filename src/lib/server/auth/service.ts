@@ -10,6 +10,7 @@ import {
   setupPreferencesSchema,
   freshAuthScopeSchema,
   type FreshAuthScope,
+  type SecurityStatusDto,
 } from '../../shared/auth.ts';
 import type { DomainTransaction, Persistence } from '../db/connection.ts';
 import {
@@ -36,6 +37,8 @@ import { newAuthToken, tokenHash } from './tokens.ts';
 import {
   AuthRateLimiter,
   DAILY_MFA_FAILURES,
+  FAILURES_SINCE_SUCCESS,
+  FAILURES_SINCE_SUCCESS_WINDOW_MS,
   MFA_CHALLENGE_FAILURES,
   MFA_DAILY_FAILURES,
   RateLimitError,
@@ -270,6 +273,7 @@ export class AuthService {
           );
           return { ...challenge, mfaRequired: true as const };
         }
+        this.limiter.reset(tx, FAILURES_SINCE_SUCCESS);
         return {
           ...this.createSession(
             tx,
@@ -526,6 +530,7 @@ export class AuthService {
         tx.delete(authChallenges)
           .where(eq(authChallenges.tokenHash, challenge.tokenHash))
           .run();
+        this.limiter.reset(tx, FAILURES_SINCE_SUCCESS);
         return {
           kind: 'ok',
           credential: {
@@ -556,6 +561,7 @@ export class AuthService {
           MFA_DAILY_FAILURES.windowMs,
           now,
         );
+      this.countSinceSuccess(tx, now);
       return { kind: 'wrong' };
     });
     switch (outcome.kind) {
@@ -571,6 +577,15 @@ export class AuthService {
       case 'wrong':
         throw failedLogin();
     }
+  }
+  // Owner notice (SH3.4): every wrong second-factor code, on either path, counts.
+  private countSinceSuccess(tx: DomainTransaction, now: number): void {
+    this.limiter.countFailure(
+      tx,
+      FAILURES_SINCE_SUCCESS,
+      FAILURES_SINCE_SUCCESS_WINDOW_MS,
+      now,
+    );
   }
   async freshAuth(
     identity: SessionIdentity,
@@ -602,6 +617,7 @@ export class AuthService {
             MFA_DAILY_FAILURES.windowMs,
             this.clock(),
           );
+          this.countSinceSuccess(tx, this.clock());
           return { kind: 'failed' };
         }
         return {
@@ -868,9 +884,10 @@ export class AuthService {
       return this.rotateSecurity(tx, owner, true, deviceToken)!;
     });
   }
-  securityStatus(identity: SessionIdentity) {
+  securityStatus(identity: SessionIdentity): SecurityStatusDto {
     return this.persistence.write((tx) => {
       const owner = this.currentIdentity(tx, identity);
+      const now = this.clock();
       const remaining = tx
         .select({ n: count() })
         .from(recoveryCodes)
@@ -885,6 +902,11 @@ export class AuthService {
         mfaEnabled: owner.totpEnabled === 1,
         recoveryCodesRemaining: remaining,
         sessionLifetimeDays: readSettings(this.persistence).sessionLifetimeDays,
+        failedSecondFactorAttempts: this.limiter.failureCount(
+          tx,
+          FAILURES_SINCE_SUCCESS,
+          now,
+        ),
       };
     });
   }

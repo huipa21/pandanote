@@ -121,6 +121,10 @@ export const en = {
 
   'settings.title': 'Settings',
 
+  'security.failedOne':
+    '1 incorrect second-factor code since your last sign-in. Someone may know your password — change it.',
+  'security.failedMany':
+    '{count} incorrect second-factor codes since your last sign-in. Someone may know your password — change it.',
   'account.heading': 'Account',
   'account.help':
     'Changing username or email requires fresh authentication. Email is not verified; no email is sent.',

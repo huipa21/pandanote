@@ -116,6 +116,10 @@ export const zhCN: Partial<Catalog> = {
 
   'settings.title': '设置',
 
+  'security.failedOne':
+    '自上次登录以来有 1 次验证码输入错误。可能有人知道您的密码，请修改密码。',
+  'security.failedMany':
+    '自上次登录以来有 {count} 次验证码输入错误。可能有人知道您的密码，请修改密码。',
   'account.heading': '账号',
   'account.help':
     '更改用户名或电子邮箱需要重新验证身份。邮箱不会被验证，也不会发送邮件。',

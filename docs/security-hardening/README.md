@@ -85,8 +85,8 @@ main documents carry a note pointing here.
    lowered to 10 per account per 15 minutes, and at most 30 failed second-factor
    codes per account per 24 hours on the untrusted path. Trusted devices keep their
    own bucket so an attacker who knows the password cannot lock the owner out. An
-   owner-visible "failed second-factor attempts" notice is **optional** and needs
-   user approval before implementation (SH3.4).
+   owner-visible "failed second-factor attempts" notice was **approved by the user**
+   and is implemented in SH3.4 (Settings → Security; counts and reset rules in PLAN).
 4. **Issue 4 (defaults):** new optional variable `TRUSTED_PROXIES`. Unset keeps
    today's zero-config behavior (approved simplify-setup deployment). `none`
    disables `X-Forwarded-For`; a comma-separated list of IPs/CIDRs trusts only those

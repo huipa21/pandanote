@@ -19,6 +19,8 @@ import { newAuthToken, tokenHash } from '../../src/lib/server/auth/tokens.ts';
 import {
   AuthRateLimiter,
   DAILY_MFA_FAILURES,
+  FAILURES_SINCE_SUCCESS,
+  FAILURES_SINCE_SUCCESS_WINDOW_MS,
   MFA_DAILY_FAILURES,
   RateLimitError,
 } from '../../src/lib/server/auth/rate-limits.ts';
@@ -126,6 +128,7 @@ it('encrypts enrollment/active secrets with random AES-GCM nonces, bound AAD, lo
     ])
       expect(dump).not.toContain(secret);
     expect(Object.keys(f.auth.securityStatus(f.identity)).sort()).toEqual([
+      'failedSecondFactorAttempts',
       'mfaEnabled',
       'recoveryCodesRemaining',
       'sessionLifetimeDays',
@@ -969,4 +972,81 @@ it('mfa_restart maps to 401 and rate-limit errors carry their own Retry-After (S
   const limited = authErrorResponse(new RateLimitError('Too many.', 86_000));
   expect(limited.status).toBe(429);
   expect(limited.headers.get('retry-after')).toBe('86000');
+});
+
+it('the owner notice counts wrong codes on both MFA paths and clears on the next successful sign-in (SEC-MFA-11)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    f.enable();
+    const pending = await f.auth.login('fixture', password, ip);
+    for (let i = 1; i <= 2; i++)
+      expect(
+        thrown(() => f.auth.completeMfa(pending.token, wrongCode, fromIp(i))),
+      ).toMatchObject({ code: 'unauthorized' });
+    expect(f.auth.securityStatus(f.identity).failedSecondFactorAttempts).toBe(
+      2,
+    );
+    // The count is persisted, so a new service instance reports it too.
+    const restarted = new AuthService(p, () => f.time);
+    expect(
+      restarted.securityStatus(f.identity).failedSecondFactorAttempts,
+    ).toBe(2);
+    // A correct code on the same challenge is a sign-in and clears the notice.
+    const ok = f.auth.completeMfa(
+      pending.token,
+      otp(f.enrollment.secret, f.time),
+      fromIp(3),
+    );
+    expect(f.auth.securityStatus(f.identity).failedSecondFactorAttempts).toBe(
+      0,
+    );
+    // A wrong code with a trusted device is counted as well.
+    f.advance();
+    const next = await f.auth.login('fixture', password, fromIp(4));
+    expect(
+      thrown(() =>
+        f.auth.completeMfa(next.token, wrongCode, fromIp(5), ok.device!.token),
+      ),
+    ).toMatchObject({ code: 'unauthorized' });
+    expect(f.auth.securityStatus(f.identity).failedSecondFactorAttempts).toBe(
+      1,
+    );
+  });
+});
+
+it('wrong codes in fresh authentication count too; the notice window is 30 days from its first failure (SEC-MFA-12)', async () => {
+  await withPersistence(async (p) => {
+    const f = await fixture(p);
+    f.enable();
+    await expect(
+      f.auth.freshAuth(
+        f.identity,
+        'mfa-enroll',
+        password,
+        wrongCode,
+        fromIp(1),
+      ),
+    ).rejects.toMatchObject({ code: 'unauthorized' });
+    expect(f.auth.securityStatus(f.identity).failedSecondFactorAttempts).toBe(
+      1,
+    );
+    // The window is fixed at its first failure: live until 30 days later, then gone.
+    // (Read through the limiter: the session itself expires before 30 days.)
+    const limiter = new AuthRateLimiter(p);
+    const start = f.time;
+    expect(
+      limiter.failureCount(
+        p.db,
+        FAILURES_SINCE_SUCCESS,
+        start + FAILURES_SINCE_SUCCESS_WINDOW_MS - 1,
+      ),
+    ).toBe(1);
+    expect(
+      limiter.failureCount(
+        p.db,
+        FAILURES_SINCE_SUCCESS,
+        start + FAILURES_SINCE_SUCCESS_WINDOW_MS,
+      ),
+    ).toBe(0);
+  });
 });

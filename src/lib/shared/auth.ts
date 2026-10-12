@@ -120,3 +120,12 @@ export const securityRequestSchema = z.discriminatedUnion('action', [
     days: z.number().int().min(1).max(30),
   }),
 ]);
+
+/** Owner-visible security status (GET /api/auth/security). */
+export interface SecurityStatusDto {
+  mfaEnabled: boolean;
+  recoveryCodesRemaining: number;
+  sessionLifetimeDays: number;
+  /** Wrong second-factor codes since the last successful sign-in (SH3.4). */
+  failedSecondFactorAttempts: number;
+}
