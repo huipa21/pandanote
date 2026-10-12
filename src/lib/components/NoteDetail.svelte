@@ -91,9 +91,6 @@
     data-note-id={note.id}
     data-revision={note.revision}
   >
-    {#if trashed}<p class="trash-label" role="status">
-        {t('note.inTrash')}
-      </p>{/if}
     <header class:has-tags={note.tags.length > 0}>
       <span class="when-wrap">
         <a
@@ -113,7 +110,33 @@
         >
       </span>
       <span class="word-count">{t('note.words', { count: wordCount })}</span>
-      {#if !trashed}<div class="header-actions">
+      {#if trashed}<div class="header-actions">
+          <button
+            type="button"
+            class="icon-button"
+            aria-label={t('note.restore')}
+            title={t('note.restore')}
+            disabled={!lifecycle.ready || lifecycle.busy}
+            onclick={() => lifecycle.choose(note, 'restore')}
+            ><Icon name="restore" /></button
+          >
+          <button
+            type="button"
+            class="icon-button danger"
+            aria-label={t('note.deletePermanently')}
+            title={t('note.deletePermanently')}
+            disabled={!lifecycle.ready || lifecycle.busy}
+            onclick={() => lifecycle.choose(note, 'permanent-delete')}
+            ><Icon name="delete-forever" /></button
+          >
+          <a
+            class="icon-button back"
+            href="/trash"
+            aria-label={t('note.back')}
+            title={t('note.back')}
+            onclick={back}><Icon name="back" /></a
+          >
+        </div>{:else}<div class="header-actions">
           <button
             type="button"
             class="icon-button pin-toggle"
@@ -315,10 +338,8 @@
   .word-count {
     white-space: nowrap;
   }
-  .trash-label {
-    margin: 0 0 var(--space-3);
-    color: var(--muted);
-    font-weight: 650;
+  .header-actions :global(.icon-button.danger) {
+    color: var(--danger);
   }
   /* Hashtags are shown as the chips under the date; the body does not repeat them. */
   .note-body :global(.tag-text) {

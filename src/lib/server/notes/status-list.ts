@@ -1,8 +1,14 @@
-import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { Persistence } from '../db/connection.ts';
 import type { SessionIdentity } from '../auth/service.ts';
 import { assertSessionIdentity } from '../auth/identity.ts';
-import { notes, noteAttachments, attachments } from '../db/schema.ts';
+import {
+  notes,
+  noteAttachments,
+  attachments,
+  noteTags,
+  tags,
+} from '../db/schema.ts';
 import { DomainError } from '../../shared/domain.ts';
 import {
   parseStatusQuery,
@@ -10,13 +16,30 @@ import {
   statusExcerpt,
   type StatusPage,
 } from '../../shared/status-notes.ts';
+import { searchPredicates } from '../search/query.ts';
+import { tagSpans } from '../../shared/markdown/tags.ts';
+
+/** Hashtags are shown as tag chips on each row, so their text is left out of the excerpt. */
+function withoutTagText(source: string): string {
+  let spans;
+  try {
+    spans = tagSpans(source);
+  } catch {
+    // Only notes over the unique-tag limit fail here; such notes cannot be saved.
+    return source;
+  }
+  let text = source;
+  for (const span of [...spans].reverse())
+    text = text.slice(0, span.start) + text.slice(span.end);
+  return text;
+}
 
 export function statusPage(
   p: Persistence,
   identity: SessionIdentity,
   params: URLSearchParams,
 ): StatusPage {
-  const { status, limit, cursor } = parseStatusQuery(params);
+  const { status, limit, cursor, units } = parseStatusQuery(params);
   let decoded: ReturnType<typeof statusCursorSchema.parse> | null = null;
   if (cursor) {
     try {
@@ -25,6 +48,8 @@ export function statusPage(
       if (bytes.toString('base64url') !== cursor) throw new Error();
       decoded = statusCursorSchema.parse(JSON.parse(bytes.toString('utf8')));
       if (decoded.status !== status) throw new Error();
+      if (JSON.stringify(decoded.units) !== JSON.stringify(units))
+        throw new Error();
     } catch {
       throw new DomainError(
         'validation',
@@ -34,7 +59,7 @@ export function statusPage(
   }
   return p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
-    const predicates = [eq(notes.status, status)];
+    const predicates = [eq(notes.status, status), ...searchPredicates(units)];
     if (decoded)
       predicates.push(
         or(
@@ -59,6 +84,20 @@ export function statusPage(
       .limit(limit + 1)
       .all();
     const selected = rows.slice(0, limit);
+    const tagRows = selected.length
+      ? tx
+          .select({ noteId: noteTags.noteId, key: tags.normalizedKey })
+          .from(noteTags)
+          .innerJoin(tags, eq(noteTags.tagId, tags.id))
+          .where(
+            inArray(
+              noteTags.noteId,
+              selected.map((row) => row.id),
+            ),
+          )
+          .orderBy(asc(tags.normalizedKey))
+          .all()
+      : [];
     const counts = selected.length
       ? tx
           .select({
@@ -89,7 +128,12 @@ export function statusPage(
         status,
         images,
         files,
-        excerpt: statusExcerpt(source?.toString('utf8') ?? '', images, files),
+        excerpt: statusExcerpt(
+          withoutTagText(source?.toString('utf8') ?? ''),
+          images,
+          files,
+        ),
+        tags: tagRows.filter((t) => t.noteId === row.id).map((t) => t.key),
       };
     });
     const last = items.at(-1);
@@ -104,6 +148,7 @@ export function statusPage(
                 status,
                 at: last.timelineAt,
                 id: last.id,
+                units,
               }),
             ).toString('base64url')
           : null,

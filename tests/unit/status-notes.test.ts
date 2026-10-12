@@ -9,6 +9,7 @@ describe('S13 status-list boundary', () => {
       status: 'trash',
       limit: 30,
       cursor: null,
+      units: [],
     });
     for (const input of [
       '',
@@ -19,10 +20,21 @@ describe('S13 status-list boundary', () => {
       'status=trash&limit=01',
       'status=trash&cursor=',
       'status=trash&status=draft',
-      'status=trash&q=secret',
       'status=trash&limit=1&limit=2',
+      'status=trash&q=a&q=b',
+      'status=trash&q=%22unclosed',
+      'status=trash&q=%22a%22b',
+      'status=trash&filter=secret',
     ])
       expect(() => parseStatusQuery(new URLSearchParams(input))).toThrow();
+  });
+  it('parses Trash search with the same literal grammar as note search', () => {
+    expect(
+      parseStatusQuery(new URLSearchParams('status=trash&q=Hello+%22A%20B%22')),
+    ).toMatchObject({ units: ['a b', 'hello'] });
+    expect(
+      parseStatusQuery(new URLSearchParams('status=trash&q=%20%20')),
+    ).toMatchObject({ units: [] });
   });
   it('uses content excerpts/image/file fallbacks, not titles or trusted HTML', () => {
     expect(statusExcerpt(' \n ', 1, 0)).toBe('Image note');

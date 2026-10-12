@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DomainError, idSchema, instantSchema } from './domain.ts';
+import { parseSearch } from './search.ts';
 
 export const listStatusSchema = z.enum(['trash']);
 export type ListStatus = z.infer<typeof listStatusSchema>;
@@ -14,6 +15,8 @@ export interface StatusNote {
   excerpt: string;
   images: number;
   files: number;
+  /** Normalized tag keys, as shown on timeline cards. */
+  tags: string[];
 }
 export interface StatusPage {
   status: ListStatus;
@@ -25,14 +28,18 @@ export const statusCursorSchema = z.strictObject({
   status: listStatusSchema,
   at: instantSchema,
   id: idSchema,
+  // Normalized search units bind the cursor to the query that produced it.
+  units: z.array(z.string().max(1024)).max(20),
 });
 export function parseStatusQuery(params: URLSearchParams) {
   if (
     params.toString().length > 4096 ||
     [...params.keys()].some(
-      (key) => !['status', 'cursor', 'limit'].includes(key),
+      (key) => !['status', 'cursor', 'limit', 'q'].includes(key),
     ) ||
-    ['status', 'cursor', 'limit'].some((key) => params.getAll(key).length > 1)
+    ['status', 'cursor', 'limit', 'q'].some(
+      (key) => params.getAll(key).length > 1,
+    )
   )
     throw new DomainError('validation', 'Invalid Trash query.');
   const status = listStatusSchema.safeParse(params.get('status'));
@@ -48,7 +55,9 @@ export function parseStatusQuery(params: URLSearchParams) {
       'validation',
       'Choose Trash and a page size from 1 to 100.',
     );
-  return { status: status.data, limit: Number(rawLimit), cursor };
+  // Same literal grammar as note search; an absent or empty q lists all Trash.
+  const units = parseSearch(params.get('q') ?? '');
+  return { status: status.data, limit: Number(rawLimit), cursor, units };
 }
 export function statusExcerpt(
   text: string,
@@ -65,3 +74,6 @@ export function statusExcerpt(
   const points = [...clean];
   return points.slice(0, 240).join('') + (points.length > 240 ? '…' : '');
 }
+
+/** Trash shows this many notes first; scrolling lazy-loads the same amount. */
+export const STATUS_PAGE_SIZE = 30;

@@ -2,6 +2,29 @@
 
 ## Current state
 
+- **Trash search, selection and lazy list (user request) — done for the requested UI.**
+  Trash search under the title; 10 rows then lazy load; note-card rows at one fixed
+  height with checkbox; Select all icon; restore/delete-permanently icons appear on the
+  Select all row when selected. Gates: check 0 errors, unit 158 pass, integration 227 pass
+  / 7 skipped, build ok, affected e2e 9/9. Lint still fails only on pre-existing
+  `NoteEditor.svelte:64`. See the last handoff at the end of this file.
+
+- **Trash note page + sidebar (user request) — implemented; E2E verified.** Sidebar: removed the
+  line between Calendar and Tags and the line above Trash. Trashed note page shows as a normal
+  note (no "In Trash" text): header right has a trash status icon (`role=img`, aria-label
+  "In Trash"), Restore and Delete permanently icon buttons (both via the existing confirm
+  dialog), and Back (to `/trash`). Pin/Edit/Delete stay hidden on trashed notes. This changes
+  the earlier spec line that Restore/permanent delete happen only on the Trash list (approved
+  by the user in this request). Files: `src/lib/components/NoteDetail.svelte`,
+  `src/lib/components/Sidebar.svelte`, `src/lib/components/Icon.svelte` (restore,
+  delete-forever icons), `src/lib/shared/i18n/{en,zh-CN}.ts`,
+  `tests/e2e/note-actions.test.ts` (NA-DELETE updated).
+  Gates: `npm run check` 0 errors (1 pre-existing warning in AppShell.svelte); `npm run test:unit`
+  157/157; `npm run build` ok; `npx playwright test tests/e2e/note-actions.test.ts` 6/6;
+  `tests/e2e/status-notes.test.ts` 1/1. `npm run lint` fails on a pre-existing error in
+  `NoteEditor.svelte:64` (unused `_value`), not from this change; not yet fixed. Not run:
+  integration and full e2e suites.
+
 - **Note page layout (user request) — implemented; partly verified.** The note page
   now matches the card header: date top left, tag chips under it (no bottom Tags
   list, no location label), body hides hashtag text (`#test/1` no longer shows), and
@@ -4639,3 +4662,64 @@ Final documentation validation (this session):
   `tests/e2e/note-actions.test.ts`.
 
 - Addendum: `NA-PIN` fixed by asserting the labelled region `getByRole('region', { name: 'Pinned' })` (no visible heading by design). Rerun `npx playwright test tests/e2e/detail.test.ts tests/e2e/note-edit.test.ts tests/e2e/note-actions.test.ts`: **17/17 pass**. Remaining: NoteEditor lint error, full e2e suite, integration/Linux gates.
+
+## Trash search, selection and lazy list — session handoff (user request)
+
+- **State: done for the requested UI; not a planned AGENTS step.** Trash page: search
+  under the title (Enter, as on Tags) searches trashed notes only; list shows 10 at a
+  time and lazy-loads on scroll; rows are note-card style at one fixed height (date
+  links to the note detail, tag chips, clamped excerpt) with no per-row buttons; a
+  checkbox per row; a text-free Select all icon; with a selection, restore and
+  delete-permanently icons appear on the Select all row. Bulk actions confirm and run
+  the existing per-note lifecycle one note at a time (durable retry kept per note;
+  failure stops the batch and opens the usual dialog). No bulk endpoint was added.
+- Decisions: Trash search reuses the active-note predicates (`searchPredicates`) and is
+  bound into the cursor, so a cursor from one query is refused. The API default page
+  size stays 30; the Trash UI requests `STATUS_PAGE_SIZE` (10). Rows show tags as
+  non-link chips so Trash never navigates to the active timeline. Spec updated:
+  PRODUCT_SPEC §6 Trash.
+- Files: `src/lib/shared/status-notes.ts` (q/units parsing, `tags`, `STATUS_PAGE_SIZE`),
+  `src/lib/server/notes/status-list.ts` (search predicates, tags, cursor units),
+  `src/routes/(app)/trash/+page.server.ts` and `+page.svelte` (search, query key),
+  `src/lib/components/StatusNoteList.svelte` (rewritten: selection, bulk, lazy load),
+  `src/lib/components/Icon.svelte` (select-none/some/all icons),
+  tests: `tests/unit/status-notes.test.ts` (q now parsed; malformed q refused),
+  `tests/integration/trash-search.test.ts` (new), `tests/e2e/status-notes.test.ts` (2
+  tests rewritten/added: bulk restore/delete with confirm; search + select all; 10 rows,
+  lazy load, equal heights), `tests/e2e/note-actions.test.ts` (trash restore via checkbox
+  + bulk icon).
+- Commands and real results (Windows dev machine):
+  - `npm run check`: 0 errors; 1 pre-existing warning (`AppShell.svelte` unused CSS).
+  - `npm run lint`: FAILS only on pre-existing `NoteEditor.svelte:64` (unused `_value`;
+    file unchanged vs HEAD). `npx prettier --check .` lists 22 files, none of them touched
+    here (pre-existing or from the other session's staged work).
+  - `npm run test:unit`: 30 files / 158 tests passed.
+  - `npm run test:integration`: 39 files passed; 227 tests passed, 7 skipped (existing skips).
+  - `npm run build`: ok (`vite build` and the runtime-dependency check).
+  - `npx playwright test tests/e2e/status-notes.test.ts tests/e2e/note-actions.test.ts`:
+    9/9 pass (after a screenshot-driven fix: nested `<li>` was inheriting the row height,
+    and the excerpt clamp was changed from 3 to 2 lines to fit the fixed row).
+  - Broader e2e run (`zzzaccessibility`, `shell`, `editor-session`, `tag-management`,
+    `timeline`): 19 passed, 6 failed. The failures are outside Trash and not caused by
+    this change as far as the messages show: settings dark/compact screenshot diff
+    (`shell`), composer footer no longer says "Saved on server." (`tag-management`,
+    `editor-session`-style text; the other session's footer change), "Active filters"
+    region missing (`timeline`), and the month-picker year button in
+    `zzzaccessibility` dialogs. Not proven against HEAD; re-check before release.
+  - Not run: full e2e suite; Linux deployment image (native Sharp/SQLite) gates.
+- Remaining / known limits: rows have no thumbnails or full Markdown rendering (the
+  list uses the bounded plain excerpt, as before). Bulk actions are sequential
+  (one request per note), so a large selection takes longer. A bulk batch stops at the
+  first failure; the remaining notes stay selected for another try.
+- Next: confirm the 6 out-of-scope e2e failures against HEAD or fix them in their own
+  area; fix `NoteEditor.svelte:64` so `npm run lint` passes; then run the full e2e suite
+  and the Linux image gates before any milestone claim. Files to read first:
+  `src/lib/components/StatusNoteList.svelte`, `tests/e2e/status-notes.test.ts`.
+
+### Trash list compact rows (UI request)
+- Page size for Trash is now 30 (`STATUS_PAGE_SIZE` in `src/lib/shared/status-notes.ts`); lazy-load uses the same 30.
+- Each entry is a single compact list row (checkbox, date, tag chips, one-line excerpt, media count), full column width, fixed `2.75rem` height. Checkbox sits inside the row.
+- List header: select-all checkbox (indeterminate when partly selected), then Restore and Delete Permanently icons. Icons are always shown and disabled while nothing is selected. A pending bulk confirm is cleared when selection empties.
+- Files touched: `src/lib/components/StatusNoteList.svelte`, `src/lib/shared/status-notes.ts`, `tests/e2e/status-notes.test.ts`, `tests/e2e/note-actions.test.ts`, `docs/PRODUCT_SPEC.md` (Trash list paragraph).
+- Validation: `npm run check` 0 errors (1 pre-existing warning in AppShell.svelte); eslint + prettier clean on touched files; `npm run test:unit` 158/158; `tests/integration/trash-search.test.ts` passes; `npx playwright test tests/e2e/status-notes.test.ts tests/e2e/note-actions.test.ts` 9/9 on rerun (one earlier run had a single unexplained timeout in NA-DELETE that did not reproduce in two later runs).
+- Not visually inspected by a human; layout verified only through e2e assertions. Index/staged changes from the other session were left untouched; these edits are unstaged in the working tree.

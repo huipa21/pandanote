@@ -36,6 +36,8 @@ export const en = {
   'note.tags': 'Note tags',
   'note.inTrash': 'In Trash',
   'note.back': 'Back',
+  'note.restore': 'Restore',
+  'note.deletePermanently': 'Delete permanently',
   'note.words': '{count} words',
   'note.created': 'Created',
   'note.updated': 'Updated',

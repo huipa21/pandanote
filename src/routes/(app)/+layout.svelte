@@ -129,7 +129,9 @@
   active={page.url.pathname}
   tags={data.availableTags}
   filters={page.data.timeline?.filters ?? {}}
-  searchQuery={page.url.searchParams.get('q') ?? ''}
+  searchQuery={page.url.pathname === '/'
+    ? (page.url.searchParams.get('q') ?? '')
+    : ''}
   onSearch={(href) => goto(href, { reset: false })}
 >
   {#if lifecycle.warning}<p role="alert">{lifecycle.warning}</p>{/if}

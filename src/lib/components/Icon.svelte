@@ -1,7 +1,18 @@
 <script module lang="ts">
   /** Small stroke icon set for action menus (16–18 px, inherits text colour). */
   export type IconName =
-    'pin' | 'pin-off' | 'pencil' | 'trash' | 'merge' | 'dots' | 'back';
+    | 'pin'
+    | 'pin-off'
+    | 'pencil'
+    | 'trash'
+    | 'restore'
+    | 'delete-forever'
+    | 'select-none'
+    | 'select-some'
+    | 'select-all'
+    | 'merge'
+    | 'dots'
+    | 'back';
 </script>
 
 <script lang="ts">
@@ -26,6 +37,18 @@
       <path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4" />
     {:else if name === 'back'}
       <path d="M19 12H5M11 6l-6 6 6 6" />
+    {:else if name === 'restore'}
+      <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8M3 3v5h5" />
+    {:else if name === 'select-none'}
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+    {:else if name === 'select-some'}
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M8 12h8" />
+    {:else if name === 'select-all'}
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M8 12.5l2.5 2.5L16 9.5" />
+    {:else if name === 'delete-forever'}
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11l4 5M14 11l-4 5" />
     {:else if name === 'merge'}
       <path
         d="M6 4v4a4 4 0 0 0 4 4h4a4 4 0 0 1 4 4v4M18 4v4a4 4 0 0 1-4 4M6 20v-4"

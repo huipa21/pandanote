@@ -39,6 +39,8 @@ export const zhCN: Partial<Catalog> = {
   'note.tags': '笔记标签',
   'note.inTrash': '已在回收站',
   'note.back': '返回',
+  'note.restore': '恢复',
+  'note.deletePermanently': '永久删除',
   'note.words': '{count} 字',
   'note.created': '创建',
   'note.updated': '更新',

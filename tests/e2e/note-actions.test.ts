@@ -171,9 +171,13 @@ test('NA-DELETE: card Delete moves to Trash with no dialog or Undo; pinned note 
   await page.goto('/trash');
   const row = page.locator(`[data-testid="trash-note"][data-note-id="${id}"]`);
   await expect(row).toContainText(body);
-  await row.getByRole('button', { name: 'Restore', exact: true }).click();
+  await row.getByRole('checkbox').check();
   await page
-    .getByRole('button', { name: 'Confirm restore', exact: true })
+    .getByRole('button', { name: 'Restore selected notes', exact: true })
+    .click();
+  await page
+    .getByRole('dialog', { name: 'Restore notes?' })
+    .getByRole('button', { name: 'Restore', exact: true })
     .click();
   await expect(row).toHaveCount(0);
   const note = (
@@ -196,15 +200,24 @@ test('NA-DELETE: note page Delete returns to the timeline; Trash notes are read-
   await expect(page).toHaveURL(/\/$/);
   await expect(card(page, id)).toHaveCount(0);
   await page.goto(`/notes/${id}`);
-  await expect(page.getByText('In Trash', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Back' })).toHaveCount(0);
-  for (const name of [
-    'Restore',
-    'Permanently delete',
-    'Note actions',
-    'Edit note',
-  ])
-    await expect(page.getByRole('button', { name })).toHaveCount(0);
+  // Trash note shows as a normal note: no "In Trash" text or status icon,
+  // only Restore / Delete permanently (both confirm) and Back to Trash.
+  await expect(page.getByText('In Trash', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('img', { name: 'In Trash' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Back' })).toHaveAttribute(
+    'href',
+    '/trash',
+  );
+  for (const name of ['Pin', 'Edit', 'Delete', 'Note actions', 'Edit note'])
+    await expect(page.getByRole('button', { name, exact: true })).toHaveCount(
+      0,
+    );
+  await page.getByRole('button', { name: 'Restore', exact: true }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Restore note?' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm restore' }).click();
+  await expect(page.getByRole('img', { name: 'In Trash' })).toHaveCount(0);
 });
 
 test('NA-DELETE: a failed Delete opens the dialog in error state and retries the same action', async ({

@@ -251,6 +251,9 @@ Trash:
 - Permanent delete requires explicit confirmation.
 - No automatic Trash emptying.
 - Trash is excluded from normal search/calendar/timeline.
+- Trash page search: a search field sits directly under the Trash title (Enter to search, like the Tags page). It matches trashed notes only, with the same literal multi-term grammar as note search. The sidebar search still covers active notes only.
+- Trash list: 30 notes first; scrolling lazy-loads 30 more. Each entry is a compact list row (checkbox, date, tag chips, one-line excerpt) spanning the full column width at one fixed height; long text clamps to one line. The checkbox sits inside the row. The list header has a select-all checkbox, then Restore and Delete Permanently icons; with nothing selected the icons are disabled. The date opens the note detail. Rows have no per-note buttons.
+- Selection: a checkbox before each row and a text-free Select all icon that selects the displayed notes. With a selection, a restore icon and a delete-permanently icon appear on the Select all row. Each bulk action asks for confirmation first and runs the per-note lifecycle one note at a time; a failure stops the batch and opens the usual dialog.
 - Attachment bytes still in Trash count toward storage.
 
 ## 7. Tags

@@ -164,9 +164,7 @@
     padding: var(--space-2) var(--space-4);
   }
   section + section {
-    border-top: 1px solid var(--border);
     margin-top: var(--space-4);
-    padding-top: var(--space-2);
   }
   h2 {
     margin: var(--space-2) 0;
@@ -196,7 +194,6 @@
   .sidebar-bottom {
     margin: auto 0 0;
     padding: var(--space-3) var(--space-4);
-    border-top: 1px solid var(--border);
     flex: none;
   }
   .version {
