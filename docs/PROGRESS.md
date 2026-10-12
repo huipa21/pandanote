@@ -4780,3 +4780,9 @@ Final documentation validation (this session):
 - Setup-code docs (PRODUCT_SPEC §13, ARCHITECTURE §12.1/§12.6, README, DEPLOYMENT, RESTORE_RUNBOOK, ACCEPTANCE_TESTS AUTH-01, simplify-setup SPEC note) and the release harness (`tests/release/setup-code.ts`, drill/image/deployment/benchmark read the code from container logs) are updated. Detail and commands: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 7.
 - Validation: check, unit, integration (234 passed, 7 skipped) and build pass; lint fails only on the pre-existing `NoteEditor.svelte:64`. Release tests and SEC-SETUP-13 are **blocked** on a Linux Docker host, not passed.
 - Not committed. Next: SH3.1.
+
+### Security hardening SH3.1 (session 8)
+
+- Rate-limiter primitives `countFailure` and `isBlocked` added (fixed windows, never extended; protected `mfa-failures-day:account` survives eviction). Test: `tests/integration/rate-limit-counters.test.ts`. Detail and commands: [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 8.
+- Validation: unit 162 passed; integration 238 passed, 7 skipped; build passed; check 0 errors; lint fails only on the pre-existing `NoteEditor.svelte:64`.
+- Not committed. Next: SH3.2.

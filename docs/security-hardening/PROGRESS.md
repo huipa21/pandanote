@@ -10,7 +10,7 @@
 | SH2.1    | Setup code: server, log line, integration tests | done (server; standard gate green; e2e auth expected to fail until SH2.2; see session 5) |
 | SH2.2    | Setup page field and e2e harness                | done for setup flows (session 6); full e2e has 9 non-setup failures, not all baselined   |
 | SH2.3    | Setup code docs and Linux release harness       | **partial**: docs and harness done; Linux release drill **blocked** (no Linux Docker host; session 7) |
-| SH3.1    | Rate-limiter failure-count primitives           | not started                                                                              |
+| SH3.1    | Rate-limiter failure-count primitives           | done (standard gate green; see session 8)                                                |
 | SH3.2    | MFA per-challenge cap, lower limit, daily cap   | not started                                                                              |
 | SH3.3    | Sign-in page MFA messages                       | not started                                                                              |
 | SH3.4    | Optional owner notice (needs user approval)     | not approved                                                                             |
@@ -18,7 +18,7 @@
 | SH4.2    | IPv6 /64 rate-limit bucketing                   | not started                                                                              |
 | SH4.3    | Issue 4 docs                                    | not started                                                                              |
 
-**Next task:** SH3.1 (rate-limiter failure-count primitives). Read [PLAN.md](PLAN.md) SH3.1 and `src/lib/server/auth/rate-limits.ts`, `src/lib/server/db/schema.ts`, `tests/integration/auth.test.ts` (limit cases). Run `git status` first. Validation: the standard gate. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
+**Next task:** SH3.2 (MFA per-challenge cap, lower MFA limit, daily failure cap). Read [PLAN.md](PLAN.md) SH3.2, `src/lib/server/auth/service.ts` (`completeMfa`, `freshAuth`), `src/lib/server/auth/rate-limits.ts` (`countFailure`, `isBlocked`, `DAILY_MFA_FAILURES`), `tests/integration/auth-mfa.test.ts`. Run `git status` first. Validation: the standard gate + `npx playwright test tests/e2e/auth.test.ts`. Linux release tests (SH2.3) stay blocked until a Linux Docker host is available.
 
 ## Session log
 
@@ -153,3 +153,13 @@
 - **Blocked, not passed:** `tests/release/*` (drill, image, deployment, benchmark, restart) and SEC-SETUP-13. No Docker/Podman on this host and no Linux host. Required before release: `bash ops/release-drill.sh` and `IMAGE_UNDER_TEST=… npx playwright test --config playwright.release.config.ts tests/release/image.test.ts` on Linux. Those runs should also confirm the code-reading path (`docker logs`) with a real container.
 - Known gaps: `docs/simplify-setup/ACCEPTANCE_TESTS.md` (SET-01, SET-05) still describes "no token". The PLAN named only SPEC/README for the note, so I left it. `docs/simplify-setup/PROGRESS.md` and root `docs/PROGRESS.md` history are untouched on purpose.
 - Next: SH3.1 (rate-limiter failure-count primitives; see PLAN).
+
+### Session 8 — SH3.1 (rate-limiter failure-count primitives)
+
+- `src/lib/server/auth/rate-limits.ts`: new `AuthRateLimiter.countFailure(tx, name, windowMs, now)` and `isBlocked(db, name, limit, now)`. Buckets are keyed by `digest(name)` in the existing `auth_rate_limits` table. A window starts at its first failure, ends at `windowStartedAt + windowMs`, and is never extended. Expired rows are purged and count as absent. `countFailure` runs inside the caller's transaction and does not throw.
+- Eviction: the HMAC helper (`digest`) and eviction (`makeRoom`) are shared private methods used by `attempt()` and `countFailure`. `attempt()` behavior is unchanged. Protected account names now include `DAILY_MFA_FAILURES` = `mfa-failures-day:account` (for SH3.2). Per-challenge names are not protected.
+- Deviation from PLAN: `countFailure` has no `limit` argument. The plan listed one, but nothing used it; the limit is passed to `isBlocked`.
+- Known limitation: if eviction cannot free space (only if nearly every row is protected), `countFailure` still records the failure and the table exceeds `MAX_RATE_BUCKETS` by one row. Documented in the code.
+- Test: new `tests/integration/rate-limit-counters.test.ts` (4 cases): fixed windows and non-extension; expiry and restart; persistence across a reopened `Persistence`; eviction keeps the protected daily bucket and evicts an unprotected row; a counted failure rolls back when an outer transaction throws. SEC-MFA-6 covered.
+- Commands and real results (Windows): prettier and eslint on touched files: pass. `npm run check`: 0 errors, 1 pre-existing warning (AppShell.svelte). `npm run lint`: fails only on the pre-existing `NoteEditor.svelte:64`. `npm run test:unit`: 32 files, 162 passed. `npm run test:integration`: 40 files, 238 passed, 7 skipped (Linux-only PTY). `npm run build`: passed. E2E not run (no UI change).
+- Not committed (per README rules). Next: SH3.2.
