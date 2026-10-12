@@ -61,7 +61,9 @@
    * Grows the inline (compact) text area with its content. CSS max-height caps the
    * growth; past the cap the text area scrolls instead.
    */
-  function autoGrow(node: HTMLTextAreaElement, _value: string) {
+  function autoGrow(node: HTMLTextAreaElement, value: string) {
+    // The value triggers Svelte's update callback; fitting reads the rendered DOM.
+    void value;
     const fit = () => {
       if (!node.classList.contains('compact-text')) return;
       node.style.height = 'auto';

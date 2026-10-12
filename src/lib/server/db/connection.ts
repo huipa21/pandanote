@@ -4,7 +4,10 @@ import {
   drizzle,
   type BetterSQLite3Database,
 } from 'drizzle-orm/better-sqlite3';
-import { PrivateStorage } from '../storage/private-storage.ts';
+import {
+  PrivateStorage,
+  type KeyMaterial,
+} from '../storage/private-storage.ts';
 import {
   WriteCoordinator,
   type MaintenanceLease,
@@ -55,10 +58,19 @@ export class Persistence {
   }
   readonly storage: PrivateStorage;
   readonly coordinator: WriteCoordinator;
+  private keyMaterial: Readonly<KeyMaterial>;
+  /** Key snapshot belonging to the currently open DB. Replacement/rollback
+   * refresh it together with the native handles; retained services must read
+   * this getter rather than caching their own key for the process lifetime. */
+  get keys(): Readonly<KeyMaterial> {
+    if (!this.available)
+      throw new Error('Private keys are unavailable during replacement');
+    return this.keyMaterial;
+  }
   constructor(storage: PrivateStorage, coordinator = new WriteCoordinator()) {
     this.storage = storage;
     this.coordinator = coordinator;
-    storage.readKeys(); // Fail closed on missing/corrupt portable key material.
+    this.keyMaterial = Object.freeze(storage.readKeys()); // Fail closed on missing/corrupt keys.
     if (new JournalStore(storage, coordinator).list().length > 0)
       throw new Error(
         'Filesystem recovery is required before opening persistence',
@@ -104,7 +116,7 @@ export class Persistence {
   }
   reopenAfterReplacement(lease: MaintenanceLease): void {
     lease.write(() => {
-      this.storage.readKeys();
+      const keys = Object.freeze(this.storage.readKeys());
       const native = connectDatabase(this.storage.databasePath, true);
       try {
         assertMigrationState(native);
@@ -114,6 +126,7 @@ export class Persistence {
       }
       this.native = native;
       this.db = drizzle(native, { schema });
+      this.keyMaterial = keys;
     });
   }
   async close(): Promise<void> {

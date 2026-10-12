@@ -124,15 +124,16 @@ remove referenced attachment bytes.
 
 ### Settings in `.env`
 
-| Variable             | Required | Default                  | Meaning                                                                 |
-| -------------------- | -------- | ------------------------ | ----------------------------------------------------------------------- |
-| `ORIGIN`             | yes      | —                        | Canonical HTTPS origin, no trailing slash; HTTP only for loopback.      |
-| `DATA_PATH`          | no       | `./data`                 | Private local folder on this server for all app data.                   |
-| `PUID` / `PGID`      | no       | `1000` / `1000`          | Non-root positive numeric owner IDs.                                    |
-| `PANDANOTE_IMAGE`    | no       | `pandanote:latest`       | Set to a retained version/tag for pinning or rollback.                  |
-| `DISK_RESERVE_BYTES` | no       | max(5 GiB, 10% capacity) | Free-space floor protecting the shared filesystem.                      |
-| `BODY_SIZE_LIMIT`    | no       | `64G` in image           | Transport ceiling; domain image/file/archive limits still apply.        |
-| `PORT`               | no       | `3000`                   | Internal listener; changing it also requires changing Caddy's upstream. |
+| Variable             | Required | Default                  | Meaning                                                                                                                                                                                   |
+| -------------------- | -------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORIGIN`             | yes      | —                        | Canonical HTTPS origin, no trailing slash; HTTP only for loopback.                                                                                                                        |
+| `DATA_PATH`          | no       | `./data`                 | Private local folder on this server for all app data.                                                                                                                                     |
+| `PUID` / `PGID`      | no       | `1000` / `1000`          | Non-root positive numeric owner IDs.                                                                                                                                                      |
+| `PANDANOTE_IMAGE`    | no       | `pandanote:latest`       | Set to a retained version/tag for pinning or rollback.                                                                                                                                    |
+| `DISK_RESERVE_BYTES` | no       | max(5 GiB, 10% capacity) | Free-space floor protecting the shared filesystem.                                                                                                                                        |
+| `BODY_SIZE_LIMIT`    | no       | `64G` in image           | Transport ceiling; domain image/file/archive limits still apply.                                                                                                                          |
+| `PORT`               | no       | `3000`                   | Internal listener; changing it also requires changing Caddy's upstream.                                                                                                                   |
+| `TRUSTED_PROXIES`    | no       | private peers            | `none` ignores XFF; otherwise up to 32 comma-separated IPv4/IPv6 addresses or CIDRs. Only listed TCP peers may supply XFF. Unset/blank retains private-network/loopback/link-local trust. |
 
 The only env template is root `.env.example`, with just ORIGIN required.
 Container `DATA_DIR` is always `/data`; DATA_PATH controls the host bind. Use the
@@ -292,10 +293,68 @@ Argument-free, stopped-app-only; changes derived search, not notes/revisions/fil
 - Never share the data directory with another service or use network storage. Keep
   data/archives/env/browser profiles out of Git and public paths.
 - Another proxy must terminate HTTPS, forward Host, overwrite XFF with a single
-  valid client IP and stream adequate upload sizes. Private-network/loopback/link-local
-  TCP peers are trusted; absent XFF uses their peer, invalid/chained XFF returns 400.
-  Public peers ignore XFF. Do not permit arbitrary peers onto the proxy network.
+  valid client IP and stream adequate upload sizes. `TRUSTED_PROXIES` controls which
+  TCP peers may supply XFF (details below). For a trusted peer, absent XFF uses its
+  peer and invalid/chained XFF returns 400; untrusted peers ignore XFF entirely.
   Leave adapter address/host/protocol/port forwarding overrides unset.
+
+### Restrict forwarded-address trust (recommended hardening)
+
+The compatibility default trusts every private-network/loopback/link-local peer.
+Other containers sharing that network can therefore forge forwarded addresses.
+To trust only Caddy, inspect its actual peer address and the network's subnet:
+
+```sh
+docker network inspect proxynet
+```
+
+Select an unused address in that subnet and pin **Caddy's** address in its existing
+Compose file. For example (the address is illustrative, not a universal default):
+
+```yaml
+services:
+  caddy:
+    networks:
+      proxynet:
+        ipv4_address: 172.18.0.2
+networks:
+  proxynet:
+    external: true
+```
+
+Recreate Caddy with its normal deployment procedure, inspect the network again,
+and set PandaNote's `.env` to the actual fixed peer address:
+
+```dotenv
+TRUSTED_PROXIES=172.18.0.2
+```
+
+Then apply the new environment with `docker compose up -d --force-recreate`
+(a restart alone does not change a container's environment). List both actual
+IPv4/IPv6 peer addresses if needed, separated by commas; mapped IPv4 peers match
+IPv4 entries. Narrow CIDRs are supported, but trusting the entire shared subnet
+also trusts its other containers. Invalid configuration prevents startup. The
+startup log reports only the number of proxy entries, or that XFF is ignored.
+
+For deliberate direct TCP exposure without a proxy, use `TRUSTED_PROXIES=none`;
+XFF is ignored even from private peers. This is an address-trust setting, not a TLS
+or firewall substitute: the supported installation still keeps port 3000 private
+and serves public traffic over HTTPS.
+
+Caddy replaces untrusted XFF by default; the minimal site needs no extra option.
+Configure Caddy's own `trusted_proxies` only when Caddy itself sits behind a CDN or
+another trusted proxy. In that topology, forward only the resolved `{client_ip}`
+(for example `header_up X-Forwarded-For {client_ip}`), not a comma-separated chain.
+PandaNote never trusts a header merely because it contains a plausible client IP.
+
+Sign-in protection isolates anonymous IP buckets from verified device/IP buckets;
+correct setup-code requests also have their own code/IP bucket. An anonymous flood
+cannot spend those allowances even behind shared NAT or an IPv6 /64. A stolen
+valid device cookie can still exhaust that device's allowance; connection floods
+and password-worker contention are not eliminated. New/expired-cookie browsers
+remain on the anonymous path. Never exempt a request based only on a supplied
+password or unverified cookie.
+
 - Dependency audits/builds are dated evidence, not permanent security guarantees.
   Use pinned compatible updates and rerun native/archive/auth gates deliberately.
 

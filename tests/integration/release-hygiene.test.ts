@@ -155,6 +155,20 @@ describe('current documentation contracts (DOC-01–03)', () => {
       expect(guide, command).toContain(command);
     expect(guide).toContain('docker compose logs pandanote | grep "setup"');
     expect(guide).toContain('Setup code');
+    // SEC-XFF-8: the optional restriction must be usable from shipped guidance,
+    // while the root Compose remains minimal and requires only ORIGIN.
+    for (const guidance of [
+      'TRUSTED_PROXIES',
+      'docker network inspect proxynet',
+      'ipv4_address:',
+      'TRUSTED_PROXIES=172.18.0.2',
+      'TRUSTED_PROXIES=none',
+      'trusted_proxies',
+      '{client_ip}',
+      '--force-recreate',
+    ])
+      expect(guide, guidance).toContain(guidance);
+    expect(read('.env.example')).toContain('# TRUSTED_PROXIES=');
     expect(guide).toContain('60 minutes');
     expect(guide).toContain('8–128');
     expect(guide).toContain('not a single atomic directory exchange');

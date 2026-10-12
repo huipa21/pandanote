@@ -1,6 +1,6 @@
 # PandaNote — Product specification
 
-## Approved change — security hardening (planned)
+## Approved change — security hardening
 
 From a security review the user approved: (1) known devices are not locked out by
 anonymous sign-in floods, and operator `reset-password` clears sign-in limits;
@@ -12,6 +12,13 @@ no setup secret" in section 13; (3) stricter limits on second-factor guessing;
 [security-hardening/README.md](security-hardening/README.md) and
 [PLAN](security-hardening/PLAN.md). Until each sub-task is done, the current
 behavior below still describes the running code.
+
+Review follow-up approved by the user: anonymous traffic must not spend a verified
+browser's device/IP allowance or a correct setup code's code/IP allowance, including
+shared NAT and IPv6 /64. Both retain a 30-attempt aggregate and 10-attempt isolated
+IP cap per 15 minutes. This protects against rate-limit lockout, not all denial of
+service or a stolen valid device cookie. Restore/rollback must refresh all auth key
+consumers so device trust and MFA failure counters remain consistent across restart.
 
 ## Approved change — note card actions
 
@@ -482,10 +489,12 @@ Concurrent edit handling:
   Root briefly prepares private data then permanently drops privileges before DB/server.
   PID 1 Node has no capabilities; default idle SIGTERM exits 0 within 10 seconds.
   Interrupted backups fail safely on restart; journaled restore recovers.
-- Minimal Caddy site needs only `reverse_proxy pandanote:3000`. Private/loopback/
-  link-local TCP peers may supply exactly one valid XFF; absent uses peer,
-  malformed/chained returns 400. Public peers ignore XFF; adapter forwarding
-  overrides remain forbidden.
+- Minimal Caddy site needs only `reverse_proxy pandanote:3000`. Optional
+  `TRUSTED_PROXIES` restricts XFF to listed peer IPs/CIDRs; `none` ignores XFF.
+  Unset/blank retains private/loopback/link-local peer trust for compatibility.
+  Trusted peers may supply exactly one valid XFF; absent uses peer and
+  malformed/chained returns 400. Untrusted peers ignore XFF. Adapter forwarding
+  overrides remain forbidden; narrow-Caddy guidance is in `ops/DEPLOYMENT.md`.
 - Domain/origin configurable through deployment environment.
 - Password securely hashed; secure sessions. Sign-in limits are fixed 15-minute windows:
   untrusted callers share 30 password attempts per account and 10 per IP address.
@@ -500,8 +509,14 @@ Concurrent edit handling:
   fresh-authentication code (trusted device or not) in a 30-day fixed window from its
   first failure, and the next successful sign-in clears it. The count never blocks sign-in.
   A browser that signed in before holds an HttpOnly `pandanote_device` cookie (180
-  days, reissued after security changes) that moves it to its own 30-attempt bucket,
-  so anonymous floods cannot lock it out. The cookie never authenticates a request.
+  days, reissued after security changes) that moves it to its own 30-attempt bucket
+  and a separate 10-attempt device/IP bucket per 15 minutes. Correct setup codes
+  also have separate aggregate and code/IP buckets (30 and 10). Anonymous requests
+  cannot consume those allowances, even behind shared NAT or an IPv6 /64. A stolen
+  valid device cookie can still exhaust its device's allowance; connection floods
+  and password-worker contention are not eliminated. The cookie never authenticates
+  a request. Restore and rollback reload auth keys with the database, preserving
+  device trust, daily MFA limits and owner-notice counters across subsequent restart.
   Operator `reset-password` clears every sign-in limit. A new device during an attack
   gets "Too many attempts. Try again in 15 minutes." until the window ends.
 - TOTP MFA optional, managed in Settings.

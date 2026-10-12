@@ -106,9 +106,7 @@ export class AuthService {
   constructor(persistence: Persistence, clock = Date.now, startedAt = clock()) {
     this.persistence = persistence;
     this.limiter = new AuthRateLimiter(persistence);
-    this.devices = new DeviceTrust(
-      persistence.storage.readKeys().totpEncryptionKey,
-    );
+    this.devices = new DeviceTrust(() => persistence.keys.totpEncryptionKey);
     this.clock = clock;
     this.startedAt = startedAt;
   }
@@ -149,7 +147,8 @@ export class AuthService {
     const now = this.clock();
     // Verify the code before any other input. A wrong or missing code is a guess and
     // counts toward the account and IP buckets. A correct code is counted only in its
-    // own bucket (plus the IP bucket) so wrong-code floods cannot block the owner.
+    // own aggregate and code/IP buckets so even same-IP wrong-code floods cannot
+    // consume the correct code's allowance.
     const supplied =
       typeof value === 'object' && value !== null
         ? (value as { setupCode?: unknown }).setupCode
@@ -465,7 +464,7 @@ export class AuthService {
     if (/^\d{6}$/.test(code)) {
       if (!owner.totpSecretEncrypted) return false;
       const secret = decryptSecret(
-        this.persistence.storage.readKeys(),
+        this.persistence.keys,
         owner.totpSecretEncrypted,
         `account:${owner.id}`,
       );
@@ -667,7 +666,7 @@ export class AuthService {
       this.consumeFreshGrant(tx, identity, grant, 'mfa-enroll');
       const owner = this.currentIdentity(tx, identity);
       const encrypted = encryptSecret(
-        this.persistence.storage.readKeys(),
+        this.persistence.keys,
         material.secret,
         `enrollment:${owner.id}:${identity.sessionHash}`,
       );
@@ -765,7 +764,7 @@ export class AuthService {
         'mfa-enroll',
       );
       if (!challenge?.payloadEncrypted) throw failedLogin();
-      const keys = this.persistence.storage.readKeys();
+      const keys = this.persistence.keys;
       const secret = decryptSecret(
         keys,
         challenge.payloadEncrypted,

@@ -45,3 +45,18 @@ it('verifies only unexpired, untampered tokens bound to the account and revision
   ])
     expect(trust.verify(bad, owner, now)).toBeNull();
 });
+
+it('reads the current key provider for signing and verification, including replacement and rollback', () => {
+  let current = key;
+  const trust = new DeviceTrust(() => current);
+  const before = trust.issue(owner.id, owner.securityRevision, now);
+  const id = trust.verify(before.token, owner, now)!;
+  current = randomBytes(32).toString('base64');
+  expect(trust.verify(before.token, owner, now)).toBeNull();
+  const after = trust.issue(owner.id, owner.securityRevision, now, id);
+  expect(new DeviceTrust(current).verify(after.token, owner, now)).toBe(id);
+  expect(new DeviceTrust(key).verify(after.token, owner, now)).toBeNull();
+  current = key;
+  expect(trust.verify(before.token, owner, now)).toBe(id);
+  expect(trust.verify(after.token, owner, now)).toBeNull();
+});

@@ -7,6 +7,30 @@ SH1.1 → SH1.2 → SH1.3 → SH2.1 → SH2.2 → SH2.3 → SH3.1 → SH3.2 → 
 SH4.2 → SH4.3. (SH3.4 was approved and is done.) Several sub-tasks edit
 `rate-limits.ts`/`service.ts`; doing them in order avoids conflicts.
 
+## Approved review follow-up (2026-10-12)
+
+The user approved fixing all review findings and the recommended bucket isolation,
+superseding historical shared-IP wording below:
+
+1. Publish validated portable keys with each successful `Persistence` reopen,
+   including rollback. Device trust uses a key provider and the limiter reads the
+   open DB's immutable key snapshot; no process-lifetime stale key or per-HMAC I/O.
+2. For a verified device, use 30/15 min per device plus 10/15 min per device/IP.
+   For a verified setup code, use 30/15 min per code plus 10/15 min per code/IP.
+   Anonymous account/IP caps remain; same NAT or IPv6 /64 cannot spend trusted/code
+   allowance. Forged/expired cookies are anonymous, password/MFA checks remain,
+   and per-device aggregate caps still prevent IP rotation from bypassing limits.
+3. Cover shared IPv4, mapped IPv4 and IPv6 /64 password/MFA/setup floods, retained
+   limits and fixed expiry; actual independent-key archive restore, subsequent
+   failure counts/device sign-in, restart and rollback after reopen/commit faults.
+4. Finish SH4.3 guidance and SEC-XFF-8 docs guards, without changing minimal Compose
+   or the compatibility default. Run common/affected browser/actual Linux gates;
+   record unpassed full/release gates, never claim general DoS prevention.
+
+Tests: `tests/integration/auth-isolation.test.ts` (SEC-LOCK-8/-9, SEC-SETUP-14/-15),
+`auth-restore.test.ts` (SEC-RESTORE-AUTH-1/-2), unit device-key provider, and the
+release-hygiene documentation guard. Existing acceptance/history remains below.
+
 ## Standard gate (every sub-task)
 
 ```sh
@@ -17,10 +41,9 @@ npm run test:integration
 npm run build
 ```
 
-- `npm run lint` currently fails on a **pre-existing** error in
-  `src/lib/components/NoteEditor.svelte:64` (unused `_value`). Do not count that
-  as your failure, but every file you touch must pass
-  `npx eslint <files>` and `npx prettier --check <files>`.
+- The review follow-up fixes the historical NoteEditor unused action parameter
+  and existing formatting; `npm run lint` now passes. Keep both ESLint and
+  repository formatting green; prior failures remain recorded in PROGRESS.
 - User-facing sub-tasks also run the listed Playwright specs. `npm run test:e2e`
   runs `vite build && playwright test`; for single specs run `npm run build` then
   `npx playwright test <spec>`. On Windows, `openssl` must be on `PATH` (the
@@ -44,7 +67,8 @@ Implemented, staged, **not committed**, e2e **not** run:
   `device-trust-v1\0accountId\0id\0expiresAt\0revision`; 180 days.
 - `rate-limits.ts`: `attempt(action, ip, now, deviceId = null)`; with a verified
   `deviceId` the bucket `${action}:device:${id}` (30) replaces `${action}:account`.
-  The IP bucket (10) always applies.
+  The IP bucket (10) is now scoped to the verified device; anonymous traffic
+  cannot spend it (approved review follow-up above).
 - `service.ts`: `createAccount`, `login`, `completeMfa` return `credential.device`;
   `login`/`completeMfa` accept `deviceToken`; `resetPassword` deletes every
   `auth_rate_limits` row.
@@ -178,7 +202,8 @@ Gate: `npx prettier --check docs ops scripts/reset-password.ts` + standard gate
      may throw `rate-limited`), then throw `SetupCodeError`.
   4. Correct code: `limiter.attempt('setup', ip, now, 'setup-code')` — reuses the
      per-key bucket from SH1 so an attacker flooding wrong codes cannot exhaust the
-     owner's setup allowance.
+     owner's setup allowance. Review follow-up: its IP bucket is also separate
+     from wrong-code traffic, using `setup:device-ip:setup-code:<normalized-ip>`.
   5. Continue as today: `setupAccountSchema.parse`, serialization, hashing, insert.
 - **Wrong-code response:** HTTP 400, same shape as `fieldValidationResponse`:
 
@@ -459,10 +484,11 @@ Gate: standard gate. Covers: SEC-XFF-1…5.
 Done (session 12). Implementation notes: `AuthPolicy.trustedPeers` is `'private' | BlockList | null`;
 the parser lives in `src/lib/server/auth/policy.ts` (`parseTrustedPeers`, `trustedProxyEntries`).
 Entries are trimmed; an empty entry, a zone ID (`%`), a leading-zero or signed prefix, or
+
 > 32 entries is rejected. Host bits in a CIDR are accepted and masked by `BlockList`.
-Startup log (runtime, once): `Trusting X-Forwarded-For only from N configured proxy entries.`
-or `X-Forwarded-For is ignored (TRUSTED_PROXIES=none).`; no addresses are logged. The
-`release-hygiene` env allowlist gained `TRUSTED_PROXIES`.
+> Startup log (runtime, once): `Trusting X-Forwarded-For only from N configured proxy entries.`
+> or `X-Forwarded-For is ignored (TRUSTED_PROXIES=none).`; no addresses are logged. The
+> `release-hygiene` env allowlist gained `TRUSTED_PROXIES`.
 
 ### SH4.2 — IPv6 /64 rate-limit bucketing (done in session 13)
 
@@ -485,7 +511,7 @@ Gate: standard gate. Covers: SEC-XFF-6, -7.
 
 Done (session 13). `rateLimitAddress(ip)` is exported from `rate-limits.ts`; `attempt()` uses it for the `:ip:` bucket only. Covers: `tests/unit/rate-limit-address.test.ts` "SEC-XFF-6…" and `tests/integration/auth.test.ts` "SEC-XFF-7…".
 
-### SH4.3 — Documentation for issue 4
+### SH4.3 — Documentation for issue 4 (delivered in review follow-up)
 
 Files: `ops/DEPLOYMENT.md` (env table row for `TRUSTED_PROXIES`; hardening
 paragraph near "Another proxy must…": how to find Caddy's address with
@@ -496,4 +522,6 @@ behind a CDN), `.env.example` (commented optional line), `docs/ARCHITECTURE.md`
 (XFF bullets near line 349 and 1241), `docs/PRODUCT_SPEC.md` only if it lists
 environment variables.
 
-Gate: `npx prettier --check docs ops .env.example`. Covers: SEC-XFF-8.
+Gate: `npm run lint` and `npm run test:integration -- release-hygiene`; the
+hygiene guard checks `.env.example` text (dotenv has no Prettier parser).
+Covers: SEC-XFF-8.

@@ -2,14 +2,19 @@
 
 ## Current state
 
-- **Security hardening (security review; user approved setup code) — planned.**
-  Four issues and sub-tasks SH1.1–SH4.3 in
-  [security-hardening/PLAN.md](security-hardening/PLAN.md); status in
-  [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md). Issue 1
-  (lockout) is implemented in staged/unstaged, uncommitted work; SH1.1–SH3.4 done
-  (SH4.1 in session 12: `TRUSTED_PROXIES` parsing, `none`/list trust, startup log; SH4.2 in session 13:
-  IPv6 /64 IP-bucket keys; SH3.4 user-approved owner notice; SH2.3 Linux release gates still blocked).
-  Next: SH4.3 (issue 4 documentation).
+- **Security review follow-up — requested fixes implemented / locally verified.**
+  User-approved isolation protects trusted device/IP and correct setup code/IP
+  allowance even behind shared NAT or an IPv6 /64; aggregate/IP caps remain.
+  Restore/rollback refresh auth keys with DB handles; device trust and daily,
+  challenge and notice counters retain continuity across restart. SH4.3 proxy
+  docs/env/hygiene guard delivered; Linux setup-code production-image gate passes.
+  Host check/lint/build, 169 unit, 261 integration + 7 platform skips, affected
+  browser11 PASS; Alpine check/lint/build169unit/all268integration and actual
+  production native/PTY/setup image2 PASS. Full browser83 PASS/9 existing documented
+  UI failures remains blocked, not a release pass. Exact failures/source/artifacts:
+  [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 15.
+  Next: resolve those UI failures and rerun full browser/two-domain exact-release
+  gates. No user commit/deploy/data change; prior review/history preserved.
 
 - **Trash search, selection and lazy list (user request) — done for the requested UI.**
   Trash search under the title; 10 rows then lazy load; note-card rows at one fixed
@@ -238,6 +243,14 @@ Read VERSIONING_PLAN and current operations guide; never promote a synthetic clo
 or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
+
+**Security review fixes are locally verified:** read security-hardening PROGRESS
+session 15 and `auth-isolation.test.ts`/`auth-restore.test.ts`. No requested auth
+fix remains open. Full browser still fails the nine previously documented calendar,
+detail, language, shell, tag-management, timeline and axe assertions/screenshots;
+review their current UI contracts, fix without weakening checks or blindly updating
+snapshots, then run `npm run test:e2e`. Two-domain/exact clean release and independent
+SS01/S18/manual gates remain open. Preserve the unstaged fix and both new tests.
 
 **Latest UI follow-up first:** review the last handoff and `NoteEditor.svelte`,
 `TagAutocomplete.svelte`, `shared/markdown/render.ts`, `NoteCard.svelte`, and
@@ -4542,6 +4555,7 @@ Commands: `npm run check` PASS (1 pre-existing warning); `npm run lint` PASS; `n
 - Tests: removed the "Write a note…" click steps (e2e and release); `shell` focus test now focuses the textarea; `note-edit` asserts no top composer while a card is edited; `uploads` drops the button-disabled check (file-input check kept).
 
 Commands: `npm run check` PASS (0 errors; 1 pre-existing unused-CSS warning in AppShell); `npm run lint` PASS; `npm run test:unit` 152 PASS; `npm run build` PASS; `playwright test` on editor, editor-session, posting, shell, note-edit, calendar, markdown, uploads, location-storage, nested-tags, tag-management, zzzaccessibility: 46 pass / 5 fail.
+
 - calendar "posting from the composer…" and shell "appearance…" / "viewport/screenshot matrix" also FAIL on the original code (checked via stash), so they are pre-existing.
 - shell screenshot baselines (`settings-dark-compact.png`, `shell-light-390x844.png`) now differ because the strip and collapsed composer are gone. Not regenerated; owner should review and update them.
 - zzzaccessibility light/dark loops time out at "Choose year, …" in the month picker. Not checked on the original code.
@@ -4551,6 +4565,7 @@ Remaining: review/update screenshot baselines; re-run the full e2e suite; `tests
 ### Session — card hashtag text and date alignment (user-reported)
 
 **State: done (unit/integration/lint/check PASS; one unrelated e2e failure noted below).** User report: a `#tag` added in the composer shows as a chip after posting, but its text also remained in the card body.
+
 - Decision: the Markdown source is NOT changed (hashtags remain inline per PRODUCT_SPEC §7, and tag management rewrites those spans). `renderMarkdown` now wraps each hashtag span in `<span class="tag-text">`; `NoteCard` hides `.tag-text` so the card shows only the chip row. The note page, editor preview and search snippets still show the hashtag text. If the user wants tag text stripped from stored bodies instead, that is a data-model change and needs approval.
 - Date: the timestamp `<time>` in the card header is nudged up 1px (`top: -0.0625rem`) so its glyphs centre on the ••• trigger (box centres were already equal; text box descender space made the text look low).
 - Measured in Chromium before/after with a temporary Playwright test (removed afterwards).
@@ -4560,6 +4575,7 @@ Commands: `npm run check` PASS (0 errors, pre-existing AppShell CSS warning); `n
 Next: run `npm run test:e2e -- timeline` on a clean state to confirm that failure is pre-existing or regressed; review the card header visually.
 
 ## UI tweak: editor footer and tag autocomplete (user request)
+
 - Editor footer no longer shows "Saved on server." (`NoteEditor.svelte`). Other status text still shows. Note-detail post-save line (`NoteDetail.svelte`) is unchanged.
 - Tag autocomplete (`TagAutocomplete.svelte`): vertical list, max 5 options, borderless rows, narrowed by typed prefix as before.
 - e2e: `posting.test.ts`, `location-storage.test.ts` used "Saved on server." as a save sync point; now wait on the composer textarea being cleared or the API receipt.
@@ -4633,12 +4649,12 @@ sequentially with supported Node/PATH/TLS1. Commit/deploy only with approval.
 Final documentation validation (this session):
 
 - `/tmp/pandanote-node24/node.exe node_modules/prettier/bin/prettier.cjs --check
-  docs/PRODUCT_SPEC.md docs/ARCHITECTURE.md docs/IMPLEMENTATION_PLAN.md
-  docs/ACCEPTANCE_TESTS.md docs/PROGRESS.md docs/note-actions/*.md`: only
+docs/PRODUCT_SPEC.md docs/ARCHITECTURE.md docs/IMPLEMENTATION_PLAN.md
+docs/ACCEPTANCE_TESTS.md docs/PROGRESS.md docs/note-actions/*.md`: only
   `docs/PROGRESS.md` warns. Other nine changed docs pass; no whole-history
   reformat performed, preserving existing uncommitted text and handoff history.
 - `/tmp/pandanote-node24/node.exe node_modules/vitest/vitest.mjs run --config
-  vitest.integration.config.ts tests/integration/release-hygiene.test.ts`:
+vitest.integration.config.ts tests/integration/release-hygiene.test.ts`:
   **7/7 PASS**, including documentation/link guards. Node24.21.0 executable/PATH,
   `NODE_TLS_REJECT_UNAUTHORIZED=1`.
 - `git diff --check` and `git diff --cached --check`: PASS; only CRLF notices.
@@ -4659,7 +4675,7 @@ Final documentation validation (this session):
   - `npm run test:unit`: exit 0.
   - `npm run build`: exit 0.
   - `npx playwright test tests/e2e/detail.test.ts tests/e2e/note-edit.test.ts
-    tests/e2e/note-actions.test.ts`: 16/17 pass. New test "note page keeps the card
+tests/e2e/note-actions.test.ts`: 16/17 pass. New test "note page keeps the card
     header…" passes. **Failing:** `NA-PIN` at `note-actions.test.ts:111` expects
     `getByRole('heading', { name: 'Pinned', level: 2 })`; the timeline renders
     `<section aria-label="Pinned">` with no heading (pre-existing; `+page.svelte`
@@ -4696,7 +4712,7 @@ Final documentation validation (this session):
   `tests/integration/trash-search.test.ts` (new), `tests/e2e/status-notes.test.ts` (2
   tests rewritten/added: bulk restore/delete with confirm; search + select all; 10 rows,
   lazy load, equal heights), `tests/e2e/note-actions.test.ts` (trash restore via checkbox
-  + bulk icon).
+  - bulk icon).
 - Commands and real results (Windows dev machine):
   - `npm run check`: 0 errors; 1 pre-existing warning (`AppShell.svelte` unused CSS).
   - `npm run lint`: FAILS only on pre-existing `NoteEditor.svelte:64` (unused `_value`;
@@ -4726,6 +4742,7 @@ Final documentation validation (this session):
   `src/lib/components/StatusNoteList.svelte`, `tests/e2e/status-notes.test.ts`.
 
 ### Trash list compact rows (UI request)
+
 - Page size for Trash is now 30 (`STATUS_PAGE_SIZE` in `src/lib/shared/status-notes.ts`); lazy-load uses the same 30.
 - Each entry is a single compact list row (checkbox, date, tag chips, one-line excerpt, media count), full column width, fixed `2.75rem` height. Checkbox sits inside the row.
 - List header: select-all checkbox (indeterminate when partly selected), then Restore and Delete Permanently icons. Icons are always shown and disabled while nothing is selected. A pending bulk confirm is cleared when selection empties.
@@ -4734,6 +4751,7 @@ Final documentation validation (this session):
 - Not visually inspected by a human; layout verified only through e2e assertions. Index/staged changes from the other session were left untouched; these edits are unstaged in the working tree.
 
 ### Auth lockout fix: trusted-device cookie + reset-password clears limits (security review)
+
 - Issue: the account-wide login/MFA bucket (30/15 min) let anyone lock the owner out by flooding junk attempts. Exempting correct passwords was rejected (it removes the brute-force cap and Argon2 cost bound).
 - Fix (user approved): stateless HMAC `pandanote_device` cookie (`src/lib/server/auth/device-trust.ts`; HttpOnly, SameSite=Strict, path `/api/auth`, 180 days, bound to account id + security revision, not an auth credential). Verified holders use a per-device bucket (30/15 min) plus the IP bucket instead of the account-wide bucket (`rate-limits.ts` `attempt(..., deviceId)`). Issued on setup, login and MFA completion. `AuthService.resetPassword` now also deletes all `auth_rate_limits` rows. Touched: `auth/{device-trust,rate-limits,service,http}.ts`, `routes/api/auth/{login,mfa}/+server.ts`, `docs/ARCHITECTURE.md` (anti-lockout bullet), tests `tests/unit/device-trust.test.ts`, `tests/integration/auth.test.ts`.
 - Results (Windows): check 0 errors (1 pre-existing warning); eslint/prettier clean on touched files; `npm run lint` still fails only on pre-existing `NoteEditor.svelte:64`; test:unit and test:integration pass (228 passed, 7 skipped); build ok. Not run: e2e, Linux image.
@@ -4741,6 +4759,7 @@ Final documentation validation (this session):
 - Next: run `npx playwright test tests/e2e/auth.test.ts`; consider IPv6 /64 bucketing and an MFA trusted-device test.
 
 ### Security hardening SH1.1 — staged lockout fix verified, MFA and HTTP tests added
+
 - Sub-task SH1.1 of `docs/security-hardening/PLAN.md` (state and details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 2). No application code changed.
 - Added `tests/integration/auth-mfa.test.ts` (trusted device on the MFA path, SEC-LOCK-4) and HTTP checks in `tests/integration/setup-server.test.ts` (device cookie attributes, device cookie alone is 401). Both are unstaged.
 - Reworded the security-hardening README and PLAN so they avoid the retired variable names that `release-hygiene.test.ts` forbids.
@@ -4748,30 +4767,35 @@ Final documentation validation (this session):
 - Next: SH1.2 (device token re-issue after security changes).
 
 ### Security review and hardening plan (docs only)
+
 - Review found four exploitable issues: login lockout DoS, first-visitor setup takeover, slow TOTP guessing after password compromise, broad `X-Forwarded-For` trust. User approved re-introducing a setup secret (in-memory setup code printed to the server log).
 - Created `docs/security-hardening/{README,PLAN,ACCEPTANCE_TESTS,PROGRESS}.md` with small ordered sub-tasks for separate sessions; added pointer notes to `docs/PRODUCT_SPEC.md`, `docs/ARCHITECTURE.md`, `docs/ACCEPTANCE_TESTS.md`, `docs/simplify-setup/README.md`.
 - The staged "Auth lockout fix" work above was recorded as SH1.1 in progress; its files were not changed. No application code changed; no tests run.
 - Next: SH1.1 per `docs/security-hardening/PLAN.md`.
 
 ### Security hardening SH1.2 — device token re-issued after security changes
+
 - Sub-task SH1.2 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 3). `rotateSecurity` now verifies the request's device token against the pre-rotation revision and returns `credential.device` at the new revision with the same device id (new id if the token is missing/invalid). `confirmEnrollment`, `disableMfa`, `regenerateRecoveryCodes`, `changePassword`, `changeSessionLifetime` take an optional `deviceToken`; `api/auth/security/+server.ts` passes the `pandanote_device` cookie. `revokeAll` and `resetPassword` issue no device token.
 - Touched: `src/lib/server/auth/service.ts`, `src/routes/api/auth/security/+server.ts`, `tests/integration/auth-mfa.test.ts` (new SEC-LOCK-5 test), acceptance table.
 - Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`, touched files pass eslint/prettier; unit 159 passed; integration 230 passed, 7 skipped; build passed; `npx playwright test tests/e2e/auth.test.ts` 4 passed. Linux not run. Not committed.
 - Next: SH1.3 (issue 1 docs and operator recovery text).
 
 ### Security hardening SH1.3 — issue 1 docs and reset-password message
+
 - Sub-task SH1.3 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 4). `reset-password` success message now says "sign-in limits cleared" (no secrets). Docs: `PRODUCT_SPEC.md` §13 (trusted-device bullet, flood behavior, reset clears limits), `ops/DEPLOYMENT.md` §7 and troubleshooting row for "Too many attempts. Try again in 15 minutes.", `README.md` reset section. `docs/ACCEPTANCE_TESTS.md` already had the security-hardening pointer; unchanged.
 - Touched: `scripts/reset-password.ts`, `tests/integration/reset-password.test.ts` (assertion in the Linux-only PTY test), `docs/PRODUCT_SPEC.md`, `ops/DEPLOYMENT.md`, `README.md`, `docs/security-hardening/PROGRESS.md`, this file.
 - Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; eslint and prettier pass on touched code and docs; unit 31 files / 159 passed; integration 39 files, 230 passed, 7 skipped; build passed. The reset-password PTY test (including the new assertion) is Linux-only and skipped on Windows, so the new message assertion is **not verified** here. `docs/PROGRESS.md` already failed prettier before this session (not reformatted, to avoid touching other sessions' work).
 - Not committed. Next: SH2.1 (setup code, server side).
 
 ### Security hardening SH2.1 — setup code, server side
+
 - Sub-task SH2.1 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 5). Setup requires a 20-symbol code generated in memory per process and logged once (`PandaNote setup code:` and `PandaNote setup link:` lines). Wrong or missing codes count toward the setup buckets; correct codes use their own bucket plus the IP bucket. Route maps a wrong code to a 400 `setupCode` field error.
 - Touched: `src/lib/server/auth/setup-code.ts` (new), `src/lib/shared/auth.ts`, `src/lib/server/auth/service.ts`, `src/lib/server/runtime.ts`, `src/routes/api/setup/account/+server.ts`, `scripts/backups-benchmark.ts`, `tests/helpers/{auth,setup-code}.ts`, `tests/unit/{setup,setup-code,auth-policy}.test.ts`, `tests/integration/{auth,setup-server,runtime-server}.test.ts`, security-hardening PROGRESS and ACCEPTANCE_TESTS.
 - Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; prettier and eslint pass on touched files; unit 32 files / 162 passed; integration 39 files, 233 passed, 7 skipped; build passed. `tests/e2e/auth.test.ts` 4 failed as expected: the setup page has no code field until SH2.2.
 - Not committed. Next: SH2.2 (setup page field and e2e harness).
 
 ### Security hardening SH2.2 — setup page field and e2e harness
+
 - Sub-task SH2.2 of `docs/security-hardening/PLAN.md` (details in [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md) session 6). The setup page has a "Setup code" field, prefills from `#code=`, and strips the fragment. The e2e server captures the logged code into a private fixture file that tests read.
 - Touched: `src/routes/setup/+page.svelte`, `src/lib/shared/i18n/{en,zh-CN}.ts`, `scripts/e2e-server.mjs`, `tests/helpers/{setup-code,browser-session}.ts`, `tests/e2e/auth.test.ts`, `tests/integration/auth.test.ts`, security-hardening PROGRESS and ACCEPTANCE_TESTS.
 - Results (Windows): check 0 errors (1 pre-existing warning); lint fails only on pre-existing `NoteEditor.svelte:64`; unit 32 files / 162 passed; integration 39 files, 234 passed, 7 skipped; build passed; `tests/e2e/auth.test.ts` 6 passed, smoke 2 passed. Full e2e: 82 passed, 9 failed. Two are the known axe "Choose year" timeouts; the rest are UI/screenshot tests that earlier entries record as pre-existing (calendar, language, shell) or that this session has not baselined (detail card date, tag-management, timeline). No setup-related test failed.
@@ -4823,3 +4847,86 @@ Final documentation validation (this session):
 - Validation (Windows): `npm run check` 0 errors (1 pre-existing warning); `npm run test:unit` 168 passed; `npm run test:integration` 248 passed, 7 skipped; `npm run build` passed; `npm run lint` fails only on pre-existing `NoteEditor.svelte:64`.
 - Not run: e2e (no UI change); Linux image.
 - Not committed. Next: SH4.3.
+
+### Session 2026-10-12 — security-hardening implementation review
+
+State: review complete; implementation **not ready to close**. Reviewed clean HEAD
+`6553b2d`, all main requirements/history, hardening commits and auth/restore tests.
+No application/index/commit/deployment/user-data changes; touched only this handoff
+and `docs/security-hardening/PROGRESS.md` (session 14 has full evidence).
+
+Confirmed medium defect: `AuthService`/`DeviceTrust`/`AuthRateLimiter` cache portable
+keys while restore swaps them beneath the retained services. Real independent
+archive restore proved wrong-key device cookies after restore, lost trust on
+restart during a flood, disappearing failure notice, and a new service ignoring
+30 real wrong MFA codes inside the existing daily window. Fix both key consumers,
+including rollback, and add restore/restart regressions. SH4.3 proxy documentation
+is absent; SH2.3 Linux release gates remain blocked. Shared-IP floods still block
+trusted devices/correct setup codes by the planned IP-bucket rule, a limitation
+rather than an implementation regression; the unqualified guarantee needs review.
+
+Commands on explicit Node24.21.0/PATH/npm11/TLS1: check 0 errors/1 existing warning;
+lint fails on existing NoteEditor `_value`; unit168 PASS; focused integration
+`-- auth auth-mfa auth-http setup-server rate-limit-counters`48 PASS; build PASS;
+auth Chromium6/6 PASS; focused integration `-- restores reset-password startup`
+31 PASS/4 Linux-only PTY skips. Ignored real SQLite/archive repro script assertions
+PASS (removed after review). Podman info exit125/unavailable socket; no Linux,
+full integration/full browser or release gate claimed. Exact commands in the linked
+handoff. Prior histories and outstanding unrelated release gates remain intact.
+
+Next: read `server/auth/{service,device-trust,rate-limits}.ts`,
+`server/backups/restore.ts`, `server/db/connection.ts`, and integration restore tests;
+refresh key consumers safely on replacement, test restore/failures/sign-in/restart
+and rollback. First validation: `npm run test:integration -- auth auth-mfa
+rate-limit-counters restores`. Then finish SH4.3 and outstanding full/Linux gates.
+
+### Session 2026-10-12 — approved security review fixes / SH4.3
+
+**State: requested code/policy/doc fixes implemented and locally verified; full
+browser/release closure still blocked independently.** User approved all review
+fixes and separate trusted/code IP allowances. Started at `6553b2d` with only this
+session chain's two handoff edits; preserved the review and all historical entries.
+No user-repository commit/deployment/real-data deletion or dependency/schema change.
+Full evidence, commands, synthetic image identity and limitations are in
+[security-hardening PROGRESS](security-hardening/PROGRESS.md) session 15.
+
+Implemented: immutable validated `Persistence.keys` published on DB reopen and
+rollback; DeviceTrust provider/limiter/current TOTP operations use it. Trusted
+login/MFA and correct-code setup use aggregate30/15min plus isolated device-or-code
+IP10/15min; anonymous buckets cannot spend their allowance even at the same NAT or
+IPv6 /64. Password/MFA, fixed windows, daily/challenge caps and revision invalidation
+remain. SH4.3 `.env.example`/DEPLOYMENT optional narrow-Caddy/none/CDN/recreate guidance
+and SEC-XFF-8 guard delivered. Product/architecture/plan/acceptance/progress agree.
+Touched code: `server/auth/{service,device-trust,rate-limits}.ts`,
+`server/db/connection.ts`; new integration `auth-isolation` (10 cases) / `auth-restore`
+(3 cases), unit device provider, hygiene guard. NoteEditor `void value` fixes existing
+lint only; Prettier applies existing alignment/LF-only formatting without UI/assertion
+or snapshot changes. Root Compose/lockfiles/migrations unchanged.
+
+Actual commands (Node24.21.0 executable + PATH/npm11/TLS1, Git OpenSSL for browser):
+new integration before fix10FAIL/3PASS; after fix13PASS. `npm run check`0errors/1existing
+warning; `npm run lint`PASS; `npm run test:unit`169PASS. First full integration260PASS/
+1Windows pre-upgrade EPERM rename FAIL/7platform skips; isolated pre-upgrade11PASS;
+subsequent unfiltered `npm run test:integration`**261PASS+7existing Linux-only skips**
+277.35s. `npm run build`PASS. Affected auth/backups/uploaded-restore Playwright**11PASS**
+48.9s. Full `npm run test:e2e`**83PASS/9FAIL**,12.8min: the same nine previously
+recorded calendar/detail/language/two-shell/tag-management/timeline/two-axe failures;
+no fresh clean-HEAD baseline comparison in this session, no full-suite pass claimed.
+
+Started the stopped validation Podman VM. Fresh tracked Alpine validation build/run
+**check/lint/build169unit/all268integration PASS**, zero skips/exclusions, actual
+musl SQLite/Sharp/archive/restore/crash/PTY/root/Git. Clean full-history throwaway
+clone production Dockerfile (not user release), unique tag/shared aliases untouched;
+first OCI build lost healthcheck and was not accepted, rebuild `--format docker`
+verifies HEALTHCHECK. Actual Linux production external-image tests **2PASS** with
+Windows driver/Linux PTY: log-read setup code, inventory/natives/highlighting, MFA,
+live no-echo reset/revocation, stopped reindex. No TLS exception or dirty-source
+release bypass; existing two low dependency advisories retained, no force update.
+Owned images/clone/prep script are cleaned at close; no broad prune or shared VM stop.
+
+Next: no known unfinished requested auth/doc fix. Resolve nine UI failures against
+specs and rerun `npm run test:e2e`; then approved exact clean release/two-domain drill.
+Read change handoff/new tests plus affected seven browser specs. Security recheck:
+`npm run test:integration -- auth-isolation auth-restore auth-mfa rate-limit-counters`.
+Independent SS01 exchange/S18 real-VPS/physical-device/exact-release/ARM64 gates stay
+open; do not mark project/release done. No user commit/deploy without approval.

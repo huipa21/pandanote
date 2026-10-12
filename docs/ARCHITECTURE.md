@@ -1,6 +1,6 @@
 # PandaNote — Architecture and technical contracts
 
-## Planned override — security hardening
+## Approved override — security hardening
 
 Approved changes to authentication contracts (trusted-device rate buckets, an
 in-memory setup code printed to the log and required by `POST /api/setup/account`,
@@ -9,6 +9,12 @@ per-challenge/daily second-factor failure caps, optional `TRUSTED_PROXIES` and I
 They supersede conflicting lines in sections 12–13 and the simplify-setup "no setup
 secret" contract as each sub-task lands; status in
 [security-hardening/PROGRESS.md](security-hardening/PROGRESS.md).
+
+User-approved review follow-up: verified devices use independent device/IP buckets;
+correct setup codes use independent code/IP buckets. Anonymous traffic cannot spend
+those allowances even behind the same NAT or IPv6 /64. Persistence publishes a
+validated immutable key snapshot with each DB reopen (replacement or rollback),
+and retained auth helpers read that snapshot instead of keeping process-lifetime keys.
 
 ## Current override — note card actions
 
@@ -354,11 +360,13 @@ Details: [simplify-setup progress](simplify-setup/PROGRESS.md).
   built start origin `http://localhost:3000`. Production needs canonical ORIGIN
   (HTTPS outside loopback) and an absolute private path; container forces `/data`.
   Legacy setup-token/proxy-IP values are ignored/scrubbed with one safe notice.
-- Client rate-limit IP comes from the actual TCP peer. A Node BlockList trusts
-  loopback, RFC1918, IPv4/IPv6 link-local and IPv6 ULA, including mapped IPv4.
-  Trusted peers use exactly one valid XFF address or their peer when absent;
-  malformed/empty/chained XFF is 400. Public peers ignore XFF. Adapter forwarding
-  overrides remain forbidden; configured ORIGIN still governs CSRF/cookies.
+- Client rate-limit IP comes from the actual TCP peer. `TRUSTED_PROXIES` parses
+  unset/blank as compatibility trust for loopback/RFC1918/link-local/ULA, `none`
+  as no XFF trust, or up to 32 peer IPv4/IPv6 addresses/CIDRs in a Node BlockList.
+  Mapped IPv4 peers match IPv4 entries; invalid configuration refuses startup.
+  Trusted peers use exactly one valid XFF or their peer when absent;
+  malformed/empty/chained XFF is 400. Untrusted peers ignore XFF entirely. Adapter
+  forwarding overrides remain forbidden; ORIGIN still governs CSRF/cookies.
 - Container accepts only default server or argument-free `reset-password`/`reindex`.
   Maintenance checks mount PUID/PGID ownership and skips recursive ownership changes
   before permanent privilege drop. Linux default-capability image verifies PID 1
@@ -1251,18 +1259,31 @@ archived credentials replace temporary ones.
 - High-entropy random session token, only its hash stored. HttpOnly, Secure in production, SameSite cookie; appropriate path/expiry.
 - Password success with enabled MFA creates only a short-lived challenge, not an authenticated session.
 - Challenge limits and password/MFA rate limits work across restarts; bound their tables and avoid unlimited per-IP memory.
-- Trust exactly one XFF only from private-network/loopback/link-local TCP peers;
-  absent uses peer, malformed/chained returns 400. Public peers ignore XFF.
-  Account-wide limits complement IP limits; no permanent lockout.
+- Trust exactly one XFF only from TCP peers selected by `TRUSTED_PROXIES`
+  (section 4); absent uses peer, malformed/chained returns 400. Untrusted peers
+  ignore XFF. Narrow explicit Caddy-peer trust is recommended; the default is
+  retained only for zero-config compatibility. Account/IP limits have fixed expiry.
 - Anti-lockout: the account-wide login/MFA bucket counts only callers without a
   valid trusted-device cookie (`pandanote_device`, HttpOnly, SameSite=Strict,
   path `/api/auth`, 180 days, refreshed on each full sign-in). The cookie is a
   stateless HMAC (key derived with a domain-separated prefix from the TOTP key)
   over account id, device id, expiry and security revision. It is NOT an
   authentication credential; password/MFA changes and `reset-password` invalidate
-  it. Holders use a per-device bucket (30/15 min) plus the IP bucket, so anonymous
-  floods cannot block known devices. New devices stay limited during a flood;
-  `reset-password` deletes all `auth_rate_limits` rows as operator recovery.
+  it. Holders use a per-device bucket (30/15 min) plus a device/IP bucket (10/15 min):
+  `${action}:device:${id}` and `${action}:device-ip:${id}:${rateLimitAddress(ip)}`.
+  Anonymous account/IP buckets cannot spend either, even behind shared NAT or an
+  IPv6 /64. Correct setup codes use the same isolated path with the verified
+  `setup-code` identity. Password/MFA verification is never skipped. Stolen valid
+  markers can exhaust their own device; this is rate-limit isolation, not general
+  DoS prevention. New devices stay limited during a flood; `reset-password`
+  deletes all `auth_rate_limits` rows as operator recovery.
+- Auth key lifecycle: `Persistence.keys` is an immutable validated snapshot tied
+  to the open DB, unavailable while closed for replacement. Successful reopen
+  publishes DB handles and keys together; rollback rereads the restored old keys.
+  `DeviceTrust` uses a provider and `AuthRateLimiter` reads the snapshot on each
+  digest. Retained services therefore sign/verify cookies and address protected
+  daily/challenge/notice buckets with the installed key before and after restart,
+  without filesystem reads per HMAC or caching an obsolete destination key.
 - Owner notice (SH3.4): `mfa-failures-since-success:account` counts every wrong second-factor code (sign-in and fresh-auth, any device) in a protected 30-day fixed window; a successful sign-in or completed MFA deletes it; `securityStatus().failedSecondFactorAttempts` (`SecurityStatusDto`) shows it in Settings. It never blocks.
 - MFA guessing (SH3.2): the untrusted `mfa` account bucket is 10/15 min; each sign-in challenge allows 5 wrong codes (then `mfa_restart`, 401); 30 wrong codes per account per 24 h block the untrusted path (`rate-limited`, Retry-After = remaining daily window). Failures are committed before the error is thrown.
 - TOTP drift small and explicit; reject replay of an already consumed step. Recovery-code consumption atomic.
@@ -1284,9 +1305,13 @@ LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects serv
   operation, no queue; concurrent work fails retryably. Encoded hash parameters are
   bounded before verification. Unknown username still verifies the same account
   hash; credential/revision/name are rechecked afterwards. No dummy cheap path.
-- Setup/login and MFA/fresh/enrollment scopes have fixed 15-minute limits:
-  10/IP, 30/account, including successes. Denial never extends expiry. IP buckets
-  key IPv6 clients per /64 (IPv4-mapped IPv6 uses its IPv4 address; SH4.2). Persist
+- Fixed 15-minute limits include successes: anonymous setup/login/fresh/enrollment
+  use 10/IP and 30/account; anonymous MFA uses 10/IP and 10/account. Verified
+  device login/MFA and correct-code setup use 30/device-or-code and 10 per isolated
+  device-or-code/IP. Denial never extends expiry. IP keys group IPv6 by /64 and
+  mapped IPv4 by its IPv4 address. Existing anonymous IP keys remain unchanged;
+  the new trusted/code IP namespace starts fresh (old rows expire naturally), no
+  migration or limit reset. Persist
   keyed domain-separated IP digests, prune expired buckets, hard cap 1024 rows,
   protect account buckets, evict earliest non-account buckets.
 - Sessions: 32 random bytes, only domain-separated hashes stored. Host-only
@@ -1332,9 +1357,10 @@ LocalStorage/IndexedDB contents are plaintext in that browser. MFA protects serv
   service, image/data URL, raw SVG insertion or CSP exception.
 - All challenge kinds expire after five minutes, are pruned on issuance and globally
   bounded to 100 rows. New grants/enrollments replace prior same-session/scope
-  records. Persistent MFA/fresh-auth/enrollment rate scopes use the same fixed
-  15-minute 10/IP and 30/account policy as login; every account bucket is protected
-  against eviction. Existing Argon2 single-operation bounds still apply.
+  records. Persistent rate scopes follow section 12.4's fixed-window policy,
+  including the untrusted MFA 10/account limit and independent trusted device/IP
+  buckets. Every account bucket is protected against eviction. Existing Argon2
+  single-operation bounds still apply.
 - Fresh grants are **single-use**, session/account/security-revision bound, with
   exact scopes: `password-change`, `mfa-enroll`, `mfa-disable`,
   `recovery-regenerate`, `sessions-revoke`, `session-lifetime`, `backup-create`,
@@ -1382,7 +1408,7 @@ default credential.
   `createAccount`: window check (`setup_closed`) → constant-time digest comparison →
   wrong or missing code: setup limiter (may return rate-limited), then 400 `validation`
   with `fields.setupCode` → correct code: limiter charged to the per-key `setup-code`
-  bucket → normal validation, hashing and insert. The only logging exception is the two
+  aggregate and isolated code/IP buckets → normal validation, hashing and insert. The only logging exception is the two
   startup `console.info` lines (`PandaNote setup code: …` and `PandaNote setup link: …`),
   printed only while setup is open. The browser reads `#code=` and removes the fragment
   before any request, so the code never reaches the server or `Referer`.
@@ -1654,7 +1680,8 @@ Domain/origin/data-root and deployment TLS configuration are not overwritten by 
   Journal and database inode checks repeat under that lock after hashing; a concurrent
   replacement refuses reset instead of writing retained data. Auth services never
   cache credential/revision state, so old sessions fail on the next live HTTP request.
-  Reset does not migrate/initialize, rewrite settings/notes/files/keys or clear rates.
+  Reset clears every auth-rate row but does not migrate/initialize or rewrite
+  settings/notes/files/keys.
   `reindex` remains argument-free, stopped-app, atomic and content-preserving.
 
 ## 14. Testing, observability, deployment

@@ -39,7 +39,8 @@ export const MFA_DAILY_FAILURES = {
   windowMs: 24 * 60 * 60_000,
 } as const;
 // Per-action attempt limits (fixed 15-minute windows). `device` applies to callers
-// holding a verified trusted-device token instead of `account`; `ip` always applies.
+// holding a verified trusted-device token instead of `account`; `ip` is scoped
+// to that device (or the verified setup code), never shared with anonymous traffic.
 interface AttemptLimits {
   account: number;
   device: number;
@@ -125,16 +126,15 @@ type Reader = Pick<DomainDatabase, 'select'>;
 
 export class AuthRateLimiter {
   private readonly persistence: Persistence;
-  private readonly key: Buffer;
   constructor(persistence: Persistence) {
     this.persistence = persistence;
-    this.key = Buffer.from(
-      persistence.storage.readKeys().totpEncryptionKey,
-      'base64',
-    );
   }
   private digest(value: string): string {
-    return createHmac('sha256', this.key)
+    // Read the currently open DB's key snapshot, including after restore/rollback.
+    return createHmac(
+      'sha256',
+      Buffer.from(this.persistence.keys.totpEncryptionKey, 'base64'),
+    )
       .update(`auth-rate-v1\0${value}`)
       .digest('hex');
   }
@@ -168,8 +168,9 @@ export class AuthRateLimiter {
   }
   // `deviceId` must come from a verified trusted-device token. Such a caller is
   // counted against its own device bucket instead of the shared account-wide one,
-  // so anonymous attempts cannot exhaust the owner's allowance. The IP bucket
-  // always applies.
+  // so anonymous attempts cannot exhaust the owner's allowance, even behind the
+  // same NAT or IPv6 /64. The 10/IP limit remains, but belongs to this device too.
+  // Setup uses the same isolated path only AFTER the setup code is verified.
   attempt(
     action: CredentialAction,
     ip: string,
@@ -182,7 +183,14 @@ export class AuthRateLimiter {
       deviceId
         ? { key: digest(`${action}:device:${deviceId}`), limit: limits.device }
         : { key: digest(`${action}:account`), limit: limits.account },
-      { key: digest(`${action}:ip:${rateLimitAddress(ip)}`), limit: limits.ip },
+      {
+        key: digest(
+          deviceId
+            ? `${action}:device-ip:${deviceId}:${rateLimitAddress(ip)}`
+            : `${action}:ip:${rateLimitAddress(ip)}`,
+        ),
+        limit: limits.ip,
+      },
     ];
     // Denials commit too. Never throw inside the transaction and roll back an
     // attempt. A blocked caller cannot prolong an existing fixed window.

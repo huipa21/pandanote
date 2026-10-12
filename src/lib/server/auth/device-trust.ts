@@ -21,9 +21,14 @@ export interface DeviceIdentity {
 }
 
 export class DeviceTrust {
-  private readonly key: Buffer;
-  constructor(totpEncryptionKey: string) {
-    this.key = Buffer.from(totpEncryptionKey, 'base64');
+  private readonly readKey: () => string;
+  // Runtime callers supply a provider tied to the open persistence/key snapshot,
+  // so a successful restore or rollback cannot leave this signer on an old key.
+  constructor(totpEncryptionKey: string | (() => string)) {
+    this.readKey =
+      typeof totpEncryptionKey === 'string'
+        ? () => totpEncryptionKey
+        : totpEncryptionKey;
   }
   private mac(
     accountId: string,
@@ -31,7 +36,7 @@ export class DeviceTrust {
     expiresAt: number,
     revision: number,
   ): string {
-    return createHmac('sha256', this.key)
+    return createHmac('sha256', Buffer.from(this.readKey(), 'base64'))
       .update(`device-trust-v1\0${accountId}\0${id}\0${expiresAt}\0${revision}`)
       .digest('base64url');
   }

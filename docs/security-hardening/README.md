@@ -1,7 +1,10 @@
 # Change: Security hardening from the 2026-10 security review
 
-**Status:** planned. Issue 1 is partly implemented (uncommitted, staged work from an
-earlier session); issues 2–4 are not started. Live status: [PROGRESS.md](PROGRESS.md).
+**Status:** SH1–SH4 and user-approved review fixes are implemented and locally
+verified: restore/key continuity, isolated trusted/code IP buckets and SH4.3
+proxy guidance. Host/common, Alpine/native and production-image setup/PTY gates
+pass. Full-browser and independent release gates remain open; see actual results
+in [PROGRESS.md](PROGRESS.md). This is not overall release completion.
 
 **Type:** post-S18 security change from a code review. Issue 2 changes an approved
 requirement and was **approved by the user** (see Decisions). It does not close S18's
@@ -64,7 +67,10 @@ main documents carry a note pointing here.
 
 1. **Issue 1 (approved in the earlier session that implemented it):** a stateless
    HMAC trusted-device cookie `pandanote_device` moves known devices off the shared
-   account bucket; `reset-password` clears all rate-limit rows. Exempting correct
+   account bucket; `reset-password` clears all rate-limit rows. Review follow-up:
+   the 10-attempt IP bucket is also scoped to the verified device, so anonymous
+   callers sharing NAT or an IPv6 /64 cannot spend it. The device-wide cap remains
+   30/15 min, independent of IP rotation. Exempting correct
    passwords from the account bucket was rejected because it removes the
    brute-force cap and the Argon2 cost bound.
 2. **Issue 2 (user approved, this session):** add back a setup secret. Design:
@@ -72,6 +78,9 @@ main documents carry a note pointing here.
      exists, and printed **once** to the server log (stdout) together with a ready
      link `ORIGIN/setup#code=…`. No environment variable, no file, no extra command
      besides reading the log (`docker compose logs pandanote`).
+   - Correct-code requests have a separate 30/15 min aggregate and 10/15 min
+     code/IP allowance. Wrong-code traffic cannot spend either, even at the same
+     apparent IP or IPv6 /64; correct-code verification still precedes rate charging.
    - The 60-minute window stays as a second limit. A restart creates a new code and
      a new window (only while no account exists).
    - This **supersedes** "no setup secret" in `PRODUCT_SPEC.md` §13 and
@@ -84,7 +93,10 @@ main documents carry a note pointing here.
    codes per MFA challenge (then the password must be entered again), MFA bucket
    lowered to 10 per account per 15 minutes, and at most 30 failed second-factor
    codes per account per 24 hours on the untrusted path. Trusted devices keep their
-   own bucket so an attacker who knows the password cannot lock the owner out. An
+   own bucket so an attacker who knows the password cannot spend the owner's
+   allowance without a valid device marker. The review follow-up requires auth helpers to read the key snapshot belonging to the
+   open database after restore and rollback, so device tokens and daily/challenge/
+   notice counters survive subsequent restart consistently. An
    owner-visible "failed second-factor attempts" notice was **approved by the user**
    and is implemented in SH3.4 (Settings → Security; counts and reset rules in PLAN).
 4. **Issue 4 (defaults):** new optional variable `TRUSTED_PROXIES`. Unset keeps
