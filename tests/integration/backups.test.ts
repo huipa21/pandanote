@@ -121,7 +121,6 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
         bodyMarkdown: 'snapshot 香港 #Work',
         attachmentIds: [randomUUID()],
         timelineAt: null,
-        location: null,
       },
     };
     await upload(p, f, bytes, command);
@@ -306,7 +305,6 @@ it.each([false, true])(
           bodyMarkdown: 'before capture',
           attachmentIds: [randomUUID()],
           timelineAt: null,
-          location: null,
         },
       };
       await upload(p, f, Buffer.from('captured bytes'), command);
@@ -565,7 +563,7 @@ it('rejects revoked identities, extra create fields and unconfirmed deletion; ex
     await expect(s.download(f.identity, id, {})).rejects.toThrow();
   });
 });
-it('backs up processed image variants and portable MFA/recovery state without original inputs, including null manual accuracy', async () => {
+it('backs up processed image variants and portable MFA/recovery state without original inputs', async () => {
   await withPersistence(async (p, root) => {
     const f = await fixture(p);
     const enroll = f.auth.startEnrollment(
@@ -587,12 +585,6 @@ it('backs up processed image variants and portable MFA/recovery state without or
         bodyMarkdown: `![image](attachment:${id})`,
         attachmentIds: [id],
         timelineAt: null,
-        location: {
-          latitude: 0,
-          longitude: 0,
-          accuracy: null,
-          label: 'Synthetic manual',
-        },
       },
     };
     const image = await sharp({
@@ -644,9 +636,6 @@ it('backs up processed image variants and portable MFA/recovery state without or
           )
           .get(),
       ).toEqual({ n: 10 });
-      expect(
-        db.prepare('SELECT latitude, longitude, accuracy FROM notes').get(),
-      ).toEqual({ latitude: 0, longitude: 0, accuracy: null });
     } finally {
       db.close();
     }

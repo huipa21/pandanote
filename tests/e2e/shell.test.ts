@@ -202,7 +202,6 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
         content: {
           bodyMarkdown: `Synthetic shell reading ${n} #000shell1 #000shell2 #000shell3 #000shell4 #000shell5 #000shell6`,
           timelineAt: Date.now() - n * 1000,
-          location: null,
           attachmentIds: [],
         },
       },

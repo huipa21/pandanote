@@ -48,7 +48,6 @@ async function post(
       content: {
         bodyMarkdown,
         timelineAt: null,
-        location: null,
         attachmentIds: [],
       },
     },

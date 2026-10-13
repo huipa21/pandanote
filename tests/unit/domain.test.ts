@@ -2,7 +2,6 @@ import { expect, it } from 'vitest';
 import {
   assertRevision,
   idSchema,
-  locationSchema,
   noteMetadataSchema,
   transitionNote,
   validateTimelineAt,
@@ -12,27 +11,6 @@ import {
   settingsSchema,
 } from '../../src/lib/shared/settings.ts';
 
-it('validates complete nullable location, finite ranges and bounded labels', () => {
-  const good = {
-    latitude: 22.3,
-    longitude: 114.2,
-    accuracy: null,
-    label: null,
-  };
-  expect(locationSchema.parse(good)).toEqual(good);
-  for (const bad of [
-    { ...good, longitude: undefined },
-    { ...good, latitude: null },
-    { ...good, latitude: 90.1 },
-    { ...good, longitude: -180.1 },
-    { ...good, accuracy: -1 },
-    { ...good, latitude: NaN },
-    { ...good, accuracy: Infinity },
-    { ...good, label: 'x'.repeat(201) },
-    { ...good, path: '/tmp' },
-  ])
-    expect(locationSchema.safeParse(bad).success).toBe(false);
-});
 it('makes Trash prior state explicit and rejects impossible transitions', () => {
   const trashed = transitionNote('published', null, 'trash');
   expect(trashed).toEqual({ status: 'trash', priorStatus: 'published' });
@@ -62,7 +40,6 @@ it('uses UTC integer instants, explicit expected revisions and UUIDv4 IDs', () =
     contentEditedAt: null,
     pinnedAt: null,
     revision: 1,
-    location: null,
   };
   expect(noteMetadataSchema.safeParse(note).success).toBe(true);
   expect(

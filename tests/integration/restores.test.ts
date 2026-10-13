@@ -140,17 +140,11 @@ function note(
     content: {
       bodyMarkdown: body,
       timelineAt: Date.now() - 60000,
-      location: {
-        latitude: 0,
-        longitude: 0,
-        accuracy: null,
-        label: 'Synthetic',
-      },
       attachmentIds: [],
     },
   });
 }
-it('restores an independent initialized instance: all statuses/date/location/tags/processed files/settings/account/MFA/recovery keys/receipts; revokes both instances’ sessions and keeps destination archives', async () => {
+it('restores an independent initialized instance: all statuses/date/tags/processed files/settings/account/MFA/recovery keys/receipts; revokes both instances’ sessions and keeps destination archives', async () => {
   await withPersistence(async (source) => {
     const f = await fixture(source);
     const { enrollment, enabled } = await f.enable();
@@ -185,7 +179,6 @@ it('restores an independent initialized instance: all statuses/date/location/tag
         // ordinary note validation/rendering; an ignored later definition is safe.
         bodyMarkdown: `![static][photo] #Work\n\n[photo]: attachment:${ids[0]}\n[photo]: attachment:${randomUUID()}`,
         timelineAt: null,
-        location: null,
         attachmentIds: ids,
       },
     };
@@ -735,7 +728,6 @@ it('rejects checksum-consistent forged image bitstreams and missing referenced v
         content: {
           bodyMarkdown: `![static](attachment:${id})`,
           timelineAt: null,
-          location: null,
           attachmentIds: [id],
         },
       };

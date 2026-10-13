@@ -42,7 +42,7 @@ function owner(p: Persistence): SessionIdentity {
   };
 }
 function content(bodyMarkdown: string) {
-  return { bodyMarkdown, timelineAt: 1000, location: null, attachmentIds: [] };
+  return { bodyMarkdown, timelineAt: 1000, attachmentIds: [] };
 }
 function create(
   n: NoteService,
@@ -66,7 +66,7 @@ function execute(t: TagService, id: SessionIdentity, operation: TagAction) {
   return { result: t.execute(id, command), command, preview };
 }
 describe('S14 real coordinated tag transactions', () => {
-  it('rewrites all statuses, exact spans, revisions/search/joins/counts and no creation/date/status/location changes; case-only and collision semantics', async () =>
+  it('rewrites all statuses, exact spans, revisions/search/joins/counts and no creation/date/status changes; case-only and collision semantics', async () =>
     withPersistence(async (p) => {
       const id = owner(p),
         n = new NoteService(p),
@@ -105,7 +105,6 @@ describe('S14 real coordinated tag transactions', () => {
           status: old.status,
           priorStatus: old.priorStatus,
           revision: old.revision + 1,
-          location: null,
           tags: ['仕事', '香港'],
         });
         expect(current.bodyMarkdown).toBe(

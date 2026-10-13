@@ -66,7 +66,7 @@ archive summary/scope no longer have draft fields. Portable auth recovery is unc
 
 Private `/api/calendar?year=YYYY` returns twelve month/count arrays, timezone,
 weekStart and today from one authorized read snapshot, bounded to 1969–9998. Daily
-UTC intervals follow Temporal/IANA including DST; no content or coordinates leave
+UTC intervals follow Temporal/IANA including DST; no content leaves
 SQL. The year endpoint remains implemented but is no longer used by the picker.
 The later user request replaces miniature heatmaps with an inline `MonthPicker`
 in the calendar's position: twelve Jan–Dec links in 4 × 3 below a year between
@@ -74,6 +74,16 @@ previous/next arrows. Clicking the year enables validated direct entry; Enter
 applies, Escape cancels entry/closes the picker, outside click dismisses. No modal,
 quick-year list or year-activity request. Month selection clears day, retains
 search/tag; browsing changes no filters.
+
+## Current override — location removed
+
+User-requested location removal deletes all note coordinate/accuracy/label fields,
+browser requests, map links, editor/card/detail/conflict UI, DTO validation and tests.
+The fresh baseline and both Drizzle snapshots omit these columns/checks; no importer
+or automatic local-data deletion is added. Old development databases/archives fail
+hash trust and require their matching build. Canonical snapshot/mutation identities
+use v2 without location. Permissions-Policy denies geolocation. Image EXIF/GPS
+stripping remains a separate privacy requirement.
 
 ## 1. Status and design rules
 
@@ -83,7 +93,7 @@ directory-exchange clarification remain open.
 
 - One SvelteKit/Node application instance; SQLite and private files on persistent local disk.
 - SQLite is the source of truth. Search is derived and rebuildable.
-- No external search service, location service, file storage service, or job broker.
+- No external search service, file storage service, or job broker.
 - Render the initial authenticated view on the server, hydrate interactions, and fetch subsequent pages without full reloads.
 - Unsaved editor text/metadata/blobs are tab-local memory only, not persisted recovery or offline synchronization.
 - Keep server-only modules in SvelteKit's server directory; never bundle database/filesystem/secret code into the client.
@@ -241,7 +251,7 @@ All times stored consistently as UTC integer milliseconds or equivalent explicit
 | `auth_challenges`       | Short-lived pending MFA and fresh-auth grants; scoped, hashed, expiring; no full session before MFA success                                                                                                        |
 | `recovery_codes`        | Account, code hash, consumed timestamp; consume atomically                                                                                                                                                         |
 | `auth_rate_limits`      | Bounded persistent login/MFA attempt limits; expiry/cleanup policy                                                                                                                                                 |
-| `notes`                 | ID, Markdown body, status (`published`, `draft`, `trash`), prior status for Trash, `timeline_at`, immutable `created_at`, `updated_at`, nullable content-edited time, revision, nullable location fields           |
+| `notes`                 | ID, Markdown body, status (`published`, `draft`, `trash`), prior status for Trash, `timeline_at`, immutable `created_at`, `updated_at`, nullable content-edited time, revision, nullable pin timestamp             |
 | `tags`                  | ID, normalized unique key, display spelling                                                                                                                                                                        |
 | `note_tags`             | Note/tag join, unique pair                                                                                                                                                                                         |
 | `tag_changes`           | Rename/merge/removal history to detect stale local drafts; old normalized key, action/target, generation/time                                                                                                      |
@@ -266,7 +276,6 @@ Indexes at minimum:
 
 ### 4.2 Invariants
 
-- Location latitude/longitude are both absent or both valid. Latitude [-90,90], longitude [-180,180], accuracy null or nonnegative finite meters. Label has a bounded length.
 - All normal queries explicitly select published notes; draft/trash views opt into their own statuses.
 - Every update to a note, including status/tag/date changes, increments revision.
 - A Trash note remembers the status to restore.
@@ -384,7 +393,7 @@ Details: [simplify-setup progress](simplify-setup/PROGRESS.md).
   API. All existing-note commands require note ID and expected revision; permanent
   deletion additionally requires `confirmed: true` and Trash status. No force-write
   flag exists. Explicit replacement uses an ordinary newly observed revision.
-- Content is a full replacement of Markdown, timeline instant, nullable location
+- Content is a full replacement of Markdown, timeline instant
   and ordered unique attachment IDs. `timelineAt: null` selects the server creation
   instant only on create; updates/republishing require an explicit instant, normally
   the unchanged original date. Future instants fail, never clamp. Configured limits
@@ -392,7 +401,7 @@ Details: [simplify-setup progress](simplify-setup/PROGRESS.md).
   6 MiB + 64 KiB for worst-case JSON escaping, with actual streamed-byte counting
   and a 15-second receive deadline.
 - `canonicalNoteMutation` serializes a versioned fixed-order JSON array of action,
-  target, expected revision, full content/location/attachment order and deletion
+  target, expected revision, full content/attachment order and deletion
   confirmation. SHA-256 of its UTF-8 bytes is the S06 frozen batch request digest.
   Mutation ID is the receipt key, not part of the digest. The server calculates
   this digest from validated commands; it accepts no caller-supplied commit digest.
@@ -422,7 +431,7 @@ Details: [simplify-setup progress](simplify-setup/PROGRESS.md).
   to selected ready images, never ordinary files or remote/broken images; code
   examples are not references. Whitespace without ready attachments fails; ready
   zero-byte ordinary files still constitute file-only content.
-- Creation time never changes. Timeline/location-only and status-only edits do not
+- Creation time never changes. Timeline-only and status-only edits do not
   set content-edited time; body or attachment-order/reference changes do. Updated
   time is monotonic even during backward clock movement. Trash records/restores its
   exact prior status with data/dates/files intact. Permanent-delete returns a
@@ -477,7 +486,7 @@ Suggested local draft record:
 schemaVersion, localDraftId, accountId
 kind: new | edit-published | edit-server-draft
 serverNoteId?, expectedServerRevision?
-bodyMarkdown, timelineAt, location?
+bodyMarkdown, timelineAt
 attachmentDescriptors[] (local ID or existing server ID, display metadata)
 createdLocallyAt, modifiedLocallyAt
 postingAttempt? (mutation ID, frozen payload digest, uploaded-ready map)
@@ -546,7 +555,7 @@ No stored title; use excerpts. `localStorage` holds text/metadata; IndexedDB hol
 - Recovery kinds retain server note ID, expected revision and a base snapshot digest.
   recoveryMatches requires all three before association/posting, including after
   restore. Server files remain references, not copied blobs. Sections 7/10/11/15
-  define frozen posting, server reads/lists, date/location and confirmed cleanup.
+  define frozen posting, server reads/lists, date and confirmed cleanup.
   No background server saving.
 
 ## 7. Attachment representation and posting protocol
@@ -579,7 +588,7 @@ Failure returns to recoverable local state while retaining retry metadata. No op
 2. Check for an existing successful mutation receipt first; if present, resolve the original success without re-uploading. Otherwise initialize/resume its batch. Do not initialize this automatically when merely selecting a file.
 3. Upload new blobs with stable attachment IDs; server validates ownership/ID/batch and processes images.
 4. Retry queries readiness before resending successful files. Detect mismatched bytes/type for an already-used ID.
-5. Commit body/date/location/attachments with mutation ID and expected revision.
+5. Commit body/date/attachments with mutation ID and expected revision.
 6. Transaction checks status/revision, resolves tags, inserts note changes/search/joins and success receipt.
 7. Response loss is safe: retry sees the same mutation ID and returns the original successful result. Different payload under an existing ID is rejected.
 8. Only confirmed success clears local blobs/records. Content typed after the snapshot, if allowed, must survive in another draft rather than being cleared.
@@ -848,7 +857,7 @@ Case-only display changes and rename to an existing normalized tag need explicit
   rechecks the token inside the coordinated IMMEDIATE transaction, not a force
   write. Body, joins, registry, edited timing, exact +1 revisions, FTS/derived
   search, history and retry receipt commit together across every server status.
-  Creation/timeline/location/files/status/prior status remain unchanged. The
+  Creation/timeline/files/status/prior status remain unchanged. The
   default synchronous bound is 10,000 affected notes / 32 MiB source; exceeding
   it refuses safely with operator-assistance feedback, not a partial rewrite.
 - Schema-v2 baseline includes `tag_mutation_receipts`, separate from note-result
@@ -942,12 +951,12 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   dimensions reserve aspect ratio. Copy controls are disabled until hydration;
   truncated code cannot be copied as if it were the full original.
 - `NoteCard.svelte` implements collapse/full and density preferences, safe code,
-  tags, edited time, optional location text/files, Markdown copy and confirmed
+  tags, edited time, files, Markdown copy and confirmed
   revision-checked draft/Trash actions. Full source loads only on explicit expansion
   or visibility with full-card preference, never for every offscreen long note.
   Clipped controls become inert; Show less returns to that card rather than falling
   to the list bottom and accidentally loading more pages. Sections 11/15 define
-  location popovers and detail/viewer/lifecycle screens.
+  detail/viewer/lifecycle screens.
 - Composer completion emits one authoritative mutation/snapshot event, not a
   parallel session list. The timeline merges newer revisions, refreshes a changed
   older card and sidebar counts, keeps cursor boundaries, and does not invent a
@@ -977,7 +986,7 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   the initial setting until an explicit browser proposal/manual choice is saved.
 - `server/calendar/activity.ts` uses a single status/date-indexed month aggregation
   with at most 31 independently computed day intervals. It selects counts only,
-  never note bodies/files/location. `GET /api/calendar?month=YYYY-MM` is private,
+  never note bodies/files. `GET /api/calendar?month=YYYY-MM` is private,
   strict and session-rechecked. Counts always cover all published notes, regardless
   of tags/search; there is no cached count table/schema/dependency change.
 - Strict same-origin `PATCH /api/settings/calendar` merges only timezone/weekStart
@@ -1143,8 +1152,8 @@ h1–h4 margins to `0.6em 0.2em`. These are rendering changes, not schema change
   Observers respect clipping/scroll containers, keep theme refresh to currently
   visible diagrams, and disconnect/abort queued work on replacement or unmount.
   Compact and focus/mobile editors share one integrated surface and an ARIA Preview
-  switch. A bottom toolbar of icon buttons (Tags/Files/Date/Location) triggers local
-  Tags/Files and the existing Date/Location dialogs. The bottom-right expand/X
+  switch. A bottom toolbar of icon buttons (Tags/Files/Date) triggers local
+  Tags/Files and the existing Date dialog. The bottom-right expand/X
   enters/leaves the
   native focus editor; its custom header stays visually inside the same surface.
   The inline editor remains mounted but hidden/inert during focus mode so opener
@@ -1186,7 +1195,7 @@ h1–h4 margins to `0.6em 0.2em`. These are rendering changes, not schema change
   "All notes" link; Back returns to the timeline. Card images open the image viewer
   in place. Native modal inertness and Tab wrapping still apply to the viewer.
 - Full snapshots alone seed recovery (`client/drafts/recovery.ts`), including
-  ordered server descriptors, timeline/location and canonical base digest. Existing
+  ordered server descriptors, timeline and canonical base digest. Existing
   local edits for the note are resumed, never silently overwritten; a stale base
   opens comparison. Creation/opening/editing never uploads or unpublishes. Save
   changes and server-draft Post reuse the frozen receipt-first protocol. Local
@@ -1225,7 +1234,7 @@ h1–h4 margins to `0.6em 0.2em`. These are rendering changes, not schema change
   the selected IDs in the same session-rechecked transaction. Empty BLOB results
   may be null; image/file-only labels still work. Source NULs display as ␀;
   inline internal-image destinations are omitted from labels. No full body,
-  location, filesystem paths or attachment collection crosses this list boundary.
+  filesystem paths or attachment collection crosses this list boundary.
   Labels are computed, not persisted titles or editor snapshots.
 - Local drafts retain explicit new/published-edit/server-draft-edit kinds, device
   scope, base revision, modification time, short local-copy ID and frozen-retry
@@ -1646,7 +1655,7 @@ Domain/origin/data-root and deployment TLS configuration are not overwritten by 
   subprocess with a hard sixty-second kill; extensions/supplied SQL are never loaded
   or executed. Safe HTTP errors omit stacks, SQL, paths and content.
 - Validate singleton account/bounded Argon2 hash, portable AES-GCM key/secret binding,
-  enabled-MFA base32/recovery state, settings, UTC/revisions/location/IDs, all note/tag/
+  enabled-MFA base32/recovery state, settings, UTC/revisions/IDs, all note/tag/
   ordered attachment/image references, exact file variant inventory/digests/sizes,
   static metadata-free WebP dimensions, receipt/history shapes and manifest counts.
   Runtime credential/upload/cleanup/catalog/search tables must be empty. Rebuild
@@ -1725,25 +1734,8 @@ Deploy one Node instance behind HTTPS reverse proxy, with persistent DATA_DIR an
 
 Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guarantees. Search/image/backup workloads are the main risks on a 2-core/4 GB machine.
 
-## 15. S15 optional location and non-backup Settings contracts
+## 15. S15 non-backup Settings contracts
 
-- `shared/location.ts`, `LocationOptions.svelte` and `LocationPopover.svelte` reuse
-  the existing strict paired-coordinate/nullable-accuracy/200-character-label schema.
-  Location dialog fields are staged until explicit Save location; removal is explicit.
-  Browser permission is requested only by Use current location, with a ten-second
-  deadline, no cached position and no high-accuracy tracking/watch. Denial, timeout,
-  missing HTTPS/support and invalid coordinates leave posting available. Manual
-  coordinate changes clear reported accuracy; changing only a label preserves it.
-  Request generations and draft identity suppress late/canceled results. Local
-  metadata uses the same revision-aware draft repository, quota feedback and frozen
-  posting protocol; no location or other new-draft content uploads before Post.
-- Cards/full detail render no location element when absent. A native, nonmodal auto
-  popover exposes escaped label, coordinates, reported accuracy when known, clipboard
-  success/failure and an explicit new-tab OpenStreetMap link (`noopener noreferrer`).
-  There is no embed, reverse geocoder, asset load, permission request or map fetch
-  merely from opening the notebook/editor/popover. Geolocation Permissions-Policy
-  permits only the application origin. Copy waits for hydration; normal map/native
-  popover controls remain usable without custom tracking code.
 - `shared/storage.ts`, settings repository and private `/api/settings/storage` expose
   only nine validated upload/image/note limits, not paths, origin, reserve or security
   fields. Coordinated IMMEDIATE merges recheck the session and preserve appearance,
@@ -1768,7 +1760,7 @@ Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guar
   drafts are excluded. Traversal never follows symlinks and caps inspected entries
   at 100,000; transient disappearing staging files count zero. Values are a measured
   snapshot, not allocated-disk-block or whole-OS accounting. No private path, digest,
-  note body, session or precise coordinate appears in the storage DTO.
+  note body or session appears in the storage DTO.
 - Cleanup uses entire account-owned **pending batches**, not isolated ready IDs that
   would destroy a frozen manifest. Inventory shows up to 20 oldest unused batches,
   counts/bytes and five escaped filenames each. As a conservative implementation

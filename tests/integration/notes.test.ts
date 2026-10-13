@@ -59,7 +59,6 @@ const content = (
 ): NoteContent => ({
   bodyMarkdown,
   timelineAt: Date.now() - 86_400_000,
-  location: null,
   attachmentIds: [],
 });
 const create = (body = content()): NoteMutation => ({
@@ -230,19 +229,11 @@ describe('S07 real atomic note lifecycle', () => {
       }
     }));
 
-  it('preserves creation/timeline/location/content timing through drafts and both Trash prior statuses', async () =>
+  it('preserves creation/timeline/content timing through edits and Trash restore', async () =>
     withPersistence((p) => {
       const owner = identity(p),
         service = new NoteService(p);
-      const body = {
-        ...content(),
-        location: {
-          latitude: 0,
-          longitude: 0,
-          accuracy: null,
-          label: 'Manual',
-        },
-      };
+      const body = content();
       const first = service.mutate(owner, create(body));
       const original = service.get(owner, first.noteId);
       const same = service.mutate(owner, edit(first.noteId, 1, body));
@@ -252,7 +243,6 @@ describe('S07 real atomic note lifecycle', () => {
         status: 'trash',
         priorStatus: 'published',
         timelineAt: original.timelineAt,
-        location: body.location,
         createdAt: original.createdAt,
         contentEditedAt: null,
       });
@@ -285,7 +275,7 @@ describe('S07 real atomic note lifecycle', () => {
       ).toThrow(/transition/);
     }));
 
-  it('date/location-only changes do not imply a content edit and null timeline is only a create default', async () =>
+  it('date-only changes do not imply a content edit and null timeline is only a create default', async () =>
     withPersistence((p) => {
       const owner = identity(p),
         service = new NoteService(p),
@@ -296,13 +286,7 @@ describe('S07 real atomic note lifecycle', () => {
       );
       const original = service.get(owner, created.noteId);
       expect(original.timelineAt).toBe(original.createdAt);
-      service.mutate(
-        owner,
-        edit(created.noteId, 1, {
-          ...body,
-          location: { latitude: 90, longitude: -180, accuracy: 0, label: null },
-        }),
-      );
+      service.mutate(owner, edit(created.noteId, 1, body));
       expect(service.get(owner, created.noteId)).toMatchObject({
         timelineAt: body.timelineAt,
         createdAt: original.createdAt,
@@ -385,7 +369,7 @@ describe('S07 real atomic note lifecycle', () => {
       }
     }));
 
-  it('rejects whitespace, invalid tags/locations, unready/unauthorized attachments and broken image references without partial notes', async () =>
+  it('rejects whitespace, invalid tags, unready/unauthorized attachments and broken image references without partial notes', async () =>
     withPersistence((p) => {
       const owner = identity(p),
         service = new NoteService(p);
@@ -394,15 +378,6 @@ describe('S07 real atomic note lifecycle', () => {
         content('#' + 'a'.repeat(65)),
         content(`![x](attachment:${randomUUID()})`),
         { ...content(''), attachmentIds: [randomUUID()] },
-        {
-          ...content(),
-          location: {
-            latitude: 100,
-            longitude: 0,
-            accuracy: null,
-            label: null,
-          },
-        },
       ])
         expect(() => service.mutate(owner, create(body))).toThrow();
       const value = create({ ...content(''), attachmentIds: [randomUUID()] });

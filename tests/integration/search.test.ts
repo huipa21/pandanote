@@ -60,7 +60,6 @@ const command = (body: string) => ({
   content: {
     bodyMarkdown: body,
     timelineAt: 100,
-    location: null,
     attachmentIds: [] as string[],
   },
 });

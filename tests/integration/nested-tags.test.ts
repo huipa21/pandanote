@@ -51,7 +51,6 @@ function create(n: NoteService, id: SessionIdentity, body: string, at = 1000) {
     content: {
       bodyMarkdown: body,
       timelineAt: at,
-      location: null,
       attachmentIds: [],
     },
   }).noteId;

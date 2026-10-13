@@ -442,7 +442,6 @@ export const zhCN: Partial<Catalog> = {
     '服务器上的内容已更改。没有任何内容被覆盖。你的本地文本和新文件会保留在此设备上。',
   'conflict.serverVersion': '服务器版本 · 修订 {revision} · {status}',
   'conflict.timeline': '时间线：{time}',
-  'conflict.location': '位置：{label} {latitude}, {longitude}',
   'conflict.localRetained': '保留的本地版本',
   'conflict.loadServer': '加载服务器版本',
   'conflict.saveSeparate': '将本地版本另存为新笔记',
@@ -491,19 +490,6 @@ export const zhCN: Partial<Catalog> = {
   'editor.mediaTitle': '照片或视频',
   'editor.setDate': '设置日期',
   'editor.dateTitle': '日期',
-  'editor.locationTitle': '位置',
-  'editor.editLocation': '编辑位置',
-  'editor.addLocation': '添加位置',
-  'location.chip': '位置：{label}',
-  'location.details': '位置详情',
-  'location.copied': '坐标已复制。',
-  'location.copyFailed': '无法复制。请选中显示的坐标手动复制。',
-  'location.copy': '复制坐标',
-  'location.openMap': '打开地图',
-  'location.close': '关闭位置',
-  'location.accuracy': '报告的精度：{accuracy} 米（估计值）',
-  'location.mapNote':
-    '打开地图会在新标签页中与 OpenStreetMap 分享这些坐标。此处不会加载地图。',
   'unsaved.title': '未保存的更改',
   'unsaved.help': '你有未保存的更改。要发布或保存更改、放弃，还是取消？',
   'unsaved.frozen':
@@ -559,33 +545,6 @@ export const zhCN: Partial<Catalog> = {
     '请在已配置的应用时区中选择现在或更早的时间。有歧义或不存在的夏令时时间会被拒绝。',
   'date.label': '时间线日期和时间（{timezone}）',
   'date.invalid': '请选择有效且无歧义的日期和时间，且不晚于现在。',
-  'location.title': '笔记位置',
-  'location.help':
-    '可选。在点击“发布”或“保存更改”之前仅保存在此设备上。不会追踪，也不会查询地图。浏览器提供的精度仅为估计值，不保证准确。',
-  'location.useCurrent': '使用当前位置',
-  'location.requesting': '正在请求位置…',
-  'location.latitude': '纬度',
-  'location.longitude': '经度',
-  'location.latPlaceholder': '−90 到 90',
-  'location.lonPlaceholder': '−180 到 180',
-  'location.labelField': '位置名称（可选）',
-  'location.accuracyReported': '报告的精度：{accuracy} 米',
-  'location.noAccuracy': '手动输入的坐标没有精度信息。',
-  'location.saving': '正在保存位置…',
-  'location.save': '保存位置',
-  'location.remove': '移除位置',
-  'location.unsupported':
-    '获取当前位置需要支持的浏览器以及 HTTPS（或 localhost）。你可以手动输入坐标，或不带位置发布。',
-  'location.invalidBrowser':
-    '浏览器返回了无效的位置。请手动输入坐标，或不带位置发布。',
-  'location.denied': '已拒绝位置权限。请手动输入坐标，或不带位置发布。',
-  'location.timeout': '位置请求超时。请重试、手动输入坐标，或不带位置发布。',
-  'location.unavailable':
-    '当前无法获取位置。请重试、手动输入坐标，或不带位置发布。',
-  'location.cannotRequest':
-    '浏览器无法请求位置。请手动输入坐标，或不带位置发布。',
-  'location.activeChanged': '当前笔记已更改。请关闭并重新打开位置设置。',
-  'location.checkRetry': '请检查位置后重试。',
   'calendar.previousMonth': '上个月',
   'calendar.nextMonth': '下个月',
   'calendar.today': '今天',
@@ -959,7 +918,7 @@ export const zhCN: Partial<Catalog> = {
     '未找到笔记。如需其文字或文件，请保持未保存的编辑器打开。',
   'err.invalidNoteId': '笔记 ID 无效。',
   'err.invalidNoteActionContentDate':
-    '笔记操作、内容、日期、位置、附件或预期修订版本无效。',
+    '笔记操作、内容、日期、附件或预期修订版本无效。',
   'err.thisNoteCannotAcceptAnother':
     '此笔记无法再接受新的修订。请另存一份副本。',
   'err.thisPostingAttemptDoesNot':

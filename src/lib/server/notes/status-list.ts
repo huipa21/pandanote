@@ -65,7 +65,7 @@ export function statusPage(
         )!,
       );
     // Bound selection in SQLite, including sources with NULs. Counts never expose
-    // private paths, full source, coordinates or whole attachment collections.
+    // private paths, full source or whole attachment collections.
     const rows = tx
       .select({
         id: notes.id,

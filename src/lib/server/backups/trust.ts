@@ -346,15 +346,6 @@ export async function trustSnapshot(
         contentEditedAt: row.content_edited_at,
         revision: row.revision,
         pinnedAt: row.pinned_at,
-        location:
-          row.latitude === null
-            ? null
-            : {
-                latitude: row.latitude,
-                longitude: row.longitude,
-                accuracy: row.accuracy,
-                label: row.location_label,
-              },
       });
       const linked = db
         .prepare(

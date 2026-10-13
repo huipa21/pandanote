@@ -53,7 +53,6 @@ function create(
       bodyMarkdown: body,
       timelineAt: Date.parse(date),
       attachmentIds: [],
-      location: null,
     },
   });
 }
@@ -189,7 +188,6 @@ describe('global calendar and timeline anchors on real SQLite', () => {
           bodyMarkdown: 'backdated',
           timelineAt: Date.parse('2023-12-31T16:00Z'),
           attachmentIds: [],
-          location: null,
         },
       });
       expect(monthActivity(p, identity, '2024-02').counts[27]).toBe(0);

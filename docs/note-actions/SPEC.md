@@ -21,7 +21,7 @@ Order inside a published-note card (timeline):
    on hover, wrapping onto several
    lines; `aria-current` on the active tag. Omitted entirely when the note has no tags
    (no empty row or spacing).
-3. Search excerpts (search views only), content, photo grid, Show more, location,
+3. Search excerpts (search views only), content, photo grid, Show more,
    files, feedback — unchanged order. Eligible hashtag tokens are hidden in the
    card body because the chip row already shows them. Source, editor preview,
    note detail and search excerpts retain the tokens; tag management still rewrites

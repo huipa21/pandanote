@@ -19,7 +19,6 @@
     stampDateTime,
   } from '#lib/shared/timeline.ts';
   import ThumbnailGrid from './ThumbnailGrid.svelte';
-  import LocationPopover from './LocationPopover.svelte';
   import Markdown from './Markdown.svelte';
   import ImageViewer from './ImageViewer.svelte';
   import Icon from './Icon.svelte';
@@ -211,7 +210,6 @@
           selected = id;
         }}
       />
-      {#if note.location}<LocationPopover location={note.location} />{/if}
       <ul class="files" aria-label={t('note.attachments')}>
         {#each (note.attachments ?? []).filter((file) => file.kind === 'file') as file (file.id)}<li
           >

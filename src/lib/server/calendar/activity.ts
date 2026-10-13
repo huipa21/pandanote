@@ -86,7 +86,7 @@ export function monthActivity(
     assertSessionIdentity(tx, identity);
     const { timezone, weekStart } = readSettings(p);
     const range = monthRange(month, timezone);
-    // One indexed month scan, no Markdown/coordinates/files leave the database.
+    // One indexed month scan, no Markdown/files leave the database.
     // Each interval is computed with IANA rules, never SQLite/VPS localtime.
     const columns: Record<string, ReturnType<typeof sql<number>>> = {};
     for (let i = 0; i < first.daysInMonth; i++) {

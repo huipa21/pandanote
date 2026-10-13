@@ -1,6 +1,6 @@
 import { tr } from '#lib/client/i18n-current.ts';
 import type { Nodes } from 'mdast';
-import type { NoteLocation, NoteSnapshot } from '#lib/shared/domain.ts';
+import type { NoteSnapshot } from '#lib/shared/domain.ts';
 import type { NoteContent, NoteMutation } from '#lib/shared/notes.ts';
 import type { TagAcknowledgement } from '#lib/shared/tags.ts';
 import type { PostingAttempt } from '../uploads/attempt.ts';
@@ -24,7 +24,6 @@ export interface EditorSession {
   } | null;
   bodyMarkdown: string;
   timelineAt: number;
-  location: NoteLocation | null;
   attachments: EditorAttachment[];
   tagAcknowledgements?: TagAcknowledgement[];
   postingAttempt?: PostingAttempt;
@@ -36,7 +35,6 @@ export function newSession(now = Date.now()): EditorSession {
     serverBase: null,
     bodyMarkdown: '',
     timelineAt: now,
-    location: null,
     attachments: [],
   };
 }
@@ -51,7 +49,6 @@ export function sessionFingerprint(session: EditorSession): string {
     session.serverBase,
     session.bodyMarkdown,
     session.timelineAt,
-    session.location,
     session.attachments,
     session.tagAcknowledgements ?? [],
   ]);
@@ -62,12 +59,7 @@ export function isSessionDirty(
 ): boolean {
   if (!session) return false;
   // A new empty editor needs no prompt, even after typing then deleting its text.
-  if (
-    session.kind === 'new' &&
-    !hasSessionContent(session) &&
-    !session.location
-  )
-    return false;
+  if (session.kind === 'new' && !hasSessionContent(session)) return false;
   return sessionFingerprint(session) !== cleanSnapshot;
 }
 export function commandForSession(
@@ -77,7 +69,6 @@ export function commandForSession(
   const content: NoteContent = {
     bodyMarkdown: session.bodyMarkdown,
     timelineAt: session.timelineAt,
-    location: session.location,
     attachmentIds: session.attachments.map((a) => a.id),
     ...(session.tagAcknowledgements?.length
       ? { tagAcknowledgements: session.tagAcknowledgements }

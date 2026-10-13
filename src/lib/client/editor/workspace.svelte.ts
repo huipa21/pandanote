@@ -153,7 +153,7 @@ export class EditorWorkspace {
     this.active = { ...this.active, bodyMarkdown };
   }
 
-  updateMetadata(values: Pick<EditorSession, 'timelineAt' | 'location'>) {
+  updateMetadata(values: Pick<EditorSession, 'timelineAt'>) {
     if (!this.ready || this.busy || this.frozen || this.posting || !this.active)
       return;
     this.active = { ...this.active, ...values };
@@ -650,7 +650,6 @@ export class EditorWorkspace {
       },
       bodyMarkdown: note.bodyMarkdown,
       timelineAt: note.timelineAt,
-      location: note.location,
       attachments: (note.attachments ?? []).map((file) => ({
         id: file.id,
         source: 'server',

@@ -42,7 +42,7 @@ export async function create(
     data: {
       action: 'create',
       mutationId: randomUUID(),
-      content: { bodyMarkdown, timelineAt, location: null, attachmentIds: [] },
+      content: { bodyMarkdown, timelineAt, attachmentIds: [] },
     },
   });
   expect(response.status()).toBe(200);

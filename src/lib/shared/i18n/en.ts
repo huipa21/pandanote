@@ -480,7 +480,6 @@ export const en = {
     'The server changed. Nothing has been overwritten. Your local text and new file blobs are retained on this device.',
   'conflict.serverVersion': 'Server version · revision {revision} · {status}',
   'conflict.timeline': 'Timeline: {time}',
-  'conflict.location': 'Location: {label} {latitude}, {longitude}',
   'conflict.localRetained': 'Your retained local version',
   'conflict.loadServer': 'Load server version',
   'conflict.saveSeparate': 'Save local as separate note',
@@ -529,20 +528,6 @@ export const en = {
   'editor.mediaTitle': 'Photos or video',
   'editor.setDate': 'Set date',
   'editor.dateTitle': 'Date',
-  'editor.locationTitle': 'Location',
-  'editor.editLocation': 'Edit location',
-  'editor.addLocation': 'Add location',
-  'location.chip': 'Location: {label}',
-  'location.details': 'Location details',
-  'location.copied': 'Coordinates copied.',
-  'location.copyFailed':
-    'Could not copy. Select the shown coordinates to copy manually.',
-  'location.copy': 'Copy coordinates',
-  'location.openMap': 'Open map',
-  'location.close': 'Close location',
-  'location.accuracy': 'Reported accuracy: {accuracy} m (estimate)',
-  'location.mapNote':
-    'Open map shares these coordinates with OpenStreetMap in a new tab. No map is loaded here.',
   'unsaved.title': 'Unsaved changes',
   'unsaved.help':
     'You have unsaved changes. Do you want to post/save your changes, discard them, or cancel?',
@@ -604,36 +589,6 @@ export const en = {
   'date.label': 'Timeline date/time ({timezone})',
   'date.invalid':
     'Choose a valid, unambiguous date/time that is now or earlier.',
-  'location.title': 'Note location',
-  'location.help':
-    'Optional, device-local until Post or Save changes. No tracking or map lookup. Browser accuracy is an estimate, not a guarantee.',
-  'location.useCurrent': 'Use current location',
-  'location.requesting': 'Requesting location…',
-  'location.latitude': 'Latitude',
-  'location.longitude': 'Longitude',
-  'location.latPlaceholder': '−90 to 90',
-  'location.lonPlaceholder': '−180 to 180',
-  'location.labelField': 'Location label (optional)',
-  'location.accuracyReported': 'Reported accuracy: {accuracy} m',
-  'location.noAccuracy': 'Manual coordinates have no reported accuracy.',
-  'location.saving': 'Saving location…',
-  'location.save': 'Save location',
-  'location.remove': 'Remove location',
-  'location.unsupported':
-    'Current location requires a supported browser and HTTPS (or localhost). You can enter coordinates manually or post without location.',
-  'location.invalidBrowser':
-    'The browser returned an invalid location. Enter coordinates manually or post without location.',
-  'location.denied':
-    'Location permission was denied. Enter coordinates manually or post without location.',
-  'location.timeout':
-    'Location request timed out. Retry, enter coordinates manually, or post without location.',
-  'location.unavailable':
-    'Current location is unavailable. Retry, enter coordinates manually, or post without location.',
-  'location.cannotRequest':
-    'The browser could not request location. Enter coordinates manually or post without location.',
-  'location.activeChanged':
-    'The active note changed. Close and reopen location.',
-  'location.checkRetry': 'Check the location and retry.',
   'calendar.previousMonth': 'Previous month',
   'calendar.nextMonth': 'Next month',
   'calendar.today': 'Today',
@@ -1067,7 +1022,7 @@ export const en = {
     'Note not found. Keep your unsaved editor open if you need its text or files.',
   'err.invalidNoteId': 'Invalid note ID.',
   'err.invalidNoteActionContentDate':
-    'Invalid note action, content, date, location, attachments or expected revision.',
+    'Invalid note action, content, date, attachments or expected revision.',
   'err.thisNoteCannotAcceptAnother':
     'This note cannot accept another revision. Save a separate copy.',
   'err.thisPostingAttemptDoesNot':

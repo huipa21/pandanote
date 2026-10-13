@@ -77,15 +77,6 @@ function snapshot(db: Reader, row: NoteRow): NoteSnapshot {
     contentEditedAt: row.contentEditedAt,
     revision: row.revision,
     pinnedAt: row.pinnedAt,
-    location:
-      row.latitude === null || row.longitude === null
-        ? null
-        : {
-            latitude: row.latitude,
-            longitude: row.longitude,
-            accuracy: row.accuracy,
-            label: row.locationLabel,
-          },
     attachmentIds: linkedIds(db, row.id),
     attachments: db
       .select({ attachment: attachments })
@@ -230,10 +221,6 @@ export class NoteService {
           status: 'published' as const,
           priorStatus: null,
           pinnedAt: old?.pinnedAt ?? null,
-          latitude: content.location?.latitude ?? null,
-          longitude: content.location?.longitude ?? null,
-          accuracy: content.location?.accuracy ?? null,
-          locationLabel: content.location?.label ?? null,
         };
         if (old) this.update(tx, old, fields);
         else

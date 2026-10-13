@@ -50,7 +50,7 @@ These are expected tests, not claims that tests already exist or pass. Add cases
 - Unit: pure query/tag/timezone/state-machine/validation behavior.
 - Integration: real production SQLite tokenizer, transactions, native image processing, private filesystem, auth and archive operations in isolated temporary directories.
 - Browser: real reloads, IndexedDB/localStorage, network failures, dialogs, scrolling, downloads/uploads and two-context conflicts with Playwright.
-- Manual: mobile virtual keyboard/gestures, geolocation permission UX, contrast/visual review and actual VPS restore drill.
+- Manual: mobile virtual keyboard/gestures, contrast/visual review and actual VPS restore drill.
 
 All fixtures are synthetic. Never commit personal notes, actual credentials, GPS histories, production backups or secrets. Test MFA seeds/recovery codes are deliberately disposable and must not reach production initialization.
 
@@ -106,11 +106,11 @@ Login/password/MFA attempts rate-limited with bounded storage and sensible resta
 
 ### DRAFT-01 — Multiple local drafts
 
-Create two new drafts with distinct text/date/location/files. Reload/restart and resume independently. Text/metadata present in localStorage; binary blobs present in IndexedDB. No separate note title. Discard one leaves the other intact.
+Create two new drafts with distinct text/date/files. Reload/restart and resume independently. Text/metadata present in localStorage; binary blobs present in IndexedDB. No separate note title. Discard one leaves the other intact.
 
 ### DRAFT-02 — No premature upload
 
-Intercept requests while typing, adding image/file, switching preview, setting location/date and navigating away. No new-draft body/blob is uploaded. Background fetching existing server data is allowed; do not confuse it with draft sync.
+Intercept requests while typing, adding image/file, switching preview, setting date and navigating away. No new-draft body/blob is uploaded. Background fetching existing server data is allowed; do not confuse it with draft sync.
 
 ### DRAFT-03 — Quota and missing blobs
 
@@ -122,7 +122,7 @@ Text autosave survives reload without relying solely on unload. Editing same loc
 
 ### DRAFT-05 — Server draft semantics
 
-Published note moved to draft keeps server body/attachments/dates/location. Normal search/calendar excludes it. Edit on device A, reload: local edits recover. Device B sees only last server version. New files on A remain local until Post. No Save draft/background server save. Republish preserves timeline date and clears only the confirmed local edit copy.
+Published note moved to draft keeps server body/attachments/dates. Normal search/calendar excludes it. Edit on device A, reload: local edits recover. Device B sees only last server version. New files on A remain local until Post. No Save draft/background server save. Republish preserves timeline date and clears only the confirmed local edit copy.
 
 ### POST-01 — Explicit publishing
 
@@ -241,10 +241,6 @@ Click opens larger WebP, zoom/pan, image navigation/swipe, download outputs WebP
 
 Original bytes unchanged, filename/size correct, safe Content-Disposition and nosniff. HTML/SVG download-only. No path traversal via filename/ID; unauthorized access denied to thumbnail/display/file/backup. Last-reference deletion correct for cloned notes and Trash.
 
-### GEO-01 — Explicit optional location
-
-No automatic permission request. Current/manual coordinates validate; denial/timeout not blocking. Optional label and accuracy preserved, manual accuracy nullable. Remove leaves no card row. Popover copy works; external map only opens after explicit click, no reverse-geocoding/embed requests.
-
 ## 10. UI/accessibility
 
 ### UI-01 — Appearance
@@ -267,7 +263,7 @@ At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No cl
 ### UI-EDITOR — Concise integrated composer
 
 Writing, preview, feedback and Post/Save changes share one textarea-style surface.
-Only the bottom toolbar (Tags/Files/Date/Location icons at left, Preview switch, focus
+Only the bottom toolbar (Tags/Files/Date icons at left, Preview switch, focus
 icon and publishing control at right) holds permanent editor actions; nothing floats
 in the top corner. Each icon has an accessible name and keyboard access, with no
 premature upload. Tags inserts an inline hashtag at
@@ -291,7 +287,7 @@ Loading/empty/no-match/storage-full/permission-denied/upload-failed/conflict/mai
 
 ### BACKUP-01 — Scope/consistency
 
-Manual create only, stored privately on server, complete archive listed/downloadable/deletable. Includes published/server-draft/Trash/tag/date/location/attachment/settings/account/MFA/portable keys. Excludes browser drafts/files, prior archives, pending uploads, sessions/challenges/transient catalogs. Concurrent note/tag/status/security changes produce a coherent snapshot, not mismatched files/DB. Live SQLite WAL changes preserved through online snapshot.
+Manual create only, stored privately on server, complete archive listed/downloadable/deletable. Includes published/server-draft/Trash/tag/date/attachment/settings/account/MFA/portable keys. Excludes browser drafts/files, prior archives, pending uploads, sessions/challenges/transient catalogs. Concurrent note/tag/status/security changes produce a coherent snapshot, not mismatched files/DB. Live SQLite WAL changes preserved through online snapshot.
 
 ### BACKUP-02 — Protection/failure
 

@@ -15,7 +15,6 @@ import {
 const content = {
   bodyMarkdown: '#Work 香港',
   timelineAt: 1,
-  location: null,
   attachmentIds: [],
 };
 describe('note boundary contracts', () => {
@@ -34,7 +33,6 @@ describe('note boundary contracts', () => {
         mutationId: randomUUID(),
         content: {
           attachmentIds: [],
-          location: null,
           timelineAt: 1,
           bodyMarkdown: '#Work 香港',
         },
@@ -46,18 +44,6 @@ describe('note boundary contracts', () => {
       { ...value, noteId: randomUUID() },
       { ...value, content: { ...content, bodyMarkdown: 'different' } },
       { ...value, content: { ...content, timelineAt: 2 } },
-      {
-        ...value,
-        content: {
-          ...content,
-          location: {
-            latitude: 0,
-            longitude: 0,
-            accuracy: null,
-            label: 'manual',
-          },
-        },
-      },
       { ...value, content: { ...content, attachmentIds: [randomUUID()] } },
     ])
       expect(canonicalNoteMutation(changed)).not.toBe(canonical);
@@ -74,7 +60,7 @@ describe('note boundary contracts', () => {
       }),
     );
   });
-  it('rejects unknown fields, missing revisions/confirmation, duplicate IDs, invalid coordinates and excessive UTF-8 content', () => {
+  it('rejects unknown fields, missing revisions/confirmation, duplicate IDs and excessive UTF-8 content', () => {
     const base = { action: 'create', mutationId: randomUUID(), content };
     const id = randomUUID();
     for (const bad of [
@@ -82,13 +68,6 @@ describe('note boundary contracts', () => {
       { ...base, requestDigest: 'a'.repeat(64) },
       { ...base, content: { ...content, attachmentIds: [id, id] } },
       { ...base, content: { ...content, bodyMarkdown: '猫'.repeat(400_000) } },
-      {
-        ...base,
-        content: {
-          ...content,
-          location: { latitude: 91, longitude: 0, accuracy: null, label: null },
-        },
-      },
       { action: 'trash', noteId: id, mutationId: randomUUID() },
       {
         action: 'permanent-delete',

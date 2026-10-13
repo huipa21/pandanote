@@ -38,7 +38,6 @@ const create = (bodyMarkdown: string): NoteMutation => ({
     bodyMarkdown,
     attachmentIds: [],
     timelineAt: Date.UTC(2021, 4, 1),
-    location: null,
   },
 });
 const params = (extra: Record<string, string>) =>

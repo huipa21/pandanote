@@ -64,7 +64,6 @@ export async function mutate(
     content: {
       bodyMarkdown: body,
       timelineAt: null,
-      location: null,
       attachmentIds: [],
       ...extra,
     },

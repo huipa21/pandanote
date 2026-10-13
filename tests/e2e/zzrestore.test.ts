@@ -19,7 +19,6 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
     content: {
       bodyMarkdown: 'web restore original 香港 #Roundtrip',
       timelineAt: null,
-      location: null,
       attachmentIds: [],
     },
   };

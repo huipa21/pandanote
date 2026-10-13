@@ -107,7 +107,7 @@ Included in the first complete release:
 - Markdown notes without separate titles.
 - In-memory unsaved editor with explicit Post/Save changes, no draft status or recovery.
 - Timeline cards; tags; literal multilingual search; month activity calendar.
-- Backdating; optional geolocation; image and file attachments.
+- Backdating; image and file attachments.
 - Markdown preview, Mermaid, highlighted code with copy buttons.
 - Responsive layout, theme/density/collapse preferences.
 - Tag management; Trash; conflict detection.
@@ -218,7 +218,7 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - Enter inserts a newline.
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
-- A bottom toolbar shows Tags, Photos/video, Date and Location as icon buttons (bottom-left), matching the reference layout: icons at the left, Post at the right.
+- A bottom toolbar shows Tags, Photos/video and Date as icon buttons (bottom-left), matching the reference layout: icons at the left, Post at the right.
 - The Date icon opens the Timeline date dialog with the themed date/time picker already visible (no extra toggle); Done closes the dialog.
 - One Preview switch toggles rendered Markdown and raw text without losing content.
 - A bottom-right focus icon (next to Post) enters focus mode; the same button shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
@@ -408,19 +408,15 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
   Nothing expires automatically. A still-open editor retains files, but an abandoned
   frozen attempt needs a new editable attempt before posting again.
 
-## 11. Optional location
+## 11. Location removed (user request)
 
-- Off by default; no tracking on page load.
-- Add location explicitly requests browser permission.
-- Failure/denial does not prevent posting.
-- Support current location and manually entered latitude/longitude.
-- Store latitude, longitude, reported accuracy when available, optional manually entered label.
-- Manual coordinates need no invented accuracy.
-- Location chip in editor can be edited/removed.
-- No location: no card row, empty space, or placeholder.
-- Card location opens a small popover with label, coordinates, accuracy if known, copy action, and Open map link.
-- External map is opened only by explicit action; no embedded map/reverse geocoder.
-- Browser geolocation requires HTTPS outside localhost; accuracy is not guaranteed.
+Notes have no location field, toolbar action, browser permission request, coordinate
+entry, popover or map link. Location is not part of editor state, API payloads,
+SQLite or backups. Image processing still strips all EXIF/GPS metadata.
+
+This follows the existing pre-release fresh-install baseline policy: no importer or
+automatic data deletion. Earlier development databases and archives require their
+matching build; they are refused by the changed baseline's trust checks.
 
 ## 12. Detail, edits, and conflicts
 

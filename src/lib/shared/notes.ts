@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  idSchema,
-  instantSchema,
-  locationSchema,
-  revisionSchema,
-} from './domain.ts';
+import { idSchema, instantSchema, revisionSchema } from './domain.ts';
 import { MAX_MARKDOWN_LENGTH } from './markdown/parse.ts';
 import { tagAcknowledgementsSchema } from './tags.ts';
 
@@ -24,7 +19,6 @@ export const noteContentSchema = z.strictObject({
   // null chooses the server commit instant on CREATE only. Updates/publishing
   // must submit the explicit original or deliberately changed timeline instant.
   timelineAt: instantSchema.nullable(),
-  location: locationSchema.nullable(),
   attachmentIds: z
     .array(idSchema)
     .max(100)
@@ -70,7 +64,7 @@ export function canonicalNoteSnapshot(
   note: import('./domain.ts').NoteSnapshot,
 ): string {
   return JSON.stringify([
-    'pandanote-note-snapshot-v1',
+    'pandanote-note-snapshot-v2',
     note.id,
     note.bodyMarkdown,
     note.status,
@@ -80,14 +74,6 @@ export function canonicalNoteSnapshot(
     note.updatedAt,
     note.contentEditedAt,
     note.revision,
-    note.location
-      ? [
-          note.location.latitude,
-          note.location.longitude,
-          note.location.accuracy,
-          note.location.label,
-        ]
-      : null,
     note.attachmentIds,
     note.tags,
   ]);
@@ -99,7 +85,7 @@ export function canonicalNoteSnapshot(
 export function canonicalNoteMutation(value: NoteMutation): string {
   const content = 'content' in value ? value.content : null;
   return JSON.stringify([
-    'pandanote-note-mutation-v1',
+    'pandanote-note-mutation-v2',
     value.action,
     value.action === 'create' ? null : value.noteId,
     value.action === 'create' ? null : value.expectedRevision,
@@ -107,16 +93,8 @@ export function canonicalNoteMutation(value: NoteMutation): string {
       ? [
           content.bodyMarkdown,
           content.timelineAt,
-          content.location
-            ? [
-                content.location.latitude,
-                content.location.longitude,
-                content.location.accuracy,
-                content.location.label,
-              ]
-            : null,
           content.attachmentIds,
-          // Preserve every pre-S14 frozen digest byte-for-byte when absent.
+          // Omit empty acknowledgements from the canonical payload.
           ...(content.tagAcknowledgements?.length
             ? [
                 content.tagAcknowledgements

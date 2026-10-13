@@ -101,7 +101,6 @@ it.skipIf(!linux)(
         content: {
           bodyMarkdown: 'reset survivor #Work',
           timelineAt: null,
-          location: null,
           attachmentIds: [],
         },
       });

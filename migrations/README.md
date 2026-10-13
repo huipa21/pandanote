@@ -47,7 +47,7 @@ pre-release data migration. Unknown databases, modified SQL/step history and new
 schemas are also refused. Migrations are forward-only; failure rollback is not a
 destructive down-migration feature.
 
-The approved no-drafts change intentionally replaced the fresh-install baseline
+The approved no-drafts and location-removal changes intentionally replaced the fresh-install baseline
 without an importer or upgrade for earlier development data. Those folders/archives
 fail trust even though their numeric schema version can still be 2. A SQL hash or
 data-step mismatch reports safe recovery instructions: use the matching build for

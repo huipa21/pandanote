@@ -271,7 +271,6 @@ async function ensureDiagramNote() {
     content: {
       bodyMarkdown: longMermaid(9999),
       timelineAt: Date.now() - 5 * 365 * 86_400_000, // far below the first timeline page
-      location: null,
       attachmentIds: [],
     },
   });
@@ -364,15 +363,6 @@ test('setup and seed the realistic 10k dataset through the real API', async () =
               now -
               Math.floor(rnd() * 4 * 365 * 86_400_000) -
               (index + 1) * 1000,
-            location:
-              rnd() < 0.05
-                ? {
-                    latitude: 22.3 + rnd() / 10,
-                    longitude: 114.1 + rnd() / 10,
-                    accuracy: 20,
-                    label: null,
-                  }
-                : null,
             attachmentIds: [],
           },
         },
@@ -887,7 +877,6 @@ test('full backup of the 10k dataset: duration, archive size, RAM/disk peak and 
             content: {
               bodyMarkdown: `write during backup ${i}`,
               timelineAt: null,
-              location: null,
               attachmentIds: [],
             },
           },

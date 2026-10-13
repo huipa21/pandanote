@@ -2,6 +2,16 @@
 
 ## Current state
 
+- **User-requested location removal — implemented / host and Linux-native verified;
+  full release gate not claimed.** Removed toolbar/dialog/popover/map helpers,
+  note/editor/API/SQLite fields and translations; location tests removed, unrelated
+  Storage coverage retained under `storage.test.ts`. Check/build, 175 unit,
+  263 host integration + 7 existing platform skips, all 270 Alpine integration and
+  final 25 affected Chromium tests pass. Lint still flags only this file's existing
+  formatting issue. Fresh baseline/snapshots changed under the existing pre-release
+  policy; older development DB/archives require a matching build. No local data deleted
+  or migrated. Final history entry records intermediate failures and remaining gates.
+
 - **Requested settings/title controls — implemented / host functional gates verified;
   visual/full/Linux gates remain open.** Appearance tab removed; General's one Save
   retains title/tagline/collapse and adds Compact/Comfortable (default)/Spacious
@@ -279,6 +289,15 @@ or bypass dirty-source rejection. No user commit is created without approval.
 
 ## Next session: exact instructions
 
+**Location removal is implemented:** read the final location-removal handoff,
+PRODUCT_SPEC §11, shared notes/domain/editor contracts, schema/baseline snapshots
+and `tests/e2e/storage.test.ts`. Next validation is `npm run check && npm run lint
+&& npm run test:unit`, then normal full `npm run test:e2e` after a fresh build.
+Resolve existing handoff formatting/previously documented full-browser failures
+without weakening assertions. Preserve old private data folders/archives; this
+pre-release baseline has no importer, migration or automatic deletion. Exact clean
+release/image/drill and independent SS01/S18/manual gates remain open.
+
 **Security review fixes are locally verified:** read security-hardening PROGRESS
 session 15 and `auth-isolation.test.ts`/`auth-restore.test.ts`. No requested auth
 fix remains open. Full browser still fails the nine previously documented calendar,
@@ -317,7 +336,7 @@ Linux visual/ARM64/exact-release limitations remain independent.
 
 **Concise editor is locally done:** review
 `Composer.svelte`, `EditorOptions.svelte`, `Modal.svelte`, `TimelineOptions.svelte`,
-`LocationOptions.svelte` and `tests/e2e/editor.test.ts`, then the latest handoff below.
+`tests/e2e/editor.test.ts`, then the latest handoff below.
 First safe check: `npm run check && npm run lint && npm run test:unit`. User review/
 commit only with approval; no deployment performed. Native/deployment code is
 unchanged; no new Linux/native release evidence is implied.
@@ -368,7 +387,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S12  | Detail/edit/conflict/image viewer  | Done                                                         |
 | S13  | Drafts and Trash screens           | Done                                                         |
 | S14  | Tag administration                 | Done                                                         |
-| S15  | Location/settings/storage          | Done                                                         |
+| S15  | Settings/storage          | Done                                                         |
 | S16  | Manual backup/create/download      | Done                                                         |
 | S17  | Uploaded restore and rollback      | Done                                                         |
 | S18  | VPS deployment/release validation  | In progress — locally verified; real-VPS/device/AT gate open |
@@ -386,7 +405,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 - Month/year picker with three-letter weekdays, left borderless heading/right arrows;
   fixed resizable desktop sidebar; homepage composer scrolls with notes and bottom
   Back to Top returns to it. Primary scrolling only in notes pane.
-- Optional location (lat/lon/accuracy/manual label), no auto tracking/geocoding/embedded maps.
+- No note location fields, geolocation requests or map links (user-requested removal).
 - Static lossy WebP display + thumbnail; no retained originals after success; reject animation.
 - Warm quiet UI, muted green, system/light/dark; configurable density and long-card collapse.
 - Optional TOTP with single-use recovery codes; seven-day default sessions.
@@ -5246,3 +5265,90 @@ appearance setup-server release-hygiene` **13/13 pass**. `npm run lint` still fa
 only this file's existing Prettier warning; ESLint clean. Working/index whitespace
 checks pass, `.e2e-data`/`NUL` absent, index untouched. No behavior changed after the
 final build and affected 10-test browser gate.
+
+### Session 2026-10-13 (host date) — user-requested location removal
+
+**State: implemented / affected host and Linux-native verified; overall gates partial.**
+Started clean at `9389e28`. No commit, deployment, dependency/lockfile change,
+application-data deletion, ledger rewrite or importer. Historical handoffs preserved.
+
+Implemented / touched:
+
+- Deleted `components/LocationOptions.svelte`, `LocationPopover.svelte` and
+  `shared/location.ts`. Removed location actions from `EditorOptions`, card/detail
+  popovers and conflict comparison. Date/media/tags remain; toolbar asserts exactly
+  three buttons. Permissions-Policy changes from self permission to `geolocation=()`.
+- Removed coordinate/accuracy/label fields from shared domain/content/snapshots,
+  editor model/workspace/date updates, server note writes/timeline/snapshot reads,
+  backup trust and both en/zh-CN catalogs. Canonical note mutation/snapshot versions
+  are v2 without the removed array element; retry/optimistic conflict behavior stays.
+- Removed four columns and the coordinate CHECK from Drizzle schema, fresh SQL
+  baseline and both snapshots. Follows the earlier approved pre-release fresh-baseline
+  policy, not a forward migration: older development DBs/archives fail hash trust
+  and require their matching build. Never delete/rewrite private data to bypass it.
+- Deleted location-specific unit/browser cases and assertions from domain/note/
+  persistence/timeline/backup/restore fixtures. Updated all synthetic API fixtures,
+  including release drill/benchmark/deployment probes. Storage tests remain under
+  `tests/unit/storage.test.ts` and `tests/e2e/storage.test.ts`; the latter now opens
+  the real Storage tab. EXIF/GPS stripping and its native image tests are retained.
+- Updated PRODUCT_SPEC §11, ARCHITECTURE, IMPLEMENTATION_PLAN, ACCEPTANCE_TESTS,
+  note-actions SPEC, README, migrations/test READMEs and this handoff. Browser URL
+  `window.location` and HTTP Location redirects are unrelated and unchanged.
+
+Commands and actual results (Node24.21.0 executable/PATH, npm11 CLI, TLS1;
+Git OpenSSL for Playwright, host build-mutating suites sequential):
+
+- Targeted `node node_modules/prettier/bin/prettier.cjs --write <changed files>`:
+  pass; no whole-history reformat. `npm run db:generate -- --name=verify_no_drift`:
+  pass, 18 tables/no drift/no new migration generated.
+- `npm run check`: pass, zero errors / one existing AppShell unused-CSS warning.
+  `npm run lint`: fails only existing `docs/PROGRESS.md` Prettier formatting;
+  ESLint clean. This is not an all-common-gates pass.
+- `npm run test:unit`: initial 174 pass / 1 failure from the old canonical-byte
+  fixture; updated that versioned expectation, final **175 pass / 34 files**.
+- `npm run test:integration`: **263 pass + 7 existing Linux-only skips**, 42 files,
+  299.65s; real native SQLite/Sharp/files/archive/restore tests, no added exclusions.
+  `npm run build`: pass; existing large lazy-chunk warnings remain.
+- `node node_modules/@playwright/test/cli.js test tests/e2e/editor.test.ts
+  tests/e2e/posting.test.ts tests/e2e/detail.test.ts tests/e2e/note-edit.test.ts
+  tests/e2e/note-actions.test.ts tests/e2e/storage.test.ts`: first 24 pass / 1 Storage
+  failure (the tab helper selects but does not navigate; restored `/settings` goto).
+  Next 24 pass / 1 upload-retry failure: editor retained bytes with safe
+  "Upload could not be stored" feedback; no note committed, cause not established.
+  Same complete command without source change: final **25/25 pass**, 56.0s.
+  No assertion weakening, automatic retry, skipped case or snapshot regeneration.
+- `podman build -f ops/Dockerfile.alpine-validation -t
+  localhost/pandanote-location-validation .`: pass, fresh Linux-native npm ci;
+  existing 2 low advisories/install-script warnings retained, no forced update.
+  Image `cd459b5342c84b8a7c17ca220387df01c31f86da9af91ed88e95ca02f6e9a40e`.
+- `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1
+  localhost/pandanote-location-validation sh -c 'node --version && npm run check
+  && npx eslint . && npm run test:unit && npm run test:integration && npm run build'`:
+  pass: Node24.21.0 Alpine/musl, check/ESLint/build, **175 unit + all270 integration**
+  (266.21s, zero skips/exclusions), actual native/archive/rollback/process-kill/PTY.
+  Formatting stage explicitly not included because of the known host handoff warning;
+  do not call this a full Linux lint/common-gate pass. Runtime source is final; image
+  precedes only Storage browser-fixture navigation correction and documentation close.
+
+Remaining / next:
+
+- No unfinished location functionality or known location-removal defect. Full browser,
+  exact clean production-image/two-domain release drill, Linux browser visuals and
+  physical-device/manual SS01/S18 gates not run/closed. Release harness updates are
+  type-checked only, not a new production deployment/drill/benchmark pass.
+- Investigate the safe transient Windows upload failure if it recurs; do not silently
+  change timeout/retry/auth/storage policies. Prior full-browser failures remain
+  documented in earlier handoffs. Lint formatting remains a separate existing blocker.
+- Next: review this handoff and PRODUCT_SPEC §11; resolve formatting and previously
+  recorded full-browser issues, then `npm run check && npm run lint && npm run
+  test:unit`, fresh `npm run build` and normal `npm run test:e2e`. Preserve private
+  folders/archives, shared images and prior history; commit/deploy only with approval.
+
+Final close: targeted Prettier passes; repeated `npm run check` passes with the one
+existing warning, `npm run test:unit` **175 pass**, and `npm run test:integration --
+notes release-hygiene` **22/22 pass** after the two spread-only fixture simplifications.
+Repeated `npm run lint` still fails only this file's existing formatting. `git diff
+--check`, removed-symbol scan and dependency/lock/Compose preservation pass; `.e2e-data`
+and `NUL` absent. Removed only this session's unique Linux validation image/tag after
+recording its ID/results; shared aliases/data untouched. No production source change
+after the successful host build, Linux270 and final affected25 browser gate.

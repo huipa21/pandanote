@@ -54,7 +54,6 @@ const create = (
     bodyMarkdown,
     attachmentIds,
     timelineAt: Date.UTC(2020, 0, 3),
-    location: null,
   },
 });
 describe('S13 bounded private status lists with real SQLite/files', () => {
@@ -99,7 +98,6 @@ describe('S13 bounded private status lists with real SQLite/files', () => {
       ).toBe(true);
       expect(JSON.stringify(first).length).toBeLessThan(30000);
       expect(first.items[0]).not.toHaveProperty('bodyMarkdown');
-      expect(first.items[0]).not.toHaveProperty('location');
       expect(() =>
         statusPage(p, identity, query('draft', { cursor: first.nextCursor! })),
       ).toThrow();

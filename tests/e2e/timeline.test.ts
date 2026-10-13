@@ -274,7 +274,6 @@ test('bounded 300-card DOM growth is measured before virtualization; menu lifecy
       content: {
         bodyMarkdown: 'S09 newer content #S09timeline',
         timelineAt: base.timelineAt,
-        location: null,
         attachmentIds: [],
       },
     },

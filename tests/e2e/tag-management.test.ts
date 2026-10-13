@@ -21,7 +21,6 @@ test('tag management rewrites notes and Trash; open unsaved source receives expl
         content: {
           bodyMarkdown: `#${key} body`,
           timelineAt: null,
-          location: null,
           attachmentIds: [],
         },
       },

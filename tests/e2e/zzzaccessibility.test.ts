@@ -76,12 +76,6 @@ async function seed(page: Page) {
         content: {
           bodyMarkdown,
           timelineAt: null,
-          location: {
-            latitude: 22.3,
-            longitude: 114.1,
-            accuracy: 10,
-            label: 'Accessibility 香港',
-          },
           attachmentIds: [],
         },
       },

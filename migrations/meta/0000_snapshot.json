@@ -968,34 +968,6 @@
           "autoincrement": false,
           "default": 1
         },
-        "latitude": {
-          "name": "latitude",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "longitude": {
-          "name": "longitude",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "accuracy": {
-          "name": "accuracy",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "location_label": {
-          "name": "location_label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "pinned_at": {
           "name": "pinned_at",
           "type": "integer",
@@ -1040,10 +1012,6 @@
         "note_time_check": {
           "name": "note_time_check",
           "value": "\"notes\".\"timeline_at\" BETWEEN 0 AND 8640000000000000 AND \"notes\".\"created_at\" BETWEEN 0 AND 8640000000000000 AND \"notes\".\"updated_at\" BETWEEN \"notes\".\"created_at\" AND 8640000000000000 AND (\"notes\".\"content_edited_at\" IS NULL OR \"notes\".\"content_edited_at\" BETWEEN \"notes\".\"created_at\" AND \"notes\".\"updated_at\")"
-        },
-        "note_location_check": {
-          "name": "note_location_check",
-          "value": "(\"notes\".\"latitude\" IS NULL AND \"notes\".\"longitude\" IS NULL AND \"notes\".\"accuracy\" IS NULL AND \"notes\".\"location_label\" IS NULL) OR (\"notes\".\"latitude\" IS NOT NULL AND \"notes\".\"longitude\" IS NOT NULL AND \"notes\".\"latitude\" BETWEEN -90 AND 90 AND \"notes\".\"longitude\" BETWEEN -180 AND 180 AND (\"notes\".\"accuracy\" IS NULL OR \"notes\".\"accuracy\" BETWEEN 0 AND 1.7976931348623157e308) AND (\"notes\".\"location_label\" IS NULL OR length(\"notes\".\"location_label\") <= 200))"
         }
       }
     },

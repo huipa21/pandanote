@@ -50,7 +50,6 @@ async function start(page: Page) {
               content: {
                 bodyMarkdown: body,
                 timelineAt: Date.parse(date) + i,
-                location: null,
                 attachmentIds: [],
               },
             },
@@ -213,7 +212,6 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
               content: {
                 bodyMarkdown: `Heat tile ${day}/${i} #S11heat`,
                 timelineAt: Date.parse(`2025-01-${day}T12:00Z`) + i,
-                location: null,
                 attachmentIds: [],
               },
             },
@@ -708,7 +706,6 @@ test('posting from the composer invalidates calendar counts and a delayed image 
           content: {
             bodyMarkdown: 'S11 epoch-zero #S11epoch',
             timelineAt: 0,
-            location: null,
             attachmentIds: [],
           },
         },

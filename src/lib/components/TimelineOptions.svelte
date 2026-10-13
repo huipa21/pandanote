@@ -50,7 +50,6 @@
         try {
           workspace.updateMetadata({
             timelineAt: timelineInstant(next, workspace.timezone),
-            location: workspace.active!.location,
           });
           error = '';
         } catch {

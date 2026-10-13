@@ -45,7 +45,6 @@ function create(
     content: {
       bodyMarkdown: body,
       timelineAt: Date.now() - ageDays * day,
-      location: null,
       attachmentIds: [],
     },
   });

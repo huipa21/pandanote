@@ -29,7 +29,7 @@ import {
   withPersistence,
 } from '../helpers/persistence.ts';
 
-it('enforces single account, note statuses, paired finite location and revision/creation invariants in SQLite', async () => {
+it('enforces single account, note statuses, revision/creation invariants in SQLite', async () => {
   await withPersistence((p) => {
     seedAccount(p);
     expect(() =>
@@ -51,15 +51,6 @@ it('enforces single account, note statuses, paired finite location and revision/
       "status = 'invalid'",
       "status = 'trash'",
       "prior_status = 'draft'",
-      'latitude = 91, longitude = 0',
-      'latitude = 0',
-      'longitude = 0',
-      'latitude = 0, longitude = 181',
-      'latitude = 0, longitude = 0, accuracy = -1',
-      'accuracy = 0',
-      "location_label = 'without coordinates'",
-      `latitude = 0, longitude = 0, location_label = '${'a'.repeat(201)}'`,
-      'latitude = 0, longitude = 0, accuracy = 1e999',
       'timeline_at = 1.5',
     ]) {
       expect(
@@ -85,10 +76,6 @@ it('enforces single account, note statuses, paired finite location and revision/
       tx
         .update(notes)
         .set({
-          latitude: -90,
-          longitude: 180,
-          accuracy: null,
-          locationLabel: null,
           revision: 2,
         })
         .where(eq(notes.id, id))

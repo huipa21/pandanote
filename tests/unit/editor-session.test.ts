@@ -8,7 +8,7 @@ import {
   remapImageReferences,
 } from '../../src/lib/client/editor/model.ts';
 
-it('new empty/cleared editor has no exit prompt; changes include attachments, dates and location', () => {
+it('new empty/cleared editor has no exit prompt; changes include attachments and dates', () => {
   const session = newSession(100);
   const clean = sessionFingerprint(session);
   expect(isSessionDirty(session, clean)).toBe(false);
@@ -18,15 +18,6 @@ it('new empty/cleared editor has no exit prompt; changes include attachments, da
   expect(isSessionDirty({ ...session, bodyMarkdown: ' \n ' }, clean)).toBe(
     false,
   );
-  expect(
-    isSessionDirty(
-      {
-        ...session,
-        location: { latitude: 0, longitude: 0, accuracy: null, label: null },
-      },
-      clean,
-    ),
-  ).toBe(true);
   const edit = {
     ...session,
     kind: 'edit' as const,
@@ -66,7 +57,6 @@ it('editing requires full attachment metadata and a non-Trash server snapshot', 
     contentEditedAt: null,
     pinnedAt: null,
     revision: 1,
-    location: null,
     attachmentIds: [],
     attachments: [],
     tags: [],

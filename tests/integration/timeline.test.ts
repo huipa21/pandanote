@@ -60,7 +60,6 @@ describe('published timeline with actual SQLite', () => {
           content: {
             bodyMarkdown: `#${spelling}`,
             timelineAt: 1_700_000_000_000,
-            location: null,
             attachmentIds: [],
           },
         });
@@ -88,7 +87,6 @@ describe('published timeline with actual SQLite', () => {
             content: {
               bodyMarkdown: `${n} #Work ${n % 2 ? '#香港' : ''}`,
               timelineAt: 1_700_000_000_000,
-              location: null,
               attachmentIds: [],
             },
           }).noteId,
@@ -154,7 +152,6 @@ describe('published timeline with actual SQLite', () => {
           content: {
             bodyMarkdown: text,
             timelineAt: 1_700_000_000_000,
-            location: null,
             attachmentIds: [],
           },
         });
@@ -187,12 +184,6 @@ describe('published timeline with actual SQLite', () => {
         content: {
           bodyMarkdown: '#図書館 edited',
           timelineAt: 1_600_000_000_000,
-          location: {
-            latitude: 1,
-            longitude: 2,
-            accuracy: null,
-            label: 'Synthetic',
-          },
           attachmentIds: [],
         },
       });
@@ -200,7 +191,6 @@ describe('published timeline with actual SQLite', () => {
         .items[0];
       expect(edited.revision).toBe(2);
       expect(edited.contentEditedAt).not.toBeNull();
-      expect(edited.location?.label).toBe('Synthetic');
       expect(
         (await timelinePage(p, identity, params('tag=work'))).items,
       ).toEqual([]);

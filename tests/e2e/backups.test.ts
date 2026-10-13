@@ -43,7 +43,6 @@ test('manual full create, protected native download and confirmed delete work in
       content: {
         bodyMarkdown: 'Synthetic full backup 香港',
         timelineAt: null,
-        location: null,
         attachmentIds: [],
       },
     },

@@ -25,7 +25,6 @@ async function start(page: Page) {
               '\n\n' +
               'Private synthetic paragraph. '.repeat(20),
             timelineAt: 1_600_000_000_000 + n,
-            location: null,
             attachmentIds: [],
           },
         },

@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
-  import LocationOptions from './LocationOptions.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   const t = useI18n().t;
 
@@ -15,17 +14,11 @@
     onFiles: () => void;
   } = $props();
   let dateOpen = $state(false);
-  let locationOpen = $state(false);
   let locked = $derived(
     !workspace?.ready ||
       workspace.busy ||
       workspace.conflict ||
       workspace.frozen,
-  );
-  let locationLabel = $derived(
-    workspace?.active?.location
-      ? t('editor.editLocation')
-      : t('editor.addLocation'),
   );
 </script>
 
@@ -69,23 +62,9 @@
       /></svg
     >
   </button>
-  <button
-    type="button"
-    disabled={locked}
-    aria-label={locationLabel}
-    title={t('editor.locationTitle')}
-    onclick={() => (locationOpen = true)}
-  >
-    <svg viewBox="0 0 24 24" aria-hidden="true"
-      ><path
-        d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.800 12 21 12 21Z"
-      /><circle cx="12" cy="9.5" r="2.5" /></svg
-    >
-  </button>
 </div>
 {#if workspace}
   <TimelineOptions {workspace} bind:open={dateOpen} showTrigger={false} />
-  <LocationOptions {workspace} bind:open={locationOpen} showTrigger={false} />
 {/if}
 
 <style>

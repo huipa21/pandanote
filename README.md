@@ -3,7 +3,7 @@
 A single-user, responsive, Markdown-first personal notebook. Notes have no separate
 title field. The app includes a memory-only editor, a chronological timeline,
 multilingual literal search, tags, a month calendar, private attachments, optional
-location, conflict detection, Trash, optional TOTP, and manual full backup/restore.
+conflict detection, Trash, optional TOTP, and manual full backup/restore.
 
 **Implemented and locally verified, not a final production release.** Setup and
 minimal container deployment are implemented; the outstanding SS01 directory-exchange
@@ -169,7 +169,7 @@ alongside an existing database fail closed. `/health` reveals only readiness:
 ### Startup fails with “Applied migration history does not match”
 
 The selected data folder does not match this build's trusted SQL/data-step history.
-The approved no-drafts change replaced the fresh-install baseline without an old-data
+The approved no-drafts and location-removal changes replaced the fresh-install baseline without an old-data
 migration. Earlier development databases remain incompatible even when both report
 schema version 2. A mismatch can also mean altered migration files; do not assume
 that changing the stored hash makes the database compatible.
@@ -273,9 +273,6 @@ Re-enable MFA afterwards. There is no public reset endpoint. See the
   Viewer supports zoom/pan/navigation/swipe and processed-WebP download.
 - Other files stay byte-identical (50 MiB default), download-only, authenticated,
   with safe disposition/nosniff/sandbox headers. No public uploads/backups.
-- Location is explicit/off by default. Browser permission is requested only by
-  Use current location; manual coordinates need no invented accuracy. Copy/map
-  popover; OpenStreetMap opens only on explicit action, no embed/geocoder/tracking.
 - Trash preserves prior status/dates/files; confirmed permanent deletion and
   restartable reference-safe cleanup cannot break shared/Trash attachments.
   Unused whole posting attempts can be explicitly abandoned after 24 quiet hours;
@@ -343,7 +340,7 @@ validation: [tests/README.md](tests/README.md).
 Settled stack: SvelteKit 3/Svelte 5/TypeScript 6/Vite 8/adapter-node; SQLite/Drizzle/
 better-sqlite3; remark/rehype/Shiki/Mermaid; Sharp; plain CSS/private local storage.
 No external search service, Redis, multi-user roles, rich editor, offline sync,
-external location service or automatic full backups.
+automatic full backups.
 
 Before coding read [AGENTS.md](AGENTS.md), [product spec](docs/PRODUCT_SPEC.md),
 [architecture](docs/ARCHITECTURE.md), [implementation plan](docs/IMPLEMENTATION_PLAN.md),

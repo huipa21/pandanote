@@ -43,7 +43,6 @@ it('one production build honors two runtime origins, keeps data private, logs ou
     const content = {
       bodyMarkdown: 'Synthetic private 香港 #Work',
       timelineAt: 1,
-      location: null,
       attachmentIds: [],
     };
     const lostResponse = {

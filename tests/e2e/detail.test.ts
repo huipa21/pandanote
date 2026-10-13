@@ -16,7 +16,6 @@ async function create(page: Page): Promise<NoteSnapshot> {
       content: {
         bodyMarkdown: `Original ${randomUUID()}`,
         timelineAt: Date.UTC(2020, 0, 1),
-        location: null,
         attachmentIds: [],
       },
     },
@@ -225,7 +224,6 @@ test('explicit replace racing a third edit conflicts again and preserves losing 
       content: {
         bodyMarkdown: 'Third edit',
         timelineAt: current.timelineAt,
-        location: null,
         attachmentIds: [],
       },
     },
@@ -285,7 +283,6 @@ test('note page keeps the card header: date, tag chips under it, hashtag text hi
       content: {
         bodyMarkdown: `This is a test post. #${tag}/1`,
         timelineAt: Date.UTC(2020, 0, 1),
-        location: null,
         attachmentIds: [],
       },
     },

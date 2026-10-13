@@ -285,7 +285,6 @@ test('DEP-01–05: copied minimal deployment, default private bind, browser setu
       content: {
         bodyMarkdown: 'Linux deployment survivor #DEP',
         timelineAt: null,
-        location: null,
         attachmentIds: [],
       },
     },

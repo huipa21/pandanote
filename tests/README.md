@@ -8,9 +8,9 @@ covers session fingerprints, full snapshot checks and AST image remove/remapping
 Posting protocol retains only memory-held frozen attempts and receipt-first retries.
 Calendar integration verifies full year/month equivalence, leap/DST, bounds/revocation.
 
-`e2e/editor-session`, `posting`, `detail`, `location-storage`, `status-notes`,
+`e2e/editor-session`, `posting`, `detail`, `storage`, `status-notes`,
 `tag-management` exercise memory-only writing, browser Leave/Stay, Post/Discard/Cancel,
-lost responses, remapped retries, optimistic races, media/date/location and Trash.
+lost responses, remapped retries, optimistic races, media/date and Trash.
 `calendar` covers 12 miniature monthly heatmaps in 4 × 3 with whole-tile navigation.
 Shell screenshots seed real current-month notes for dataset-independent geometry;
 no extra masks/relaxed assertions. SS01/S18/manual/exact-release limits stay open.
@@ -189,7 +189,7 @@ production credential is committed.
 ## S17 coverage (RESTORE-01–04, AUTH-04/05, BACKUP-01/02)
 
 - `integration/restores.test.ts`: independent real SQLite/filesystem/account
-  replacement with published/server-draft/Trash, tags/date/location, processed
+  replacement with published/server-draft/Trash, tags/date, processed
   images/unchanged files, settings, password/MFA/recovery/portable keys and included
   receipts. Both old source/destination credentials fail; restored MFA login works,
   source-derived search is rebuilt and unrelated destination archives/catalog remain.
@@ -239,10 +239,9 @@ production credential is committed.
   logical/unique disk bytes, parent RSS/worker maxRSS and ongoing read/write probes.
   No deployment content/credentials are read or logged. Actual results in PROGRESS.
 
-## S15 coverage (GEO-01, DRAFT-01/02/03, FILE-01, AUTH-04/05, UI-01/02/03)
+## S15 coverage (FILE-01, AUTH-04/05, UI-01/02/03)
 
-- `unit/location-storage.test.ts`: decimal/range/empty/zero/accuracy/label validation,
-  pure explicit OpenStreetMap URL, strict settings bounds and activity-bound cleanup
+- `unit/storage.test.ts`: strict settings bounds and activity-bound cleanup
   confirmation/ID/duplicate/path-injection rejection.
 - `integration/storage.test.ts`: actual SQLite/settings merges, native Sharp outputs
   at configured edges/qualities, server byte/pixel limits, session revocation,
@@ -250,21 +249,14 @@ production credential is committed.
   cleanup confirmation/quiet interval/activity/references, active streamed upload,
   all-or-none stale selection, queue-fault rollback, exact retry and real persistence
   restart after worker-admission failure. Files/integrity/FKs are actually inspected.
-- `e2e/location-storage.test.ts`: no automatic permission/premature upload, explicit
-  browser geolocation with genuine test-reported accuracy, manual edit/null accuracy,
-  denied/timeout/canceled late results, zero coordinates, reload/local-quota retention,
-  Post/Save changes/removal, card/detail popover, exact copy/failure and no external
-  map request before explicit Open map. Persisted cross-device storage controls,
-  failed-choice retention, private/CSRF/injection and actual HTTP/local-selection
-  limit enforcement, protected recent uploads, confirmed quiet cleanup, queued-job
-  retry and retained local work. Synthetic timestamps are aged for eligibility; a
-  synthetic committed-queue/crash fixture exercises explicit worker retry. Uploads,
-  measurement and deletion still use the real application endpoints/files.
+- `e2e/storage.test.ts`: protected recent uploads, confirmed quiet cleanup and
+  actual private-byte deletion. Synthetic timestamps are aged for eligibility;
+  uploads, measurement and deletion use real application endpoints/files.
 - The complete security, drafts/posting/conflict/tag/search/calendar suites remain
   regression gates. Short keyboard/safe-area controls and a complete visible text
   line remain required with the new toolbar action; reviewed screenshots do not
   replace geometry assertions. Linux browser scope now includes S15. Physical
-  permission UX, IME/read-aloud, Linux shell baselines and real-VPS/full-restore
+  device UX, IME/read-aloud, Linux shell baselines and real-VPS/full-restore
   release audits remain S18, not falsely claimed by browser overrides.
 
 ## S14 coverage (TAG-01/02/03, NOTE-03, SEARCH-03, DRAFT-02, UI-02/03)
@@ -297,7 +289,7 @@ production credential is committed.
   exclusion, malformed cursor/query and revoked-session denial, integrity/FKs.
 - `e2e/status-notes.test.ts`: real private SSR/no-JS/anonymous access; local/server
   overlays; cross-device saved-version isolation; reload/new-file no-upload boundary;
-  explicit Post with retained dates/location/server references; both Trash restores,
+  explicit Post with retained dates/server references; both Trash restores,
   mobile full detail and irreversible confirmation; downloaded unchanged files.
   Lost-response permanent deletion reloads and retries the identical receipt command
   after the note disappears. Stale lifecycle conflicts preserve local recovery;
@@ -365,14 +357,14 @@ production credential is committed.
 
 ## S01 coverage
 
-| Suite                                    | Scope / acceptance foundations                                                                                                                                                                                                                                         |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unit/domain.test.ts`                    | UUID/UTC/revision/location/status transitions, strict DTOs and bounded validated settings                                                                                                                                                                              |
-| `unit/coordinator.test.ts`               | Async draining, maintenance refusal, timeout/failure release, exclusive-capability expiry and idempotent shutdown                                                                                                                                                      |
-| `integration/migrations.test.ts`         | Real fresh/repeated/forward migrations, failed-upgrade/fresh rollback, modified/unknown/newer history rejection, read-only integrity/FKs/index order, empty account/content, settings restart                                                                          |
-| `integration/domain-persistence.test.ts` | Single account, SQLite location/status/revision/immutable creation checks, stale revision predicates, ready/FK/shared/Trash references, transactional cleanup/receipt/search/joins, retry mismatch, maintenance-gated settings (NOTE-01/02/03, POST-02/03 foundations) |
-| `integration/private-storage.test.ts`    | Production path/symlink/ID checks, random stable/lost/corrupt keys, Linux permissions, bounded durable journals, startup recovery blocking and real repeated shared startup                                                                                            |
-| `integration/server-boundary.test.ts`    | Actual SvelteKit production builds reject direct/indirect client imports of persistence, with inherited test-mode bypass disabled                                                                                                                                      |
+| Suite                                    | Scope / acceptance foundations                                                                                                                                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit/domain.test.ts`                    | UUID/UTC/revision/status transitions, strict DTOs and bounded validated settings                                                                                                                                                                              |
+| `unit/coordinator.test.ts`               | Async draining, maintenance refusal, timeout/failure release, exclusive-capability expiry and idempotent shutdown                                                                                                                                             |
+| `integration/migrations.test.ts`         | Real fresh/repeated/forward migrations, failed-upgrade/fresh rollback, modified/unknown/newer history rejection, read-only integrity/FKs/index order, empty account/content, settings restart                                                                 |
+| `integration/domain-persistence.test.ts` | Single account, SQLite status/revision/immutable creation checks, stale revision predicates, ready/FK/shared/Trash references, transactional cleanup/receipt/search/joins, retry mismatch, maintenance-gated settings (NOTE-01/02/03, POST-02/03 foundations) |
+| `integration/private-storage.test.ts`    | Production path/symlink/ID checks, random stable/lost/corrupt keys, Linux permissions, bounded durable journals, startup recovery blocking and real repeated shared startup                                                                                   |
+| `integration/server-boundary.test.ts`    | Actual SvelteKit production builds reject direct/indirect client imports of persistence, with inherited test-mode bypass disabled                                                                                                                             |
 
 `tests/helpers/persistence.ts` is test-only seeding/isolated cleanup; product code
 never imports it. S06 adds real queued attachment-byte cleanup; S07 covers note
@@ -492,7 +484,7 @@ is complete; transactional note tag joins are S07 and management/history is S14.
   scenario and exhaust the legitimate ten-attempt/IP window.
 
 Metadata/recovery capabilities are tested here; S08/S12/S15 suites cover date/base
-rechecking, full server recovery entry and location. No upload/note endpoint is
+rechecking, full server recovery entry. No upload/note endpoint is
 simulated as completed posting, and no test-only draft route ships. Physical device/IME,
 full assistive technology and cross-platform shell baselines remain S18.
 
@@ -520,7 +512,7 @@ full assistive technology and cross-platform shell baselines remain S18.
   Delayed actual entry modules assert initial compose/file controls cannot swallow
   a pre-hydration action; route teardown waits for held handlers to finish.
 - `tests/helpers/images.ts` creates a genuine two-frame APNG with valid CRC/deflate
-  payloads; no real photos or precise location data are fixtures.
+  payloads; no real photos are fixtures.
 - `npm run images:benchmark` measures the production worker with three synthetic
   jobs, 50 MP orientation plus 20 MP high-entropy JPEG, sampled parent/peak worker
   RSS and timings. The Linux 2-CPU/4-GB image and actual values are in PROGRESS.
@@ -532,7 +524,7 @@ wall-clock deadline, not a fake Promise timeout over still-running native work.
 
 ## S07 coverage (POST-02/03, NOTE-01–03, FILE-01, AUTH-05)
 
-- `unit/notes.test.ts`: strict commands/confirmation/revision/location/UTF-8 limits,
+- `unit/notes.test.ts`: strict commands/confirmation/revision/UTF-8 limits,
   versioned canonical digest input including action/target/revision/file order,
   actual AST image/reference checks (not code), normalized tag-expansion bound,
   streamed JSON cap and safe internal-error responses.
@@ -542,7 +534,7 @@ wall-clock deadline, not a fake Promise timeout over still-running native work.
   atomicity with failure injection at the final receipt write, file/batch readiness,
   committed batch receipt-first resume, zero-byte file-only and image-only notes,
   missing physical bytes, file-as-image rejection, omitted manifest item and limits,
-  immutable dates/location/meaningful edited indicator, both draft/published Trash
+  immutable dates/meaningful edited indicator, both draft/published Trash
   restores, full two-connection 409 snapshots and stale lifecycle/replace races,
   clone/Trash reference reuse and last-reference cleanup, deletion rollback,
   read-only integrity/FK inspection, revocation/maintenance and restart recovery.
@@ -642,7 +634,7 @@ baselines remain Windows-only. Real hardware/OS IME and target-VPS release audit
   and UTF-8 source budgets, indexed query plan and warm timings; equal-time paging
   with no skips/duplicates, canonical filter/cursor binding, all-tag AND semantics,
   NFKC compatibility ligatures, safe SSR HTML, published-only counts and lifecycle,
-  content revisions/location metadata and revoked-session denial.
+  content revisions and revoked-session denial.
 - `e2e/timeline.test.ts`: actual no-JavaScript first-page SSR, 30-card initial DOM,
   private list API, filter chips/card tags, query changes and stale response rejection,
   older loading/retry in the fixed shell, tall-card expand/collapse, top-month marker,
@@ -656,7 +648,7 @@ baselines remain Windows-only. Real hardware/OS IME and target-VPS release audit
   New timeline screenshots separately review the actual cards. Windows baselines
   are still platform-specific; Linux browser runs do not regenerate them.
 
-Search/calendar/detail/lifecycle/location suites cover their integrated features.
+Search/calendar/detail/lifecycle suites cover their integrated features.
 Performance samples are synthetic, not VPS p95 or proof of unbounded-session memory
 stability. Non-virtualized long-session DOM growth remains a documented limitation.
 
@@ -727,8 +719,8 @@ Markdown/Mermaid in the browser; no debug route ships in the product.
 
 `e2e/editor.test.ts` covers the integrated editor container, + option popover and
 keyboard dismissal, local hashtag insertion, Preview switch, focus-mode X/opener
-return, retained text and zero note/upload mutations. Existing draft/location/shell
-cases cover menu-backed file/date/location actions and short mobile safe-area layout.
+return, retained text and zero note/upload mutations. Existing editor/shell
+cases cover file/date actions and short mobile safe-area layout.
 Browser profiles/downloads/traces are not tracked. Linux browser runs need
 `npx playwright install --with-deps chromium`.
 

@@ -3,7 +3,6 @@ import {
   sqliteTable,
   text,
   integer,
-  real,
   index,
   uniqueIndex,
   primaryKey,
@@ -128,10 +127,6 @@ export const notes = sqliteTable(
     updatedAt: integer('updated_at').notNull(),
     contentEditedAt: integer('content_edited_at'),
     revision: integer('revision').notNull().default(1),
-    latitude: real('latitude'),
-    longitude: real('longitude'),
-    accuracy: real('accuracy'),
-    locationLabel: text('location_label'),
     // UTC ms the note was pinned; only published notes can be pinned.
     pinnedAt: integer('pinned_at'),
   },
@@ -160,10 +155,6 @@ export const notes = sqliteTable(
     check(
       'note_time_check',
       sql`${t.timelineAt} BETWEEN 0 AND 8640000000000000 AND ${t.createdAt} BETWEEN 0 AND 8640000000000000 AND ${t.updatedAt} BETWEEN ${t.createdAt} AND 8640000000000000 AND (${t.contentEditedAt} IS NULL OR ${t.contentEditedAt} BETWEEN ${t.createdAt} AND ${t.updatedAt})`,
-    ),
-    check(
-      'note_location_check',
-      sql`(${t.latitude} IS NULL AND ${t.longitude} IS NULL AND ${t.accuracy} IS NULL AND ${t.locationLabel} IS NULL) OR (${t.latitude} IS NOT NULL AND ${t.longitude} IS NOT NULL AND ${t.latitude} BETWEEN -90 AND 90 AND ${t.longitude} BETWEEN -180 AND 180 AND (${t.accuracy} IS NULL OR ${t.accuracy} BETWEEN 0 AND 1.7976931348623157e308) AND (${t.locationLabel} IS NULL OR length(${t.locationLabel}) <= 200))`,
     ),
   ],
 );

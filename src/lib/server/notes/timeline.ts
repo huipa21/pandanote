@@ -148,15 +148,6 @@ function hydrate(
       revision: row.revision,
       ...content,
       ...(snippets ? { snippets } : {}),
-      location:
-        row.latitude === null || row.longitude === null
-          ? null
-          : {
-              latitude: row.latitude,
-              longitude: row.longitude,
-              accuracy: row.accuracy,
-              label: row.locationLabel,
-            },
       attachmentIds: files.map((a) => a.id),
       attachments: files,
       tags: linkedTags.filter((t) => t.noteId === row.id).map((t) => t.key),

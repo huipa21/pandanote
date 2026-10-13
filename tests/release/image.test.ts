@@ -195,7 +195,6 @@ test('IMG: real live PTY reset, immediate revocation/MFA reset and stopped sourc
       content: {
         bodyMarkdown: '香港 数据库 図書館 reset survivor #Image',
         timelineAt: null,
-        location: null,
         attachmentIds: [],
       },
     },

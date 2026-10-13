@@ -14,7 +14,6 @@ test('Trash is the only status list; restore preserves dates and permanent delet
       content: {
         bodyMarkdown: 'Trash lifecycle unique',
         timelineAt: Date.UTC(2020, 0, 3),
-        location: null,
         attachmentIds: [],
       },
     },
@@ -126,7 +125,6 @@ test('Trash search finds only trashed notes; Select all targets displayed notes'
         content: {
           bodyMarkdown: body,
           timelineAt: Date.UTC(2021, 0, 3),
-          location: null,
           attachmentIds: [],
         },
       },
@@ -194,7 +192,6 @@ test('Trash shows 30 notes, lazy-loads more on scroll, and keeps every row the s
         content: {
           bodyMarkdown: body,
           timelineAt: Date.UTC(2021, 0, 3) + n,
-          location: null,
           attachmentIds: [],
         },
       },

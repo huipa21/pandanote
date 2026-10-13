@@ -142,7 +142,6 @@ try {
     content: {
       bodyMarkdown: 'Large archive fixture #DEP',
       timelineAt: null,
-      location: null,
       attachmentIds: items.map((i) => i.id),
     },
   };

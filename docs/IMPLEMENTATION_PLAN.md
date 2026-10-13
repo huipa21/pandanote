@@ -68,6 +68,15 @@ shared schemas/SQLite merges, `title-preferences`, `language` and affected `shel
 browser tests; screenshot baselines require review, never blind regeneration.
 See the latest PROGRESS handoff for actual results and independent release limits.
 
+## User-requested location removal
+
+Remove the note location UI, editor/API/snapshot fields, validation, SQLite columns
+and check, map helpers, translations and feature-specific tests. Retain Storage
+coverage as `unit/storage.test.ts` and `e2e/storage.test.ts`, dates, media processing
+and EXIF/GPS stripping. Follow the existing pre-release fresh-baseline policy;
+no data deletion/importer, old DB/archives refused. Verify common gates, affected
+posting/editor/detail/Storage browsers and actual Linux SQLite/archive behavior.
+
 ## S00 — Bootstrap and validate technical assumptions
 
 **Depends on:** planning documents only.
@@ -109,7 +118,7 @@ See the latest PROGRESS handoff for actual results and independent release limit
 1. Implement server-only connection initialization: foreign keys, WAL, FULL synchronous baseline, busy timeout, controlled shutdown.
 2. Create versioned migrations for the tables/indexes in ARCHITECTURE. FTS may be added here or finalized in S10; reserve its derived-data contract.
 3. Add validated settings defaults, generated private IDs/key material, safe data-root resolution and permissions. Never put production data in `static/`.
-4. Define DTO/error contracts, expected-revision semantics, note status transitions, timeline UTC representation, nullable location validation, and mutation receipts.
+4. Define DTO/error contracts, expected-revision semantics, note status transitions, timeline UTC representation, and mutation receipts.
 5. Implement a small maintenance/write coordinator contract, used by domain mutations as they are added. Add a filesystem cleanup/journal foundation for later restore/deletion.
 6. Add seed/fixture helpers for tests only; production has no demo account/content.
 7. Write migration tests for empty DB, repeat startup, forward upgrade, rollback/error behavior, and foreign-key/index guarantees.
@@ -118,7 +127,7 @@ See the latest PROGRESS handoff for actual results and independent release limit
 
 - Fresh/migrated test DB passes integrity/foreign-key checks.
 - No title field or multi-user role model appears.
-- Bad latitude/status/reference values are rejected at appropriate validation boundaries.
+- Bad status/reference values are rejected at appropriate validation boundaries.
 - Runtime key/data paths are private and environment-configurable.
 - Server modules cannot be imported into the browser bundle.
 
@@ -195,7 +204,7 @@ See the latest PROGRESS handoff for actual results and independent release limit
 3. Add lazy/cached Shiki highlighting, language labels and original-code copy controls.
 4. Add Mermaid only for fenced mermaid blocks; dynamic import, strict security, safe SVG sanitization, visible-only rendering, syntax errors/size limits/debounced preview.
 5. Implement hashtag AST parser/source offsets with Unicode grammar, case normalization, deduplication and excluded contexts.
-6. Add a single Preview switch; integrate bottom-toolbar Tags/Files/Date/Location icons and the bottom-right focus/close icon into the textarea-style container (user-approved editor simplification). No publish keyboard shortcut.
+6. Add a single Preview switch; integrate bottom-toolbar Tags/Files/Date icons and the bottom-right focus/close icon into the textarea-style container (user-approved editor simplification). No publish keyboard shortcut.
 7. Test sanitizer attack fixtures and actual browser SVG output. Do not trust library “strict” mode as the only protection.
 
 ### Acceptance gate
@@ -271,7 +280,7 @@ See the latest PROGRESS handoff for actual results and independent release limit
 ### Tasks
 
 1. Implement create, optimistic update, move-to-draft, publish-draft, trash, restore and permanent-delete services/endpoints.
-2. Validate body/content presence, timeline/backdating, location, tags and attachment references.
+2. Validate body/content presence, timeline/backdating, tags and attachment references.
 3. Commit note, extracted tags, attachment links, derived-search hooks and mutation receipt in one transaction.
 4. Revision-check every edit/state change; prepare safe 409 snapshots.
 5. Retries with the same mutation ID return original success; payload mismatch rejected.
@@ -327,7 +336,7 @@ See the latest PROGRESS handoff for actual results and independent release limit
 ### Tasks
 
 1. SSR initial page, then cursor-based older loading in the actual notes scroller.
-2. Build note cards with timestamps, optional edited/location/attachment sections, action menu and clickable tags.
+2. Build note cards with timestamps, optional edited/attachment sections, action menu and clickable tags.
 3. Apply long-card collapse preference, Show more/less and density modes; note detail comes later.
 4. Canonical filter state/query params and chips; a single tag (superseded: originally multiple tags used AND).
 5. Dedupe IDs/revisions, cancel stale responses, preserve scroll anchors during image load/edit/post and Back navigation.
@@ -471,29 +480,24 @@ See the latest PROGRESS handoff for actual results and independent release limit
 - Server drafts/Trash remain consistent; browser draft remains local and receives clear stale-tag choice.
 - Concurrent editing sees conflict; no old join/search residue after transaction.
 
-**Next hint:** S15 finalizes location and settings/storage controls. Backup actions remain a later step, not nonfunctional buttons marked complete.
+**Next hint:** S15 finalizes settings/storage controls. Backup actions remain a later step, not nonfunctional buttons marked complete.
 
-## S15 — Geolocation and complete settings/storage UI
+## S15 — Complete settings/storage UI
 
 **Depends on:** S14.
 
-**Outcome:** optional location and all non-backup configuration are usable.
+**Outcome:** all non-backup configuration is usable.
 
 ### Tasks
 
-1. Explicit Add location dialog: browser request, manual coordinates, optional label, remove/edit; validate ranges/accuracy.
-2. Card/detail location popover with copy/accuracy/OpenStreetMap (or documented provider) link opened only on explicit action.
-3. Appearance/calendar/security/storage settings, persisted defaults, timezone picker and session configuration.
-4. Configurable image quality/dimensions and byte/pixel limits with safe bounds; prohibit arbitrary path/config injection.
-5. Storage breakdown (files/Trash/pending uploads/backups/free space) and explicit unused-ready-upload cleanup with confirmation and reference checks.
-6. Security actions use fresh-auth UI; all-device signout; MFA optional flow polished.
-7. Check all empty/error/saving states, localization-ready date formatting and mobile layout.
+1. General/calendar/security/storage settings, persisted defaults, timezone picker and session configuration.
+2. Configurable image quality/dimensions and byte/pixel limits with safe bounds; prohibit arbitrary path/config injection.
+3. Storage breakdown (files/Trash/pending uploads/backups/free space) and explicit unused-ready-upload cleanup with confirmation and reference checks.
+4. Security actions use fresh-auth UI; all-device signout; MFA optional flow polished.
+5. Check all empty/error/saving states, localization-ready date formatting and mobile layout.
 
 ### Acceptance gate
 
-- Geolocation never requested automatically; permission denial still allows posting.
-- No location means no card row; manual accuracy remains absent unless genuinely known.
-- No map/network call before Open map click.
 - Settings survive login/device changes appropriately; app timezone does not follow travel automatically.
 - Cleanup cannot delete referenced or actively posting files; limits apply server-side, not merely UI.
 
@@ -547,7 +551,7 @@ See the latest PROGRESS handoff for actual results and independent release limit
 
 ### Acceptance gate
 
-- Restore archive into independent empty instance: notes/statuses/tags/dates/location/files/settings/authentication match; previous sessions fail.
+- Restore archive into independent empty instance: notes/statuses/tags/dates/files/settings/authentication match; previous sessions fail.
 - Password/TOTP/recovery state restored correctly without a separate backup password.
 - Invalid/corrupt/path-traversal/symlink/bomb/incompatible archives fail before replacement.
 - Injected mid-restore error/crash returns to old usable state or documented deterministic startup recovery; no mixed DB/files/keys.

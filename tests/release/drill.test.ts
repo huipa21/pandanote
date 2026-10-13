@@ -89,15 +89,6 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
     { timelineAt: Date.UTC(2023, 4, 17, 8, 30) },
   );
   notes.published = 'Drill published 香港 café #Drill/Alpha 全文';
-  await mutate(page, A, 'Drill located #Place', {
-    location: {
-      latitude: 22.3193,
-      longitude: 114.1694,
-      accuracy: 12,
-      label: 'Drill label 九龍',
-    },
-  });
-  notes.located = 'Drill located #Place';
   await mutate(page, A, 'Drill unfinished posted note #Unfinished');
   notes.unfinished = 'Drill unfinished posted note #Unfinished';
   const trashed = await mutate(page, A, 'Drill trashed note #TrashTag');
@@ -408,12 +399,11 @@ test('independent deployment B (different domain): temporary setup, uploaded web
     .items as {
     bodyMarkdown: string;
     tags: string[];
-    location: { label: string | null } | null;
     timelineAt: number;
     attachments: { id: string }[];
   }[];
   const bodies = timeline.map((n) => n.bodyMarkdown).join('\n---\n');
-  for (const key of ['published', 'located', 'code', 'image'])
+  for (const key of ['published', 'code', 'image'])
     expect(bodies, key).toContain(seed.notes[key]);
   expect(bodies).toContain(seed.notes.unfinished);
   expect(bodies).not.toContain(seed.notes.trash);
@@ -422,9 +412,6 @@ test('independent deployment B (different domain): temporary setup, uploaded web
   )!;
   expect(published.timelineAt).toBe(Date.UTC(2023, 4, 17, 8, 30));
   expect(published.tags).toContain('drill');
-  expect(
-    timeline.find((n) => n.bodyMarkdown.includes('Drill located'))!.location,
-  ).toMatchObject({ label: 'Drill label 九龍' });
   for (const [status, key] of [['trash', 'trash']] as const) {
     const list = await (
       await api(page, B, 'get', `/api/notes/status?status=${status}`)

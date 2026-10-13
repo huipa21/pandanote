@@ -12,7 +12,6 @@
   const reading = getContext<ReadingState | undefined>(READING);
   import Markdown from './Markdown.svelte';
   import ThumbnailGrid from './ThumbnailGrid.svelte';
-  import LocationPopover from './LocationPopover.svelte';
   import ActionMenu, { type ActionMenuItem } from './ActionMenu.svelte';
   import Icon from './Icon.svelte';
   import NoteEditor from './NoteEditor.svelte';
@@ -352,7 +351,6 @@
             })}>{t('note.refresh')}</button
         >
       </p>{/if}
-    {#if note.location}<LocationPopover location={note.location} />{/if}
     {#if (note.attachments ?? []).some((a) => a.kind === 'file')}
       <ul class="files" aria-label={t('note.attachments')}>
         {#each (note.attachments ?? []).filter((a) => a.kind === 'file') as file (file.id)}<li

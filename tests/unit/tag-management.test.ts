@@ -99,25 +99,24 @@ describe('S14 history and source contracts', () => {
       '#香港 (#香港) \r\n\r\n`#work` \\#work https://x.invalid/#work [#香港](https://x.invalid/#work)\r\n\r\n```txt\r\n#work\r\n```\r\n\r\n<b>#work</b>',
     );
   });
-  it('preserves old frozen canonical bytes when acknowledgements are absent, and binds explicit generations into retry identity', () => {
+  it('omits empty acknowledgements from the canonical payload, and binds explicit generations into retry identity', () => {
     const command = {
       action: 'create' as const,
       mutationId: randomUUID(),
       content: {
         bodyMarkdown: '#Work',
         timelineAt: 1,
-        location: null,
         attachmentIds: [],
       },
     };
     const canonical = canonicalNoteMutation(command);
     expect(canonical).toBe(
       JSON.stringify([
-        'pandanote-note-mutation-v1',
+        'pandanote-note-mutation-v2',
         'create',
         null,
         null,
-        ['#Work', 1, null, []],
+        ['#Work', 1, []],
         null,
       ]),
     );

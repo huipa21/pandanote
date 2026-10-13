@@ -66,13 +66,6 @@
           {file.filename} · {file.kind}
         </li>{/each}
     </ul>
-    {#if observed.location}<p>
-        {t('conflict.location', {
-          label: observed.location.label ?? '',
-          latitude: observed.location.latitude,
-          longitude: observed.location.longitude,
-        })}
-      </p>{/if}
     <details>
       <summary>{t('conflict.localRetained')}</summary>
       <pre>{workspace.active?.bodyMarkdown}</pre>

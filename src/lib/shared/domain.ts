@@ -18,14 +18,6 @@ export const noteStatusSchema = z.enum(['published', 'trash']);
 export type NoteStatus = z.infer<typeof noteStatusSchema>;
 export type RestorableStatus = 'published';
 
-export const locationSchema = z.strictObject({
-  latitude: z.number().finite().min(-90).max(90),
-  longitude: z.number().finite().min(-180).max(180),
-  accuracy: z.number().finite().min(0).nullable(),
-  label: z.string().max(200).nullable(),
-});
-export type NoteLocation = z.infer<typeof locationSchema>;
-
 export const noteMetadataSchema = z
   .strictObject({
     id: idSchema,
@@ -36,7 +28,6 @@ export const noteMetadataSchema = z
     updatedAt: instantSchema,
     contentEditedAt: instantSchema.nullable(),
     revision: revisionSchema,
-    location: locationSchema.nullable(),
     // UTC ms when pinned to the top of the plain timeline; Trash notes are never pinned.
     pinnedAt: instantSchema.nullable(),
   })
