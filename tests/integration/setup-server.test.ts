@@ -326,6 +326,7 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
         { language: 'fr' },
         { language: 'zh-TW' },
         { language: 'EN' },
+        { density: 'huge' },
         { siteTitle: '' },
         { siteTitle: 'x'.repeat(61) },
         { siteTitle: 'bad\u0007' },
@@ -352,13 +353,18 @@ it('real HTTP covers every setup routing cell, expiry page/API/restart, concurre
       expect(await localized('/settings', 'en', cookie)).toContain('常规');
       const renamed = await patch({ siteTitle: '  New <b>title</b> ' });
       expect(renamed.status).toBe(200);
-      expect((await renamed.json()).data).toEqual({
+      expect((await renamed.json()).data).toMatchObject({
         siteTitle: 'New <b>title</b>',
         language: 'zh-CN',
       });
       expect(await localized('/login')).toContain(
         '<title>登录 · New &lt;b>title&lt;/b></title>',
       );
+      expect((await patch({ density: 'spacious' })).status).toBe(200);
+      const spacedHtml = await localized('/settings', 'en', cookie);
+      expect(spacedHtml).toContain('data-density="spacious"');
+      expect(spacedHtml).not.toContain('id="settings-tab-appearance"');
+      expect(spacedHtml).not.toContain('id="general-language"');
       expect((await patch({ language: 'en' })).status).toBe(200);
       expect(
         (

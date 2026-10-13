@@ -132,7 +132,11 @@ Not included:
 - Light theme: warm off-white page, white cards, subtle borders.
 - Muted green accent for primary actions, links, selected filters, calendar activity.
 - Light, Dark, Follow system. Initial setting: Follow system.
-- Comfortable density by default, with Compact available in Settings.
+- General offers three density levels: Compact, Comfortable (default), Spacious.
+- Theme and language icon buttons sit to the right of the app title in the desktop
+  sidebar/mobile header (and drawer). Theme initially follows the system; the button
+  switches the effective theme to explicit Light/Dark. Language toggles English and
+  Simplified Chinese. Both save immediately; there is no Appearance settings tab.
 - Long cards collapsed by default; preference can fully expand them.
 - System fonts with native Chinese/Japanese fallback; no remote font dependency.
 - Minimal motion, respecting reduced-motion preferences.
@@ -461,8 +465,10 @@ Concurrent edit handling:
 - Password is exact 8–128 Unicode characters and at most 1024 UTF-8 bytes, without
   trimming/normalization/complexity rules. Settings → Account username/email edits
   require fresh authentication but do not revoke sessions.
-- Settings → General edits plain-text site title (trimmed 1–60 characters, no
-  controls) and registry language. Title appears escaped in tabs, sidebar/mobile
+- Settings → General saves plain-text site title (trimmed 1–60 characters, no
+  controls), optional tagline (0–60 characters; empty uses the translated default),
+  density and long-note collapse with one Save. Language is changed only by the
+  title-row language icon (and the initial setup language picker). Title appears escaped in tabs, sidebar/mobile
   header and login, with visual ellipsis and accessible full text. English and
   Simplified Chinese are both complete for every screen and client message. Before
   a language is saved, browser language is used; afterwards saved language controls
@@ -541,9 +547,10 @@ reset-password` (local `npm run reset-password`). Interactive terminal/no echo,
 
 Settings sections:
 
-- General: site title and registry language, with partial-translation notice.
+- General: site title, tagline, three-level density and long-note collapse; one Save.
 - Account: username/email with fresh authentication.
-- Appearance: theme, density, long-note collapse.
+- No Appearance tab or General language selector. Title-row theme/language icons
+  save those preferences immediately without discarding staged General fields.
 - Calendar: app timezone, week start.
 - Security: password, optional MFA/recovery codes, session lifetime, revoke sessions.
 - Storage: usage, configurable upload/image limits, unused-upload cleanup.

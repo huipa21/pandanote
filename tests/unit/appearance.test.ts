@@ -4,6 +4,7 @@ import {
   appearanceFrom,
   appearanceHtml,
   appearanceSchema,
+  appearanceUpdateSchema,
 } from '../../src/lib/shared/appearance.ts';
 import { DEFAULT_SETTINGS } from '../../src/lib/shared/settings.ts';
 
@@ -40,6 +41,33 @@ test('appearance DTO is small/strict and the initial document has validated attr
   expect(html).toContain('data-collapse="false"');
   expect(html).not.toContain('%pandanote.');
   expect(html).not.toContain('<script');
+});
+
+test('three density levels are validated and visibly distinct; header theme writes are partial', () => {
+  for (const density of ['compact', 'comfortable', 'spacious']) {
+    expect(
+      appearanceSchema.safeParse({
+        ...appearanceFrom(DEFAULT_SETTINGS),
+        density,
+      }).success,
+    ).toBe(true);
+    expect(
+      appearanceHtml('%pandanote.density%', {
+        ...appearanceFrom(DEFAULT_SETTINGS),
+        density: density as 'compact' | 'comfortable' | 'spacious',
+      }),
+    ).toBe(density);
+  }
+  expect(appearanceUpdateSchema.parse({ theme: 'light' })).toEqual({
+    theme: 'light',
+  });
+  expect(appearanceUpdateSchema.safeParse({ density: 'huge' }).success).toBe(
+    false,
+  );
+  const css = readFileSync('src/lib/styles/tokens.css', 'utf8');
+  expect(css).toContain("data-density='spacious'");
+  expect(css).toContain('--card-padding: 1.75rem');
+  expect(css).toContain('--card-gap: 1.5rem');
 });
 
 test('actual CSS palette passes AA text and interactive/focus contrast in both themes', () => {

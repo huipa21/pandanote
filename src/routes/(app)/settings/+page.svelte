@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack, onMount, getContext } from 'svelte';
+  import { onMount, getContext } from 'svelte';
   import {
     EDITOR_WORKSPACE,
     type EditorWorkspace,
@@ -14,16 +14,10 @@
   import StorageSettings from '#lib/components/StorageSettings.svelte';
   import BackupSettings from '#lib/components/BackupSettings.svelte';
   import { buildInfo } from '#lib/shared/version.ts';
-  import { invalidateAll } from '$app/navigation';
-  import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
+
   let { data } = $props();
   const i18n = useI18n();
   const t = i18n.t;
-  // A form snapshot intentionally survives failed saves/revalidation.
-  const initial = untrack(() => data.appearance);
-  let theme = $state<Appearance['theme']>(initial.theme);
-  let density = $state<Appearance['density']>(initial.density);
-  let collapseLongNotes = $state(initial.collapseLongNotes);
   let ready = $state(false);
   onMount(() => {
     ready = true;
@@ -31,7 +25,6 @@
   // Panels stay mounted (hidden when inactive) so unsaved form state survives tab switches.
   const tabs = $derived([
     { id: 'general', label: t('settings.tabGeneral') },
-    { id: 'appearance', label: t('settings.tabAppearance') },
     { id: 'calendar', label: t('settings.tabCalendar') },
     { id: 'account', label: t('settings.tabAccount') },
     { id: 'storage', label: t('settings.tabStorage') },
@@ -55,44 +48,8 @@
     document.getElementById(`settings-tab-${tab}`)?.focus();
   }
 
-  let saving = $state(false);
   let signingOut = $state(false);
-  let message = $state('');
   let error = $state('');
-  async function save(event: SubmitEvent) {
-    event.preventDefault();
-    if (saving) return;
-    saving = true;
-    message = '';
-    error = '';
-    try {
-      const response = await fetch('/api/settings/appearance', {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ theme, density, collapseLongNotes }),
-      });
-      const result = await response.json();
-      if (!response.ok || result.ok !== true) {
-        error = result.error
-          ? i18n.error(result.error)
-          : t('appearance.failed');
-        return;
-      }
-      const appearance = appearanceSchema.parse(result.appearance);
-      // Apply only confirmed state. Reload/SSR uses the same database settings.
-      document.documentElement.dataset.theme = appearance.theme;
-      document.documentElement.dataset.density = appearance.density;
-      document.documentElement.dataset.collapse = String(
-        appearance.collapseLongNotes,
-      );
-      await invalidateAll();
-      message = t('appearance.saved');
-    } catch {
-      error = t('appearance.network');
-    } finally {
-      saving = false;
-    }
-  }
   async function signOut() {
     if (signingOut) return;
     if (!(await workspace.promptUnsavedChanges())) return;
@@ -136,51 +93,10 @@
   aria-labelledby="settings-tab-general"
   hidden={tab !== 'general'}
 >
-  <GeneralSettings />
-</div>
-
-<div
-  id="settings-panel-appearance"
-  role="tabpanel"
-  aria-labelledby="settings-tab-appearance"
-  hidden={tab !== 'appearance'}
->
-  <section class="surface">
-    <h2>{t('appearance.heading')}</h2>
-    <p class="help">
-      {t('appearance.help')}
-    </p>
-    <form onsubmit={save}>
-      <fieldset disabled={saving || !ready}>
-        <label for="theme">{t('appearance.theme')}</label>
-        <select id="theme" bind:value={theme}
-          ><option value="system">{t('appearance.system')}</option><option
-            value="light">{t('appearance.light')}</option
-          ><option value="dark">{t('appearance.dark')}</option></select
-        >
-        <label for="density">{t('appearance.density')}</label>
-        <select id="density" bind:value={density}
-          ><option value="comfortable">{t('appearance.comfortable')}</option
-          ><option value="compact">{t('appearance.compact')}</option></select
-        >
-        <label class="checkbox" for="collapse"
-          ><input
-            id="collapse"
-            type="checkbox"
-            bind:checked={collapseLongNotes}
-          />{t('appearance.collapse')}</label
-        >
-        <p class="help">
-          {t('appearance.collapseHelp')}
-        </p>
-        <button class="primary" type="submit"
-          >{saving ? t('appearance.saving') : t('appearance.save')}</button
-        >
-      </fieldset>
-      <p role="status">{message}</p>
-    </form>
-    <p role="alert">{error}</p>
-  </section>
+  <GeneralSettings
+    initialCollapseLongNotes={data.appearance.collapseLongNotes}
+    initialDensity={data.appearance.density}
+  />
 </div>
 
 <div
@@ -207,6 +123,7 @@
     <button onclick={signOut} disabled={signingOut || !ready}
       >{signingOut ? t('settings.signingOut') : t('settings.signOut')}</button
     >
+    {#if error}<p role="alert">{error}</p>{/if}
   </section>
 </div>
 
@@ -291,32 +208,5 @@
   .build-info dd {
     margin: 0;
     overflow-wrap: anywhere;
-  }
-  fieldset {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    min-width: 0;
-  }
-  label:not(.checkbox) {
-    display: block;
-    margin-block: var(--space-3) var(--space-1);
-  }
-  select {
-    width: min(100%, 22rem);
-  }
-  .checkbox {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    min-height: var(--target);
-    margin-top: var(--space-4);
-  }
-  .checkbox input {
-    width: 1.25rem;
-    height: 1.25rem;
-    min-height: 0;
-    accent-color: var(--accent);
-    flex: none;
   }
 </style>

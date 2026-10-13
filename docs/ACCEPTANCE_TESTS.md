@@ -249,7 +249,16 @@ No automatic permission request. Current/manual coordinates validate; denial/tim
 
 ### UI-01 — Appearance
 
-Warm quiet light theme, usable dark theme, muted-green accent. System theme default; explicit theme overrides. Comfortable/compact and collapsed/full preferences persist and apply across views. No separate title fields or masonry.
+Warm quiet light theme, usable dark theme, muted-green accent. System theme default;
+title-row theme icon toggles the effective mode to explicit light/dark. Title-row
+language icon toggles English/Simplified Chinese and persists across reload/SSR.
+No Appearance tab or General language selector. General's single Save covers
+site title/tagline, Compact/Comfortable (default)/Spacious density and collapsed/full
+preferences. Header updates never overwrite staged General choices, and General
+saves never revert header language/theme. Network/validation failures retain current
+preferences/staged fields and offer retry. Icons are named, keyboard/touch accessible,
+right of the ellipsized title without overflow on desktop, mobile header or drawer.
+No separate note title fields or masonry.
 
 ### UI-02 — Responsive/keyboard
 

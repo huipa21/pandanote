@@ -18,9 +18,16 @@ import { setCurrentLanguage } from './i18n-current.ts';
 export class I18n {
   #language = $state<Language>(DEFAULT_LANGUAGE);
   siteTitle = $state('PandaNote');
-  constructor(language: Language = DEFAULT_LANGUAGE, siteTitle = 'PandaNote') {
+  /** Saved tagline; empty means the translated default. */
+  tagline = $state('');
+  constructor(
+    language: Language = DEFAULT_LANGUAGE,
+    siteTitle = 'PandaNote',
+    tagline = '',
+  ) {
     this.language = language;
     this.siteTitle = siteTitle;
+    this.tagline = tagline;
   }
   get language(): Language {
     return this.#language;

@@ -1,6 +1,9 @@
 <script module lang="ts">
   /** Small stroke icon set for action menus (16–18 px, inherits text colour). */
   export type IconName =
+    | 'sun'
+    | 'moon'
+    | 'language'
     | 'pin'
     | 'pin-off'
     | 'pencil'
@@ -29,7 +32,18 @@
   >
 {:else}
   <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
-    {#if name === 'pin'}
+    {#if name === 'sun'}
+      <circle cx="12" cy="12" r="4" />
+      <path
+        d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"
+      />
+    {:else if name === 'moon'}
+      <path d="M20.5 14A9 9 0 0 1 10 3.5 9 9 0 1 0 20.5 14Z" />
+    {:else if name === 'language'}
+      <path
+        d="M3 5h12M9 3v2M5 5c0 5 4 9 8 10M13 5c-1 5-4 8-9 10M13 21l4-10 4 10M14.5 17h5"
+      />
+    {:else if name === 'pin'}
       <path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6Z" />
     {:else if name === 'pin-off'}
       <path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6ZM3 3l18 18" />

@@ -16,15 +16,33 @@ export const siteTitleSchema = z
       ),
     'Use 1–60 characters without control characters.',
   );
+// Empty means "use the built-in tagline for the current language".
+export const taglineSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      [...value].length <= 60 &&
+      ![...value].some(
+        (c) =>
+          c.codePointAt(0)! < 32 ||
+          (c.codePointAt(0)! >= 127 && c.codePointAt(0)! <= 159),
+      ),
+    'Use up to 60 characters without control characters.',
+  );
 export const languageSchema = z.enum(languageCodes);
+export const densitySchema = z.enum(['compact', 'comfortable', 'spacious']);
 /** Settings → General: any subset, at least one field. */
 export const generalSettingsSchema = z
   .strictObject({
     siteTitle: siteTitleSchema.optional(),
+    tagline: taglineSchema.optional(),
     language: languageSchema.optional(),
+    density: densitySchema.optional(),
+    collapseLongNotes: z.boolean().optional(),
   })
   .refine(
-    (value) => value.siteTitle !== undefined || value.language !== undefined,
+    (value) => Object.values(value).some((field) => field !== undefined),
     'Choose a site title or language.',
   );
 export type GeneralSettings = z.infer<typeof generalSettingsSchema>;
@@ -32,6 +50,8 @@ export type GeneralSettings = z.infer<typeof generalSettingsSchema>;
 export const settingsSchema = z.strictObject({
   schemaVersion: z.literal(1),
   siteTitle: siteTitleSchema,
+  // Default for rows saved before the tagline setting existed.
+  tagline: taglineSchema.default(''),
   language: languageSchema,
   setupCompletedAt: z
     .number()
@@ -53,7 +73,7 @@ export const settingsSchema = z.strictObject({
       }
     }, 'Use a valid IANA timezone'),
   theme: z.enum(['system', 'light', 'dark']),
-  density: z.enum(['comfortable', 'compact']),
+  density: densitySchema,
   collapseLongNotes: z.boolean(),
   weekStart: z.union([z.literal(1), z.literal(0)]),
   sessionLifetimeDays: z.number().int().min(1).max(30),
@@ -86,6 +106,7 @@ export const DEFAULT_SETTINGS: Readonly<AppSettings> = Object.freeze(
   settingsSchema.parse({
     schemaVersion: 1,
     siteTitle: 'PandaNote',
+    tagline: '',
     language: 'en',
     setupCompletedAt: null,
     timezone: 'UTC',

@@ -44,16 +44,30 @@ test('appearance persists in SQLite and SSR before JavaScript, follows system, a
   browser,
 }) => {
   await signIn(page, context);
-  await page.goto('/settings');
-  await page.getByLabel('Theme', { exact: true }).selectOption('dark');
-  await page.getByLabel('Density', { exact: true }).selectOption('compact');
-  await page.getByLabel('Collapse long notes by default').uncheck();
-  await page.getByRole('button', { name: 'Save appearance' }).click();
-  await expect(page.getByRole('status')).toHaveText('Appearance saved.');
   const savedCookie = (await context.cookies()).find(
     (c) => c.name === 'pandanote_session',
   )!;
   const headers = { origin, cookie: `pandanote_session=${savedCookie.value}` };
+  expect(
+    (
+      await page.request.patch('/api/settings/appearance', {
+        headers,
+        data: { theme: 'system' },
+      })
+    ).status(),
+  ).toBe(200);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/settings');
+  const side = page.getByRole('complementary');
+  await expect(
+    page.getByRole('tab', { name: 'Appearance', exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel('Collapse long notes by default').uncheck();
+  await page.getByLabel('Density', { exact: true }).selectOption('compact');
+  await page.getByRole('button', { name: 'Save general settings' }).click();
+  await expect(page.getByRole('status')).toHaveText('General settings saved.');
+  await side.getByRole('button', { name: 'Switch to dark mode' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   const html = await page.request.get('/settings', { headers });
   expect(await html.text()).toMatch(
     /<html[^>]*data-theme="dark"[^>]*data-density="compact"[^>]*data-collapse="false"/,
@@ -114,22 +128,31 @@ test('appearance persists in SQLite and SSR before JavaScript, follows system, a
     ).status(),
   ).toBe(401);
   await page.route('**/api/settings/appearance', (route) => route.abort());
-  await page.getByLabel('Theme', { exact: true }).selectOption('light');
-  await page.getByRole('button', { name: 'Save appearance' }).click();
-  await expect(page.getByRole('alert')).toContainText('please retry');
-  await expect(page.getByLabel('Theme', { exact: true })).toHaveValue('light');
+  await side.getByRole('button', { name: 'Switch to light mode' }).click();
+  await expect(side.getByRole('alert')).toContainText('Please retry');
+  await expect(
+    side.getByRole('button', { name: 'Switch to light mode' }),
+  ).toBeEnabled();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.unroute('**/api/settings/appearance');
-  await page.getByRole('button', { name: 'Save appearance' }).click();
+  await side.getByRole('button', { name: 'Switch to light mode' }).click();
   await expect(page.locator('body')).toHaveCSS(
     'background-color',
     'rgb(250, 249, 246)',
   );
-  await page.getByLabel('Theme', { exact: true }).selectOption('system');
   await page.getByLabel('Density', { exact: true }).selectOption('comfortable');
   await page.getByLabel('Collapse long notes by default').check();
-  await page.getByRole('button', { name: 'Save appearance' }).click();
-  await expect(page.getByRole('status')).toHaveText('Appearance saved.');
+  await page.getByRole('button', { name: 'Save general settings' }).click();
+  await expect(page.getByRole('status')).toHaveText('General settings saved.');
+  expect(
+    (
+      await page.request.patch('/api/settings/appearance', {
+        headers,
+        data: { theme: 'system' },
+      })
+    ).status(),
+  ).toBe(200);
+  await page.reload();
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('body')).toHaveCSS(
     'background-color',
@@ -232,6 +255,11 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
   await drawer.getByRole('link', { name: 'Trash', exact: true }).click();
   await expect(page).toHaveURL(/\/trash$/);
   await expect(drawer).not.toBeVisible();
+  // The composer exists only on the unfiltered timeline, not Trash.
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'All notes', exact: true }),
+  ).toBeVisible();
   const compose = page.getByRole('button', { name: 'Compose a note' });
   await compose.click();
   const editor = page.getByRole('dialog', { name: 'Write a note' });

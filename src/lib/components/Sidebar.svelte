@@ -1,6 +1,7 @@
 <script lang="ts">
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Calendar from './Calendar.svelte';
+  import TitleControls from './TitleControls.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
   import { buildInfo } from '#lib/shared/version.ts';
@@ -42,10 +43,14 @@
 
 <div class="sidebar-content">
   <div class="sidebar-top">
-    <a class="identity" href="/" onclick={onNavigate}
-      ><span class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</span>
-      <span class="muted">{t('brand.tagline')}</span></a
-    >
+    <div class="identity-row">
+      <a class="identity" href="/" onclick={onNavigate}
+        ><span class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</span
+        ></a
+      >
+      <TitleControls />
+    </div>
+    <p class="tagline muted">{i18n.tagline || t('brand.tagline')}</p>
     <SearchControl
       {filters}
       {active}
@@ -119,21 +124,28 @@
     padding: var(--space-4);
     padding-bottom: var(--space-2);
   }
+  .identity-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
   .identity {
+    flex: 1;
+    min-width: 0;
     display: block;
     font-size: 1.25rem;
     font-weight: 650;
     color: var(--text);
     text-decoration: none;
-    margin-bottom: var(--space-4);
   }
   .identity .site-title {
     display: block;
   }
-  .identity .muted {
-    display: block;
+  .tagline {
+    margin: 0 0 var(--space-4);
     font-size: 0.75rem;
-    font-weight: 400;
+    overflow-wrap: anywhere;
   }
   nav {
     display: grid;
@@ -208,11 +220,11 @@
     .sidebar-top {
       padding-block: var(--space-2);
     }
-    .identity {
-      margin-bottom: var(--space-2);
-    }
-    .identity .muted {
+    .tagline {
       display: none;
+    }
+    .identity-row {
+      margin-bottom: var(--space-2);
     }
     .sidebar-bottom {
       padding-block: var(--space-1);

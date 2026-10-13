@@ -107,10 +107,13 @@ export const en = {
 
   'general.heading': 'General',
   'general.help':
-    'The site title appears in the browser tab, the sidebar and on the sign-in page. Language changes apply immediately.',
+    'The site title and tagline appear in the browser tab, the sidebar and on the sign-in page. Changes apply after you save.',
   'general.siteTitle': 'Site title',
+  'general.tagline': 'Tagline',
+  'general.taglineHelp':
+    'Shown under the site title. Leave empty to use the default tagline in the selected language.',
   'general.language': 'Language',
-  'general.save': 'Save site title',
+  'general.save': 'Save general settings',
   'general.saving': 'Saving…',
   'general.saved': 'General settings saved.',
   'general.failed': 'Could not save general settings. Please retry.',
@@ -222,6 +225,11 @@ export const en = {
   'appearance.density': 'Density',
   'appearance.comfortable': 'Comfortable',
   'appearance.compact': 'Compact',
+  'appearance.spacious': 'Spacious',
+  'shell.switchLight': 'Switch to light mode',
+  'shell.switchDark': 'Switch to dark mode',
+  'shell.switchLanguage': 'Switch language to {language}',
+  'shell.preferencesFailed': 'Could not save this preference. Please retry.',
   'appearance.collapse': 'Collapse long notes by default',
   'appearance.collapseHelp':
     'Long cards follow this preference. Show more expands an individual card.',
@@ -853,6 +861,7 @@ export const en = {
   'validation.setupCode': 'Enter the setup code from the server log.',
   'validation.passwordMatch': 'Passwords must match exactly.',
   'validation.siteTitle': 'Use 1–60 characters without control characters.',
+  'validation.tagline': 'Use up to 60 characters without control characters.',
   'validation.timezone': 'Use a valid IANA timezone',
 
   // Server API and page-loader errors (stable keys carried in ApiError.messageKey).

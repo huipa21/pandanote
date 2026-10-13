@@ -48,13 +48,37 @@ describe('Settings → General persistence', () => {
         timezone: 'Asia/Tokyo',
         sessionLifetimeDays: 3,
       });
+      const general = {
+        tagline: '',
+        density: 'comfortable',
+        collapseLongNotes: true,
+      };
       expect(updateGeneral(p, identity, { language: 'zh-CN' })).toEqual({
         siteTitle: 'PandaNote',
         language: 'zh-CN',
+        ...general,
       });
       expect(updateGeneral(p, identity, { siteTitle: '  我的笔记  ' })).toEqual(
-        { siteTitle: '我的笔记', language: 'zh-CN' },
+        {
+          siteTitle: '我的笔记',
+          language: 'zh-CN',
+          ...general,
+        },
       );
+      // Tagline and long-note collapse save with the same General request.
+      expect(
+        updateGeneral(p, identity, {
+          tagline: '  慢慢写  ',
+          collapseLongNotes: false,
+        }),
+      ).toEqual({
+        siteTitle: '我的笔记',
+        tagline: '慢慢写',
+        language: 'zh-CN',
+        density: 'comfortable',
+        collapseLongNotes: false,
+      });
+      expect(updateGeneral(p, identity, { tagline: '' }).tagline).toBe('');
       // A later appearance write must not revert the general fields.
       updateAppearance(p, {
         theme: 'dark',
@@ -82,6 +106,37 @@ describe('Settings → General persistence', () => {
       }
     });
   });
+  test('General density and header-only preferences merge without clobbering each other', async () => {
+    await withPersistence(async (p) => {
+      const identity = owner(p);
+      for (const density of ['compact', 'comfortable', 'spacious'] as const) {
+        const saved = updateGeneral(p, identity, {
+          density,
+          siteTitle: 'My notebook',
+          tagline: 'Keep writing',
+        });
+        expect(saved.density).toBe(density);
+        updateAppearance(p, { theme: 'dark' }, identity);
+        updateGeneral(p, identity, { language: 'zh-CN' });
+        // The General form omits language/theme, so another title/density save keeps both.
+        updateGeneral(p, identity, { siteTitle: 'Changed title', density });
+        expect(readSettings(p)).toMatchObject({
+          density,
+          theme: 'dark',
+          language: 'zh-CN',
+          tagline: 'Keep writing',
+        });
+      }
+      const { Persistence } =
+        await import('../../src/lib/server/db/connection.ts');
+      const reopened = new Persistence(p.storage);
+      try {
+        expect(readSettings(reopened).density).toBe('spacious');
+      } finally {
+        await reopened.close();
+      }
+    });
+  });
   test('rejects unknown languages, bad titles and extra keys with no change; requires a live session', async () => {
     await withPersistence(async (p) => {
       const identity = owner(p);
@@ -98,6 +153,10 @@ describe('Settings → General persistence', () => {
         { siteTitle: 'tab\there' },
         { siteTitle: 'ok', timezone: 'UTC' },
         { siteTitle: 'ok', setupCompletedAt: 1 },
+        { tagline: 'x'.repeat(61) },
+        { tagline: 'tab	here' },
+        { collapseLongNotes: 'yes' },
+        { density: 'huge' },
       ])
         expect(() => updateGeneral(p, identity, value)).toThrow();
       expect(readSettings(p)).toEqual(before);

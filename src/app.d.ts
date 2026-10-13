@@ -16,7 +16,7 @@ declare global {
       identity: SessionIdentity | null;
       clientIp?: string;
       appearance?: Appearance;
-      i18n?: { language: Language; siteTitle: string };
+      i18n?: { language: Language; siteTitle: string; tagline: string };
     }
   }
 }

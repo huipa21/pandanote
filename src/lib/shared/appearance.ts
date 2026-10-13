@@ -1,13 +1,18 @@
 import { z } from 'zod';
-import type { AppSettings } from './settings.ts';
+import { densitySchema, type AppSettings } from './settings.ts';
 import { DEFAULT_LANGUAGE, type Language } from './i18n/registry.ts';
 
 export const appearanceSchema = z.strictObject({
   theme: z.enum(['system', 'light', 'dark']),
-  density: z.enum(['comfortable', 'compact']),
+  density: densitySchema,
   collapseLongNotes: z.boolean(),
 });
 export type Appearance = z.infer<typeof appearanceSchema>;
+// Header theme controls send only theme; General saves density/collapse.
+// Full appearance payloads remain valid for existing API callers.
+export const appearanceUpdateSchema = appearanceSchema
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, 'Choose an appearance.');
 export function appearanceFrom(settings: AppSettings): Appearance {
   return {
     theme: settings.theme,

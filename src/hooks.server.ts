@@ -149,6 +149,7 @@ export const handle: Handle = async ({ event, resolve }) => {
           ? settings.language
           : matchAcceptLanguage(event.request.headers.get('accept-language')),
       siteTitle: settings.siteTitle,
+      tagline: settings.tagline,
     };
   } catch (error) {
     return protect(authErrorResponse(error));

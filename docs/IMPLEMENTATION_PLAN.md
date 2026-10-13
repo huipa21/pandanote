@@ -56,6 +56,18 @@ Next validation work: dedicated grow/cap/resize/focus-return and suggestion geom
 browser assertions, then sequential common/full-browser and Linux gates. Do not
 mark NA06/S18 complete from these focused runs.
 
+## User-requested settings/title controls refinement
+
+Remove Appearance, move three-level density (Compact/Comfortable/Spacious) into
+General's existing one-Save form, remove its language selector. Add immediate
+persisted theme/language icon toggles to the right of the app title in desktop,
+mobile header and drawer. Default theme remains system; theme toggle selects the
+opposite effective light/dark mode. Preserve staged General fields and partial
+server merges, hydration gating, network retry and SSR/no-flash behavior. Validate
+shared schemas/SQLite merges, `title-preferences`, `language` and affected `shell`
+browser tests; screenshot baselines require review, never blind regeneration.
+See the latest PROGRESS handoff for actual results and independent release limits.
+
 ## S00 — Bootstrap and validate technical assumptions
 
 **Depends on:** planning documents only.

@@ -104,10 +104,12 @@ export const zhCN: Partial<Catalog> = {
 
   'general.heading': '常规',
   'general.help':
-    '站点标题会显示在浏览器标签页、侧边栏和登录页。语言更改会立即生效。',
+    '站点标题和副标题会显示在浏览器标签页、侧边栏和登录页。保存后生效。',
   'general.siteTitle': '站点标题',
+  'general.tagline': '副标题',
+  'general.taglineHelp': '显示在站点标题下方。留空则使用所选语言的默认副标题。',
   'general.language': '语言',
-  'general.save': '保存站点标题',
+  'general.save': '保存常规设置',
   'general.saving': '正在保存…',
   'general.saved': '常规设置已保存。',
   'general.failed': '无法保存常规设置，请重试。',
@@ -208,6 +210,11 @@ export const zhCN: Partial<Catalog> = {
   'appearance.density': '密度',
   'appearance.comfortable': '舒适',
   'appearance.compact': '紧凑',
+  'appearance.spacious': '宽松',
+  'shell.switchLight': '切换到浅色模式',
+  'shell.switchDark': '切换到深色模式',
+  'shell.switchLanguage': '切换语言为{language}',
+  'shell.preferencesFailed': '无法保存此偏好设置。请重试。',
   'appearance.collapse': '默认折叠长笔记',
   'appearance.collapseHelp': '长卡片遵循此设置。“展开更多”可展开单条笔记。',
   'appearance.save': '保存外观',
@@ -790,6 +797,7 @@ export const zhCN: Partial<Catalog> = {
   'validation.setupCode': '请输入服务器日志中的设置代码。',
   'validation.passwordMatch': '两次输入的密码必须完全一致。',
   'validation.siteTitle': '请使用 1–60 个字符，且不能包含控制字符。',
+  'validation.tagline': '请使用最多 60 个字符，且不能包含控制字符。',
   'validation.timezone': '请使用有效的 IANA 时区',
 
   // Server API and page-loader errors.

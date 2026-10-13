@@ -21,7 +21,7 @@ import type { Persistence } from '../db/connection.ts';
 import { appSettings } from '../db/schema.ts';
 import { DomainError } from '../../shared/domain.ts';
 import {
-  appearanceSchema,
+  appearanceUpdateSchema,
   appearanceFrom,
   type Appearance,
 } from '../../shared/appearance.ts';
@@ -55,7 +55,7 @@ export function updateAppearance(
   value: unknown,
   identity?: SessionIdentity,
 ): Appearance {
-  const parsed = appearanceSchema.safeParse(value);
+  const parsed = appearanceUpdateSchema.safeParse(value);
   if (!parsed.success)
     throw new DomainError('validation', 'err.chooseValidAppearanceSettings');
   return persistence.write((tx) => {
@@ -81,7 +81,13 @@ export function updateGeneral(
   p: Persistence,
   identity: SessionIdentity,
   value: unknown,
-): { siteTitle: string; language: Language } {
+): {
+  siteTitle: string;
+  tagline: string;
+  language: Language;
+  density: AppSettings['density'];
+  collapseLongNotes: boolean;
+} {
   const parsed = generalSettingsSchema.safeParse(value);
   if (!parsed.success)
     throw new DomainError('validation', 'err.chooseASiteTitleOf');
@@ -101,7 +107,13 @@ export function updateGeneral(
       .set({ valueJson: JSON.stringify(settings), updatedAt: Date.now() })
       .where(eq(appSettings.singleton, 1))
       .run();
-    return { siteTitle: settings.siteTitle, language: settings.language };
+    return {
+      siteTitle: settings.siteTitle,
+      tagline: settings.tagline,
+      language: settings.language,
+      density: settings.density,
+      collapseLongNotes: settings.collapseLongNotes,
+    };
   });
 }
 export function updateCalendar(

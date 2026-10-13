@@ -1022,6 +1022,26 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   mobile cells use the normal 44px target. Short sidebars retain independent scrolling.
   CAL-01–04/SEARCH-03 browser/native evidence and dense-month timings are in PROGRESS.
 
+### Current settings/title-control override (user request)
+
+Settings has no Appearance tab or General language selector. General's one Save
+writes title/tagline/density/collapse only; density uses the shared validated
+`compact | comfortable | spacious` enum (comfortable default), with centralized
+card padding/gap tokens. Existing two-level saved values remain valid; no SQL
+schema or migration change. The General partial-update API still accepts language
+for the header control and existing callers, returning confirmed density too.
+
+`TitleControls` appears right of the app title in sidebar, drawer and mobile header.
+A root-context `TitlePreferences` owns hydration readiness, media-query tracking,
+request serialization and retryable errors across all three instances. System
+remains the initial theme, resolved before hydration by CSS; clicking theme saves
+only the opposite effective Light/Dark mode. Language cycles registered languages,
+saving only language. Validated confirmed state applies immediately, then SSR data
+is invalidated; failures retain current state and allow retry. No browser preference
+cache, auth change or content save/navigation is introduced. General omits theme
+and language so staged form saves do not revert either header preference. Historical
+Appearance/General-selector descriptions below are superseded by this override.
+
 ## 11. Rendering and frontend performance
 
 - SSR first note page/basic content; keep initial payload bounded and never fetch all notes.

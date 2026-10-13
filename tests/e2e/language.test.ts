@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { scanSetup } from '../helpers/setup-accessibility.ts';
 import { browserSession } from '../helpers/browser-session.ts';
 
-// LANG-01/02/04: language registry pickers, complete Simplified Chinese, saved site
+// LANG-01/02/04: header language toggle, complete Simplified Chinese, saved site
 // title in the tab/sidebar/mobile header/sign-in page. The shared fixture is always
 // restored to English / "PandaNote" so later specs are unaffected.
 const origin = 'http://127.0.0.1:4173';
@@ -16,7 +16,7 @@ async function restore(page: Page, cookie: string) {
   expect(response.status()).toBe(200);
 }
 
-test('language and site title: registry picker, zh-CN screens with English fallback, title in tab/header/sign-in, text-only escaping', async ({
+test('language and site title: header toggle, zh-CN screens, title in tab/header/sign-in, text-only escaping', async ({
   page,
   browser,
 }) => {
@@ -28,21 +28,24 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     await page.goto('/settings');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page).toHaveTitle('Settings · PandaNote');
-    const select = page.locator('#general-language');
-    await expect(select.locator('option')).toHaveText(['English', '简体中文']);
-    await expect(select.locator('option')).toHaveCount(2);
+    const side = page.getByRole('complementary');
+    await expect(page.locator('#general-language')).toHaveCount(0);
+    await expect(
+      page.getByRole('tab', { name: 'Appearance', exact: true }),
+    ).toHaveCount(0);
     await expect(page.getByText('Translation in progress')).toHaveCount(0);
 
-    // Immediate language save; complete translation (no partial notice).
-    await select.selectOption('zh-CN');
+    // Header language toggle saves immediately, separately from unsaved General fields.
+    await side
+      .getByRole('button', { name: 'Switch language to 简体中文' })
+      .click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await expect(
       page.getByRole('heading', { name: '常规', exact: true }),
     ).toBeVisible();
-    await expect(page.getByText('常规设置已保存。')).toBeVisible();
     await expect(page.getByText('翻译进行中')).toHaveCount(0);
     await expect(page).toHaveTitle('设置 · PandaNote');
-    const side = page.getByRole('complementary', { name: '侧边栏' });
+    await expect(side).toHaveAccessibleName('侧边栏');
     for (const name of ['标签', '回收站', '设置'])
       await expect(side.getByRole('link', { name, exact: true })).toBeVisible();
     await expect(side.getByLabel('搜索笔记')).toBeVisible();
@@ -51,14 +54,13 @@ test('language and site title: registry picker, zh-CN screens with English fallb
       page.getByRole('heading', { name: '账号', exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel('账号用户名')).toBeVisible();
-    // Not translated in this change: falls back to English per string.
-    await openSettingsTab(page, '外观');
-    await expect(
-      page.getByRole('heading', { name: '外观', exact: true }),
-    ).toBeVisible();
+    await openSettingsTab(page, '常规');
+    await expect(page.getByLabel('密度')).toBeVisible();
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-    await expect(select).toHaveValue('zh-CN');
+    await expect(
+      side.getByRole('button', { name: '切换语言为English' }),
+    ).toBeVisible();
     await scanSetup(page);
 
     // Site title: tab, sidebar, mobile header; plain text, not markup.
@@ -66,10 +68,10 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     const hostile = '<img src=x onerror="window.__title=1"> & "q"';
     const title = page.locator('#general-title');
     await title.fill('   ');
-    await page.getByRole('button', { name: '保存站点标题' }).click();
+    await page.getByRole('button', { name: '保存常规设置' }).click();
     await expect(page.locator('#general-title-error')).not.toBeEmpty();
     await title.fill(hostile);
-    await page.getByRole('button', { name: '保存站点标题' }).click();
+    await page.getByRole('button', { name: '保存常规设置' }).click();
     await expect(page.getByText('常规设置已保存。')).toBeVisible();
     await expect(page).toHaveTitle(`设置 · ${hostile}`);
     await expect(side.locator('.site-title')).toHaveText(hostile);
@@ -82,7 +84,7 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     const long = `长${'标题'.repeat(29)}末`;
     expect([...long]).toHaveLength(60);
     await title.fill(long);
-    await page.getByRole('button', { name: '保存站点标题' }).click();
+    await page.getByRole('button', { name: '保存常规设置' }).click();
     await expect(page.getByText('常规设置已保存。')).toBeVisible();
     for (const width of [390, 1280]) {
       await page.setViewportSize({ width, height: 800 });
@@ -165,11 +167,12 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     await page.setViewportSize({ width: 1280, height: 800 });
 
     // Back to English: server-rendered with the saved value on a fresh load.
-    await page.locator('#general-language').selectOption('en');
+    await side.getByRole('button', { name: '切换语言为English' }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(page.getByText('General settings saved.')).toBeVisible();
+    await expect(
+      side.getByRole('button', { name: 'Switch language to 简体中文' }),
+    ).toBeVisible();
     await page.reload();
-    await expect(page.locator('#general-language')).toHaveValue('en');
     await expect(
       page.getByRole('heading', { name: 'General', exact: true }),
     ).toBeVisible();

@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { onMount, type Snippet } from 'svelte';
+  import { onMount, setContext, type Snippet } from 'svelte';
+  import {
+    TITLE_PREFERENCES,
+    TitlePreferences,
+    titlePreferences,
+  } from '#lib/client/title-preferences.svelte.ts';
+  import TitleControls from './TitleControls.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import Sidebar from './Sidebar.svelte';
   import type { TagNode } from '#lib/shared/tag-tree.ts';
@@ -39,6 +45,10 @@
   const showStrip = $derived(Boolean(filters.query || filters.day));
   const i18n = useI18n();
   const t = i18n.t;
+  // Isolated shell fixtures get the same controls without a root route layout.
+  const preferences =
+    titlePreferences() ?? new TitlePreferences('system', i18n, async () => {});
+  setContext(TITLE_PREFERENCES, preferences);
   let drawerOpen = $state(false);
   let ready = $state(false);
   let scroller: HTMLElement;
@@ -77,6 +87,7 @@
   }
   onMount(() => {
     ready = true;
+    const unmountPreferences = preferences.mount();
     const desktop = window.matchMedia('(min-width: 900px)');
     const resized = () => {
       if (desktop.matches) {
@@ -87,7 +98,10 @@
     };
     resized();
     window.addEventListener('resize', resized);
-    return () => window.removeEventListener('resize', resized);
+    return () => {
+      window.removeEventListener('resize', resized);
+      unmountPreferences();
+    };
   });
 </script>
 
@@ -140,6 +154,7 @@
         ><span class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</span
         ></a
       >
+      <TitleControls />
     </header>
     {#snippet composerRegion()}
       <div class="composer-region">
@@ -320,14 +335,15 @@
     }
     .mobile-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
       gap: var(--space-2);
       padding: var(--space-2) var(--outer-gap);
       border-bottom: 1px solid var(--border);
       background: var(--surface);
     }
     .mobile-header .brand {
+      flex: 1;
       min-width: 0;
       text-decoration: none;
       color: var(--text);
