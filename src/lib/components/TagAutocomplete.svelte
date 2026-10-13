@@ -2,6 +2,8 @@
   import { tick } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import { tagKey, tagSpans } from '#lib/shared/markdown/tags.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  const t = useI18n().t;
   let {
     textarea,
     workspace,
@@ -135,7 +137,7 @@
     class="suggestions"
     {id}
     role="listbox"
-    aria-label="Existing tags"
+    aria-label={t('tagauto.existing')}
   >
     {#each choices as tag, index (tag.key)}<button
         id={`${id}-${index}`}

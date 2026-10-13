@@ -5,16 +5,20 @@ import { zhCN } from './zh-CN.ts';
 export const languageCodes = ['en', 'zh-CN'] as const;
 export type Language = (typeof languageCodes)[number];
 export const DEFAULT_LANGUAGE: Language = 'en';
+/** BCP 47 locale for Intl/toLocale* formatting; follows the selected language. */
+export function localeFor(language: Language): string {
+  return language === 'zh-CN' ? 'zh-CN' : 'en';
+}
 const catalogs: Record<Language, Partial<Catalog>> = { en, 'zh-CN': zhCN };
 const nativeNames: Record<Language, string> = {
   en: 'English',
   'zh-CN': '简体中文',
 };
-/** Declared product coverage, not just key coverage: Chinese covers only the planned
- * screens, so it stays partial (and Settings says so) until the whole UI is translated. */
+/** Declared product coverage, not just key coverage. A language is declared
+ * whole-UI only after every screen uses its catalog; otherwise Settings says it is partial. */
 const fullyTranslatedUi: Record<Language, boolean> = {
   en: true,
-  'zh-CN': false,
+  'zh-CN': true,
 };
 const keys = Object.keys(en) as MessageKey[];
 export interface LanguageInfo {

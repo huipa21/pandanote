@@ -1,6 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { monthLabel } from '#lib/shared/calendar.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import type { MessageKey } from '#lib/shared/i18n/index.ts';
 
   let {
     month,
@@ -14,19 +16,21 @@
     onClose: () => void;
   } = $props();
   const id = $props.id();
-  const shortNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+  const i18n = useI18n();
+  const t = i18n.t;
+  const monthNames: MessageKey[] = [
+    'monthpicker.m1',
+    'monthpicker.m2',
+    'monthpicker.m3',
+    'monthpicker.m4',
+    'monthpicker.m5',
+    'monthpicker.m6',
+    'monthpicker.m7',
+    'monthpicker.m8',
+    'monthpicker.m9',
+    'monthpicker.m10',
+    'monthpicker.m11',
+    'monthpicker.m12',
   ];
   const MIN_YEAR = 1969;
   const MAX_YEAR = 9998;
@@ -63,7 +67,7 @@
       value < MIN_YEAR ||
       value > MAX_YEAR
     ) {
-      error = `Enter a year between ${MIN_YEAR} and ${MAX_YEAR}.`;
+      error = t('monthpicker.range', { min: MIN_YEAR, max: MAX_YEAR });
       return false;
     }
     year = value;
@@ -113,12 +117,12 @@
   bind:this={panel}
   class="month-picker"
   role="dialog"
-  aria-label="Choose year and month"
+  aria-label={t('monthpicker.dialog')}
 >
   <div class="picker-heading">
     <button
       class="arrow"
-      aria-label="Previous year"
+      aria-label={t('monthpicker.prevYear')}
       disabled={year <= MIN_YEAR}
       onclick={() => step(-1)}>◀</button
     >
@@ -137,7 +141,7 @@
           type="text"
           inputmode="numeric"
           maxlength="4"
-          aria-label="Year"
+          aria-label={t('monthpicker.year')}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
           onblur={onYearBlur}
@@ -147,32 +151,32 @@
       <button
         bind:this={yearButton}
         class="year-heading"
-        aria-label={`Enter year, ${year}`}
+        aria-label={t('monthpicker.enterYear', { year })}
         data-initial-focus
         onclick={() => void startEditing()}>{year}</button
       >
     {/if}
     <button
       class="arrow"
-      aria-label="Next year"
+      aria-label={t('monthpicker.nextYear')}
       disabled={year >= MAX_YEAR}
       onclick={() => step(1)}>▶</button
     >
   </div>
   {#if error}<p id={`${id}-error`} class="error" role="alert">{error}</p>{/if}
-  <div class="month-grid" aria-label={`Months in ${year}`}>
-    {#each shortNames as name, i (name)}
+  <div class="month-grid" aria-label={t('monthpicker.months', { year })}>
+    {#each monthNames as name, i (name)}
       {@const key = `${year}-${String(i + 1).padStart(2, '0')}`}
       <a
         href={href(key)}
-        aria-label={monthLabel(key)}
+        aria-label={monthLabel(key, i18n.locale)}
         aria-current={key === month ? 'date' : undefined}
         class="month-cell"
         class:current={key === month}
         onclick={() => {
           onClose();
           onNavigate();
-        }}>{name}</a
+        }}>{t(name)}</a
       >
     {/each}
   </div>

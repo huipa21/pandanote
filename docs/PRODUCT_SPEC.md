@@ -463,10 +463,13 @@ Concurrent edit handling:
   require fresh authentication but do not revoke sessions.
 - Settings → General edits plain-text site title (trimmed 1–60 characters, no
   controls) and registry language. Title appears escaped in tabs, sidebar/mobile
-  header and login, with visual ellipsis and accessible full text. English is
-  complete; Simplified Chinese is explicitly partial (setup/login/MFA/navigation/
-  General/Account), per-key English fallback. Before completion use browser language;
-  afterwards saved language controls all pages and `<html lang>`. Never translate notes.
+  header and login, with visual ellipsis and accessible full text. English and
+  Simplified Chinese are both complete for every screen and client message. Before
+  a language is saved, browser language is used; afterwards saved language controls
+  all pages, date/number formats and `<html lang>`. Notes are never translated.
+  Server-originated API/SSR error text and shared schema messages are localized only
+  when they match a catalog English string (`localizeMessage`); other server text
+  stays English until error codes are translated client-side (tracked gap).
 - Every start (container/dev/built start) recovers interrupted restores before
   key/DB reads, creates private storage/keys/schema/settings and applies trusted
   SQL + synchronous registered DB-only data steps before listening. All pending

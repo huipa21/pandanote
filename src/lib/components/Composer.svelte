@@ -4,11 +4,13 @@
     EDITOR_WORKSPACE,
     type EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import NoteEditor from './NoteEditor.svelte';
 
   /** Top-of-timeline composer for NEW notes. Edits render in place elsewhere. */
   const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
   let focusOpen = $state(false);
+  const t = useI18n().t;
   let localText = $state('');
   let mounted = $state(false);
   let editor = $state<ReturnType<typeof NoteEditor>>();
@@ -39,7 +41,7 @@
   bind:localText
 />
 <button class="mobile-compose primary" disabled={!mounted} onclick={compose}>
-  {text ? 'Continue writing' : 'Compose a note'}
+  {text ? t('composer.continue') : t('composer.compose')}
 </button>
 
 <style>

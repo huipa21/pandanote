@@ -48,7 +48,7 @@
   let desktop = $state(false);
   let confirmCancel = $state(false);
   const dialogTitle = $derived(
-    variant === 'inline' ? 'Edit note' : 'Write a note',
+    variant === 'inline' ? t('editor.editNote') : t('editor.writeNote'),
   );
 
   /** Move keyboard focus into the inline text area. */
@@ -193,12 +193,12 @@
     onclick={() => workspace?.post()}
   >
     {workspace?.posting
-      ? 'Saving…'
+      ? t('editor.saving')
       : workspace?.frozen
-        ? 'Retry save'
+        ? t('editor.retrySave')
         : workspace?.active?.kind === 'edit'
-          ? 'Save changes'
-          : 'Post'}
+          ? t('unsaved.saveChanges')
+          : t('unsaved.post')}
   </button>
 {/snippet}
 
@@ -220,7 +220,7 @@
       <label
         class="sr-only"
         for={focus ? 'expanded-note-text' : 'compact-note-text'}
-        >Note text</label
+        >{t('editor.noteText')}</label
       >
       <textarea
         id={focus ? 'expanded-note-text' : 'compact-note-text'}
@@ -264,28 +264,31 @@
       />{/if}
     <p class="help" id={focus ? 'expanded-help' : 'composer-help'}>
       {#if workspace}<span role="status"
-          >{(workspace.status !== 'Saved on server.' && workspace.status) ||
-            (workspace.active?.kind === 'edit'
-              ? 'Editing note · save with Save changes.'
-              : '')}</span
+          >{workspace.active?.kind === 'edit'
+            ? t('editor.editingStatus')
+            : ''}</span
         >
-      {:else}Not saved yet. Keep a copy before leaving.{/if}
+      {:else}{t('editor.notSaved')}{/if}
     </p>
     {#if confirmCancel && !focus}
-      <div class="cancel-confirm" role="group" aria-label="Discard changes?">
-        <span>Discard your changes?</span>
+      <div
+        class="cancel-confirm"
+        role="group"
+        aria-label={t('editor.discardGroup')}
+      >
+        <span>{t('editor.discardText')}</span>
         <button
           type="button"
           class="danger"
           disabled={workspace?.busy || workspace?.posting}
-          onclick={close}>Discard</button
+          onclick={close}>{t('unsaved.discard')}</button
         >
         <button
           type="button"
           onclick={() => {
             confirmCancel = false;
             void focusText();
-          }}>Keep editing</button
+          }}>{t('editor.keepEditing')}</button
         >
       </div>
     {/if}
@@ -299,20 +302,23 @@
         class="preview-switch"
         type="button"
         role="switch"
-        aria-label="Preview"
+        aria-label={t('editor.preview')}
         aria-checked={preview}
         onclick={() => {
           preview = !preview;
         }}
-        title={preview ? 'Show raw text' : 'Preview Markdown'}
-        ><span class="switch-track" aria-hidden="true"><span></span></span
-        >Preview</button
+        title={preview ? t('editor.showRaw') : t('editor.previewMarkdown')}
+        ><span class="switch-track" aria-hidden="true"><span></span></span>{t(
+          'editor.preview',
+        )}</button
       >
       <button
         class="focus-control"
         type="button"
-        aria-label={focus ? `Close ${dialogTitle}` : 'Enter focus mode'}
-        title={focus ? 'Close focus mode' : 'Focus mode'}
+        aria-label={focus
+          ? `${t('modal.closeNamed', { title: dialogTitle })}`
+          : t('editor.enterFocus')}
+        title={focus ? t('editor.closeFocus') : t('editor.focusMode')}
         onclick={() => {
           void handleCloseEditor(focus);
         }}
@@ -341,7 +347,7 @@
   <input
     class="sr-only"
     tabindex="-1"
-    aria-label="Choose local files"
+    aria-label={t('editor.chooseFiles')}
     type="file"
     accept={MEDIA_ACCEPT}
     multiple

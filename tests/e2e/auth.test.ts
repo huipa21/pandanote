@@ -202,7 +202,7 @@ test('two-step first run, field retention, resume, routing, secure sessions and 
     await expect(resume.getByLabel('站点标题')).toHaveValue('PandaNote');
     await expect(resume.getByLabel('语言')).toHaveValue('zh-CN');
     await expect(resume.getByLabel('时区')).toHaveValue('Asia/Tokyo');
-    await expect(resume.getByText('翻译进行中')).toBeVisible();
+    await expect(resume.getByText('翻译进行中')).toHaveCount(0);
     await expect(
       resume.getByRole('button', { name: '完成设置' }),
     ).toBeVisible();

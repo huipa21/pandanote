@@ -12,6 +12,7 @@
   import { TagOperations } from '#lib/client/tags/operations.svelte.ts';
   import { tagKey } from '#lib/shared/markdown/tags.ts';
   import type { TagAction, TagExecute, TagSummary } from '#lib/shared/tags.ts';
+  import type { MessageKey } from '#lib/shared/i18n/index.ts';
   import { filterHref } from '#lib/shared/timeline.ts';
   /** `leaveHref` leaves the tag view, keeping any search or day filter. */
   let { summary, leaveHref }: { summary: TagSummary; leaveHref: string } =
@@ -19,12 +20,17 @@
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const ops = new TagOperations(workspace);
   const id = $props.id();
-  const { t } = useI18n();
+  const t = useI18n().t;
   const LABELS = {
-    rename: 'Rename Tag',
-    merge: 'Merge Tag',
-    remove: 'Remove Tag',
-  } as const;
+    rename: 'tag.rename',
+    merge: 'tag.merge',
+    remove: 'tag.remove',
+  } as const satisfies Record<TagAction['action'], MessageKey>;
+  const ACTIONS = {
+    rename: 'tag.actRename',
+    merge: 'tag.actMerge',
+    remove: 'tag.actRemove',
+  } as const satisfies Record<TagAction['action'], MessageKey>;
   let menuTrigger = $state<HTMLButtonElement>();
   let formOpen = $state(false);
   let action = $state<TagAction['action']>('rename');
@@ -89,13 +95,15 @@
       invalidateAll: true,
     });
   }
-  const count = (n: number, one: string, many: string) =>
-    `${n} ${n === 1 ? one : many}`;
+  const plural = (n: number, one: MessageKey, many: MessageKey) =>
+    t(n === 1 ? one : many, { count: n });
   const meta = $derived(
     [
-      count(summary.published, 'note', 'notes'),
-      summary.subtags ? count(summary.subtags, 'subtag', 'subtags') : '',
-      summary.trash ? `${summary.trash} in Trash` : '',
+      plural(summary.published, 'tag.noteOne', 'tag.noteMany'),
+      summary.subtags
+        ? plural(summary.subtags, 'tag.subtagOne', 'tag.subtagMany')
+        : '',
+      summary.trash ? t('tag.trashCount', { count: summary.trash }) : '',
     ]
       .filter(Boolean)
       .join(' · '),
@@ -126,7 +134,7 @@
 
 <Modal
   bind:open={formOpen}
-  title={LABELS[action]}
+  title={t(LABELS[action])}
   dismissible={!ops.busy}
   onDismiss={() => ops.reset()}
 >
@@ -141,7 +149,7 @@
         <p>#{summary.display}</p>
         {#if summary.hasChildren}
           <fieldset>
-            <legend class="sr-only">Remove which hashtags?</legend>
+            <legend class="sr-only">{t('tag.removeQ')}</legend>
             <label
               ><input
                 type="radio"
@@ -149,7 +157,7 @@
                 value="exact"
                 disabled={ops.busy || !summary.explicit}
               />
-              Only #{summary.display}</label
+              {t('tag.onlyTag', { tag: summary.display })}</label
             >
             <label
               ><input
@@ -158,13 +166,13 @@
                 value="subtree"
                 disabled={ops.busy}
               />
-              #{summary.display} and all subtags</label
+              {t('tag.andSubtags', { tag: summary.display })}</label
             >
           </fieldset>
         {/if}
       {:else}
         <label for={`${id}-target`}
-          >{action === 'rename' ? 'Tag path' : 'Merge into'}</label
+          >{action === 'rename' ? t('tag.path') : t('tag.mergeInto')}</label
         >
         <input
           id={`${id}-target`}
@@ -183,58 +191,63 @@
       {/if}
       {#if ops.error}<p role="alert">{ops.error}</p>{/if}
       <div class="buttons">
-        <button class="primary" disabled={ops.busy}>Preview tag changes</button>
+        <button class="primary" disabled={ops.busy}
+          >{t('tag.previewChanges')}</button
+        >
       </div>
     </form>
   {:else}
     {@const preview = ops.preview}
     <p>
-      {preview.operation.action} #{preview.operation.source}{preview.operation
-        .target
+      {t(ACTIONS[preview.operation.action])} #{preview.operation.source}{preview
+        .operation.target
         ? ` → #${preview.operation.target}`
         : ''}{preview.operation.action === 'remove' &&
       preview.operation.scope === 'subtree'
-        ? ' and all subtags'
+        ? t('tag.andAllSubtags')
         : ''}
     </p>
     {#if preview.mappings.length > 1 || preview.mappings.some((m) => m.collision)}<ul
-        aria-label="Affected tags"
+        aria-label={t('tag.affected')}
       >
         {#each preview.mappings as mapping (mapping.from)}<li>
             #{mapping.from} → {mapping.to === null
-              ? 'removed'
+              ? t('tag.removed')
               : `#${mapping.to}`}{#if mapping.collision}
-              (merged with existing tag){/if}
+              {t('tag.mergedWith')}{/if}
           </li>{/each}
       </ul>{/if}
     <p>
-      {preview.counts.published} notes · {preview.counts.trash} Trash notes will receive
-      new revisions. In-progress editors will conflict.
+      {t('tag.counts', {
+        published: preview.counts.published,
+        trash: preview.counts.trash,
+      })}
     </p>
     {#if preview.operation.action === 'merge'}<p>
-        The existing target spelling is retained; duplicate note joins are
-        collapsed.
+        {t('tag.mergeNote')}
       </p>{/if}
     {#if preview.targetRetired}<p role="alert">
-        The target was retired before. Reusing it does not erase history; local
-        posts using it require explicit acknowledgement.
+        {t('tag.retired')}
       </p>{/if}
     <p class="help">
-      Removal deletes only the hashtag token, preserving adjacent spaces. Notes
-      are not deleted. Below are up to 10 source excerpts; all counted notes are
-      affected.
+      {t('tag.previewHelp')}
     </p>
     {#each preview.samples as sample (sample.id)}<details>
         <summary
-          >{sample.status} · revision {sample.revision} ·
-          <a href={`/notes/${sample.id}`}>Inspect full note</a></summary
+          >{t('tag.sample', {
+            status: sample.status,
+            revision: sample.revision,
+          })}
+          <a href={`/notes/${sample.id}`}>{t('tag.inspect')}</a></summary
         >
         <pre>{sample.before}</pre>
         <pre>{sample.after}</pre>
       </details>{/each}
     {#if ops.error}<p role="alert">{ops.error}</p>{/if}
     <div class="buttons">
-      <button disabled={ops.busy} onclick={() => ops.reset()}>Back</button>
+      <button disabled={ops.busy} onclick={() => ops.reset()}
+        >{t('tag.back')}</button
+      >
       <button
         class:danger={preview.operation.action === 'remove'}
         class:primary={preview.operation.action !== 'remove'}
@@ -245,7 +258,10 @@
             operation: preview.operation,
             previewToken: preview.previewToken,
             confirmed: true,
-          })}>Confirm {preview.operation.action}</button
+          })}
+        >{t('tag.confirmAction', {
+          action: t(ACTIONS[preview.operation.action]),
+        })}</button
       >
     </div>
   {/if}

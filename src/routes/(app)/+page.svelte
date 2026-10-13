@@ -68,7 +68,8 @@
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const calendar = getContext<CalendarState>(CALENDAR);
   const reading = getContext<ReadingState>(READING);
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const t = i18n.t;
   /** Plain "All notes" view: the only view with a Pinned section. */
   function isPlain(value: TimelineFilters) {
     return (
@@ -387,7 +388,7 @@
         return;
       if (!payload.ok) throw new Error(payload.error.message);
       if (queryKey(payload.data.filters) !== key)
-        throw new Error('Filters changed. Start from the first page.');
+        throw new Error(t('timeline.filtersChanged'));
       const anchor = captureAnchor(scroller);
       emptyMonth = false;
       followScroll = true;
@@ -404,7 +405,7 @@
         error =
           failure instanceof Error && failure.name !== 'AbortError'
             ? failure.message
-            : 'Older notes could not be loaded. Retry without losing your place.';
+            : t('timeline.olderFailed');
     } finally {
       clearTimeout(timer);
       if (current === generation) loading = false;
@@ -480,8 +481,7 @@
               savedOutsideRange = !matches || !visibleRange;
           }
         } catch {
-          error =
-            'The latest note could not be loaded. Retry Refresh timeline.';
+          error = t('timeline.latestFailed');
         }
       }
       if (!disposed) {
@@ -494,57 +494,53 @@
 </script>
 
 <PageTitle
-  title={data.tagSummary ? `#${data.tagSummary.display}` : 'All notes'}
+  title={data.tagSummary ? `#${data.tagSummary.display}` : t('shell.allNotes')}
 />
 <svelte:head
-  ><meta
-    name="description"
-    content="Your private personal notebook"
-  /></svelte:head
+  ><meta name="description" content={t('timeline.description')} /></svelte:head
 >
 <div class="timeline-status" data-top-month={topMonth}>
   {#if data.tagSummary}{#key data.tagSummary.key}<TagHeader
         summary={data.tagSummary}
         leaveHref={filterHref({ ...filters, tag: undefined })}
-      />{/key}{:else}<h1 class="sr-only">All notes</h1>{/if}
-  <span class="sr-only">You are signed in.</span>
-  {#if workspace.status === 'Saved on server.' && savedOutsideRange}<p
-      class="help"
-    >
-      This note is outside the current filters or loaded dates. Clear filters or
-      load older notes to find it.
+      />{/key}{:else}<h1 class="sr-only">{t('shell.allNotes')}</h1>{/if}
+  <span class="sr-only">{t('timeline.signedIn')}</span>
+  {#if workspace.status === 'saved' && savedOutsideRange}<p class="help">
+      {t('timeline.outsideRange')}
     </p>{/if}
   {#if data.timelineError}<section class="surface">
       <p role="alert">{data.timelineError}</p>
       <button onclick={() => invalidate('pandanote:timeline')}
-        >Retry timeline</button
-      ><a href="/">Clear filters and start again</a>
+        >{t('timeline.retry')}</button
+      ><a href="/">{t('timeline.clearStart')}</a>
     </section>{/if}
 </div>
 {#if emptyMonth && !items.length && !data.timelineError}
-  <section class="surface" aria-label="Empty month">
-    <h2>No matching notes in {filters.month}</h2>
-    <p>This selected month is empty. Your search and tags are retained.</p>
-    {#if nextCursor}<button onclick={loadOlder}>Load older notes</button>{/if}
+  <section class="surface" aria-label={t('timeline.emptyMonth')}>
+    <h2>{t('timeline.emptyMonthTitle', { month: filters.month ?? '' })}</h2>
+    <p>{t('timeline.emptyMonthHelp')}</p>
+    {#if nextCursor}<button onclick={loadOlder}
+        >{t('timeline.loadOlder')}</button
+      >{/if}
     <a
       href={filterHref({
         tag: filters.tag,
         query: filters.query,
         month: localDate(Date.now(), data.timezone).slice(0, 7),
-      })}>Return to Today</a
+      })}>{t('timeline.returnToday')}</a
     >
   </section>
 {:else if !items.length && !pinned.length && !data.timelineError}
   <section class="surface">
     <h2>
       {filters.tag !== undefined || filters.query || filters.day
-        ? 'No matching notes'
-        : 'A quiet place to begin'}
+        ? t('timeline.noMatchTitle')
+        : t('timeline.emptyTitle')}
     </h2>
     <p>
       {filters.tag !== undefined || filters.query || filters.day
-        ? 'No published notes match every search term and selected filter. Remove a filter or clear all.'
-        : 'Write your first note above. Published notes will appear here.'}
+        ? t('timeline.noMatchHelp')
+        : t('timeline.emptyHelp')}
     </p>
   </section>
 {/if}
@@ -568,7 +564,7 @@
       class="month-separator"
       data-month={monthKey(note.timelineAt, workspace.timezone)}
     >
-      {new Date(note.timelineAt).toLocaleString('en', {
+      {new Date(note.timelineAt).toLocaleString(i18n.locale, {
         timeZone: workspace.timezone,
         month: 'long',
         year: 'numeric',
@@ -585,15 +581,16 @@
   />
 {/each}
 <div class="paging" bind:this={sentinel} aria-live="polite">
-  {#if loading}<p role="status">Loading older notes…</p>
+  {#if loading}<p role="status">{t('timeline.loadingOlder')}</p>
   {:else if error}<p role="alert">{error}</p>
-    <button onclick={loadOlder}>Retry older notes</button><button
-      onclick={() => invalidate('pandanote:timeline')}>Refresh timeline</button
+    <button onclick={loadOlder}>{t('timeline.retryOlder')}</button><button
+      onclick={() => invalidate('pandanote:timeline')}
+      >{t('timeline.refresh')}</button
     >
   {:else if nextCursor && !emptyMonth}<button onclick={loadOlder}
-      >Load older notes</button
+      >{t('timeline.loadOlder')}</button
     >
-  {:else if items.length}<p class="help">You’ve reached the beginning.</p>{/if}
+  {:else if items.length}<p class="help">{t('timeline.beginning')}</p>{/if}
 </div>
 
 <style>

@@ -304,10 +304,13 @@ export function shortDate(
   at: number,
   timeZone: string,
   now: number = Date.now(),
+  locale = 'en',
 ): string {
   const year = (value: number) =>
-    new Intl.DateTimeFormat('en', { timeZone, year: 'numeric' }).format(value);
-  return new Intl.DateTimeFormat('en', {
+    new Intl.DateTimeFormat(locale, { timeZone, year: 'numeric' }).format(
+      value,
+    );
+  return new Intl.DateTimeFormat(locale, {
     timeZone,
     weekday: 'short',
     month: 'short',

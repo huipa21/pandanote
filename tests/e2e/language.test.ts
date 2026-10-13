@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { scanSetup } from '../helpers/setup-accessibility.ts';
 import { browserSession } from '../helpers/browser-session.ts';
 
-// LANG-01/02/04: language registry pickers, partial Simplified Chinese, saved site
+// LANG-01/02/04: language registry pickers, complete Simplified Chinese, saved site
 // title in the tab/sidebar/mobile header/sign-in page. The shared fixture is always
 // restored to English / "PandaNote" so later specs are unaffected.
 const origin = 'http://127.0.0.1:4173';
@@ -33,28 +33,28 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     await expect(select.locator('option')).toHaveCount(2);
     await expect(page.getByText('Translation in progress')).toHaveCount(0);
 
-    // Immediate language save; partial notice; translated scope, English fallback.
+    // Immediate language save; complete translation (no partial notice).
     await select.selectOption('zh-CN');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await expect(
       page.getByRole('heading', { name: '常规', exact: true }),
     ).toBeVisible();
     await expect(page.getByText('常规设置已保存。')).toBeVisible();
-    await expect(page.getByText('翻译进行中')).toBeVisible();
+    await expect(page.getByText('翻译进行中')).toHaveCount(0);
     await expect(page).toHaveTitle('设置 · PandaNote');
     const side = page.getByRole('complementary', { name: '侧边栏' });
-    for (const name of ['全部笔记', '回收站', '设置'])
+    for (const name of ['标签', '回收站', '设置'])
       await expect(side.getByRole('link', { name, exact: true })).toBeVisible();
     await expect(side.getByLabel('搜索笔记')).toBeVisible();
-    await openSettingsTab(page, 'Account');
+    await openSettingsTab(page, '账号');
     await expect(
       page.getByRole('heading', { name: '账号', exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel('账号用户名')).toBeVisible();
     // Not translated in this change: falls back to English per string.
-    await openSettingsTab(page, 'Appearance');
+    await openSettingsTab(page, '外观');
     await expect(
-      page.getByRole('heading', { name: 'Appearance', exact: true }),
+      page.getByRole('heading', { name: '外观', exact: true }),
     ).toBeVisible();
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
@@ -62,7 +62,7 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     await scanSetup(page);
 
     // Site title: tab, sidebar, mobile header; plain text, not markup.
-    await openSettingsTab(page, 'General');
+    await openSettingsTab(page, '常规');
     const hostile = '<img src=x onerror="window.__title=1"> & "q"';
     const title = page.locator('#general-title');
     await title.fill('   ');

@@ -2,6 +2,22 @@
 
 ## Current state
 
+- **Multi-language UI: English and Simplified Chinese (user request) — implemented; validated, one tracked gap.**
+  Every screen, dialog, editor/retry/upload message and form validation message now uses
+  the catalogs: `en.ts` and `zh-CN.ts` both have 688 keys with identical placeholders, and
+  zh-CN is declared complete in `registry.ts` (the "translation in progress" notice is
+  hidden). Dates, numbers and month names follow the saved language (`I18n.locale`).
+  Non-component client code uses `tr()` (`client/i18n-current.ts`). Known gap: server API
+  and SSR loader error text (about 98 distinct `DomainError`/`error()` strings) and most
+  shared zod messages remain English unless they exactly match a catalog string
+  (`localizeMessage`); translating them needs stable error codes. Markdown code-copy labels
+  localize after hydration. Gates: `check` 0 errors (1 pre-existing AppShell CSS warning),
+  `lint` clean except the pre-existing `docs/PROGRESS.md` Prettier warning, unit 172/172,
+  integration 261 pass / 7 Linux-only skips, `build` pass, `language.test.ts` 1/1 PASS; full
+  e2e 77 pass / 15 fail where all 15 also fail on clean HEAD (see history entry). Not run:
+  Linux/Alpine image gate, release drill, visual review of Chinese layouts.
+  Details: history entry "Session 2026-10-14 — multi-language UI" below.
+
 - **Security review follow-up — requested fixes implemented / locally verified.**
   User-approved isolation protects trusted device/IP and correct setup code/IP
   allowance even behind shared NAT or an IPv6 /64; aggregate/IP caps remain.
@@ -4985,3 +5001,82 @@ open; do not mark project/release done. No user commit/deploy without approval.
 - Security note for the owner: any valid session (including a stolen session cookie)
   can now create, download and delete the full unencrypted archive without re-entering
   the password. Restore still requires password and MFA.
+
+### Session 2026-10-14 — multi-language UI (English and Simplified Chinese)
+
+- **State:** done for the requested two languages, with one tracked gap (server-originated
+  text, below). No commit made by the agent; working-tree changes only.
+- **Decision (user request, supersedes the earlier partial-zh decision):** zh-CN is now
+  declared complete in `registry.ts` after every key was translated. PRODUCT_SPEC § Settings
+  General and ARCHITECTURE SS04 were updated to match. The English strings were kept
+  byte-identical, so English behaviour and English e2e expectations did not change.
+- **Implemented:**
+  - Catalogs: about 290 new keys added in both `en.ts` and `zh-CN.ts` (688 total, same key
+    set, placeholders verified by a unit test). Covered: shell/sidebar/search, timeline
+    and empty states, note card/detail/editor/feedback, editor options, location, date
+    picker, calendar and month picker, tags (management, preview, pending), trash,
+    settings (General, Appearance, Calendar, Account, Security, Storage, Backups,
+    Restore, About), login/MFA/setup/preferences, lifecycle/conflict/unsaved dialogs,
+    image viewer, Markdown copy/diagram/preview messages, unconfirmed-action banners.
+  - `I18n` (`client/i18n.svelte.ts`): `language` is a getter/setter that also updates the
+    module-level language; new `locale`, `msg()` and `msgs()` helpers.
+  - `shared/i18n/registry.ts`: `localeFor()`; `shared/i18n/index.ts`: `localizeMessage()`
+    (reverse lookup of an exact English catalog value).
+  - `shared/calendar.ts` `monthLabel(month, locale)` and `shared/timeline.ts`
+    `shortDate(at, tz, now, locale)` take a locale; callers pass `i18n.locale`.
+  - Non-component client code (workspace, lifecycle, tag operations, calendar, upload
+    protocol, attempt, date, Mermaid, model): messages use `tr()` from
+    `client/i18n-current.ts`. Editor status is now a flag (`'' | 'saved'`), not English text.
+  - Form validation: setup, preferences, account and General title show translated zod
+    messages through `localizeMessage` (field records from the server go through `msgs`).
+  - Settings tabs are a `$derived` list so labels update without reload.
+  - Markdown code-copy button and aria label are localized after hydration (server HTML
+    keeps the English defaults; the copy handler messages are translated).
+- **Test changes:** `tests/unit/i18n.test.ts` (zh-CN complete, every key exists);
+  new `tests/unit/i18n-messages.test.ts` (localizeMessage, tr, placeholders);
+  `tests/e2e/language.test.ts` (no partial notice; tabs/sidebar translated; the
+  pre-existing sidebar expectation for "All notes" replaced by the real Tags/Trash/Settings
+  links; the General tab opened by its Chinese name); `tests/e2e/auth.test.ts` (partial
+  notice expectation now `toHaveCount(0)`); `tests/README.md` contract lines.
+- **Commands and real results (host, Windows, Node 24):**
+  - `npm run check`: 0 errors, 1 warning (pre-existing AppShell CSS selector). PASS.
+  - `npm run lint`: ESLint clean; Prettier warns only on `docs/PROGRESS.md`, a
+    pre-existing warning (this file was intentionally not reformatted). FAIL only on that
+    warning.
+  - `npm run test:unit`: 172 passed / 34 files. PASS.
+  - `npm run test:integration`: 261 passed, 7 skipped (existing Linux-only platform
+    tests). PASS.
+  - `npm run build`: PASS.
+  - `npx playwright test tests/e2e/language.test.ts`: 1/1 PASS (after fixes listed above).
+  - Full `npx playwright test` (92 tests): 77 passed, 15 failed. All 15 failures are
+    pre-existing:
+    - 8 are on the security-hardening session-15 list (calendar image-width, detail date,
+      two shell screenshots, tag-management save text, timeline filter text, two axe
+      month-picker selectors);
+    - 7 also fail on a clean `HEAD` (7bda440) worktree, run with the same build and
+      ports: auth MFA security UI (expected 401, got 400), calendar timezone (fills a field
+      on the Calendar tab without selecting it), location-storage refresh button, version
+      About tab, two restore tests, composer axe walk. These are not caused by this change
+      and were not fixed in this session.
+    The worktree was removed afterwards (node_modules junction removed first).
+- **Known gaps (not done):**
+  1. Server API and SSR error text: about 98 distinct English messages in `src/lib/server`,
+     `src/routes/api` and `+page.server.ts` (e.g. "Sign in to continue.", the timeline
+     error shown in the notes pane). Shown English unless they exactly match a catalog
+     value. Fix plan: return stable error codes, map codes to catalog keys on the client,
+     and keep English messages for API consumers.
+  2. Shared zod messages in `shared/auth.ts`, `settings.ts`, `domain.ts`, `tags.ts` are
+     localized only in the four forms above; other uses stay English.
+  3. Visual review of Chinese layouts (line length, wrapping) and a mobile device check were
+     not done. Only the e2e assertions ran.
+  4. Linux/Alpine image gate was not run (this change does not touch Sharp, SQLite or
+     restore code, but AGENTS.md asks for the image gate at milestones).
+- **New architecture decisions:** `tr()` module-level language for non-component state
+  (messages keep the language they were created in); reverse-lookup `localizeMessage` for
+  validation text instead of changing schema contracts; locale parameters on shared
+  formatters with `'en'` defaults so existing English output is unchanged.
+- **Next task:** convert server error text to stable codes (start with
+  `src/lib/shared/domain.ts` error type and `src/routes/api/**/+server.ts`), then map codes
+  in the client; files to read first: `src/lib/shared/domain.ts`, `src/lib/shared/i18n/index.ts`,
+  `docs/ARCHITECTURE.md` SS04. Validation: `npm run check && npm run test:unit`, then
+  `npx playwright test tests/e2e/language.test.ts tests/e2e/auth.test.ts`.

@@ -4,8 +4,10 @@
   import PageTitle from '#lib/components/PageTitle.svelte';
   import SearchBox from '#lib/components/SearchBox.svelte';
   import StatusNoteList from '#lib/components/StatusNoteList.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let { data } = $props();
   const id = $props.id();
+  const t = useI18n().t;
   let query = $state(untrack(() => data.q));
   let ready = $state(false);
   // Trash search is its own query (Enter), not the sidebar's active-note search.
@@ -28,12 +30,12 @@
   }
 </script>
 
-<PageTitle title="Trash" />
+<PageTitle title={t('shell.trash')} />
 <div class="trash-page">
-  <h1>Trash</h1>
+  <h1>{t('shell.trash')}</h1>
   <SearchBox
     {id}
-    label="Search trash"
+    label={t('trash.search')}
     maxlength={1024}
     disabled={!ready}
     bind:value={query}

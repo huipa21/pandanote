@@ -2,8 +2,10 @@
   import { onMount } from 'svelte';
   import type { NoteLocation } from '#lib/shared/domain.ts';
   import { locationCoordinates, locationMapUrl } from '#lib/shared/location.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let { location }: { location: NoteLocation } = $props();
   const id = $props.id();
+  const t = useI18n().t;
   let message = $state('');
   let ready = $state(false);
   onMount(() => {
@@ -12,10 +14,9 @@
   async function copy() {
     try {
       await navigator.clipboard.writeText(locationCoordinates(location));
-      message = 'Coordinates copied.';
+      message = t('location.copied');
     } catch {
-      message =
-        'Could not copy. Select the shown coordinates to copy manually.';
+      message = t('location.copyFailed');
     }
   }
 </script>
@@ -26,14 +27,17 @@
   popovertarget={id}
   onclick={() => {
     message = '';
-  }}>Location: {location.label || locationCoordinates(location)}</button
+  }}
+  >{t('location.chip', {
+    label: location.label || locationCoordinates(location),
+  })}</button
 >
 <div
   {id}
   popover="auto"
   role="dialog"
   tabindex="-1"
-  aria-label="Location details"
+  aria-label={t('location.details')}
   class="location-popover"
   onkeydown={(event) => {
     if (event.key === 'Escape') event.stopPropagation();
@@ -42,23 +46,21 @@
   {#if location.label}<p><strong>{location.label}</strong></p>{/if}
   <p class="coordinates">{locationCoordinates(location)}</p>
   {#if location.accuracy !== null}<p>
-      Reported accuracy: {location.accuracy} m (estimate)
+      {t('location.accuracy', { accuracy: location.accuracy })}
     </p>{/if}
   <div class="actions">
     <button type="button" disabled={!ready} onclick={copy}
-      >Copy coordinates</button
+      >{t('location.copy')}</button
     ><a
       href={locationMapUrl(location)}
       target="_blank"
-      rel="external noopener noreferrer"
-      data-sveltekit-reload>Open map</a
+      rel="external noopener noreferrer">{t('location.openMap')}</a
     ><button type="button" popovertarget={id} popovertargetaction="hide"
-      >Close location</button
+      >{t('location.close')}</button
     >
   </div>
   <p class="help">
-    Open map shares these coordinates with OpenStreetMap in a new tab. No map is
-    loaded here.
+    {t('location.mapNote')}
   </p>
   {#if message}<p role="status">{message}</p>{/if}
 </div>

@@ -37,7 +37,8 @@
   } = $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const t = i18n.t;
   let ready = $state(false);
   let editError = $state('');
   let selected = $state<string | null>(null);
@@ -84,7 +85,7 @@
   }
 </script>
 
-<section class="note-page" aria-label="Note detail">
+<section class="note-page" aria-label={t('note.detail')}>
   <article
     class="surface"
     data-testid="note-detail"
@@ -98,7 +99,12 @@
           href={`/notes/${note.id}`}
           aria-describedby={`when-info-${note.id}`}
           ><time datetime={when.toISOString()}
-            >{shortDate(note.timelineAt, timezone)}</time
+            >{shortDate(
+              note.timelineAt,
+              timezone,
+              undefined,
+              i18n.locale,
+            )}</time
           ></a
         >
         <span class="when-info" id={`when-info-${note.id}`} role="tooltip"
@@ -182,8 +188,8 @@
           </li>{/each}
       </ul>{/if}
     {#if editError}<p role="alert">{editError}</p>{/if}
-    {#if !editing && workspace.status === 'Saved on server.'}<p role="status">
-        Saved on server.
+    {#if !editing && workspace.status === 'saved'}<p role="status">
+        {t('note.savedOnServer')}
       </p>{/if}
     {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
     <div hidden={editing} inert={editing}>
@@ -206,13 +212,13 @@
         }}
       />
       {#if note.location}<LocationPopover location={note.location} />{/if}
-      <ul class="files" aria-label="Attachments">
+      <ul class="files" aria-label={t('note.attachments')}>
         {#each (note.attachments ?? []).filter((file) => file.kind === 'file') as file (file.id)}<li
           >
             <a href={`/api/attachments/${file.id}/file`} download
               >{file.filename}</a
             >
-            · {file.storedBytes} bytes
+            · {t('note.bytes', { count: file.storedBytes })}
           </li>{/each}
       </ul>
     </div>

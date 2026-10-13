@@ -81,10 +81,10 @@ export function calendarYears(year: number): number[] {
   const start = Math.min(9979, Math.max(1969, year - 9));
   return Array.from({ length: 20 }, (_, i) => start + i);
 }
-export function monthLabel(month: string): string {
+export function monthLabel(month: string, locale = 'en'): string {
   const date = calendarMonth(month);
   return new Date(Date.UTC(date.year, date.month - 1, 1)).toLocaleDateString(
-    'en',
+    locale,
     { timeZone: 'UTC', month: 'long', year: 'numeric' },
   );
 }

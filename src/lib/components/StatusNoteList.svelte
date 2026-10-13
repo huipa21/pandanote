@@ -14,6 +14,7 @@
     type LifecycleState,
   } from '#lib/client/editor/lifecycle.svelte.ts';
   import Icon from './Icon.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Modal from './Modal.svelte';
   import { shortDate } from '#lib/shared/timeline.ts';
   import {
@@ -38,6 +39,8 @@
 
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
+  const i18n = useI18n();
+  const t = i18n.t;
 
   let items = $state(untrack(() => initial?.items ?? []));
   let cursor = $state(untrack(() => initial?.nextCursor ?? null));
@@ -148,7 +151,7 @@
       };
       if (disposed || currentGeneration !== generation) return;
       if (!payload.ok)
-        throw new Error(payload.error?.message ?? 'Older entries failed');
+        throw new Error(payload.error?.message ?? t('trash.olderFailed'));
       extended = true;
       items = merge(items, payload.data!.items);
       cursor = payload.data!.nextCursor;
@@ -156,9 +159,7 @@
       if (!disposed && currentGeneration === generation) {
         failed = true;
         error =
-          failure instanceof Error
-            ? failure.message
-            : 'Could not load older entries.';
+          failure instanceof Error ? failure.message : t('trash.olderDefault');
       }
     } finally {
       if (!disposed && currentGeneration === generation) loading = false;
@@ -202,7 +203,7 @@
     const batch = items.filter((note) => selected.has(note.id));
     if (!action || !batch.length || bulkBusy) return;
     if (!lifecycle.ready || lifecycle.busy || lifecycle.selected) {
-      bulkMessage = 'Finish the open action first, then try again.';
+      bulkMessage = t('trash.finishFirst');
       return;
     }
     bulkBusy = true;
@@ -212,12 +213,12 @@
       for (const note of batch) {
         if (disposed) break;
         if (lifecycle.busy || lifecycle.selected) {
-          bulkMessage = `Stopped after ${done} of ${batch.length}. Finish the open action, then try the rest again.`;
+          bulkMessage = t('trash.stoppedBusy', { done, total: batch.length });
           break;
         }
         await lifecycle.run(note, action);
         if (lifecycle.selected) {
-          bulkMessage = `Stopped after ${done} of ${batch.length}. Resolve the open dialog, then try the rest again.`;
+          bulkMessage = t('trash.stoppedDialog', { done, total: batch.length });
           break;
         }
         selected.delete(note.id);
@@ -229,11 +230,11 @@
   }
 </script>
 
-<section aria-label="Trashed notes">
+<section aria-label={t('trash.list')}>
   {#if initialError}<p role="alert">{initialError}</p>{/if}
   {#if error}<p role="alert">{error}</p>{/if}
   {#if !items.length && !initialError}<p>
-      {q ? 'No trashed notes match this search.' : 'Trash is empty.'}
+      {q ? t('trash.noMatch') : t('trash.empty')}
     </p>{/if}
   {#if items.length}
     <div class="bulk-row">
@@ -241,8 +242,8 @@
         bind:this={selectAllBox}
         type="checkbox"
         class="pick"
-        aria-label="Select all"
-        title="Select all"
+        aria-label={t('trash.selectAll')}
+        title={t('trash.selectAll')}
         checked={allSelected}
         disabled={!ready || bulkBusy}
         onchange={toggleAll}
@@ -251,8 +252,8 @@
         <button
           type="button"
           class="icon-only"
-          aria-label="Restore selected notes"
-          title="Restore selected notes"
+          aria-label={t('trash.restoreSelected')}
+          title={t('trash.restoreSelected')}
           disabled={!ready || bulkBusy || lifecycle.busy || !selectedCount}
           onclick={() => {
             bulkMessage = '';
@@ -262,8 +263,8 @@
         <button
           type="button"
           class="icon-only danger"
-          aria-label="Delete selected notes permanently"
-          title="Delete selected notes permanently"
+          aria-label={t('trash.deleteSelected')}
+          title={t('trash.deleteSelected')}
           disabled={!ready || bulkBusy || lifecycle.busy || !selectedCount}
           onclick={() => {
             bulkMessage = '';
@@ -271,7 +272,9 @@
           }}><Icon name="delete-forever" /></button
         >
       </div>
-      <span class="help" aria-live="polite">{selectedCount} selected</span>
+      <span class="help" aria-live="polite"
+        >{t('trash.selectedCount', { count: selectedCount })}</span
+      >
     </div>
     {#if bulkMessage}<p role="alert">{bulkMessage}</p>{/if}
   {/if}
@@ -290,7 +293,7 @@
           class="pick"
           checked={selected.has(note.id)}
           disabled={bulkBusy}
-          aria-label={`Select note from ${when}`}
+          aria-label={t('trash.selectNote', { when })}
           onchange={(event) =>
             setSelected(note.id, event.currentTarget.checked)}
         />
@@ -298,15 +301,16 @@
           ><time datetime={new Date(note.timelineAt).toISOString()}>{when}</time
           ></a
         >
-        {#if note.tags.length}<ul class="row-tags" aria-label="Note tags">
+        {#if note.tags.length}<ul class="row-tags" aria-label={t('note.tags')}>
             {#each note.tags as tag (tag)}<li>#{tag}</li>{/each}
           </ul>{/if}
         <span class="excerpt">{note.excerpt}</span>
         {#if note.images || note.files}<span class="help meta"
-            >{note.images ? `${note.images} image(s)` : ''}{note.images &&
-            note.files
-              ? ' · '
-              : ''}{note.files ? `${note.files} file(s)` : ''}</span
+            >{note.images
+              ? t('trash.images', { count: note.images })
+              : ''}{note.images && note.files ? ' · ' : ''}{note.files
+              ? t('trash.files', { count: note.files })
+              : ''}</span
           >{/if}
       </li>
     {/each}
@@ -319,32 +323,38 @@
       }
     }
     title={pending === 'restore'
-      ? 'Restore notes?'
-      : 'Delete notes permanently?'}
+      ? t('trash.restoreTitle')
+      : t('trash.deleteTitle')}
     dismissible={!bulkBusy}
     customHeader
   >
     <p>
       {pending === 'restore'
-        ? `Restore ${selectedCount} ${selectedCount === 1 ? 'note' : 'notes'}?`
-        : `Delete ${selectedCount} ${selectedCount === 1 ? 'note' : 'notes'} permanently? This cannot be undone.`}
+        ? selectedCount === 1
+          ? t('trash.restoreOne', { count: selectedCount })
+          : t('trash.restoreMany', { count: selectedCount })
+        : selectedCount === 1
+          ? t('trash.deleteOne', { count: selectedCount })
+          : t('trash.deleteMany', { count: selectedCount })}
     </p>
     <div class="confirm">
       <button
         type="button"
         class={pending === 'restore' ? 'primary' : 'danger'}
         onclick={confirmBulk}
-        >{pending === 'restore' ? 'Restore' : 'Delete permanently'}</button
+        >{pending === 'restore'
+          ? t('trash.restore')
+          : t('note.deletePermanently')}</button
       >
       <button type="button" data-initial-focus onclick={() => (pending = null)}
-        >Cancel</button
+        >{t('note.cancel')}</button
       >
     </div>
   </Modal>
   <div bind:this={sentinel} class="more" aria-live="polite">
-    {#if loading}<p class="help">Loading…</p>{/if}
+    {#if loading}<p class="help">{t('trash.loading')}</p>{/if}
     {#if failed}<button type="button" onclick={loadMore}
-        >Retry older entries</button
+        >{t('trash.retryOlder')}</button
       >{/if}
   </div>
 </section>

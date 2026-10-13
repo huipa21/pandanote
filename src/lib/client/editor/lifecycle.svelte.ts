@@ -1,3 +1,4 @@
+import { tr } from '#lib/client/i18n-current.ts';
 import { z } from 'zod';
 import {
   idSchema,
@@ -64,15 +65,13 @@ export class LifecycleState {
           if (key !== `${this.key}:${item.mutationId}`) throw new Error();
           items.push(item);
         } catch {
-          this.warning =
-            'A saved action retry could not be read. Its bytes are preserved. Inspect server notes before trying again.';
+          this.warning = tr('life.unreadable');
         }
       }
       this.pending = items;
       this.ready = true;
     } catch {
-      this.warning =
-        'Browser action storage is unavailable. Keep your work and retry.';
+      this.warning = tr('life.storageUnavailable');
     }
   }
   choose(target: LifecycleTarget, action: Attempt['action']) {
@@ -107,10 +106,7 @@ export class LifecycleState {
     this.observed = null;
   }
   private persist(items: Attempt[]) {
-    if (items.length > 100)
-      throw new Error(
-        'Too many unconfirmed actions. Resolve saved retries first.',
-      );
+    if (items.length > 100) throw new Error(tr('life.tooMany'));
     // Independent immutable records avoid two tabs overwriting a shared index.
     for (const item of items)
       if (!this.pending.some((a) => a.mutationId === item.mutationId))
@@ -130,7 +126,7 @@ export class LifecycleState {
       );
       this.selected = null;
     } catch {
-      this.error = 'Browser storage failed. The saved retry is retained.';
+      this.error = tr('life.storageFailed');
     }
   }
   async confirm() {
@@ -152,8 +148,7 @@ export class LifecycleState {
         try {
           this.persist([...this.pending, attempt]); // Confirm durability before any request.
         } catch {
-          this.error =
-            'The action was not sent: browser retry storage failed. Free browser storage and retry, or inspect the server version.';
+          this.error = tr('life.notSent');
           this.selected = { ...selected, silent: false };
           return;
         }
@@ -182,8 +177,7 @@ export class LifecycleState {
       this.error =
         (error instanceof Error && error.name !== 'AbortError'
           ? error.message
-          : 'Action interrupted.') +
-        ' No newer revision was overwritten. The exact retry is kept on this browser; inspect the server version or retry safely.';
+          : tr('life.interrupted')) + tr('life.notOverwritten');
     } finally {
       this.busy = false;
     }

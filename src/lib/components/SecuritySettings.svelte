@@ -52,9 +52,7 @@
     );
     const result = await response.json();
     if (!response.ok || !result.ok)
-      throw new Error(
-        result.error?.message ?? 'Could not complete security action.',
-      );
+      throw new Error(result.error?.message ?? t('security.actionFailed'));
     return result;
   }
   async function refresh() {
@@ -67,7 +65,7 @@
       days = summary.sessionLifetimeDays;
       loaded = true;
     } catch {
-      error = 'Could not load security settings. Retry loading.';
+      error = t('security.loadFailed');
     }
   }
   onMount(() => {
@@ -80,10 +78,10 @@
       ['disable', 'regenerate', 'revoke'].includes(action) &&
       !window.confirm(
         action === 'revoke'
-          ? 'Sign out all devices, including this one?'
+          ? t('security.confirmRevoke')
           : action === 'disable'
-            ? 'Disable MFA and invalidate all recovery codes?'
-            : 'Invalidate every old recovery code and generate ten new ones?',
+            ? t('security.confirmDisable')
+            : t('security.confirmRegenerate'),
       )
     )
       return;
@@ -123,14 +121,11 @@
       if (result.codes) codes = result.codes;
       message =
         action === 'enroll'
-          ? 'MFA is not activated until you confirm the new authenticator code.'
-          : 'Security updated. Other devices have been signed out.';
+          ? t('security.enrollNotActive')
+          : t('security.updated');
       await refresh();
     } catch (e) {
-      error =
-        e instanceof Error
-          ? e.message
-          : 'Connection failed. Check security status before retrying. If recovery codes were not received, regenerate them.';
+      error = e instanceof Error ? e.message : t('security.connection');
     } finally {
       busy = false;
     }
@@ -150,13 +145,10 @@
       codes = result.codes;
       enrollment = null;
       confirmation = '';
-      message = 'MFA enabled. Other devices have been signed out.';
+      message = t('security.mfaEnabledMsg');
       await refresh();
     } catch (e) {
-      error =
-        e instanceof Error
-          ? e.message
-          : 'Could not confirm. Check security status and retry.';
+      error = e instanceof Error ? e.message : t('security.confirmFailed');
     } finally {
       busy = false;
     }
@@ -169,22 +161,16 @@
       enrollment = null;
       confirmation = '';
     } catch {
-      error =
-        'Could not cancel enrollment. Retry, or wait five minutes for it to expire.';
+      error = t('security.cancelFailed');
     } finally {
       busy = false;
     }
   }
   function download() {
     const url = URL.createObjectURL(
-      new Blob(
-        [
-          'PandaNote single-use recovery codes\nKeep private. Each code replaces TOTP, not your password.\n\n' +
-            codes.join('\n') +
-            '\n',
-        ],
-        { type: 'text/plain' },
-      ),
+      new Blob([t('security.recoveryFileHeader') + codes.join('\n') + '\n'], {
+        type: 'text/plain',
+      }),
     );
     const link = document.createElement('a');
     link.href = url;
@@ -194,18 +180,15 @@
   }
 </script>
 
-<h2>Security & session</h2>
+<h2>{t('security.heading')}</h2>
 {#if loaded}
   <p>
-    MFA: {mfa ? 'enabled' : 'disabled'}. {mfa
-      ? `${remaining} recovery codes remaining.`
-      : ''}
+    {t('security.mfaStatus', {
+      state: mfa ? t('security.enabled') : t('security.disabled'),
+    })}{mfa ? ` ${t('security.recoveryRemaining', { count: remaining })}` : ''}
   </p>
   <p class="help">
-    Security actions require your password and, when enabled, an unused
-    authenticator or recovery code. Authenticator codes use 30-second steps with
-    ±one step clock drift; accepted codes cannot be reused. Wait for the next
-    code after enrollment.
+    {t('security.help')}
   </p>
   {#if failed > 0}
     <p class="notice" data-testid="second-factor-failures">
@@ -217,19 +200,19 @@
   {#if !enrollment}
     <form onsubmit={submit}>
       <fieldset disabled={busy}>
-        <label for="security-action">Security action</label>
+        <label for="security-action">{t('security.action')}</label>
         <select id="security-action" bind:value={action}>
           <option value="enroll"
-            >{mfa ? 'Change authenticator' : 'Enable MFA'}</option
+            >{mfa ? t('security.optChange') : t('security.optEnable')}</option
           >
-          {#if mfa}<option value="disable">Disable MFA</option><option
-              value="regenerate">Regenerate recovery codes</option
+          {#if mfa}<option value="disable">{t('security.optDisable')}</option
+            ><option value="regenerate">{t('security.optRegenerate')}</option
             >{/if}
-          <option value="password">Change password</option><option
-            value="lifetime">Change session lifetime</option
-          ><option value="revoke">Sign out all devices</option>
+          <option value="password">{t('security.optPassword')}</option><option
+            value="lifetime">{t('security.optLifetime')}</option
+          ><option value="revoke">{t('security.optRevoke')}</option>
         </select>
-        <label for="security-password">Current password</label>
+        <label for="security-password">{t('security.currentPassword')}</label>
         <input
           id="security-password"
           type="password"
@@ -238,8 +221,7 @@
           required
           maxlength="256"
         />
-        {#if mfa}<label for="security-code"
-            >Authenticator or recovery code</label
+        {#if mfa}<label for="security-code">{t('security.codeLabel')}</label
           ><input
             id="security-code"
             autocomplete="one-time-code"
@@ -247,7 +229,8 @@
             required
             maxlength="80"
           />{/if}
-        {#if action === 'password'}<label for="new-password">New password</label
+        {#if action === 'password'}<label for="new-password"
+            >{t('security.newPassword')}</label
           ><input
             id="new-password"
             type="password"
@@ -258,10 +241,10 @@
             aria-describedby="new-password-help"
           />
           <p id="new-password-help" class="help">
-            Use 8–128 characters. Spaces count; no complexity rules.
+            {t('security.passwordHelp')}
           </p>{/if}
         {#if action === 'lifetime'}<label for="session-days"
-            >Session lifetime (days)</label
+            >{t('security.sessionDays')}</label
           ><input
             id="session-days"
             type="number"
@@ -271,22 +254,20 @@
             required
           />{/if}
         <button class="primary" type="submit"
-          >{busy ? 'Please wait…' : 'Authenticate and continue'}</button
+          >{busy ? t('auth.wait') : t('security.authContinue')}</button
         >
       </fieldset>
     </form>
   {:else}
-    <h3>Confirm authenticator enrollment</h3>
+    <h3>{t('security.confirmTitle')}</h3>
     <p>
-      Scan this QR code in your authenticator, or enter the secret manually.
-      Keep it private. Enrollment expires in five minutes; your existing MFA
-      stays unchanged until confirmation.
+      {t('security.enrollHelp')}
     </p>
     <svg
       class="qr"
       viewBox={`0 0 ${enrollment.qr.length + 8} ${enrollment.qr.length + 8}`}
       role="img"
-      aria-label="Authenticator enrollment QR code"
+      aria-label={t('security.qrLabel')}
       shape-rendering="crispEdges"
     >
       <rect width="100%" height="100%" fill="white" />
@@ -299,13 +280,12 @@
             />{/if}{/each}{/each}
     </svg>
     <p>
-      Manual secret: <code data-testid="enrollment-secret"
-        >{enrollment.secret}</code
-      >
+      {t('security.manualSecret')}
+      <code data-testid="enrollment-secret">{enrollment.secret}</code>
     </p>
     <form onsubmit={confirm}>
       <fieldset disabled={busy}>
-        <label for="enrollment-code">New authenticator code</label><input
+        <label for="enrollment-code">{t('security.newCode')}</label><input
           id="enrollment-code"
           autocomplete="one-time-code"
           inputmode="numeric"
@@ -314,36 +294,30 @@
           bind:value={confirmation}
           required
         />
-        <button class="primary" type="submit">Confirm MFA</button><button
-          type="button"
-          onclick={cancel}>Cancel enrollment</button
+        <button class="primary" type="submit">{t('security.confirmMfa')}</button
+        ><button type="button" onclick={cancel}
+          >{t('security.cancelEnroll')}</button
         >
       </fieldset>
     </form>
   {/if}
-  <button onclick={refresh} disabled={busy}>Refresh security status</button>
-{:else}<button onclick={refresh} disabled={busy}>Retry loading security</button
+  <button onclick={refresh} disabled={busy}>{t('security.refresh')}</button>
+{:else}<button onclick={refresh} disabled={busy}
+    >{t('security.retryLoad')}</button
   >{/if}
 {#if codes.length}
-  <section class="recovery" aria-label="New recovery codes">
-    <h3>Save your ten recovery codes now</h3>
+  <section class="recovery" aria-label={t('security.codesLabel')}>
+    <h3>{t('security.codesTitle')}</h3>
     <p>
-      Shown only at generation. Each works once with your password. Regeneration
-      invalidates the old set. These codes do not protect a compromised browser;
-      downloaded backups are also sensitive and unencrypted.
+      {t('security.codesHelp')}
     </p>
     <ol>
       {#each codes as value (value)}<li><code>{value}</code></li>{/each}
     </ol>
-    <button onclick={download}>Download recovery codes</button><button
+    <button onclick={download}>{t('security.downloadCodes')}</button><button
       onclick={() => {
-        if (
-          window.confirm(
-            'Have you saved the recovery codes? They cannot be shown again.',
-          )
-        )
-          codes = [];
-      }}>I saved these codes</button
+        if (window.confirm(t('security.savedConfirm'))) codes = [];
+      }}>{t('security.savedCodes')}</button
     >
   </section>
 {/if}
@@ -351,8 +325,7 @@
     {error}
   </p>{/if}
 <p class="help">
-  Lost all access? Recovery requires the documented operator command on the VPS.
-  There is no public reset or MFA bypass.
+  {t('security.lostAccess')}
 </p>
 
 <style>

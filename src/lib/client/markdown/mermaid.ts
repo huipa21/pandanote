@@ -1,3 +1,4 @@
+import { tr } from '#lib/client/i18n-current.ts';
 import DOMPurify from 'dompurify';
 
 export const MAX_DIAGRAM_LENGTH = 12_000;
@@ -8,9 +9,7 @@ export function validateDiagram(source: string): void {
     (source.match(/--|==|->|[;{}]/g)?.length ?? 0) > 300 ||
     (source.match(/[[({]|\bparticipant\b/g)?.length ?? 0) > 160
   )
-    throw new Error(
-      'Diagram is too large. Use at most 12,000 characters, 160 lines and 300 connections.',
-    );
+    throw new Error(tr('mermaid.tooLarge'));
   // Reject config/directives before Mermaid can change our trusted settings.
   // Also forbid HTML/CSS/links/assets before the library's temporary DOM exists.
   if (
@@ -18,9 +17,7 @@ export function validateDiagram(source: string): void {
       source.replace(/--?>>?|==>|-.->|=>|~>/g, ''),
     )
   )
-    throw new Error(
-      'Diagram links, HTML, styles, assets and configuration directives are disabled.',
-    );
+    throw new Error(tr('mermaid.disabled'));
 }
 
 /** Detached SVG only; never insert the library's raw temporary output. */
@@ -47,7 +44,7 @@ export function sanitizeSvg(svg: string): string {
     document.documentElement.localName !== 'svg' ||
     document.querySelector('parsererror')
   )
-    throw new Error('Invalid diagram output.');
+    throw new Error(tr('mermaid.invalidOutput'));
   const id = document.documentElement.id;
   for (const node of document.querySelectorAll('*')) {
     for (const attr of [...node.attributes]) {
@@ -106,7 +103,7 @@ function uniqueSvg(svg: string): string {
   const tree = new DOMParser().parseFromString(svg, 'image/svg+xml');
   const old = tree.documentElement.id;
   if (!/^panda-diagram-\d+$/.test(old))
-    throw new Error('Invalid diagram output.');
+    throw new Error(tr('mermaid.invalidOutput'));
   const id = `panda-diagram-${++sequence}`;
   for (const node of tree.querySelectorAll('*')) {
     for (const attr of [...node.attributes])
@@ -166,7 +163,7 @@ export async function renderDiagram(
         mermaid.render(id, source, container),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(
-            () => reject(new Error('Diagram rendering timed out.')),
+            () => reject(new Error(tr('mermaid.timeout'))),
             5000,
           );
         }),

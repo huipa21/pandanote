@@ -2,6 +2,8 @@
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
   import LocationOptions from './LocationOptions.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  const t = useI18n().t;
 
   let {
     workspace,
@@ -21,16 +23,18 @@
       workspace.frozen,
   );
   let locationLabel = $derived(
-    workspace?.active?.location ? 'Edit location' : 'Add location',
+    workspace?.active?.location
+      ? t('editor.editLocation')
+      : t('editor.addLocation'),
   );
 </script>
 
-<div class="note-options" role="group" aria-label="Note options">
+<div class="note-options" role="group" aria-label={t('editor.options')}>
   <button
     type="button"
     disabled={locked}
-    aria-label="Add tag"
-    title="Tags"
+    aria-label={t('editor.addTag')}
+    title={t('editor.tags')}
     onclick={onTag}
   >
     <svg viewBox="0 0 24 24" aria-hidden="true"
@@ -40,8 +44,8 @@
   <button
     type="button"
     disabled={locked}
-    aria-label="Add photos or video"
-    title="Photos or video"
+    aria-label={t('editor.addMedia')}
+    title={t('editor.mediaTitle')}
     onclick={onFiles}
   >
     <svg viewBox="0 0 24 24" aria-hidden="true"
@@ -55,8 +59,8 @@
   <button
     type="button"
     disabled={locked}
-    aria-label="Set date"
-    title="Date"
+    aria-label={t('editor.setDate')}
+    title={t('editor.dateTitle')}
     onclick={() => (dateOpen = true)}
   >
     <svg viewBox="0 0 24 24" aria-hidden="true"
@@ -69,7 +73,7 @@
     type="button"
     disabled={locked}
     aria-label={locationLabel}
-    title="Location"
+    title={t('editor.locationTitle')}
     onclick={() => (locationOpen = true)}
   >
     <svg viewBox="0 0 24 24" aria-hidden="true"

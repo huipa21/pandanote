@@ -1,3 +1,4 @@
+import { tr } from '#lib/client/i18n-current.ts';
 import type { Nodes } from 'mdast';
 import type { NoteLocation, NoteSnapshot } from '#lib/shared/domain.ts';
 import type { NoteContent, NoteMutation } from '#lib/shared/notes.ts';
@@ -83,8 +84,7 @@ export function commandForSession(
       : {}),
   };
   if (session.kind === 'new') return { action: 'create', mutationId, content };
-  if (!session.serverBase)
-    throw new Error('Editing requires a complete server snapshot.');
+  if (!session.serverBase) throw new Error(tr('model.completeSnapshot'));
   return {
     action: 'update',
     mutationId,
@@ -94,15 +94,12 @@ export function commandForSession(
   };
 }
 export function assertEditableSnapshot(note: NoteSnapshot): void {
-  if (note.status === 'trash')
-    throw new Error('Restore this note before editing it.');
+  if (note.status === 'trash') throw new Error(tr('model.restoreFirst'));
   if (
     note.attachmentIds.length !== (note.attachments ?? []).length ||
     note.attachmentIds.some((id, i) => note.attachments?.[i]?.id !== id)
   )
-    throw new Error(
-      'Attachment metadata is incomplete. Reload the note before editing.',
-    );
+    throw new Error(tr('model.metadataIncomplete'));
 }
 
 /** Remap parsed image destinations only; code, labels and unrelated text stay intact. */

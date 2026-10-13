@@ -1,10 +1,12 @@
 <script lang="ts">
   import { getContext, untrack } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import {
     READING,
     type ReadingState,
   } from '#lib/client/timeline/reading.svelte.ts';
   const reading = getContext<ReadingState | undefined>(READING);
+  const t = useI18n().t;
   import {
     renderMarkdown,
     type ImageReference,
@@ -54,9 +56,7 @@
           error = '';
         })
         .catch(() => {
-          if (current === generation)
-            error =
-              'Preview could not be rendered. Reduce the note size and try again; your text is unchanged.';
+          if (current === generation) error = t('markdown.previewFailed');
         })
         .finally(() => {
           if (current === generation) loading = false;
@@ -79,21 +79,31 @@
           image.setAttribute('role', 'button');
           image.setAttribute(
             'aria-label',
-            `Open image: ${image.alt || 'note image'}`,
+            t('markdown.openImage', {
+              name: image.alt || t('markdown.noteImage'),
+            }),
           );
         }
       });
     // SSR copy controls wait for the delegated handler/hydrated DOM. Preview
     // replacements use the same boundary, never a swallowed pre-hydration click.
     const codes = output.codes;
+    // Labels are localized after hydration; server HTML keeps the English defaults.
+    root
+      .querySelectorAll<HTMLButtonElement>('button[data-code]')
+      .forEach((button) => {
+        const language =
+          button.closest('.code-block')?.querySelector('.code-toolbar > span')
+            ?.textContent || 'text';
+        button.textContent = t('markdown.copy');
+        button.setAttribute('aria-label', t('markdown.copyCode', { language }));
+      });
     if (codes.length)
       root
         .querySelectorAll<HTMLButtonElement>('button[data-code]')
         .forEach((button) => {
           button.disabled = !allowCodeCopy;
-          button.title = allowCodeCopy
-            ? ''
-            : 'Show more to copy the complete original code.';
+          button.title = allowCodeCopy ? '' : t('markdown.showMoreCopy');
         });
   });
   $effect(() => {
@@ -117,7 +127,7 @@
       if (drawn.get(target) === current) return;
       drawn.set(target, current);
       if (!target.querySelector('svg'))
-        target.textContent = 'Rendering diagram…';
+        target.textContent = t('mermaid.rendering');
       try {
         const { renderDiagram } =
           await import('#lib/client/markdown/mermaid.ts');
@@ -134,9 +144,13 @@
           target.removeAttribute('role');
           target.textContent =
             failure instanceof Error &&
-            /too large|disabled|timed out/.test(failure.message)
+            [
+              t('mermaid.tooLarge'),
+              t('mermaid.disabled'),
+              t('mermaid.timeout'),
+            ].includes(failure.message)
               ? failure.message
-              : 'Invalid Mermaid diagram. Check its syntax in Write.';
+              : t('mermaid.invalid');
         }
       }
     }
@@ -208,13 +222,13 @@
       await navigator.clipboard.writeText(
         output.codes[Number(target.dataset.code)],
       );
-      target.textContent = 'Copied!';
+      target.textContent = t('markdown.copied');
       target.parentElement!.querySelector('[data-copy-feedback]')!.textContent =
-        'Code copied.';
+        t('markdown.codeCopied');
     } catch {
-      target.textContent = 'Copy failed — select code';
+      target.textContent = t('markdown.copyFailedSelect');
       target.parentElement!.querySelector('[data-copy-feedback]')!.textContent =
-        'Copy failed. Select the code and copy manually.';
+        t('markdown.copyFailed');
     }
     // No timer or detached DOM retained after replacing/unmounting the preview.
   }

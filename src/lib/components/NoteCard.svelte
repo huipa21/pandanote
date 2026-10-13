@@ -23,7 +23,8 @@
   } from '#lib/client/editor/lifecycle.svelte.ts';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const t = i18n.t;
   import {
     cardImages,
     gridImages,
@@ -140,16 +141,12 @@
           payload.data.status !== 'published' ||
           payload.data.revision !== note.revision
         )
-          throw new Error(
-            'This note changed. Refresh the timeline before expanding it.',
-          );
+          throw new Error(t('note.changed'));
         full = payload.data;
       } catch (failure) {
         if (!disposed)
           error =
-            failure instanceof Error
-              ? failure.message
-              : 'Note could not be loaded. Retry Show more.';
+            failure instanceof Error ? failure.message : t('note.loadFailed');
       } finally {
         if (!disposed) loading = false;
       }
@@ -248,7 +245,12 @@
           href={`/notes/${note.id}`}
           aria-describedby={`when-info-${note.id}`}
           ><time datetime={new Date(note.timelineAt).toISOString()}
-            >{shortDate(note.timelineAt, timezone)}</time
+            >{shortDate(
+              note.timelineAt,
+              timezone,
+              undefined,
+              i18n.locale,
+            )}</time
           ></a
         >
         <span class="when-info" id={`when-info-${note.id}`} role="tooltip"
@@ -287,19 +289,16 @@
           </li>{/each}
       </ul>{/if}
     {#if note.snippets?.length}
-      <section
-        class="search-snippets"
-        aria-label="Search excerpts (normalized text)"
-      >
-        <span class="help">Search excerpts · normalized text</span>
+      <section class="search-snippets" aria-label={t('note.searchExcerpts')}>
+        <span class="help">{t('note.searchExcerptsHelp')}</span>
         {#each note.snippets as snippet, index (index)}
           <p>
             <span class="muted"
               >{snippet.field === 'body'
-                ? 'Source'
+                ? t('note.snippetSource')
                 : snippet.field === 'tag'
-                  ? 'Tag'
-                  : 'Filename'}:
+                  ? t('note.snippetTag')
+                  : t('note.snippetFile')}:
             </span>{#each snippet.segments as segment, part (part)}{#if segment.highlighted}<mark
                   >{segment.text}</mark
                 >{:else}{segment.text}{/if}{/each}
@@ -326,7 +325,7 @@
       }}
     />
     {#if note.bodyTruncated && source === note}<p class="help">
-        Long note preview · full content loads on expansion.
+        {t('note.preview')}
       </p>{/if}
     {#if collapsePreference && (overflow || note.bodyTruncated || expanded)}
       <button
@@ -335,10 +334,10 @@
         disabled={loading || !ready}
         onclick={expand}
         >{loading
-          ? 'Loading full note…'
+          ? t('note.loadingFull')
           : expanded
-            ? 'Show less'
-            : 'Show more'}</button
+            ? t('note.showLess')
+            : t('note.showMore')}</button
       >
     {/if}
     {#if error}<p role="alert">
@@ -350,17 +349,19 @@
               revision: note.revision,
               status: 'published',
               deleted: false,
-            })}>Refresh</button
+            })}>{t('note.refresh')}</button
         >
       </p>{/if}
     {#if note.location}<LocationPopover location={note.location} />{/if}
     {#if (note.attachments ?? []).some((a) => a.kind === 'file')}
-      <ul class="files" aria-label="Attachments">
+      <ul class="files" aria-label={t('note.attachments')}>
         {#each (note.attachments ?? []).filter((a) => a.kind === 'file') as file (file.id)}<li
           >
             <a href={`/api/attachments/${file.id}/file`} download
               >{file.filename}</a
-            ><span class="help">{file.storedBytes} bytes</span>
+            ><span class="help"
+              >{t('note.bytes', { count: file.storedBytes })}</span
+            >
           </li>{/each}
       </ul>
     {/if}

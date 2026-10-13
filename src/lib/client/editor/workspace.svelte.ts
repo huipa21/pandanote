@@ -1,3 +1,4 @@
+import { tr } from '#lib/client/i18n-current.ts';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
 import { storageLimitsFrom, type StorageLimits } from '#lib/shared/storage.ts';
@@ -56,7 +57,7 @@ export class EditorWorkspace {
   private blobUrls = new SvelteMap<string, { blob: Blob; url: string }>();
   missing = $state<string[]>([]);
   error = $state('');
-  status = $state('');
+  status = $state<'' | 'saved'>('');
   ready = $state(false);
   busy = $state(false);
   dirty = $derived(isSessionDirty(this.active, this.cleanSnapshot));
@@ -172,7 +173,9 @@ export class EditorWorkspace {
 
     const currentCount = this.active.attachments.length;
     if (currentCount + files.length > this.limits.maxAttachmentsPerNote) {
-      this.error = `You can attach at most ${this.limits.maxAttachmentsPerNote} files to one note.`;
+      this.error = tr('work.maxFiles', {
+        count: this.limits.maxAttachmentsPerNote,
+      });
       return;
     }
 
@@ -188,7 +191,7 @@ export class EditorWorkspace {
       ).length;
       const photos = kinds.filter(Boolean).length;
       if (videos + photos < files.length) {
-        this.error = 'Only photos and videos can be added to a note.';
+        this.error = tr('work.onlyMedia');
         return;
       }
       const existingPhotos = session.attachments.filter(
@@ -199,20 +202,19 @@ export class EditorWorkspace {
           a.kind === 'file' && isVideoMeta({ type: a.mime, name: a.filename }),
       ).length;
       if (videos > 1) {
-        this.error = 'A note can have only one video.';
+        this.error = tr('work.oneVideo');
         return;
       }
       if (videos && session.attachments.length) {
-        this.error =
-          'A video cannot be combined with photos or other files. Remove them first.';
+        this.error = tr('work.videoMix');
         return;
       }
       if (photos && existingVideos) {
-        this.error = 'A note with a video cannot also have photos.';
+        this.error = tr('work.videoPhotos');
         return;
       }
       if (existingPhotos + photos > MAX_NOTE_PHOTOS) {
-        this.error = `You can add at most ${MAX_NOTE_PHOTOS} photos to one note.`;
+        this.error = tr('work.maxPhotos', { count: MAX_NOTE_PHOTOS });
         return;
       }
       for (const [index, file] of files.entries()) {
@@ -244,7 +246,7 @@ export class EditorWorkspace {
       };
       await this.loadFiles();
     } catch {
-      this.error = 'Files could not be added. Keep the originals and retry.';
+      this.error = tr('work.addFailed');
     } finally {
       this.busy = false;
     }
@@ -273,7 +275,7 @@ export class EditorWorkspace {
     );
     if (!item) return;
     if (file.size !== item.size) {
-      this.error = `File size does not match ${item.filename}.`;
+      this.error = tr('work.sizeMismatch', { name: item.filename });
       return;
     }
     this.localBlobs.set(id, file);
@@ -347,7 +349,7 @@ export class EditorWorkspace {
     this.postConflict = null;
 
     this.postProgress = {
-      stage: 'Preparing save…',
+      stage: tr('work.stagePreparing'),
       completed: 0,
       total: this.active.attachments.length,
       loaded: 0,
@@ -367,7 +369,7 @@ export class EditorWorkspace {
         )) {
           const blob = this.localBlobs.get(item.id);
           if (!blob || blob.size !== item.size) {
-            throw new Error(`File ${item.filename} is missing.`);
+            throw new Error(tr('work.fileMissing', { name: item.filename }));
           }
           items.push({
             id: item.id,
@@ -408,7 +410,7 @@ export class EditorWorkspace {
           if (!(await this.checkTags(active)))
             throw new PostingError({
               code: 'validation',
-              message: 'Review retired tags before retrying.',
+              message: tr('work.reviewTags'),
             });
           if (!active.serverBase) return;
           const response = await fetch(
@@ -427,8 +429,7 @@ export class EditorWorkspace {
           ) {
             throw new PostingError({
               code: 'conflict',
-              message:
-                'The server base changed. Compare the server version before replacing it.',
+              message: tr('work.baseChanged'),
               conflict: note,
             });
           }
@@ -454,7 +455,7 @@ export class EditorWorkspace {
           snapshot,
         };
         this.resetSession();
-        this.status = 'Saved on server.';
+        this.status = 'saved';
       }
       return true;
     } catch (error) {
@@ -464,7 +465,7 @@ export class EditorWorkspace {
             ? error.message
             : error instanceof Error
               ? error.message
-              : 'Save failed.';
+              : tr('work.saveFailed');
         this.postRequiresLogin =
           error instanceof PostingError && error.detail.code === 'unauthorized';
         this.postConflict =
@@ -494,8 +495,7 @@ export class EditorWorkspace {
     const result = (await response.json()) as ApiResult<StaleTag[]>;
     if (!result.ok) throw new PostingError(result.error);
     this.staleTagChoices = result.data;
-    if (result.data.length)
-      this.postError = 'Retired tags need an explicit choice.';
+    if (result.data.length) this.postError = tr('work.retiredChoice');
     return result.data.length === 0;
   }
 
@@ -530,8 +530,7 @@ export class EditorWorkspace {
               );
             });
     } catch {
-      this.postError =
-        'A resolved tag would exceed the tag limits. Edit that hashtag manually; your text is unchanged.';
+      this.postError = tr('work.tagLimit');
       return false;
     }
     const acknowledgements =
@@ -634,7 +633,7 @@ export class EditorWorkspace {
       assertEditableSnapshot(note);
     } catch (error) {
       this.error =
-        error instanceof Error ? error.message : 'Could not open the editor.';
+        error instanceof Error ? error.message : tr('work.openFailed');
       return false;
     }
     if (!(await this.promptUnsavedChanges())) return false;
@@ -733,8 +732,7 @@ export class EditorWorkspace {
       await this.loadFiles();
       return this.post();
     } catch {
-      this.postError =
-        'Conflict resolution could not finish. Your editor and files are retained; retry.';
+      this.postError = tr('work.conflictFailed');
       return false;
     }
   }

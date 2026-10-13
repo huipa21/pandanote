@@ -1,8 +1,10 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
 
   let { workspace }: { workspace: EditorWorkspace } = $props();
+  const t = useI18n().t;
   let list = $state<HTMLUListElement>();
   let dragId = $state<string | null>(null);
   let overId = $state<string | null>(null);
@@ -56,7 +58,7 @@
 
 {#if items.length}
   <div class="attachments">
-    <ul bind:this={list} aria-label="Attachments ({items.length})">
+    <ul bind:this={list} aria-label={t('attach.list', { count: items.length })}>
       {#each items as item, index (item.id)}
         <li
           data-attachment={item.id}
@@ -71,8 +73,11 @@
           <button
             type="button"
             class="tile"
-            aria-label="{item.filename}, {index +
-              1} of {items.length}. Press Alt plus an arrow key to move."
+            aria-label={t('attach.tile', {
+              name: item.filename,
+              index: index + 1,
+              total: items.length,
+            })}
             onkeydown={(event) => key(event, item.id, index)}
           >
             {#if workspace.thumbs[item.id]}
@@ -94,8 +99,8 @@
           <button
             type="button"
             class="remove"
-            aria-label="Remove {item.filename}"
-            title="Remove"
+            aria-label={t('attach.remove', { name: item.filename })}
+            title={t('attach.removeTitle')}
             disabled={locked}
             onclick={() => workspace.removeAttachment(item.id)}
             ><svg viewBox="0 0 24 24" aria-hidden="true"
@@ -104,7 +109,7 @@
           >
           {#if workspace.missing.includes(item.id)}
             <label class="repair"
-              >Repair {item.filename}<input
+              >{t('attach.repair', { name: item.filename })}<input
                 type="file"
                 onchange={(event) => {
                   const file = event.currentTarget.files?.[0];
@@ -119,7 +124,7 @@
     </ul>
     {#if workspace.missing.length}
       <p class="missing" role="alert">
-        Missing file — choose the original or remove it. Posting must wait.
+        {t('attach.missing')}
       </p>
     {/if}
   </div>

@@ -12,10 +12,12 @@
   import type { ApiResult } from '#lib/shared/domain.ts';
   import type { ManagedTag } from '#lib/shared/tags.ts';
   import { filterHref } from '#lib/shared/timeline.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let { data } = $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const ops = new TagOperations(workspace);
   const id = $props.id();
+  const t = useI18n().t;
   type Page = { items: ManagedTag[]; nextOffset: number | null };
   let items = $state<ManagedTag[]>(untrack(() => data.tagPage.items));
   let nextOffset = $state<number | null>(
@@ -96,12 +98,12 @@
   }
 </script>
 
-<PageTitle title="Tags" />
+<PageTitle title={t('shell.tags')} />
 <div class="tags-page">
-  <h1>Tags</h1>
+  <h1>{t('shell.tags')}</h1>
   <SearchBox
     {id}
-    label="Search tags"
+    label={t('tags.search')}
     maxlength={256}
     disabled={!ready}
     bind:value={query}
@@ -119,9 +121,9 @@
         </li>
       {/each}
     </ul>
-  {:else}<p class="muted">No tags</p>{/if}
+  {:else}<p class="muted">{t('tags.none')}</p>{/if}
   <div bind:this={sentinel} class="more" aria-live="polite">
-    {#if failed}<button onclick={loadMore}>Retry</button>
+    {#if failed}<button onclick={loadMore}>{t('tags.retry')}</button>
     {/if}
   </div>
 </div>

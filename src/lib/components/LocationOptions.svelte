@@ -4,6 +4,7 @@
   import { manualLocation } from '#lib/shared/location.ts';
   import { locationSchema } from '#lib/shared/domain.ts';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let {
     workspace,
     open = $bindable(false),
@@ -23,6 +24,7 @@
   let generation = 0;
   let sessionId: string | null = null;
   const id = $props.id();
+  const t = useI18n().t;
   let locked = $derived(
     !workspace.ready ||
       workspace.busy ||
@@ -49,8 +51,7 @@
     if (requesting || locked) return;
     error = '';
     if (!window.isSecureContext || !navigator.geolocation) {
-      error =
-        'Current location requires a supported browser and HTTPS (or localhost). You can enter coordinates manually or post without location.';
+      error = t('location.unsupported');
       return;
     }
     requesting = true;
@@ -73,8 +74,7 @@
             label: label.trim() || null,
           });
           if (!result.success) {
-            error =
-              'The browser returned an invalid location. Enter coordinates manually or post without location.';
+            error = t('location.invalidBrowser');
             return;
           }
           latitude = String(result.data.latitude);
@@ -86,17 +86,16 @@
           requesting = false;
           error =
             failure.code === 1
-              ? 'Location permission was denied. Enter coordinates manually or post without location.'
+              ? t('location.denied')
               : failure.code === 3
-                ? 'Location request timed out. Retry, enter coordinates manually, or post without location.'
-                : 'Current location is unavailable. Retry, enter coordinates manually, or post without location.';
+                ? t('location.timeout')
+                : t('location.unavailable');
         },
         { maximumAge: 0, timeout: 10_000, enableHighAccuracy: false },
       );
     } catch {
       requesting = false;
-      error =
-        'The browser could not request location. Enter coordinates manually or post without location.';
+      error = t('location.cannotRequest');
     }
   }
   function manualEdit() {
@@ -107,7 +106,7 @@
   async function save(remove = false) {
     if (locked || saving) return;
     if (sessionId !== (workspace.active?.localId ?? null)) {
-      error = 'The active note changed. Close and reopen location.';
+      error = t('location.activeChanged');
       return;
     }
     error = '';
@@ -125,9 +124,7 @@
       open = false;
     } catch (failure) {
       error =
-        failure instanceof Error
-          ? failure.message
-          : 'Check the location and retry.';
+        failure instanceof Error ? failure.message : t('location.checkRetry');
     } finally {
       saving = false;
     }
@@ -142,18 +139,19 @@
       open = true;
     }}
     title={workspace.active?.location?.label ?? undefined}
-    >{workspace.active?.location ? 'Edit location' : 'Add location'}</button
+    >{workspace.active?.location
+      ? t('editor.editLocation')
+      : t('editor.addLocation')}</button
   >{/if}
-<Modal bind:open title="Note location" dismissible={!saving}>
+<Modal bind:open title={t('location.title')} dismissible={!saving}>
   <p class="help">
-    Optional, device-local until Post or Save changes. No tracking or map
-    lookup. Browser accuracy is an estimate, not a guarantee.
+    {t('location.help')}
   </p>
   <button
     type="button"
     disabled={locked || requesting || saving}
     onclick={current}
-    >{requesting ? 'Requesting location…' : 'Use current location'}</button
+    >{requesting ? t('location.requesting') : t('location.useCurrent')}</button
   >
   <form
     onsubmit={(event) => {
@@ -162,39 +160,39 @@
     }}
   >
     <fieldset disabled={locked || saving}>
-      <label for={`${id}-lat`}>Latitude</label><input
+      <label for={`${id}-lat`}>{t('location.latitude')}</label><input
         id={`${id}-lat`}
         inputmode="decimal"
         bind:value={latitude}
         oninput={manualEdit}
-        placeholder="−90 to 90"
+        placeholder={t('location.latPlaceholder')}
         required
       />
-      <label for={`${id}-lon`}>Longitude</label><input
+      <label for={`${id}-lon`}>{t('location.longitude')}</label><input
         id={`${id}-lon`}
         inputmode="decimal"
         bind:value={longitude}
         oninput={manualEdit}
-        placeholder="−180 to 180"
+        placeholder={t('location.lonPlaceholder')}
         required
       />
-      <label for={`${id}-label`}>Location label (optional)</label><input
+      <label for={`${id}-label`}>{t('location.labelField')}</label><input
         id={`${id}-label`}
         bind:value={label}
         maxlength="200"
       />
-      {#if accuracy !== null}<p>Reported accuracy: {accuracy} m</p>{:else}<p
-          class="help"
-        >
-          Manual coordinates have no reported accuracy.
+      {#if accuracy !== null}<p>
+          {t('location.accuracyReported', { accuracy })}
+        </p>{:else}<p class="help">
+          {t('location.noAccuracy')}
         </p>{/if}
       <div class="actions">
         <button class="primary" type="submit"
-          >{saving ? 'Saving location…' : 'Save location'}</button
+          >{saving ? t('location.saving') : t('location.save')}</button
         >{#if workspace.active?.location}<button
             type="button"
             class="danger"
-            onclick={() => save(true)}>Remove location</button
+            onclick={() => save(true)}>{t('location.remove')}</button
           >{/if}
       </div>
     </fieldset>

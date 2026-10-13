@@ -1,3 +1,4 @@
+import { tr } from '#lib/client/i18n-current.ts';
 import { invalidate } from '$app/navigation';
 import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
 import type { ApiResult } from '#lib/shared/domain.ts';
@@ -55,14 +56,11 @@ export class TagOperations {
         );
         if (parsed.success && key === this.prefix + parsed.data.mutationId)
           found.push(parsed.data);
-        else
-          this.error =
-            'An unreadable tag retry was retained. Keep a copy and inspect browser storage.';
+        else this.error = tr('tagops.unreadable');
       }
       this.pending = found;
     } catch {
-      this.error =
-        'Tag retry storage is unavailable. No new action can be sent safely.';
+      this.error = tr('tagops.storageUnavailable');
     }
   }
   discard(command: TagExecute) {
@@ -82,8 +80,7 @@ export class TagOperations {
       this.preview = await api<TagPreview>('/api/tags/preview', operation);
       return true;
     } catch (e) {
-      this.error =
-        e instanceof Error ? e.message : 'Preview failed. Nothing changed.';
+      this.error = e instanceof Error ? e.message : tr('tagops.previewFailed');
       return false;
     } finally {
       this.busy = false;
@@ -111,7 +108,7 @@ export class TagOperations {
       this.error =
         e instanceof Error && e.name === 'Error'
           ? e.message
-          : 'Confirmation unavailable. Retry this exact operation; your notes are protected.';
+          : tr('tagops.confirmUnavailable');
       return null;
     } finally {
       this.busy = false;

@@ -1,22 +1,22 @@
 <script lang="ts">
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import Modal from './Modal.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  const t = useI18n().t;
   let { workspace }: { workspace: EditorWorkspace } = $props();
 </script>
 
 <Modal
   bind:open={workspace.confirmModalOpen}
-  title="Unsaved changes"
+  title={t('unsaved.title')}
   onDismiss={() => workspace.cancelConfirm()}
   dismissible={!workspace.posting}
 >
   <p>
-    You have unsaved changes. Do you want to post/save your changes, discard
-    them, or cancel?
+    {t('unsaved.help')}
   </p>
   {#if workspace.frozen}<p>
-      This save may already have succeeded. Discard only abandons this editor;
-      it does not undo a server save.
+      {t('unsaved.frozen')}
     </p>{/if}
   {#if workspace.postError}<p role="alert">{workspace.postError}</p>{/if}
   <div class="confirm-actions">
@@ -25,21 +25,23 @@
       disabled={!workspace.canPost}
       onclick={() => void workspace.confirmSaveAndProceed()}
     >
-      {workspace.active?.kind === 'edit' ? 'Save changes' : 'Post'}
+      {workspace.active?.kind === 'edit'
+        ? t('unsaved.saveChanges')
+        : t('unsaved.post')}
     </button>
     <button
       class="danger"
       disabled={workspace.busy || workspace.posting}
       onclick={() => workspace.confirmDiscard()}
     >
-      Discard
+      {t('unsaved.discard')}
     </button>
     <button
       type="button"
       disabled={workspace.posting}
       onclick={() => workspace.cancelConfirm()}
     >
-      Cancel
+      {t('note.cancel')}
     </button>
   </div>
 </Modal>

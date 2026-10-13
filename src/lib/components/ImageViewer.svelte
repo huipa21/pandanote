@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getContext, untrack, onMount } from 'svelte';
   import Modal from './Modal.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import type { ReadyAttachment } from '#lib/shared/attachments.ts';
   import {
     READING,
@@ -13,6 +14,8 @@
   }: { images: ReadyAttachment[]; selected: string; onClose: () => void } =
     $props();
   const reading = getContext<ReadingState | undefined>(READING);
+  const i18n = useI18n();
+  const t = i18n.t;
   let open = $state(true);
   let index = $state(
     untrack(() =>
@@ -119,7 +122,7 @@
 
 <Modal
   bind:open
-  title="Image viewer"
+  title={t('viewer.title')}
   kind="viewer"
   onDismiss={onClose}
   onKey={keyboard}
@@ -127,45 +130,49 @@
   <div class="viewer-content">
     <div class="toolbar">
       <button
-        aria-label="Previous image"
+        aria-label={t('viewer.prevImage')}
         disabled={index === 0}
-        onclick={() => move(-1)}>Previous</button
+        onclick={() => move(-1)}>{t('viewer.prev')}</button
       >
       <span role="status"
-        >Image {index + 1} of {images.length} · {Math.round(zoom * 100)}%</span
+        >{t('viewer.status', {
+          index: index + 1,
+          total: images.length,
+          zoom: Math.round(zoom * 100),
+        })}</span
       >
       <button
-        aria-label="Next image"
+        aria-label={t('viewer.nextImage')}
         disabled={index === images.length - 1}
-        onclick={() => move(1)}>Next</button
+        onclick={() => move(1)}>{t('viewer.next')}</button
       >
       <button
-        aria-label="Zoom out"
+        aria-label={t('viewer.zoomOut')}
         disabled={zoom === 1}
         onclick={() => magnify(-0.5)}>−</button
       >
       <button
-        aria-label="Zoom in"
+        aria-label={t('viewer.zoomIn')}
         disabled={zoom === 5}
         onclick={() => magnify(0.5)}>+</button
       >
-      <button onclick={reset}>Reset zoom</button>
+      <button onclick={reset}>{t('viewer.resetZoom')}</button>
       <a href={`/api/attachments/${image.id}/display?download=1`} download
-        >Download WebP</a
+        >{t('viewer.downloadWebp')}</a
       >
     </div>
     <p class="help">
-      {image.filename} · Arrow keys to navigate, +/− to zoom, 0 to reset. Drag to
-      pan when zoomed; swipe to navigate when fit.
+      {t('viewer.help', { name: image.filename })}
     </p>
-    {#if loading}<p class="help" role="status">Loading display image…</p>{/if}
+    {#if loading}<p class="help" role="status">{t('viewer.loading')}</p>{/if}
     {#if failed}<p role="alert">
-        Image could not be loaded. <button
+        {t('viewer.failed')}
+        <button
           onclick={() => {
             retry++;
             failed = false;
             loading = true;
-          }}>Retry image</button
+          }}>{t('viewer.retryImage')}</button
         >
       </p>{/if}
     <!-- Gestures are confined to the viewer; accessible toolbar supplies every action. -->

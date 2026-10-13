@@ -53,7 +53,7 @@
     titleError = '';
     const parsed = siteTitleSchema.safeParse(siteTitle);
     if (!parsed.success) {
-      titleError = parsed.error.issues[0].message;
+      titleError = i18n.msg(parsed.error.issues[0].message);
       return;
     }
     await save({ siteTitle: parsed.data });

@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import { invalidateAll } from '$app/navigation';
   import Modal from './Modal.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import {
     STORAGE_FIELDS,
     storageLimitsSchema,
@@ -24,6 +25,8 @@
   let error = $state('');
   let usageError = $state('');
   const id = $props.id();
+  const i18n = useI18n();
+  const t = i18n.t;
   function size(bytes: number) {
     const unit =
       bytes < 1024
@@ -41,10 +44,10 @@
           : unit === 'MiB'
             ? 1024 ** 2
             : 1024 ** 3;
-    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(bytes / scale)} ${unit}`;
+    return `${new Intl.NumberFormat(i18n.locale, { maximumFractionDigits: 2 }).format(bytes / scale)} ${unit}`;
   }
   function date(value: number) {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(i18n.locale, {
       dateStyle: 'medium',
       timeStyle: 'short',
       timeZone: timezone,
@@ -60,9 +63,7 @@
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok)
-      throw new Error(
-        payload.error?.message ?? 'Storage request failed. Retry.',
-      );
+      throw new Error(payload.error?.message ?? t('storage.requestFailed'));
     return payload.data;
   }
   async function refresh() {
@@ -78,7 +79,7 @@
         failure.name !== 'TypeError' &&
         failure.name !== 'TimeoutError'
           ? failure.message
-          : 'Could not reach the server to measure storage. Retry refreshing storage.';
+          : t('storage.measureFailed');
     } finally {
       loading = false;
     }
@@ -94,8 +95,7 @@
     message = '';
     const parsed = storageLimitsSchema.safeParse(limits);
     if (!parsed.success) {
-      error =
-        'Check the limits. Values must be within the shown bounds and represent whole bytes/pixels.';
+      error = t('storage.checkLimits');
       return;
     }
     saving = true;
@@ -108,15 +108,14 @@
         }),
       );
       await invalidateAll();
-      message =
-        'Storage limits saved. They apply to new uploads and saves; existing files are not reprocessed.';
+      message = t('storage.limitsSaved');
     } catch (failure) {
       error =
         failure instanceof Error &&
         failure.name !== 'TypeError' &&
         failure.name !== 'TimeoutError'
           ? failure.message
-          : 'Could not save storage limits. Your choices remain here; retry.';
+          : t('storage.saveFailed');
     } finally {
       saving = false;
     }
@@ -141,10 +140,10 @@
       });
       confirm = false;
       message = data.remainingJobs
-        ? 'Some byte deletion is still queued. Refresh storage and retry queued cleanup; operator inspection may be needed.'
+        ? t('storage.cleanupQueued')
         : selected
-          ? 'Unused attempt cleaned. Referenced note files were not removed.'
-          : 'Queued cleanup finished. Referenced note files were not removed.';
+          ? t('storage.cleanupAttempt')
+          : t('storage.cleanupDone');
       await refresh();
     } catch (failure) {
       error =
@@ -152,7 +151,7 @@
         failure.name !== 'TypeError' &&
         failure.name !== 'TimeoutError'
           ? failure.message
-          : 'Cleanup was not confirmed. Refresh storage before retrying; the server may have queued deletion.';
+          : t('storage.cleanupFailed');
     } finally {
       cleaning = false;
     }
@@ -160,35 +159,31 @@
 </script>
 
 <section class="surface">
-  <h2>Storage</h2>
+  <h2>{t('storage.heading')}</h2>
   <p class="help">
-    Private server storage, including Trash. Unsaved editors are not included or
-    backed up. The disk is shared with the OS and other applications; free space
-    is not all available for uploads.
+    {t('storage.help')}
   </p>
   <button disabled={!ready || loading || cleaning} onclick={refresh}
-    >{loading ? 'Measuring storage…' : 'Refresh storage'}</button
+    >{loading ? t('storage.measuring') : t('storage.refresh')}</button
   >
   {#if usageError}<p role="alert">{usageError}</p>{/if}
   {#if usage}
     <p class="help">
-      Measured {date(usage.measuredAt)} ({timezone}). Refresh for current usage.
+      {t('storage.measured', { date: date(usage.measuredAt), timezone })}
     </p>
     <dl>
-      <dt>Media (attachments, Trash & unused uploads)</dt>
+      <dt>{t('storage.mediaLabel')}</dt>
       <dd>
         {size(usage.referencedBytes + usage.trashOnlyBytes + usage.unusedBytes)}
       </dd>
-      <dt>SQL database & journals</dt>
+      <dt>{t('storage.dbLabel')}</dt>
       <dd>{size(usage.databaseBytes)}</dd>
     </dl>
     <p class="help">
-      Media uses recorded processed bytes; shared files count once. Database
-      size is measured on disk.
+      {t('storage.mediaHelp')}
     </p>
     {#if usage.cleanupJobs}<p role="status">
-        {usage.cleanupJobs} file deletion jobs remain queued. Retry queued cleanup
-        or restart the server; operator inspection may be needed.
+        {t('storage.jobsQueued', { count: usage.cleanupJobs })}
       </p>
       <button
         class="danger"
@@ -197,30 +192,29 @@
           selected = null;
           confirm = true;
           error = '';
-        }}>Retry queued cleanup</button
+        }}>{t('storage.retryCleanup')}</button
       >{/if}
-    <h3>Unused posting attempts</h3>
+    <h3>{t('storage.attemptsTitle')}</h3>
     <p class="help">
-      {usage.pendingBatchCount} pending attempts. Showing up to 20, oldest activity
-      first. Nothing expires automatically. Only attempts quiet for at least 24 hours
-      can be cleaned. Resuming or uploading renews that protection. Cleanup abandons
-      an entire frozen attempt, not just one of its files.
+      {t('storage.attemptsHelp', { count: usage.pendingBatchCount })}
     </p>
-    {#if !usage.pendingUploads.length}<p>No unused pending attempts.</p>{/if}
+    {#if !usage.pendingUploads.length}<p>{t('storage.noAttempts')}</p>{/if}
     <ul class="attempts">
       {#each usage.pendingUploads as attempt (attempt.id)}<li>
           <p>
-            {attempt.readyCount} ready / {attempt.itemCount} files · {size(
-              attempt.storedBytes,
-            )} · last activity {date(attempt.activityAt)}
+            {t('storage.attemptLine', {
+              ready: attempt.readyCount,
+              files: attempt.itemCount,
+              size: size(attempt.storedBytes),
+              date: date(attempt.activityAt),
+            })}
           </p>
           <p class="help">
             {attempt.filenames.join(', ') ||
-              'No selected files'}{attempt.itemCount > 5 ? ' …' : ''}
+              t('storage.noFiles')}{attempt.itemCount > 5 ? ' …' : ''}
           </p>
           {#if !attempt.eligible}<p class="help">
-              Protected until {date(attempt.eligibleAt)}. Refresh then; no
-              automatic deletion.
+              {t('storage.protectedUntil', { date: date(attempt.eligibleAt) })}
             </p>{/if}
           <button
             class="danger"
@@ -229,18 +223,14 @@
               selected = attempt;
               confirm = true;
               error = '';
-            }}>Clean unused attempt</button
+            }}>{t('storage.cleanAttempt')}</button
           >
         </li>{/each}
     </ul>
-  {:else if !loading && !usageError}<p>Storage has not been measured.</p>{/if}
-  <h3>Upload, image & note limits</h3>
+  {:else if !loading && !usageError}<p>{t('storage.notMeasured')}</p>{/if}
+  <h3>{t('storage.limitsTitle')}</h3>
   <p class="help">
-    Static images only; originals are not retained after posting. Images are
-    oriented, metadata stripped, resized without upscaling, and stored as
-    display/thumbnail WebP. Quality is 1–100. Lower limits do not delete
-    existing data, but can block uncommitted saves. MiB = 1,048,576 bytes; KiB =
-    1,024 bytes.
+    {t('storage.limitsHelp')}
   </p>
   <form onsubmit={save}>
     <fieldset disabled={!ready || saving || cleaning}>
@@ -261,34 +251,36 @@
           }}
         />{/each}
       <button class="primary" type="submit"
-        >{saving ? 'Saving limits…' : 'Save storage limits'}</button
+        >{saving ? t('storage.saving') : t('storage.saveLimits')}</button
       >
     </fieldset>
   </form>
   {#if message}<p role="status">{message}</p>{/if}
   {#if error && !confirm}<p role="alert">{error}</p>{/if}
 </section>
-<Modal bind:open={confirm} title="Clean unused uploads" dismissible={!cleaning}>
+<Modal
+  bind:open={confirm}
+  title={t('storage.cleanTitle')}
+  dismissible={!cleaning}
+>
   {#if selected}<p>
-      Abandon this posting attempt and remove its {selected.readyCount} ready files
-      ({size(selected.storedBytes)}) plus unfinished metadata?
+      {t('storage.cleanAttemptQ', {
+        count: selected.readyCount,
+        size: size(selected.storedBytes),
+      })}
     </p>{:else}<p>
-      Retry byte deletion that was already confirmed and queued? References are
-      checked again before removal.
+      {t('storage.cleanQueuedQ')}
     </p>{/if}
   <p>
-    Referenced note and Trash files are never selected. The server rechecks
-    references. This cannot be undone.
+    {t('storage.cleanNote')}
   </p>
   {#if selected}<p>
-      A frozen retry for this batch will no longer work. Keep original files and
-      start a new editable attempt before posting again.
+      {t('storage.cleanAttemptWarn')}
     </p>{:else}<p>
-      Only already-queued files are considered; no additional posting attempts
-      are abandoned.
+      {t('storage.cleanQueuedWarn')}
     </p>{/if}
   <button class="danger" disabled={cleaning} onclick={cleanup}
-    >{cleaning ? 'Cleaning…' : 'Confirm cleanup'}</button
+    >{cleaning ? t('storage.cleaning') : t('storage.confirmCleanup')}</button
   >
   {#if error}<p role="alert">{error}</p>{/if}
 </Modal>

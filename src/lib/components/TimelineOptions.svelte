@@ -3,6 +3,7 @@
   import DateTimeField from './DateTimeField.svelte';
   import { timelineInput, timelineInstant } from '#lib/client/uploads/date.ts';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let {
     workspace,
     open = $bindable(false),
@@ -13,6 +14,7 @@
     showTrigger?: boolean;
   } = $props();
   const fieldId = $props.id();
+  const t = useI18n().t;
   let error = $state('');
   $effect(() => {
     if (open) error = '';
@@ -27,15 +29,16 @@
     onclick={() => {
       open = true;
       error = '';
-    }}>Date</button
+    }}>{t('date.button')}</button
   >{/if}
-<Modal bind:open title="Timeline date">
+<Modal bind:open title={t('date.title')}>
   <p>
-    Choose now or earlier, in the configured app timezone. Ambiguous or
-    nonexistent daylight-saving times are rejected.
+    {t('date.help')}
   </p>
   {#if open && workspace.active}
-    <label for={fieldId}>Timeline date/time ({workspace.timezone})</label>
+    <label for={fieldId}
+      >{t('date.label', { timezone: workspace.timezone })}</label
+    >
     <DateTimeField
       id={fieldId}
       alwaysOpen
@@ -51,8 +54,7 @@
           });
           error = '';
         } catch {
-          error =
-            'Choose a valid, unambiguous date/time that is now or earlier.';
+          error = t('date.invalid');
         }
       }}
     />

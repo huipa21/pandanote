@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  const t = useI18n().t;
   let {
     images,
     disabled = false,
@@ -11,13 +13,16 @@
 </script>
 
 {#if images.length}
-  <ul class="grid" aria-label="Note images">
+  <ul class="grid" aria-label={t('thumb.list')}>
     {#each images as image, index (image.id)}
       <li>
         <button
           type="button"
           {disabled}
-          aria-label="Open image {index + 1}: {image.filename}"
+          aria-label={t('thumb.open', {
+            index: index + 1,
+            name: image.filename,
+          })}
           onclick={() => onOpen(image.id)}
           ><img
             src={image.url}

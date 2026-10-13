@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let { workspace }: { workspace: EditorWorkspace } = $props();
+  const t = useI18n().t;
 </script>
 
 <div class="editor-feedback">
@@ -12,7 +14,7 @@
       >
       {#if workspace.postProgress.bytes > 0}
         <progress
-          aria-label="File upload progress"
+          aria-label={t('feedback.uploadProgress')}
           value={workspace.postProgress.loaded}
           max={workspace.postProgress.bytes}
         ></progress>
@@ -23,22 +25,21 @@
     <p class="editor-error" role="alert">
       {workspace.postError}
       {#if workspace.postRequiresLogin}<a href="/login"
-          >Sign in again to save this note</a
+          >{t('feedback.signIn')}</a
         >{/if}
     </p>
   {/if}
   {#if workspace.frozen && !workspace.posting}
     <div class="editor-error">
       <p>
-        This save is frozen for safe retry. It may already have committed. Retry
-        first; starting a new attempt does not cancel or undo the original.
+        {t('feedback.frozen')}
       </p>
       <button
         disabled={workspace.busy || workspace.conflict}
-        onclick={() => workspace.post()}>Check and retry save</button
+        onclick={() => workspace.post()}>{t('feedback.checkRetry')}</button
       >
       <button disabled={workspace.busy} onclick={() => workspace.keepSeparate()}
-        >Edit as new note</button
+        >{t('feedback.editNew')}</button
       >
     </div>
   {/if}
@@ -48,11 +49,12 @@
         onclick={() => {
           workspace.postConflict = { ...workspace.postConflict! };
         }}
-        >Compare server version (revision {workspace.postConflict
-          .revision})</button
+        >{t('feedback.compare', {
+          revision: workspace.postConflict.revision,
+        })}</button
       >
       <p>
-        Your current text is retained. Resolve the conflict or keep editing.
+        {t('feedback.keepEditing')}
       </p>
     </div>
   {/if}

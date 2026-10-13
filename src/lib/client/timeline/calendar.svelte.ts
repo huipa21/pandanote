@@ -1,3 +1,4 @@
+import { tr } from '#lib/client/i18n-current.ts';
 import type { MonthActivity } from '#lib/shared/calendar.ts';
 import type { ApiResult } from '#lib/shared/domain.ts';
 export const CALENDAR = Symbol('month calendar');
@@ -42,7 +43,7 @@ export class CalendarState {
         this.error =
           error instanceof Error && error.name !== 'AbortError'
             ? error.message
-            : 'Activity could not be loaded. Retry.';
+            : tr('cal.loadFailed');
     } finally {
       clearTimeout(timer);
       if (generation === this.generation) this.loading = false;

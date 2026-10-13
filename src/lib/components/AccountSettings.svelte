@@ -7,7 +7,8 @@
     mfaEnabled,
   }: { initial: { username: string; email: string }; mfaEnabled: boolean } =
     $props();
-  const t = useI18n().t;
+  const i18n = useI18n();
+  const t = i18n.t;
   let username = $state(untrack(() => initial.username));
   let email = $state(untrack(() => initial.email));
   let password = $state('');
@@ -28,7 +29,7 @@
     });
     const result = await response.json();
     if (!response.ok || !result.ok) {
-      fields = result.error?.fields ?? {};
+      fields = i18n.msgs(result.error?.fields);
       throw new Error(result.error?.message ?? t('account.failed'));
     }
     return result;
@@ -42,7 +43,7 @@
     const parsed = accountDetailsSchema.safeParse({ username, email });
     if (!parsed.success) {
       for (const issue of parsed.error.issues)
-        fields[String(issue.path[0])] ??= issue.message;
+        fields[String(issue.path[0])] ??= i18n.msg(issue.message);
       return;
     }
     busy = true;

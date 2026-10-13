@@ -4,7 +4,10 @@
   import Modal from './Modal.svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import type { NoteSnapshot } from '#lib/shared/domain.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let { workspace }: { workspace: EditorWorkspace } = $props();
+  const i18n = useI18n();
+  const t = i18n.t;
   let open = $state(false);
   let confirm = $state(false);
   let observed = $state<NoteSnapshot | null>(null);
@@ -39,16 +42,22 @@
   }
 </script>
 
-<Modal bind:open title="Note conflict" dismissible={!workspace.busy}>
+<Modal bind:open title={t('conflict.title')} dismissible={!workspace.busy}>
   <p>
-    The server changed. Nothing has been overwritten. Your local text and new
-    file blobs are retained on this device.
+    {t('conflict.help')}
   </p>
   {#if observed}
-    <h3>Server version · revision {observed.revision} · {observed.status}</h3>
+    <h3>
+      {t('conflict.serverVersion', {
+        revision: observed.revision,
+        status: observed.status,
+      })}
+    </h3>
     <p>
-      Timeline: {new Date(observed.timelineAt).toLocaleString('en', {
-        timeZone: workspace.timezone,
+      {t('conflict.timeline', {
+        time: new Date(observed.timelineAt).toLocaleString(i18n.locale, {
+          timeZone: workspace.timezone,
+        }),
       })}
     </p>
     <pre>{observed.bodyMarkdown}</pre>
@@ -58,11 +67,14 @@
         </li>{/each}
     </ul>
     {#if observed.location}<p>
-        Location: {observed.location.label ?? ''}
-        {observed.location.latitude}, {observed.location.longitude}
+        {t('conflict.location', {
+          label: observed.location.label ?? '',
+          latitude: observed.location.latitude,
+          longitude: observed.location.longitude,
+        })}
       </p>{/if}
     <details>
-      <summary>Your retained local version</summary>
+      <summary>{t('conflict.localRetained')}</summary>
       <pre>{workspace.active?.bodyMarkdown}</pre>
       <ul>
         {#each workspace.active?.attachments ?? [] as file (file.id)}<li>
@@ -73,11 +85,11 @@
     <div class="choices">
       <button
         disabled={workspace.busy || workspace.conflict}
-        onclick={() => choose('load')}>Load server version</button
+        onclick={() => choose('load')}>{t('conflict.loadServer')}</button
       >
       <button
         disabled={workspace.busy || workspace.conflict}
-        onclick={() => choose('copy')}>Save local as separate note</button
+        onclick={() => choose('copy')}>{t('conflict.saveSeparate')}</button
       >
       <button
         class="danger"
@@ -85,40 +97,43 @@
           workspace.conflict ||
           observed.status === 'trash'}
         onclick={() => choose('replace')}
-        >Explicitly replace revision {observed.revision}</button
+        >{t('conflict.replaceRevision', {
+          revision: observed.revision,
+        })}</button
       >
       <button
         onclick={() => {
           open = false;
-        }}>Keep local edits</button
+        }}>{t('conflict.keepLocal')}</button
       >
     </div>
     {#if observed.status === 'trash'}<p>
-        Restore the server note before replacing or editing it. You can publish
-        your local version separately.
+        {t('conflict.restoreFirst')}
       </p>{/if}
   {/if}
 </Modal>
-<Modal bind:open={confirm} title="Confirm conflict resolution">
+<Modal bind:open={confirm} title={t('conflict.confirmTitle')}>
   <p>
     {choice === 'replace'
-      ? `Replace server revision ${observed?.revision} with your local version? A newer revision will conflict again, never be forced over.`
+      ? t('conflict.confirmReplace', { revision: observed?.revision ?? '' })
       : choice === 'copy'
-        ? 'Publish your local version as a separate note? Existing server attachments can be shared safely.'
+        ? t('conflict.confirmCopy')
         : observed?.status === 'trash'
-          ? 'View the current server version in Trash?'
-          : 'Load the current server version into the editor?'}
+          ? t('conflict.confirmTrash')
+          : t('conflict.confirmLoad')}
   </p>
   <p>
-    Loading the server version discards the losing edits. An uncertain previous
-    save is not canceled. Keep editing or copy the text first if needed.
+    {t('conflict.discardNote')}
   </p>
   <button disabled={workspace.busy} onclick={resolve}
-    >Confirm {choice === 'replace'
-      ? 'replace'
-      : choice === 'copy'
-        ? 'separate note'
-        : 'load server'}</button
+    >{t('conflict.confirmAction', {
+      action:
+        choice === 'replace'
+          ? t('conflict.actReplace')
+          : choice === 'copy'
+            ? t('conflict.actCopy')
+            : t('conflict.actLoad'),
+    })}</button
   >
 </Modal>
 

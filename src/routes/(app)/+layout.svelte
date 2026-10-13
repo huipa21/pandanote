@@ -19,11 +19,21 @@
   import ConflictDialog from '#lib/components/ConflictDialog.svelte';
   import UnsavedChangesDialog from '#lib/components/UnsavedChangesDialog.svelte';
   import StaleTagDialog from '#lib/components/StaleTagDialog.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import type { MessageKey } from '#lib/shared/i18n/index.ts';
   import {
     READING,
     ReadingState,
   } from '#lib/client/timeline/reading.svelte.ts';
   let { children, data } = $props();
+  const t = useI18n().t;
+  const ACTION_LABELS: Record<string, MessageKey> = {
+    restore: 'note.restore',
+    pin: 'note.pin',
+    unpin: 'note.unpin',
+    trash: 'note.delete',
+    'permanent-delete': 'note.deletePermanently',
+  };
   const workspace = new EditorWorkspace(
     untrack(() => data.account.id),
     untrack(() => data.timezone),
@@ -137,17 +147,21 @@
   {#if lifecycle.warning}<p role="alert">{lifecycle.warning}</p>{/if}
   {#if lifecycle.pending.length}<section
       class="surface"
-      aria-label="Unconfirmed note actions"
+      aria-label={t('route.unconfirmed')}
     >
-      <h2>Unconfirmed note actions · this browser</h2>
+      <h2>{t('route.unconfirmedHeading')}</h2>
       <p class="help">
-        These actions may already have succeeded. Retry the exact saved command
-        to check safely, even after reload.
+        {t('route.unconfirmedHelp')}
       </p>
       {#each lifecycle.pending as attempt (attempt.mutationId)}<button
           disabled={lifecycle.busy}
           onclick={() => lifecycle.resume(attempt)}
-          >Review {attempt.action} · {attempt.noteId.slice(0, 8)}</button
+          >{t('route.review', {
+            action: ACTION_LABELS[attempt.action]
+              ? t(ACTION_LABELS[attempt.action])
+              : attempt.action,
+            id: attempt.noteId.slice(0, 8),
+          })}</button
         >{/each}
     </section>{/if}
   {@render children()}</AppShell

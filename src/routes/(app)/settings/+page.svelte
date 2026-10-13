@@ -28,15 +28,15 @@
     ready = true;
   });
   // Panels stay mounted (hidden when inactive) so unsaved form state survives tab switches.
-  const tabs = [
-    { id: 'general', label: 'General' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'calendar', label: 'Calendar' },
-    { id: 'account', label: 'Account' },
-    { id: 'storage', label: 'Storage' },
-    { id: 'backups', label: 'Backups' },
-    { id: 'about', label: 'About' },
-  ] as const;
+  const tabs = $derived([
+    { id: 'general', label: t('settings.tabGeneral') },
+    { id: 'appearance', label: t('settings.tabAppearance') },
+    { id: 'calendar', label: t('settings.tabCalendar') },
+    { id: 'account', label: t('settings.tabAccount') },
+    { id: 'storage', label: t('settings.tabStorage') },
+    { id: 'backups', label: t('settings.tabBackups') },
+    { id: 'about', label: t('settings.tabAbout') },
+  ] as const);
   type TabId = (typeof tabs)[number]['id'];
   let tab = $state<TabId>('general');
   function onTabKey(event: KeyboardEvent) {
@@ -72,8 +72,7 @@
       });
       const result = await response.json();
       if (!response.ok || result.ok !== true) {
-        error =
-          result.error?.message ?? 'Could not save appearance. Please retry.';
+        error = result.error?.message ?? t('appearance.failed');
         return;
       }
       const appearance = appearanceSchema.parse(result.appearance);
@@ -84,10 +83,9 @@
         appearance.collapseLongNotes,
       );
       await invalidateAll();
-      message = 'Appearance saved.';
+      message = t('appearance.saved');
     } catch {
-      error =
-        'Could not save appearance. Your choices remain here; please retry.';
+      error = t('appearance.network');
     } finally {
       saving = false;
     }
@@ -103,9 +101,9 @@
         window.location.assign('/login');
         return;
       }
-      error = 'Could not sign out. Please retry.';
+      error = t('settings.signOutFailed');
     } catch {
-      error = 'Could not reach the server. Please retry signing out.';
+      error = t('settings.signOutNetwork');
     } finally {
       signingOut = false;
     }
@@ -114,7 +112,7 @@
 
 <PageTitle title={t('settings.title')} />
 <h1 class="page-title">{t('settings.title')}</h1>
-<div class="tabs" role="tablist" aria-label="Settings sections">
+<div class="tabs" role="tablist" aria-label={t('settings.sections')}>
   {#each tabs as item (item.id)}
     <button
       id={`settings-tab-${item.id}`}
@@ -145,38 +143,35 @@
   hidden={tab !== 'appearance'}
 >
   <section class="surface">
-    <h2>Appearance</h2>
+    <h2>{t('appearance.heading')}</h2>
     <p class="help">
-      Saved for your notebook, including other signed-in devices on their next
-      page load. Follow system is the initial theme.
+      {t('appearance.help')}
     </p>
     <form onsubmit={save}>
       <fieldset disabled={saving || !ready}>
-        <label for="theme">Theme</label>
+        <label for="theme">{t('appearance.theme')}</label>
         <select id="theme" bind:value={theme}
-          ><option value="system">Follow system</option><option value="light"
-            >Light</option
-          ><option value="dark">Dark</option></select
+          ><option value="system">{t('appearance.system')}</option><option
+            value="light">{t('appearance.light')}</option
+          ><option value="dark">{t('appearance.dark')}</option></select
         >
-        <label for="density">Density</label>
+        <label for="density">{t('appearance.density')}</label>
         <select id="density" bind:value={density}
-          ><option value="comfortable">Comfortable</option><option
-            value="compact">Compact</option
-          ></select
+          ><option value="comfortable">{t('appearance.comfortable')}</option
+          ><option value="compact">{t('appearance.compact')}</option></select
         >
         <label class="checkbox" for="collapse"
           ><input
             id="collapse"
             type="checkbox"
             bind:checked={collapseLongNotes}
-          />Collapse long notes by default</label
+          />{t('appearance.collapse')}</label
         >
         <p class="help">
-          Long cards follow this preference. Show more expands an individual
-          card.
+          {t('appearance.collapseHelp')}
         </p>
         <button class="primary" type="submit"
-          >{saving ? 'Saving…' : 'Save appearance'}</button
+          >{saving ? t('appearance.saving') : t('appearance.save')}</button
         >
       </fieldset>
       <p role="status">{message}</p>
@@ -207,7 +202,7 @@
   <section class="surface">
     <SecuritySettings />
     <button onclick={signOut} disabled={signingOut || !ready}
-      >{signingOut ? 'Signing out…' : 'Sign out'}</button
+      >{signingOut ? t('settings.signingOut') : t('settings.signOut')}</button
     >
   </section>
 </div>
@@ -237,20 +232,20 @@
   hidden={tab !== 'about'}
 >
   <section class="surface" aria-labelledby="about-heading" id="about">
-    <h2 id="about-heading">About PandaNote</h2>
+    <h2 id="about-heading">{t('about.heading')}</h2>
     <dl class="build-info">
-      <dt>Version</dt>
+      <dt>{t('about.version')}</dt>
       <dd data-about-version>{buildInfo.version}</dd>
       {#if buildInfo.kind === 'release'}
-        <dt>Commit</dt>
+        <dt>{t('about.commit')}</dt>
         <dd><code data-about-commit>{buildInfo.commit}</code></dd>
-        <dt>Commit time (UTC)</dt>
+        <dt>{t('about.commitTime')}</dt>
         <dd>
           <time datetime={buildInfo.committedAt}>{buildInfo.committedAt}</time>
         </dd>
       {:else}
-        <dt>Build</dt>
-        <dd>Local development / non-release build</dd>
+        <dt>{t('about.build')}</dt>
+        <dd>{t('about.devBuild')}</dd>
       {/if}
     </dl>
   </section>

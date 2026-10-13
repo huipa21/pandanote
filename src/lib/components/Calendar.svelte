@@ -9,6 +9,7 @@
   } from '#lib/shared/calendar.ts';
   import { filterHref, type TimelineFilters } from '#lib/shared/timeline.ts';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let {
     calendar,
     filters,
@@ -19,6 +20,8 @@
     onNavigate?: () => void;
   } = $props();
   let ready = $state(false);
+  const i18n = useI18n();
+  const t = i18n.t;
   let picker = $state(false);
   let heading = $state<HTMLButtonElement>(null!);
   async function closePicker() {
@@ -34,22 +37,22 @@
   const weekdays = $derived(
     (activity?.weekStart ?? 1) === 1
       ? [
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-          'Sunday',
+          t('calendar.monday'),
+          t('calendar.tuesday'),
+          t('calendar.wednesday'),
+          t('calendar.thursday'),
+          t('calendar.friday'),
+          t('calendar.saturday'),
+          t('calendar.sunday'),
         ]
       : [
-          'Sunday',
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
+          t('calendar.sunday'),
+          t('calendar.monday'),
+          t('calendar.tuesday'),
+          t('calendar.wednesday'),
+          t('calendar.thursday'),
+          t('calendar.friday'),
+          t('calendar.saturday'),
         ],
   );
   const currentCounts = $derived(
@@ -81,11 +84,11 @@
       aria-expanded={picker}
       onclick={() => {
         picker = !picker;
-      }}>{monthLabel(calendar.month)}</button
+      }}>{monthLabel(calendar.month, i18n.locale)}</button
     >
     <div class="month-arrows">
       <a
-        aria-label="Previous month"
+        aria-label={t('calendar.previousMonth')}
         aria-disabled={calendar.month === '1969-01'}
         href={calendar.month === '1969-01'
           ? undefined
@@ -95,10 +98,10 @@
       <a
         class="today-link"
         href={jump((activity?.today ?? calendar.month).slice(0, 7))}
-        onclick={onNavigate}>Today</a
+        onclick={onNavigate}>{t('calendar.today')}</a
       >
       <a
-        aria-label="Next month"
+        aria-label={t('calendar.nextMonth')}
         aria-disabled={calendar.month === '9998-12'}
         href={calendar.month === '9998-12'
           ? undefined
@@ -116,7 +119,9 @@
     />
   {/if}
   <table
-    aria-label={`Activity in ${monthLabel(calendar.month)}`}
+    aria-label={t('calendar.activityIn', {
+      month: monthLabel(calendar.month, i18n.locale),
+    })}
     aria-busy={calendar.loading}
   >
     <thead
@@ -141,7 +146,7 @@
                   data-level={count === undefined ? 0 : activityLevel(count)}
                   data-date={date}
                   aria-current={date === activity?.today ? 'date' : undefined}
-                  aria-label={`${date}: ${count === undefined ? 'activity unavailable' : `${count} published ${count === 1 ? 'note' : 'notes'}`}${date === activity?.today ? ', today' : ''}${date === filters.date ? ', selected; clear day filter' : ''}`}
+                  aria-label={`${date}: ${count === undefined ? t('calendar.unavailable') : count === 1 ? t('calendar.publishedOne', { count }) : t('calendar.publishedMany', { count })}${date === activity?.today ? t('calendar.todaySuffix') : ''}${date === filters.date ? t('calendar.selectedSuffix') : ''}`}
                   ><span class="date-number">{Number(date.slice(8))}</span></a
                 >
               {/if}
@@ -150,11 +155,12 @@
     >
   </table>
   {#if calendar.loading}<p class="help" role="status">
-      Loading activity…
+      {t('calendar.loading')}
     </p>{:else if calendar.error}<p class="help" role="alert">
       {calendar.error}
     </p>
-    <button onclick={() => calendar.refresh()}>Retry activity</button>{/if}
+    <button onclick={() => calendar.refresh()}>{t('calendar.retry')}</button
+    >{/if}
 </div>
 
 <style>

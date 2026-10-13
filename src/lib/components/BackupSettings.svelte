@@ -4,6 +4,17 @@
   import RestoreSettings from './RestoreSettings.svelte';
   import { idSchema } from '#lib/shared/domain.ts';
   import type { BackupJob } from '#lib/shared/backups.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import type { MessageKey } from '#lib/shared/i18n/index.ts';
+  const i18n = useI18n();
+  const t = i18n.t;
+  const stateKeys: Record<BackupJob['state'], MessageKey> = {
+    pending: 'backup.state.pending',
+    capturing: 'backup.state.capturing',
+    archiving: 'backup.state.archiving',
+    complete: 'backup.state.complete',
+    failed: 'backup.state.failed',
+  };
   let jobs = $state<BackupJob[]>([]);
   let ready = $state(false);
   let busy = $state(false);
@@ -30,10 +41,7 @@
     });
     const result = await response.json();
     if (!response.ok || !result.ok)
-      throw new Error(
-        result.error?.message ??
-          'Backup request failed. Refresh before retrying.',
-      );
+      throw new Error(result.error?.message ?? t('backup.requestFailed'));
     return result;
   }
   async function refresh() {
@@ -47,10 +55,7 @@
         retryId = '';
       }
     } catch (e) {
-      error =
-        e instanceof Error
-          ? e.message
-          : 'Could not load backups. Retry refresh.';
+      error = e instanceof Error ? e.message : t('backup.loadFailed');
     } finally {
       refreshing = false;
     }
@@ -60,8 +65,7 @@
       const stored = sessionStorage.getItem(retryKey);
       if (stored && idSchema.safeParse(stored).success) retryId = stored;
     } catch {
-      error =
-        'Browser retry storage is unavailable. Backup creation will not send until retry identity can be retained.';
+      error = t('backup.storageUnavailable');
     }
     void refresh();
     const timer = setInterval(() => {
@@ -90,14 +94,10 @@
       await request('/api/backups', { id: retryId });
       sessionStorage.removeItem(retryKey);
       retryId = '';
-      message =
-        'Manual backup started. It is downloadable only after verification completes.';
+      message = t('backup.started');
       await refresh();
     } catch (e) {
-      error =
-        e instanceof Error
-          ? e.message
-          : 'Connection failed. Refresh the backup list before retrying.';
+      error = e instanceof Error ? e.message : t('backup.connection');
     } finally {
       busy = false;
     }
@@ -109,8 +109,7 @@
     downloadPath = `/api/backups/${id}/download`;
     await tick();
     downloadForm.submit();
-    message =
-      'Download requested. Check browser downloads; any server error opens separately.';
+    message = t('backup.downloadRequested');
   }
   function askDelete(id: string) {
     if (busy) return;
@@ -128,13 +127,10 @@
     try {
       await request(`/api/backups/${selected}`, { confirmed: true }, 'DELETE');
       open = false;
-      message = 'Backup or failed job deleted.';
+      message = t('backup.deleted');
       await refresh();
     } catch (e) {
-      error =
-        e instanceof Error
-          ? e.message
-          : 'Connection failed. Refresh the backup list before retrying.';
+      error = e instanceof Error ? e.message : t('backup.connection');
     } finally {
       busy = false;
     }
@@ -142,17 +138,12 @@
 </script>
 
 <section class="surface" data-testid="backup-settings">
-  <h2>Backup & Restore</h2>
+  <h2>{t('backup.heading')}</h2>
   <p class="warning">
-    Archives are unencrypted and contain private notes, files, password hashes,
-    MFA secrets, recovery-code hashes and portable authentication keys. Keep
-    them protected. There is no separate backup password.
+    {t('backup.warning')}
   </p>
   <p class="help">
-    Only manual full backups are created. A server-local copy does not protect
-    against losing the VPS: download it and keep it safely elsewhere. Unsaved
-    editor text and files are not included. Uploaded restores replace
-    application data only after validation and explicit fresh-auth confirmation.
+    {t('backup.help')}
   </p>
   <div class="actions">
     <button
@@ -163,40 +154,40 @@
           ['pending', 'capturing', 'archiving'].includes(job.state),
         )}
       onclick={startBackup}
-      >{retryId ? 'Retry backup request' : 'Create full backup'}</button
+      >{retryId ? t('backup.retryRequest') : t('backup.create')}</button
     >
-    <button disabled={busy} onclick={refresh}>Refresh backups</button>
+    <button disabled={busy} onclick={refresh}>{t('backup.refresh')}</button>
   </div>
   {#if message}<p role="status">{message}</p>{/if}
   {#if error}<p role="alert">{error}</p>{/if}
-  {#if ready && !jobs.length}<p>No server backups yet.</p>{/if}
+  {#if ready && !jobs.length}<p>{t('backup.none')}</p>{/if}
   <p class="help">
-    Newest 100 jobs. Snapshot capture briefly pauses mutations; reading remains
-    available. Interrupted jobs fail rather than resume automatically.
+    {t('backup.listHelp')}
   </p>
   <ul>
     {#each jobs as job (job.id)}
       <li data-backup-id={job.id}>
         <time datetime={new Date(job.createdAt).toISOString()}
-          >{new Date(job.createdAt).toLocaleString()}</time
+          >{new Date(job.createdAt).toLocaleString(i18n.locale)}</time
         >
         <span
-          >{job.state} · {job.progress}%{job.bytes === null
+          >{t(stateKeys[job.state])} · {job.progress}%{job.bytes === null
             ? ''
-            : ` · ${job.bytes.toLocaleString()} bytes`}</span
+            : t('backup.bytes', {
+                bytes: job.bytes.toLocaleString(i18n.locale),
+              })}</span
         >
         {#if job.errorCode}<p>
-            Failed: {job.errorCode}. Free space if needed, refresh, then create
-            a new backup.
+            {t('backup.failed', { code: job.errorCode })}
           </p>{/if}
         {#if job.state === 'complete'}<button
             disabled={busy}
-            onclick={() => startDownload(job.id)}>Download backup</button
+            onclick={() => startDownload(job.id)}>{t('backup.download')}</button
           >{/if}
         {#if ['complete', 'failed'].includes(job.state)}<button
             class="danger"
             disabled={busy}
-            onclick={() => askDelete(job.id)}>Delete backup</button
+            onclick={() => askDelete(job.id)}>{t('backup.delete')}</button
           >{/if}
       </li>
     {/each}
@@ -211,15 +202,14 @@
     hidden
   ></form>
 </section>
-<Modal bind:open title="Delete backup?" dismissible={!busy}>
+<Modal bind:open title={t('backup.deleteTitle')} dismissible={!busy}>
   <p>
-    Permanently delete this server backup or failed job? Downloaded copies are
-    not deleted.
+    {t('backup.deleteHelp')}
   </p>
   <form onsubmit={confirmDelete}>
     <fieldset disabled={busy}>
       <button class="danger" type="submit"
-        >{busy ? 'Deleting…' : 'Confirm delete backup'}</button
+        >{busy ? t('backup.deleting') : t('backup.confirmDelete')}</button
       >
     </fieldset>
     <p role="alert">{error}</p>

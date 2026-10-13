@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { invalidateAll } from '$app/navigation';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   import {
     calendarPreferencesSchema,
     type CalendarPreferences,
@@ -22,6 +23,7 @@
   let message = $state('');
   let error = $state('');
   const id = $props.id();
+  const t = useI18n().t;
   onMount(() => {
     detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (typeof Intl.supportedValuesOf === 'function')
@@ -34,7 +36,7 @@
     message = '';
     error = '';
     if (!calendarPreferencesSchema.safeParse({ timezone, weekStart }).success) {
-      error = 'Enter a valid IANA timezone, such as Asia/Hong_Kong.';
+      error = t('calset.invalid');
       return;
     }
     saving = true;
@@ -46,16 +48,11 @@
       });
       const result = await response.json();
       if (!result.ok)
-        throw new Error(
-          result.error?.message ?? 'Could not save calendar settings.',
-        );
+        throw new Error(result.error?.message ?? t('calset.failed'));
       await invalidateAll();
-      message = 'Calendar saved. Dates and counts now use this timezone.';
+      message = t('calset.saved');
     } catch (failure) {
-      error =
-        failure instanceof Error
-          ? failure.message
-          : 'Could not save calendar settings. Your choices remain; retry.';
+      error = failure instanceof Error ? failure.message : t('calset.network');
     } finally {
       saving = false;
     }
@@ -63,15 +60,13 @@
 </script>
 
 <section class="surface">
-  <h2>Calendar</h2>
+  <h2>{t('settings.tabCalendar')}</h2>
   <p class="help">
-    One saved app timezone groups note dates on every device. Travelling or
-    changing the browser/VPS timezone will not change it. New notebooks use UTC
-    until you choose.
+    {t('calset.help')}
   </p>
   <form onsubmit={save}>
     <fieldset disabled={!ready || saving}>
-      <label for={`${id}-timezone`}>App timezone</label><input
+      <label for={`${id}-timezone`}>{t('calset.timezone')}</label><input
         id={`${id}-timezone`}
         bind:value={timezone}
         list={`${id}-zones`}
@@ -86,16 +81,17 @@
           type="button"
           onclick={() => {
             timezone = detected;
-          }}>Use browser timezone ({detected})</button
+          }}>{t('calset.useBrowser', { zone: detected })}</button
         >{/if}
-      <label for={`${id}-week`}>Week starts on</label><select
+      <label for={`${id}-week`}>{t('calset.weekStart')}</label><select
         id={`${id}-week`}
         bind:value={weekStart}
-        ><option value={1}>Monday</option><option value={0}>Sunday</option
+        ><option value={1}>{t('calendar.monday')}</option><option value={0}
+          >{t('calendar.sunday')}</option
         ></select
       >
       <button class="primary" type="submit"
-        >{saving ? 'Saving calendar…' : 'Save calendar'}</button
+        >{saving ? t('calset.saving') : t('calset.save')}</button
       >
     </fieldset>
   </form>

@@ -6,6 +6,8 @@
     type LifecycleState,
   } from '#lib/client/editor/lifecycle.svelte.ts';
   import Modal from './Modal.svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
+  const t = useI18n().t;
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   import {
     EDITOR_WORKSPACE,
@@ -18,14 +20,14 @@
   );
   const title = $derived(
     lifecycle.selected?.action === 'permanent-delete'
-      ? 'Permanently delete note?'
+      ? t('lifecycle.titlePermanent')
       : lifecycle.selected?.action === 'restore'
-        ? 'Restore note?'
+        ? t('lifecycle.titleRestore')
         : lifecycle.selected?.action === 'pin'
-          ? 'Pin note?'
+          ? t('lifecycle.titlePin')
           : lifecycle.selected?.action === 'unpin'
-            ? 'Unpin note?'
-            : 'Move to Trash?',
+            ? t('lifecycle.titleUnpin')
+            : t('lifecycle.titleTrash'),
   );
 </script>
 
@@ -40,20 +42,21 @@
   {#if lifecycle.selected}
     <p>
       {lifecycle.selected.action === 'permanent-delete'
-        ? 'Permanently remove this note and any files no other note references. This cannot be undone.'
+        ? t('lifecycle.descPermanent')
         : lifecycle.selected.action === 'restore'
-          ? 'Return this note to notes, preserving dates and files.'
+          ? t('lifecycle.descRestore')
           : lifecycle.selected.action === 'pin'
-            ? 'Keep this note at the top of All notes.'
+            ? t('lifecycle.descPin')
             : lifecycle.selected.action === 'unpin'
-              ? 'Return this note to its date position.'
-              : 'Keep this note and files in Trash. It disappears from notes, search and calendar.'}
+              ? t('lifecycle.descUnpin')
+              : t('lifecycle.descTrash')}
     </p>
     {#if lifecycle.error}<p role="alert">{lifecycle.error}</p>{/if}
     {#if lifecycle.observed}<p>
-        The server is now {lifecycle.observed.status}, revision {lifecycle
-          .observed.revision}. Close and refresh the list before confirming a
-        new action.
+        {t('lifecycle.serverNow', {
+          status: lifecycle.observed.status,
+          revision: lifecycle.observed.revision,
+        })}
       </p>{/if}
     <a
       href={`/notes/${lifecycle.selected.target.id}`}
@@ -61,7 +64,7 @@
       onclick={(event) => {
         if (lifecycle.busy) event.preventDefault();
         else lifecycle.selected = null;
-      }}>Inspect server note</a
+      }}>{t('lifecycle.inspect')}</a
     >
     {#if lifecycle.error}<button
         disabled={lifecycle.busy}
@@ -77,36 +80,35 @@
           void invalidate('pandanote:timeline');
           void invalidate('pandanote:status-notes');
           void invalidate('pandanote:detail');
-        }}>Refresh server version</button
+        }}>{t('lifecycle.refreshServer')}</button
       >{/if}
     <button
       class:danger={lifecycle.selected.action === 'permanent-delete'}
       disabled={lifecycle.busy || !lifecycle.ready}
       onclick={() => lifecycle.confirm()}
       >{lifecycle.busy
-        ? 'Saving…'
+        ? t('lifecycle.saving')
         : lifecycle.selected.attempt
-          ? 'Retry same action'
+          ? t('lifecycle.retrySame')
           : lifecycle.selected.action === 'permanent-delete'
-            ? 'Confirm permanent delete'
+            ? t('lifecycle.confirmPermanent')
             : lifecycle.selected.action === 'restore'
-              ? 'Confirm restore'
+              ? t('lifecycle.confirmRestore')
               : lifecycle.selected.action === 'pin'
-                ? 'Confirm pin'
+                ? t('lifecycle.confirmPin')
                 : lifecycle.selected.action === 'unpin'
-                  ? 'Confirm unpin'
-                  : 'Confirm move'}</button
+                  ? t('lifecycle.confirmUnpin')
+                  : t('lifecycle.confirmMove')}</button
     >
     {#if lifecycle.selected.attempt}<p class="help">
-        Stopping retries does not undo or cancel an action that may already have
-        succeeded.
+        {t('lifecycle.stopNote')}
       </p>
       <button
         disabled={lifecycle.busy}
         onclick={() => {
           if (lifecycle.selected?.attempt)
             lifecycle.forget(lifecycle.selected.attempt);
-        }}>Stop retrying this action</button
+        }}>{t('lifecycle.stop')}</button
       >{/if}
   {/if}
 </Modal>

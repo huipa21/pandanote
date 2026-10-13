@@ -15,7 +15,7 @@ lost responses, remapped retries, optimistic races, media/date/location and Tras
 Shell screenshots seed real current-month notes for dataset-independent geometry;
 no extra masks/relaxed assertions. SS01/S18/manual/exact-release limits stay open.
 
-Current contracts: browser two-step setup, username login, partial zh-CN/title,
+Current contracts: browser two-step setup, username login, complete en/zh-CN UI and site title,
 automatic startup SQL/data migrations and private pre-upgrade DB copy, format-v2
 archives and live-safe interactive reset. [Change progress](../docs/simplify-setup/PROGRESS.md)
 records actual commands/blockers; expected coverage below is not a pass claim.
@@ -664,10 +664,10 @@ stability. Non-virtualized long-session DOM growth remains a documented limitati
 
 | Suite                                  | Scope                                                                                                                                                                                                                                                       |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `unit/i18n.test.ts`                    | Registry = pickers (English, 简体中文), declared-partial zh-CN, every translated key exists in English with identical placeholders, per-key fallback, tag and `Accept-Language` matching, strict General schema                                             |
+| `unit/i18n.test.ts`                    | Registry = pickers (English, 简体中文), complete zh-CN (every key), every translated key exists in English with identical placeholders, per-key fallback, tag and `Accept-Language` matching, strict General schema                                         |
 | `integration/general-settings.test.ts` | Real SQLite title/language saves merge without touching other settings or being reverted by appearance writes, survive reopening, strict rejection and live-session requirement                                                                             |
 | `integration/setup-server.test.ts`     | Built server: `Accept-Language` decides `<html lang>`/text before setup completes (zh-CN, zh-Hans, zh-TW/unknown/q=0 → en); saved language/title win afterwards and are public on `/login`; escaped title; `PATCH /api/settings/general` validation/401/403 |
-| `e2e/language.test.ts`                 | Settings General picker, partial notice, zh-CN screens with per-string English fallback, title in tab/sidebar/mobile header/drawer/sign-in, hostile and 60-character titles, axe light/dark phone/desktop                                                   |
+| `e2e/language.test.ts`                 | Settings General picker, zh-CN screens (no partial notice; tabs and sidebar translated), title in tab/sidebar/mobile header/drawer/sign-in, hostile and 60-character titles, axe light/dark phone/desktop                                                   |
 | `e2e/auth.test.ts` (updated)           | zh-CN browser sees the Chinese sign-in/preferences screens before setup completes; unsaved language preview on the preferences page; SET-06 prefill                                                                                                         |
 
 ## SS06/SS07 deployment and documentation coverage

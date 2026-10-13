@@ -1,13 +1,15 @@
 <script lang="ts">
   import type { HTMLInputAttributes } from 'svelte/elements';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   /**
    * The one search field look: slim, magnifier first, filter control last. The
    * filter control is a placeholder for now and stays inert.
    */
+  const t = useI18n().t;
   let {
     value = $bindable(''),
     label,
-    filterLabel = 'Filter',
+    filterLabel = t('search.filter'),
     id,
     ...rest
   }: {

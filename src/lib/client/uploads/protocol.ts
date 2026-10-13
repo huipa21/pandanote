@@ -3,6 +3,7 @@ import type {
   ApiResult,
   MutationResult,
 } from '#lib/shared/domain.ts';
+import { tr } from '#lib/client/i18n-current.ts';
 import { mutationResultSchema } from '#lib/shared/domain.ts';
 import type {
   InitializeBatchResult,
@@ -30,7 +31,7 @@ export interface PostingTransport {
 async function responseData<T>(response: Response): Promise<T> {
   const result = (await response.json()) as ApiResult<T>;
   if (!result.ok) throw new PostingError(result.error);
-  if (!response.ok) throw new Error('Unexpected response');
+  if (!response.ok) throw new Error(tr('proto.unexpected'));
   return result.data;
 }
 export const browserPostingTransport: PostingTransport = {
@@ -56,7 +57,7 @@ export const browserPostingTransport: PostingTransport = {
       xhr.onerror =
         xhr.ontimeout =
         xhr.onabort =
-          () => reject(new Error('Upload interrupted'));
+          () => reject(new Error(tr('proto.interrupted')));
       xhr.onload = () => {
         try {
           const result = JSON.parse(
@@ -64,7 +65,7 @@ export const browserPostingTransport: PostingTransport = {
           ) as ApiResult<ReadyAttachment>;
           if (!result.ok) reject(new PostingError(result.error));
           else if (xhr.status >= 200 && xhr.status < 300) resolve(result.data);
-          else reject(new Error('Unexpected upload response'));
+          else reject(new Error(tr('proto.unexpectedUpload')));
         } catch (error) {
           reject(error);
         }
@@ -111,8 +112,7 @@ export async function runPosting(
   if ((await commandDigest(attempt.command)) !== attempt.manifest.requestDigest)
     throw new PostingError({
       code: 'mutation-mismatch',
-      message:
-        'Frozen payload is damaged. Keep this editor and start a new editable attempt.',
+      message: tr('proto.damaged'),
     });
   const show = (stage: string, completed = 0, loaded = 0, bytes = 0) =>
     progress({
@@ -122,7 +122,7 @@ export async function runPosting(
       loaded,
       bytes,
     });
-  show('Checking previous save…');
+  show(tr('proto.checking'));
   const initialized = await transport.initialize(attempt);
   if (initialized.state === 'confirmed') {
     const result = mutationResultSchema.parse(initialized.result);
@@ -132,8 +132,7 @@ export async function runPosting(
   if (attempt.phase === 'confirmed')
     throw new PostingError({
       code: 'conflict',
-      message:
-        'The server no longer recognizes this confirmed save (possibly after restore). The current editor was kept. Check the server before posting a copy.',
+      message: tr('proto.unrecognized'),
     });
   await beforeUpload();
   const batch = initialized.batch;
@@ -156,28 +155,33 @@ export async function runPosting(
     )
       throw new PostingError({
         code: 'validation',
-        message: `Original local bytes for ${item.filename} are missing or changed. Retry after repairing the original, or edit a separate copy.`,
+        message: tr('proto.bytesMissing', { name: item.filename }),
       });
     const completed = attempt.readyIds.length;
-    show(`Uploading ${item.filename}…`, completed, 0, blob.size);
+    show(
+      tr('proto.uploading', { name: item.filename }),
+      completed,
+      0,
+      blob.size,
+    );
     const ready = await transport.upload(batch.id, item.id, blob, (loaded) =>
       show(
         loaded >= blob.size
-          ? `Processing ${item.filename}…`
-          : `Uploading ${item.filename}…`,
+          ? tr('proto.processing', { name: item.filename })
+          : tr('proto.uploading', { name: item.filename }),
         completed,
         loaded,
         blob.size,
       ),
     );
     if (ready.id !== item.id || ready.readiness !== 'ready')
-      throw new Error('Upload not ready');
+      throw new Error(tr('proto.notReady'));
     attempt = { ...attempt, readyIds: [...attempt.readyIds, item.id] };
     await persist(attempt);
   }
   attempt = { ...attempt, phase: 'committing' };
   await persist(attempt);
-  show('Saving complete note…', attempt.readyIds.length);
+  show(tr('proto.savingComplete'), attempt.readyIds.length);
   const result = mutationResultSchema.parse(await transport.commit(attempt));
   await persist({ ...attempt, phase: 'confirmed', result });
   return result;

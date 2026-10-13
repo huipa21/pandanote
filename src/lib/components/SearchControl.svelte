@@ -76,8 +76,7 @@
     try {
       parseSearch(value);
     } catch (error) {
-      message =
-        error instanceof Error ? error.message : 'Check the search query.';
+      message = error instanceof Error ? error.message : t('search.checkQuery');
       pending = false;
       return;
     }

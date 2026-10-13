@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, untrack, tick, type Snippet } from 'svelte';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let {
     open = $bindable(false),
     title,
@@ -22,6 +23,7 @@
     children: Snippet;
   } = $props();
   const titleId = $props.id();
+  const t = useI18n().t;
   // Initial SSR readability only. After mount preserve the native DOM state,
   // not a desired-open attribute: Svelte groups attributes into one render effect
   // and unrelated button rerenders must not cancel showModal's top-layer state.
@@ -124,9 +126,9 @@
       <h2 id={titleId}>{title}</h2>
       <button
         type="button"
-        aria-label={`Close ${title}`}
+        aria-label={t('modal.closeNamed', { title })}
         disabled={!mounted || !dismissible}
-        onclick={dismiss}>Close</button
+        onclick={dismiss}>{t('modal.close')}</button
       >
     </header>{/if}
   <div class="dialog-body" class:custom-header={customHeader}>

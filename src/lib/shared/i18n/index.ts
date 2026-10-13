@@ -16,3 +16,13 @@ export function translate(
       )
     : template;
 }
+
+const englishKeys = new Map<string, MessageKey>(
+  (Object.keys(en) as MessageKey[]).map((key) => [en[key], key]),
+);
+/** Localizes a message that is known by its English text (validation and server
+ * field messages). Unknown text is returned unchanged. */
+export function localizeMessage(language: Language, text: string): string {
+  const key = englishKeys.get(text);
+  return key ? translate(language, key) : text;
+}

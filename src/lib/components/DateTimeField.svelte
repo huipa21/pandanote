@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte';
   import { monthCells, monthLabel, shiftMonth } from '#lib/shared/calendar.ts';
+  import { useI18n } from '#lib/client/i18n.svelte.ts';
   let {
     id,
     value,
@@ -22,7 +23,17 @@
     ondone?: () => void;
     onchange: (value: string) => void;
   } = $props();
-  const weekdays = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  const i18n = useI18n();
+  const t = i18n.t;
+  const weekdays = $derived([
+    t('picker.mon'),
+    t('picker.tue'),
+    t('picker.wed'),
+    t('picker.thu'),
+    t('picker.fri'),
+    t('picker.sat'),
+    t('picker.sun'),
+  ]);
   const startMonth = () => {
     const day = untrack(() => value.slice(0, 10));
     return /^\d{4}-\d{2}/.test(day)
@@ -98,7 +109,7 @@
     {#if !alwaysOpen}<button
         type="button"
         class="toggle"
-        aria-label="Choose date and time"
+        aria-label={t('picker.choose')}
         aria-expanded={open}
         aria-controls={`${id}-panel`}
         {disabled}
@@ -111,19 +122,27 @@
       class="panel"
       id={`${id}-panel`}
       role="group"
-      aria-label="Date and time picker"
+      aria-label={t('picker.panel')}
       bind:this={panel}
     >
       <div class="month">
-        <button type="button" aria-label="Previous month" onclick={() => go(-1)}
-          >‹</button
+        <button
+          type="button"
+          aria-label={t('picker.prevMonth')}
+          onclick={() => go(-1)}>‹</button
         >
-        <strong aria-live="polite">{monthLabel(month)}</strong>
-        <button type="button" aria-label="Next month" onclick={() => go(1)}
-          >›</button
+        <strong aria-live="polite">{monthLabel(month, i18n.locale)}</strong>
+        <button
+          type="button"
+          aria-label={t('picker.nextMonth')}
+          onclick={() => go(1)}>›</button
         >
       </div>
-      <div class="grid" role="group" aria-label={monthLabel(month)}>
+      <div
+        class="grid"
+        role="group"
+        aria-label={monthLabel(month, i18n.locale)}
+      >
         {#each weekdays as day (day)}<span class="weekday" aria-hidden="true"
             >{day}</span
           >{/each}
@@ -144,7 +163,7 @@
       </div>
       <div class="time">
         <label
-          >Hour
+          >{t('picker.hour')}
           <input
             type="number"
             min="0"
@@ -154,7 +173,7 @@
           /></label
         >
         <label
-          >Minute
+          >{t('picker.minute')}
           <input
             type="number"
             min="0"
@@ -164,7 +183,7 @@
           /></label
         >
         <label
-          >Second
+          >{t('picker.second')}
           <input
             type="number"
             min="0"
@@ -181,7 +200,7 @@
           if (ondone) return ondone();
           open = false;
           trigger?.focus();
-        }}>Done</button
+        }}>{t('picker.done')}</button
       >
     </div>
   {/if}

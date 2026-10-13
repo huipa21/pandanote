@@ -36,7 +36,7 @@
     const parsed = setupPreferencesSchema.safeParse(value);
     if (!parsed.success) {
       for (const issue of parsed.error.issues)
-        fields[String(issue.path[0])] ??= issue.message;
+        fields[String(issue.path[0])] ??= i18n.msg(issue.message);
       return;
     }
     busy = true;
@@ -48,7 +48,7 @@
       });
       const result = await response.json();
       if (!response.ok || !result.ok) {
-        fields = result.error?.fields ?? {};
+        fields = i18n.msgs(result.error?.fields);
         message = result.error?.message ?? t('prefs.failed');
         return;
       }

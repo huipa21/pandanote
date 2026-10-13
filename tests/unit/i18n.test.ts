@@ -26,8 +26,7 @@ it('registry lists exactly the catalogs, each in its own language, with honest c
     ['zh-CN', '简体中文'],
   ]);
   expect(languageInfo('en').complete).toBe(true);
-  // Simplified Chinese is deliberately partial in this change.
-  expect(languageInfo('zh-CN').complete).toBe(false);
+  expect(languageInfo('zh-CN').complete).toBe(true);
   expect(languageSchema.options).toEqual([...languageCodes]);
   for (const bad of ['fr', 'zh-TW', 'EN', 'zh-cn', '', 'en ', null, 1])
     expect(languageSchema.safeParse(bad).success).toBe(false);
@@ -40,17 +39,9 @@ it('every translated key exists in English, keeps its placeholders and is non-em
       placeholders(en[key as keyof typeof en]),
     );
   }
-  // The planned scope is translated: setup, login, shell, General and Account.
-  for (const prefix of [
-    'setup.',
-    'prefs.',
-    'auth.',
-    'shell.',
-    'general.',
-    'account.',
-  ])
-    for (const key of Object.keys(en).filter((k) => k.startsWith(prefix)))
-      expect(catalogFor('zh-CN')[key as keyof typeof en], key).toBeDefined();
+  // Every screen is translated: every English key exists in Simplified Chinese.
+  for (const key of Object.keys(en))
+    expect(catalogFor('zh-CN')[key as keyof typeof en], key).toBeDefined();
 });
 it('translates per key with English fallback and fills placeholders', () => {
   expect(translate('en', 'auth.signIn')).toBe('Sign in');

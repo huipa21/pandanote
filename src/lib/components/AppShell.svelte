@@ -108,14 +108,14 @@
       class="sidebar-resizer"
       role="separator"
       tabindex="0"
-      aria-label="Resize sidebar"
+      aria-label={t('shell.resize')}
       aria-orientation="vertical"
       aria-controls="desktop-sidebar"
       aria-valuemin={MIN_SIDEBAR_WIDTH}
       aria-valuemax={maximumWidth}
       aria-valuenow={sidebarWidth}
-      aria-valuetext={`${sidebarWidth} pixels`}
-      title="Drag to resize sidebar; use arrow keys when focused"
+      aria-valuetext={t('shell.pixels', { width: sidebarWidth })}
+      title={t('shell.resizeTitle')}
       onpointerdown={startResize}
       onpointermove={resize}
       onpointerup={stopResize}
@@ -153,8 +153,8 @@
                 {#if filters.query}<a
                     class="filter-chip"
                     href={filterHref({ ...filters, query: '' })}
-                    aria-label="Remove search filter"
-                    >Search: {filters.query} ×</a
+                    aria-label={t('shell.removeSearch')}
+                    >{t('shell.searchChip', { query: filters.query })}</a
                   >{/if}
                 {#if filters.day}<a
                     class="filter-chip"
@@ -163,8 +163,8 @@
                       day: undefined,
                       date: undefined,
                     })}
-                    aria-label="Remove day filter"
-                    >{filters.date ?? 'Selected day'} ×</a
+                    aria-label={t('shell.removeDay')}
+                    >{filters.date ?? t('shell.selectedDay')} ×</a
                   >{/if}
               </div>
               <a href="/">{t('shell.clearAll')}</a>
@@ -177,7 +177,7 @@
       id="notes-pane"
       class="notes-scroller"
       tabindex="0"
-      aria-label="Notes pane"
+      aria-label={t('shell.notesPane')}
       bind:this={scroller}
     >
       {#if active === '/'}{@render composerRegion()}{/if}
@@ -189,7 +189,7 @@
             onclick={() => {
               scroller.focus({ preventScroll: true });
               scroller.scrollTo({ top: 0, behavior: 'instant' });
-            }}>Back to Top ↑</button
+            }}>{t('shell.backTop')}</button
           >
         </footer>
       {/if}

@@ -1446,8 +1446,15 @@ default credential.
   key is a compile error; `translate()` falls back per key to English and fills
   `{name}` placeholders literally. `registry.ts` is the only language list
   (`languageCodes`, native names, `complete` = declared whole-UI coverage AND every key;
-  zh-CN is declared partial) plus the tag/`Accept-Language` matchers (q-values,
+  zh-CN is declared whole-UI and complete since the multi-language step) plus the tag/`Accept-Language` matchers (q-values,
   bounded; Simplified Chinese = zh, zh-CN/SG/Hans; zh-TW/HK/Hant and unknown → en).
+  `localeFor()` gives the Intl locale (`en` / `zh-CN`) used by date, number and
+  month formatting (`I18n.locale`, `shortDate`/`monthLabel` take a locale argument).
+  Non-component client code (editor, retry and upload state) calls `tr()` from
+  `client/i18n-current.ts`; the root `I18n.language` setter keeps it synchronous.
+  `localizeMessage(language, text)` maps an exact English catalog value back to its
+  translation (used for form validation and field messages from zod/server).
+  Markdown code-copy labels are localized after hydration (server HTML stays English).
   `hooks.server.ts` sets `locals.i18n` = saved language/title once setup is complete,
   otherwise `Accept-Language` + stored title; `<html lang>` is substituted server-side
   from registry codes only. The root layout provides a reactive `I18n` context
@@ -1457,7 +1464,8 @@ default credential.
   `PATCH /api/settings/general` (`updateGeneral`, strict partial `{siteTitle?, language?}`,
   session-checked, merged inside the write transaction, no fresh auth) backs Settings →
   General: language saves immediately on change, the title via its Save button.
-  Server/zod validation messages and non-planned screens stay English.
+  Server API/SSR error text and shared schema messages stay English unless they match a
+  catalog string (`localizeMessage`); translating them needs stable error codes (open gap).
 - Removed `api/auth/setup` and retired token methods. Browser test servers initialize
   empty storage through normal startup and claim/complete it through real endpoints;
   no token CLI, production seed or auth bypass remains in those fixtures. SS05

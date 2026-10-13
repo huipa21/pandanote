@@ -1,3 +1,4 @@
+import { tr } from '#lib/client/i18n-current.ts';
 import { z } from 'zod';
 import {
   idSchema,
@@ -32,7 +33,7 @@ export const postingAttemptSchema = z
         attempt.manifest.items.some((item) => item.id === id),
       ) &&
       (attempt.phase === 'confirmed') === (attempt.result !== null),
-    'Invalid frozen posting attempt',
+    tr('attempt.invalid'),
   );
 export type PostingAttempt = z.infer<typeof postingAttemptSchema>;
 export async function sha256(value: string | Blob): Promise<string> {

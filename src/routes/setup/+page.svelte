@@ -35,7 +35,7 @@
     const parsed = setupAccountSchema.safeParse(value);
     if (!parsed.success) {
       for (const issue of parsed.error.issues)
-        fields[String(issue.path[0])] ??= issue.message;
+        fields[String(issue.path[0])] ??= i18n.msg(issue.message);
       return;
     }
     busy = true;
@@ -47,7 +47,7 @@
       });
       const result = await response.json();
       if (!response.ok || !result.ok) {
-        fields = result.error?.fields ?? {};
+        fields = i18n.msgs(result.error?.fields);
         expired = result.error?.code === 'setup_closed';
         already = result.error?.code === 'already_set_up';
         message =
