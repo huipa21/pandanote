@@ -36,7 +36,9 @@
     });
     const result = await response.json();
     if (!response.ok || !result.ok)
-      throw new Error(result.error?.message ?? t('restore.requestFailed'));
+      throw new Error(
+        result.error ? i18n.error(result.error) : t('restore.requestFailed'),
+      );
     return result;
   }
   onMount(() => {
@@ -96,7 +98,9 @@
           const result = JSON.parse(xhr.responseText);
           if (xhr.status >= 400 || !result.ok)
             throw new Error(
-              result.error?.message ?? t('restore.invalidArchive'),
+              result.error
+                ? i18n.error(result.error)
+                : t('restore.invalidArchive'),
             );
           resolve(result.data);
         } catch (e) {

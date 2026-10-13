@@ -7,7 +7,6 @@ import { createGzip, createGunzip } from 'node:zlib';
 import tar from 'tar-stream';
 import {
   backupManifestSchema,
-  PRE_RELEASE_BACKUP_MESSAGE,
   BACKUP_MANIFEST_BYTES,
   BACKUP_MAX_BYTES,
   BACKUP_MAX_ENTRIES,
@@ -95,7 +94,7 @@ function parseManifest(bytes: Buffer): BackupManifest {
     'formatVersion' in input &&
     input.formatVersion === 1
   )
-    throw new DomainError('invalid-backup', PRE_RELEASE_BACKUP_MESSAGE);
+    throw new DomainError('invalid-backup', 'err.preReleaseBackup');
   const manifest = backupManifestSchema.parse(input);
   for (const entry of manifest.entries) {
     if (entry.path.startsWith('files/'))

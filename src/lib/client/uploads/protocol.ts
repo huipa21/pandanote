@@ -3,7 +3,7 @@ import type {
   ApiResult,
   MutationResult,
 } from '#lib/shared/domain.ts';
-import { tr } from '#lib/client/i18n-current.ts';
+import { tr, trError } from '#lib/client/i18n-current.ts';
 import { mutationResultSchema } from '#lib/shared/domain.ts';
 import type {
   InitializeBatchResult,
@@ -14,7 +14,7 @@ import { commandDigest, sha256, type PostingAttempt } from './attempt.ts';
 export class PostingError extends Error {
   readonly detail: ApiError;
   constructor(detail: ApiError) {
-    super(detail.message);
+    super(trError(detail));
     this.detail = detail;
   }
 }

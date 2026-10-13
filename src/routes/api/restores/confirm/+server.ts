@@ -6,7 +6,7 @@ import { clearSessionCookie } from '#lib/server/auth/http.ts';
 export const POST: RequestHandler = async ({ locals, request, cookies }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     await locals.runtime!.restores.confirm(
       locals.identity,
       await readNoteJson(request, 4096),

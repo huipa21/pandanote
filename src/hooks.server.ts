@@ -2,6 +2,7 @@ import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
 import { building, dev } from '$app/env';
 import { setupAccess } from '#lib/server/auth/setup-routing.ts';
 import { appearanceFrom, appearanceHtml } from '#lib/shared/appearance.ts';
+import { apiError } from '#lib/shared/domain.ts';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
 import { matchAcceptLanguage } from '#lib/shared/i18n/registry.ts';
 import { readSettings } from '#lib/server/settings/repository.ts';
@@ -66,13 +67,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (!runtime.persistence.available)
       return protect(
         Response.json(
-          {
-            ok: false,
-            error: {
-              code: 'busy',
-              message: 'Restore maintenance is in progress. Retry shortly.',
-            },
-          },
+          { ok: false, error: apiError('busy', 'err.restoreMaintenance') },
           { status: 503 },
         ),
       );
@@ -81,10 +76,7 @@ export const handle: Handle = async ({ event, resolve }) => {
         Response.json(
           {
             ok: false,
-            error: {
-              code: 'unauthorized',
-              message: 'Same-origin request required.',
-            },
+            error: apiError('unauthorized', 'err.sameOrigin'),
           },
           { status: 403 },
         ),
@@ -117,15 +109,14 @@ export const handle: Handle = async ({ event, resolve }) => {
         Response.json(
           {
             ok: false,
-            error: {
-              code: access.code,
-              message:
-                access.code === 'already_set_up'
-                  ? 'An account already exists. Sign in to continue.'
-                  : access.code === 'setup_required'
-                    ? 'Finish setup to continue.'
-                    : 'Sign in to continue.',
-            },
+            error: apiError(
+              access.code,
+              access.code === 'already_set_up'
+                ? 'setup.alreadySetUp'
+                : access.code === 'setup_required'
+                  ? 'err.finishSetup'
+                  : 'err.signInToContinue',
+            ),
           },
           { status: access.status },
         ),
@@ -137,7 +128,7 @@ export const handle: Handle = async ({ event, resolve }) => {
           Response.json(
             {
               ok: false,
-              error: { code: 'unauthorized', message: 'Sign in to continue.' },
+              error: apiError('unauthorized', 'err.signInToContinue'),
             },
             { status: 401 },
           ),

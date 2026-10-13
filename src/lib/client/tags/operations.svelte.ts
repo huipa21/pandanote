@@ -1,4 +1,4 @@
-import { tr } from '#lib/client/i18n-current.ts';
+import { tr, trError } from '#lib/client/i18n-current.ts';
 import { invalidate } from '$app/navigation';
 import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
 import type { ApiResult } from '#lib/shared/domain.ts';
@@ -18,7 +18,7 @@ async function api<T>(path: string, command: unknown): Promise<T> {
     signal: AbortSignal.timeout(30000),
   });
   const result = (await response.json()) as ApiResult<T>;
-  if (!result.ok) throw new Error(result.error.message);
+  if (!result.ok) throw new Error(trError(result.error));
   return result.data;
 }
 

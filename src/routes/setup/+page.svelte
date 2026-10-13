@@ -53,7 +53,9 @@
         message =
           result.error?.code === 'already_set_up'
             ? t('setup.alreadySetUp')
-            : (result.error?.message ?? t('setup.createFailed'));
+            : result.error
+              ? i18n.error(result.error)
+              : t('setup.createFailed');
         return;
       }
       password = '';

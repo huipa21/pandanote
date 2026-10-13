@@ -17,6 +17,7 @@
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Modal from './Modal.svelte';
   import { shortDate } from '#lib/shared/timeline.ts';
+  import type { ErrorText } from '#lib/shared/i18n/index.ts';
   import {
     STATUS_PAGE_SIZE,
     type ListStatus,
@@ -27,12 +28,12 @@
   let {
     status,
     initial,
-    initialError = '',
+    initialError = null,
     q = '',
   }: {
     status: ListStatus;
     initial: StatusPage | null;
-    initialError?: string;
+    initialError?: ErrorText | null;
     /** Search text the server page was built with; older pages reuse it. */
     q?: string;
   } = $props();
@@ -151,7 +152,9 @@
       };
       if (disposed || currentGeneration !== generation) return;
       if (!payload.ok)
-        throw new Error(payload.error?.message ?? t('trash.olderFailed'));
+        throw new Error(
+          payload.error ? i18n.error(payload.error) : t('trash.olderFailed'),
+        );
       extended = true;
       items = merge(items, payload.data!.items);
       cursor = payload.data!.nextCursor;
@@ -231,7 +234,7 @@
 </script>
 
 <section aria-label={t('trash.list')}>
-  {#if initialError}<p role="alert">{initialError}</p>{/if}
+  {#if initialError}<p role="alert">{i18n.error(initialError)}</p>{/if}
   {#if error}<p role="alert">{error}</p>{/if}
   {#if !items.length && !initialError}<p>
       {q ? t('trash.noMatch') : t('trash.empty')}

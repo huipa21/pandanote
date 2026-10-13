@@ -26,7 +26,7 @@ export async function receive(
   deadlineMs = 60_000,
 ): Promise<{ bytes: number; digest: string; head: Buffer; raster: boolean }> {
   if (!body && expectedBytes !== 0)
-    throw new DomainError('validation', 'Missing upload body.');
+    throw new DomainError('validation', 'err.missingUploadBody');
   const source =
     body ??
     new ReadableStream<Uint8Array>({
@@ -54,10 +54,7 @@ export async function receive(
     while (true) {
       const part = await reader.read();
       if (timedOut)
-        throw new DomainError(
-          'upload-failed',
-          'Upload timed out. Keep your local file and retry.',
-        );
+        throw new DomainError('upload-failed', 'err.uploadTimedOutKeepYour');
       if (part.done) break;
       bytes += part.value.byteLength;
       if (head.length < 4096)
@@ -73,7 +70,7 @@ export async function receive(
       if (bytes > cap)
         throw new DomainError(
           'validation',
-          'Upload exceeds the permitted byte limit or frozen input size.',
+          'err.uploadExceedsThePermittedByte',
         );
       hash.update(part.value);
       // FileHandle.write may be partial, particularly under disk pressure.
@@ -90,10 +87,7 @@ export async function receive(
       }
     }
     if (bytes !== expectedBytes)
-      throw new DomainError(
-        'validation',
-        'Upload is incomplete. Retry with the original file.',
-      );
+      throw new DomainError('validation', 'err.uploadIsIncompleteRetryWith');
     await handle.sync();
     return { bytes, digest: hash.digest('hex'), head, raster: isRaster(head) };
   } finally {

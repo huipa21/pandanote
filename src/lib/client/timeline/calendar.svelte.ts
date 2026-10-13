@@ -1,4 +1,4 @@
-import { tr } from '#lib/client/i18n-current.ts';
+import { tr, trError } from '#lib/client/i18n-current.ts';
 import type { MonthActivity } from '#lib/shared/calendar.ts';
 import type { ApiResult } from '#lib/shared/domain.ts';
 export const CALENDAR = Symbol('month calendar');
@@ -36,7 +36,7 @@ export class CalendarState {
       );
       const result = (await response.json()) as ApiResult<MonthActivity>;
       if (generation !== this.generation || month !== this.month) return;
-      if (!result.ok) throw new Error(result.error.message);
+      if (!result.ok) throw new Error(trError(result.error));
       this.activity = result.data;
     } catch (error) {
       if (generation === this.generation)

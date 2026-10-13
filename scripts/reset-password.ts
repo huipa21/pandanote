@@ -28,10 +28,9 @@ try {
     !process.stdin.isTTY ||
     !process.stdout.isTTY
   )
-    throw new DomainError(
-      'validation',
-      'reset-password requires an interactive terminal and accepts no arguments or piped input.',
-    );
+    throw new DomainError('validation', {
+      text: 'reset-password requires an interactive terminal and accepts no arguments or piped input.',
+    });
   const { origin } = authPolicy(process.env);
   const root = resolvePrivateRoot();
   const journals = join(root, 'private/journals');
@@ -39,20 +38,17 @@ try {
     existsSync(journals) &&
     readdirSync(journals).some((name) => name.endsWith('.json'))
   )
-    throw new DomainError(
-      'busy',
-      'Restore recovery is pending. Restart PandaNote before resetting the password.',
-    );
+    throw new DomainError('busy', {
+      text: 'Restore recovery is pending. Restart PandaNote before resetting the password.',
+    });
   if (!existsSync(join(root, 'db/pandanote.sqlite')))
-    throw new DomainError(
-      'conflict',
-      `No account exists. Complete setup at ${origin}/setup`,
-    );
+    throw new DomainError('conflict', {
+      text: `No account exists. Complete setup at ${origin}/setup`,
+    });
   if (existsSync(join(root, 'private/pre-upgrade-state.json')))
-    throw new DomainError(
-      'busy',
-      'Database upgrade recovery is pending. Restart PandaNote before resetting the password.',
-    );
+    throw new DomainError('busy', {
+      text: 'Database upgrade recovery is pending. Restart PandaNote before resetting the password.',
+    });
   const storage = new PrivateStorage();
   persistence = new Persistence(storage); // Refuses pending restore journals before DB access.
   const owner = persistence.db
@@ -60,10 +56,9 @@ try {
     .from(account)
     .get();
   if (!owner)
-    throw new DomainError(
-      'conflict',
-      `No account exists. Complete setup at ${origin}/setup`,
-    );
+    throw new DomainError('conflict', {
+      text: `No account exists. Complete setup at ${origin}/setup`,
+    });
   process.stdout.write(
     `Username: ${owner.username}\nThis resets the password, turns off MFA and signs out all devices.\n`,
   );
@@ -95,10 +90,9 @@ try {
     .from(account)
     .get();
   if (current?.id !== owner.id || current.username !== owner.username)
-    throw new DomainError(
-      'busy',
-      'Account changed during prompting. Run reset-password again.',
-    );
+    throw new DomainError('busy', {
+      text: 'Account changed during prompting. Run reset-password again.',
+    });
   await new AuthService(persistence).resetPassword(
     password,
     cancellation.signal,

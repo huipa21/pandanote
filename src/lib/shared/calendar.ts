@@ -27,15 +27,12 @@ export function calendarDate(value: string): Temporal.PlainDate {
     if (date.year < 1969 || date.year > 9998) throw new Error();
     return date;
   } catch {
-    throw new DomainError(
-      'validation',
-      'Choose a valid calendar date between 1969 and 9998.',
-    );
+    throw new DomainError('validation', 'err.chooseAValidCalendarDate');
   }
 }
 export function calendarMonth(value: string): Temporal.PlainDate {
   if (!/^\d{4}-\d{2}$/.test(value))
-    throw new DomainError('validation', 'Choose a valid year and month.');
+    throw new DomainError('validation', 'err.chooseAValidYearAnd');
   return calendarDate(`${value}-01`);
 }
 export function dayRange(date: string, timezone: string) {

@@ -57,7 +57,7 @@ export function updateAppearance(
 ): Appearance {
   const parsed = appearanceSchema.safeParse(value);
   if (!parsed.success)
-    throw new DomainError('validation', 'Choose valid appearance settings.');
+    throw new DomainError('validation', 'err.chooseValidAppearanceSettings');
   return persistence.write((tx) => {
     if (identity) assertSessionIdentity(tx, identity);
     const row = tx
@@ -84,10 +84,7 @@ export function updateGeneral(
 ): { siteTitle: string; language: Language } {
   const parsed = generalSettingsSchema.safeParse(value);
   if (!parsed.success)
-    throw new DomainError(
-      'validation',
-      'Choose a site title of 1–60 characters and an available language.',
-    );
+    throw new DomainError('validation', 'err.chooseASiteTitleOf');
   return p.write((tx) => {
     assertSessionIdentity(tx, identity);
     const row = tx
@@ -114,10 +111,7 @@ export function updateCalendar(
 ): CalendarPreferences {
   const parsed = calendarPreferencesSchema.safeParse(value);
   if (!parsed.success)
-    throw new DomainError(
-      'validation',
-      'Choose a valid IANA timezone and week start.',
-    );
+    throw new DomainError('validation', 'err.chooseAValidIanaTimezone');
   return p.write((tx) => {
     assertSessionIdentity(tx, identity);
     const row = tx
@@ -144,10 +138,7 @@ export function updateStorageLimits(
 ): StorageLimits {
   const parsed = storageLimitsSchema.safeParse(value);
   if (!parsed.success)
-    throw new DomainError(
-      'validation',
-      'Choose valid upload, image and note limits within the safe bounds.',
-    );
+    throw new DomainError('validation', 'err.chooseValidUploadImageAnd');
   return p.write((tx) => {
     assertSessionIdentity(tx, identity);
     const row = tx

@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
 import { asc, count, eq, lte, notInArray } from 'drizzle-orm';
 import { DomainError } from '../../shared/domain.ts';
+import type { MessageKey } from '../../shared/i18n/index.ts';
 import type {
   DomainDatabase,
   DomainTransaction,
@@ -109,8 +110,8 @@ function expandIPv6(ip: string): number[] {
 /** A rate-limited error that tells the caller how long to wait (seconds). */
 export class RateLimitError extends DomainError {
   readonly retryAfterSeconds: number;
-  constructor(message: string, retryAfterSeconds: number) {
-    super('rate-limited', message);
+  constructor(key: MessageKey | { text: string }, retryAfterSeconds: number) {
+    super('rate-limited', key);
     this.name = 'RateLimitError';
     this.retryAfterSeconds = retryAfterSeconds;
   }
@@ -232,11 +233,7 @@ export class AuthRateLimiter {
       }
       return true;
     });
-    if (!allowed)
-      throw new RateLimitError(
-        'Too many attempts. Try again in 15 minutes.',
-        WINDOW_MS / 1000,
-      );
+    if (!allowed) throw new RateLimitError('err.rateLimited', WINDOW_MS / 1000);
   }
   /**
    * Counts one failure in the fixed window `name` and returns the new count.

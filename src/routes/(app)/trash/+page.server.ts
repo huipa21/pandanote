@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { statusPage } from '#lib/server/notes/status-list.ts';
-import { DomainError } from '#lib/shared/domain.ts';
+import { DomainError, apiError } from '#lib/shared/domain.ts';
 import { STATUS_PAGE_SIZE } from '#lib/shared/status-notes.ts';
 
 export const load: PageServerLoad = ({ locals, depends, url }) => {
@@ -18,7 +18,7 @@ export const load: PageServerLoad = ({ locals, depends, url }) => {
           q,
         }),
       ),
-      statusError: '',
+      statusError: null,
     };
   } catch (error) {
     return {
@@ -26,8 +26,8 @@ export const load: PageServerLoad = ({ locals, depends, url }) => {
       statusList: null,
       statusError:
         error instanceof DomainError && error.code === 'validation'
-          ? error.message
-          : 'Trash could not be loaded. No notes were removed. Retry in a moment.',
+          ? error.toApiError()
+          : apiError('busy', 'err.trashPageLoadFailed'),
     };
   }
 };

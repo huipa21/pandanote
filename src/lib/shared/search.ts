@@ -10,16 +10,10 @@ export const normalizeSearch = (value: string): string =>
  * Quotes must delimit a whole unit, not silently concatenate adjacent terms. */
 export function parseSearch(query: string): string[] {
   if (query.includes('\0'))
-    throw new DomainError(
-      'validation',
-      'Search cannot contain a NUL character.',
-    );
+    throw new DomainError('validation', 'err.searchCannotContainANul');
   // Grammar escaping/canonical quotes may expand transport but not content.
   if ([...query].length > 1024)
-    throw new DomainError(
-      'validation',
-      'Search input is too long (1024 characters including escapes).',
-    );
+    throw new DomainError('validation', 'err.searchInputIsTooLong');
   const units: string[] = [];
   let i = 0;
   while (i < query.length) {
@@ -35,35 +29,26 @@ export function parseSearch(query: string): string[] {
         unit += query[i++];
       } else if (ch === '"') {
         if (!quoted)
-          throw new DomainError(
-            'validation',
-            'Put a phrase in separate double quotes.',
-          );
+          throw new DomainError('validation', 'err.putAPhraseInSeparate');
         closed = true;
         break;
       } else if (!quoted && /\s/u.test(ch)) break;
       else unit += ch;
     }
     if (!closed)
-      throw new DomainError(
-        'validation',
-        'Close the double quote to search an exact phrase.',
-      );
+      throw new DomainError('validation', 'err.closeTheDoubleQuoteTo');
     if (quoted && i < query.length && !/\s/u.test(query[i]))
-      throw new DomainError('validation', 'Separate search terms with spaces.');
+      throw new DomainError('validation', 'err.separateSearchTermsWithSpaces');
     if (!unit.length)
-      throw new DomainError('validation', 'An exact phrase cannot be empty.');
+      throw new DomainError('validation', 'err.anExactPhraseCannotBe');
     units.push(normalizeSearch(unit));
     if (
       units.reduce((n, value) => n + [...value].length, 0) >
       MAX_QUERY_CODEPOINTS
     )
-      throw new DomainError(
-        'validation',
-        'Normalized search is limited to 256 characters.',
-      );
+      throw new DomainError('validation', 'err.normalizedSearchIsLimitedTo');
     if (units.length > MAX_SEARCH_UNITS)
-      throw new DomainError('validation', 'Use at most 20 search terms.');
+      throw new DomainError('validation', 'err.useAtMost20Search');
   }
   return [...new Set(units)].sort();
 }

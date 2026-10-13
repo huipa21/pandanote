@@ -30,7 +30,9 @@
     const result = await response.json();
     if (!response.ok || !result.ok) {
       fields = i18n.msgs(result.error?.fields);
-      throw new Error(result.error?.message ?? t('account.failed'));
+      throw new Error(
+        result.error ? i18n.error(result.error) : t('account.failed'),
+      );
     }
     return result;
   }

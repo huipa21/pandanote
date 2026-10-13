@@ -122,7 +122,7 @@ export function clientIp(
   policy: Pick<AuthPolicy, 'trustedPeers'>,
 ): string {
   const family = isIP(peer);
-  if (!family) throw new DomainError('validation', 'Invalid client address.');
+  if (!family) throw new DomainError('validation', 'err.invalidClientAddress');
   // BlockList handles mapped IPv4 (including hex notation) against IPv4 ranges.
   // A trusted peer must overwrite XFF: never guess a first/last hop from a chain.
   const trusted = policy.trustedPeers;
@@ -132,7 +132,7 @@ export function clientIp(
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded === null) return peer;
   if (!isIP(forwarded))
-    throw new DomainError('validation', 'Invalid proxy client address.');
+    throw new DomainError('validation', 'err.invalidProxyClientAddress');
   return forwarded;
 }
 export function sameOrigin(request: Request, policy: AuthPolicy): boolean {

@@ -44,10 +44,7 @@ export function noteMutationDigest(value: NoteMutation): string {
 export class NoteConflictError extends DomainError {
   readonly snapshot: NoteSnapshot;
   constructor(snapshot: NoteSnapshot) {
-    super(
-      'conflict',
-      'The note has changed. Keep your local edits and compare the server version.',
-    );
+    super('conflict', 'err.noteChangedCompare');
     this.snapshot = snapshot;
   }
 }
@@ -56,11 +53,7 @@ type AttachmentRow = typeof attachments.$inferSelect;
 type Reader = Persistence['db'] | DomainTransaction;
 function rowFor(db: Reader, id: string): NoteRow {
   const row = db.select().from(notes).where(eq(notes.id, id)).get();
-  if (!row)
-    throw new DomainError(
-      'not-found',
-      'Note not found. Keep your unsaved editor open if you need its text or files.',
-    );
+  if (!row) throw new DomainError('not-found', 'err.noteNotFoundKeepYour');
   return row;
 }
 function linkedIds(db: Reader, id: string): string[] {
@@ -120,7 +113,7 @@ export class NoteService {
   }
   get(identity: SessionIdentity, id: string): NoteSnapshot {
     if (!idSchema.safeParse(id).success)
-      throw new DomainError('validation', 'Invalid note ID.');
+      throw new DomainError('validation', 'err.invalidNoteId');
     // A read transaction keeps body/revision/joins in the same snapshot even if
     // another connection writes between reads. It makes no content mutations.
     return this.p.db.transaction((tx) => {
@@ -131,10 +124,7 @@ export class NoteService {
   mutate(identity: SessionIdentity, input: unknown): MutationResult {
     const parsed = noteMutationSchema.safeParse(input);
     if (!parsed.success)
-      throw new DomainError(
-        'validation',
-        'Invalid note action, content, date, location, attachments or expected revision.',
-      );
+      throw new DomainError('validation', 'err.invalidNoteActionContentDate');
     const value = parsed.data;
     const digest = noteMutationDigest(value);
     return this.p.write((tx) => {
@@ -156,10 +146,7 @@ export class NoteService {
       )
         throw new NoteConflictError(snapshot(tx, old));
       if (old?.revision === Number.MAX_SAFE_INTEGER)
-        throw new DomainError(
-          'validation',
-          'This note cannot accept another revision. Save a separate copy.',
-        );
+        throw new DomainError('validation', 'err.thisNoteCannotAcceptAnother');
       const batch = tx
         .select()
         .from(uploadBatches)
@@ -173,13 +160,10 @@ export class NoteService {
       )
         throw new DomainError(
           'mutation-mismatch',
-          'This posting attempt does not match its frozen upload batch. Start a new attempt.',
+          'err.thisPostingAttemptDoesNot',
         );
       if (!('content' in value) && batch)
-        throw new DomainError(
-          'validation',
-          'A status action cannot commit an upload batch.',
-        );
+        throw new DomainError('validation', 'err.aStatusActionCannotCommit');
       const now = Math.max(Date.now(), old?.updatedAt ?? 0);
       const noteId = old?.id ?? randomUUID();
       const revision = (old?.revision ?? 0) + 1;
@@ -189,13 +173,13 @@ export class NoteService {
         if (value.action === 'update' && old?.status !== 'published')
           throw new DomainError(
             'validation',
-            'Published notes use Save changes; Trash must be restored first.',
+            'err.publishedNotesUseSaveChanges',
           );
         const content = value.content;
         if (value.action !== 'create' && content.timelineAt === null)
           throw new DomainError(
             'validation',
-            'Keep the original timeline date or explicitly choose a new one.',
+            'err.keepTheOriginalTimelineDate',
           );
         const timelineAt =
           content.timelineAt === null
@@ -209,14 +193,11 @@ export class NoteService {
         )
           throw new DomainError(
             'validation',
-            'This note exceeds the configured text or attachment limit.',
+            'err.thisNoteExceedsTheConfigured',
           );
         const rows = this.readyAttachments(tx, identity, content, batch?.id);
         if (!content.bodyMarkdown.trim() && rows.length === 0)
-          throw new DomainError(
-            'validation',
-            'Add text or a ready image/file before posting.',
-          );
+          throw new DomainError('validation', 'err.addTextOrAReady');
         const extracted = inspectContent(
           content.bodyMarkdown,
           new Set(rows.filter((r) => r.kind === 'image').map((r) => r.id)),
@@ -233,10 +214,7 @@ export class NoteService {
             .where(eq(attachments.batchId, batch.id))
             .all();
           if (batchIds.some((r) => !content.attachmentIds.includes(r.id)))
-            throw new DomainError(
-              'validation',
-              'All frozen batch files must be included. Start a new attempt to change the file selection.',
-            );
+            throw new DomainError('validation', 'err.allFrozenBatchFilesMust');
         }
         const changed =
           old &&
@@ -303,10 +281,7 @@ export class NoteService {
         if (!old) throw new Error('Missing existing note');
         if (value.action === 'permanent-delete') {
           if (old.status !== 'trash')
-            throw new DomainError(
-              'validation',
-              'Move the note to Trash before permanently deleting it.',
-            );
+            throw new DomainError('validation', 'err.moveTheNoteToTrash');
           // Remove the rowid-linked FTS row before the derived FK cascade.
           removeNoteSearch(tx, old.id);
           tx.delete(notes)
@@ -323,7 +298,7 @@ export class NoteService {
             if (old.status !== 'published' || old.pinnedAt !== null)
               throw new DomainError(
                 'validation',
-                'Only an unpinned published note can be pinned.',
+                'err.onlyAnUnpinnedPublishedNote',
               );
             if (
               tx
@@ -332,12 +307,11 @@ export class NoteService {
                 .where(isNotNull(notes.pinnedAt))
                 .get()!.n >= MAX_PINNED_NOTES
             )
-              throw new DomainError(
-                'validation',
-                `You can pin at most ${MAX_PINNED_NOTES} notes. Unpin one first.`,
-              );
+              throw new DomainError('validation', 'err.pinLimit', {
+                params: { max: MAX_PINNED_NOTES },
+              });
           } else if (old.pinnedAt === null)
-            throw new DomainError('validation', 'This note is not pinned.');
+            throw new DomainError('validation', 'err.thisNoteIsNotPinned');
           this.update(tx, old, {
             pinnedAt: value.action === 'pin' ? now : null,
             revision,
@@ -427,10 +401,7 @@ export class NoteService {
           .where(eq(fileCleanupJobs.attachmentId, id))
           .get()
       )
-        throw new DomainError(
-          'validation',
-          'An attachment is missing, unready or unavailable to this posting attempt. Keep your local files and retry.',
-        );
+        throw new DomainError('validation', 'err.anAttachmentIsMissingUnready');
       assertSessionIdentity(tx, identity);
       const variants =
         row.kind === 'image'
@@ -448,7 +419,7 @@ export class NoteService {
       } catch {
         throw new DomainError(
           'validation',
-          'A stored attachment is unavailable. Repair or remove it before saving; your local work is retained.',
+          'err.aStoredAttachmentIsUnavailable',
         );
       }
       return row;

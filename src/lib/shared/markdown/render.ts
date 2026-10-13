@@ -7,6 +7,8 @@ import type { Element, Root, Text } from 'hast';
 import { parseMarkdown } from './parse.ts';
 import { tagSpans, type TagSpan } from './tags.ts';
 import { highlight } from './highlight.ts';
+import { translate } from '../i18n/index.ts';
+import { DEFAULT_LANGUAGE, type Language } from '../i18n/registry.ts';
 
 export interface ImageReference {
   id: string;
@@ -68,6 +70,8 @@ function safeLink(url: string): boolean {
 export async function renderMarkdown(
   source: string,
   images: readonly ImageReference[] = [],
+  /** Language of generated control labels (code copy, diagram placeholder). */
+  uiLanguage: Language = DEFAULT_LANGUAGE,
 ): Promise<RenderedMarkdown> {
   const tree = parseMarkdown(source);
   const codes: string[] = [];
@@ -225,9 +229,9 @@ export async function renderMarkdown(
               className: ['mermaid-diagram'],
               dataDiagram: index,
               role: 'img',
-              ariaLabel: 'Mermaid diagram',
+              ariaLabel: translate(uiLanguage, 'markdown.diagram'),
             },
-            [text('Diagram waiting until visible…')],
+            [text(translate(uiLanguage, 'markdown.diagramWaiting'))],
           );
         } else {
           const index = codes.push(original.value) - 1;
@@ -249,9 +253,11 @@ export async function renderMarkdown(
                     type: 'button',
                     disabled: true,
                     dataCode: index,
-                    ariaLabel: `Copy ${language || 'text'} code`,
+                    ariaLabel: translate(uiLanguage, 'markdown.copyCode', {
+                      language: language || 'text',
+                    }),
                   },
-                  [text('Copy')],
+                  [text(translate(uiLanguage, 'markdown.copy'))],
                 ),
                 element(
                   'span',

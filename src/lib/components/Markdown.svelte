@@ -6,7 +6,8 @@
     type ReadingState,
   } from '#lib/client/timeline/reading.svelte.ts';
   const reading = getContext<ReadingState | undefined>(READING);
-  const t = useI18n().t;
+  const i18n = useI18n();
+  const t = i18n.t;
   import {
     renderMarkdown,
     type ImageReference,
@@ -49,7 +50,7 @@
     }
     loading = true;
     const timer = setTimeout(() => {
-      void renderMarkdown(text, refs)
+      void renderMarkdown(text, refs, i18n.language)
         .then((result) => {
           if (current !== generation) return;
           output = result;
@@ -88,7 +89,7 @@
     // SSR copy controls wait for the delegated handler/hydrated DOM. Preview
     // replacements use the same boundary, never a swallowed pre-hydration click.
     const codes = output.codes;
-    // Labels are localized after hydration; server HTML keeps the English defaults.
+    // Server HTML already carries the saved language; this relabels after a live language change.
     root
       .querySelectorAll<HTMLButtonElement>('button[data-code]')
       .forEach((button) => {

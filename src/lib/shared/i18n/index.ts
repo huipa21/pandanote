@@ -17,6 +17,19 @@ export function translate(
     : template;
 }
 
+/** The text-bearing part of an API error (or a page-loader error). */
+export interface ErrorText {
+  message: string;
+  messageKey?: MessageKey;
+  messageParams?: MessageParams;
+}
+/** Localizes a server error: stable key first, then exact English text, else as received. */
+export function errorText(language: Language, error: ErrorText): string {
+  return error.messageKey && error.messageKey in en
+    ? translate(language, error.messageKey, error.messageParams)
+    : localizeMessage(language, error.message);
+}
+
 const englishKeys = new Map<string, MessageKey>(
   (Object.keys(en) as MessageKey[]).map((key) => [en[key], key]),
 );

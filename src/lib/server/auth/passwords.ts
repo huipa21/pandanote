@@ -14,7 +14,7 @@ export const ARGON2_OPTIONS = Object.freeze({
 let active = false;
 async function bounded<T>(work: () => Promise<T>): Promise<T> {
   if (active)
-    throw new DomainError('busy', 'Authentication is busy. Please retry.');
+    throw new DomainError('busy', 'err.authenticationIsBusyPleaseRetry');
   active = true;
   try {
     return await work();

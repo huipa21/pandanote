@@ -10,10 +10,10 @@ const schema = z.strictObject({
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     const parsed = schema.safeParse(await readNoteJson(request, 64 * 1024));
     if (!parsed.success)
-      throw new DomainError('validation', 'Invalid tag history check.');
+      throw new DomainError('validation', 'err.invalidTagHistoryCheck');
     return Response.json({
       ok: true,
       data: locals.runtime!.tags.check(
@@ -23,9 +23,6 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Tag history could not be checked. Editor retained; retry.',
-    );
+    return noteErrorResponse(error, 'err.tagHistoryCheckFailed');
   }
 };

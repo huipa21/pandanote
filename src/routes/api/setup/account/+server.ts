@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
 import { ZodError } from 'zod';
+import { apiError } from '#lib/shared/domain.ts';
 import { fieldValidationResponse } from '#lib/server/auth/validation.ts';
 import {
   SETUP_CODE_MESSAGE,
@@ -17,8 +18,7 @@ const setupCodeResponse = (): Response =>
     {
       ok: false,
       error: {
-        code: 'validation',
-        message: 'Check the highlighted fields.',
+        ...apiError('validation', 'err.checkFields'),
         fields: { setupCode: SETUP_CODE_MESSAGE },
       },
     },

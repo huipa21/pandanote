@@ -5,7 +5,7 @@ import { backupErrorResponse } from '#lib/server/backups/http.ts';
 export const DELETE: RequestHandler = async ({ locals, request, params }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     await locals.runtime!.backups.delete(
       locals.identity,
       params.backupId,

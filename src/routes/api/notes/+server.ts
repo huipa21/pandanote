@@ -7,7 +7,7 @@ import { timelinePage } from '#lib/server/notes/timeline.ts';
 export const GET: RequestHandler = async ({ locals, url }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     const data = await timelinePage(
       locals.runtime!.persistence,
       locals.identity,
@@ -15,20 +15,17 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     );
     return Response.json({ ok: true, data });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Notes could not be loaded. Retry in a moment.',
-    );
+    return noteErrorResponse(error, 'err.notesLoadFailed');
   }
 };
 
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     const value = noteMutationSchema.safeParse(await readNoteJson(request));
     if (!value.success || value.data.action !== 'create')
-      throw new DomainError('validation', 'Use a create-note request.');
+      throw new DomainError('validation', 'err.useACreateNoteRequest');
     const data = locals.runtime!.notes.mutate(locals.identity, value.data);
     return Response.json({ ok: true, data });
   } catch (error) {

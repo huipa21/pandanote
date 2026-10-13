@@ -1,14 +1,10 @@
-import { DomainError, type ApiError } from '../../shared/domain.ts';
+import { DomainError, apiError, type ApiError } from '../../shared/domain.ts';
 
 export function attachmentErrorResponse(error: unknown): Response {
   const body: ApiError =
     error instanceof DomainError
-      ? { code: error.code, message: error.message }
-      : {
-          code: 'upload-failed',
-          message:
-            'Attachment request failed. Keep your local files and retry.',
-        };
+      ? error.toApiError()
+      : apiError('upload-failed', 'err.attachmentRequestFailed');
   const status =
     body.code === 'unauthorized'
       ? 401
@@ -38,7 +34,7 @@ export async function readBatchJson(request: Request): Promise<unknown> {
       'application/json' ||
     !request.body
   )
-    throw new DomainError('validation', 'Use a JSON upload manifest.');
+    throw new DomainError('validation', 'err.useAJsonUploadManifest');
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let bytes = 0;
@@ -51,20 +47,17 @@ export async function readBatchJson(request: Request): Promise<unknown> {
     while (true) {
       const part = await reader.read();
       if (timedOut)
-        throw new DomainError(
-          'validation',
-          'Upload manifest timed out. Retry the posting attempt.',
-        );
+        throw new DomainError('validation', 'err.uploadManifestTimedOutRetry');
       if (part.done) break;
       bytes += part.value.byteLength;
       if (bytes > 64 * 1024)
-        throw new DomainError('validation', 'Upload manifest is too large.');
+        throw new DomainError('validation', 'err.uploadManifestIsTooLarge');
       chunks.push(part.value);
     }
     return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
   } catch (error) {
     if (error instanceof DomainError) throw error;
-    throw new DomainError('validation', 'Invalid upload manifest.');
+    throw new DomainError('validation', 'err.invalidUploadManifest');
   } finally {
     clearTimeout(timer);
     await reader.cancel().catch(() => {});

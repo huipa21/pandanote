@@ -21,11 +21,11 @@ export function enqueueAttachmentCleanup(
       .where(eq(noteAttachments.attachmentId, attachmentId))
       .get()
   )
-    throw new DomainError('validation', 'The attachment is still referenced.');
+    throw new DomainError('validation', 'err.theAttachmentIsStillReferenced');
   if (
     !tx.select().from(attachments).where(eq(attachments.id, attachmentId)).get()
   )
-    throw new DomainError('not-found', 'Attachment not found.');
+    throw new DomainError('not-found', 'err.attachmentNotFound');
   const existing = tx
     .select()
     .from(fileCleanupJobs)

@@ -17,7 +17,8 @@
   import { invalidateAll } from '$app/navigation';
   import { appearanceSchema, type Appearance } from '#lib/shared/appearance.ts';
   let { data } = $props();
-  const t = useI18n().t;
+  const i18n = useI18n();
+  const t = i18n.t;
   // A form snapshot intentionally survives failed saves/revalidation.
   const initial = untrack(() => data.appearance);
   let theme = $state<Appearance['theme']>(initial.theme);
@@ -72,7 +73,9 @@
       });
       const result = await response.json();
       if (!response.ok || result.ok !== true) {
-        error = result.error?.message ?? t('appearance.failed');
+        error = result.error
+          ? i18n.error(result.error)
+          : t('appearance.failed');
         return;
       }
       const appearance = appearanceSchema.parse(result.appearance);

@@ -26,7 +26,7 @@ export function inspectContent(body: string, imageIds: Set<string>) {
         if (!idSchema.safeParse(id).success || !imageIds.has(id))
           throw new DomainError(
             'validation',
-            'Every Markdown image must reference a ready image in this note. Repair or remove unavailable images before posting.',
+            'err.everyMarkdownImageMustReference',
           );
       }
       if ('children' in node) node.children.forEach(visit);
@@ -36,16 +36,10 @@ export function inspectContent(body: string, imageIds: Set<string>) {
     // NFKC may expand a valid source spelling beyond the registry's 128-codepoint
     // path bound (e.g. ligatures). Reject at the domain boundary, not via raw SQL error.
     if (extracted.some((tag) => [...tag.key].length > 128))
-      throw new DomainError(
-        'validation',
-        'A normalized tag exceeds 128 characters.',
-      );
+      throw new DomainError('validation', 'err.aNormalizedTagExceeds128');
     return extracted;
   } catch (error) {
     if (error instanceof DomainError) throw error;
-    throw new DomainError(
-      'validation',
-      'Check the Markdown size and hashtag limits (64 characters per tag level, up to 5 levels and 128 characters per tag, 100 unique tags).',
-    );
+    throw new DomainError('validation', 'err.checkTheMarkdownSizeAnd');
   }
 }

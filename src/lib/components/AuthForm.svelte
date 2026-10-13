@@ -47,7 +47,9 @@
             ? challenge
               ? t('auth.mfaInvalid')
               : t('auth.invalid')
-            : (result.error?.message ?? t('auth.failed'));
+            : result.error
+              ? i18n.error(result.error)
+              : t('auth.failed');
         return;
       }
       password = '';

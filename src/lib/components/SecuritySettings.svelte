@@ -7,7 +7,8 @@
   const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import type { FreshAuthScope, SecurityStatusDto } from '#lib/shared/auth.ts';
-  const t = useI18n().t;
+  const i18n = useI18n();
+  const t = i18n.t;
   type Action =
     'enroll' | 'disable' | 'regenerate' | 'password' | 'revoke' | 'lifetime';
   const scopes: Record<Action, FreshAuthScope> = {
@@ -52,7 +53,9 @@
     );
     const result = await response.json();
     if (!response.ok || !result.ok)
-      throw new Error(result.error?.message ?? t('security.actionFailed'));
+      throw new Error(
+        result.error ? i18n.error(result.error) : t('security.actionFailed'),
+      );
     return result;
   }
   async function refresh() {

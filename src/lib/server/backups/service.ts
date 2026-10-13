@@ -144,7 +144,7 @@ export class BackupService {
   create(identity: SessionIdentity, input: unknown): BackupJob {
     const parsed = backupCreateSchema.safeParse(input);
     if (!parsed.success)
-      throw new DomainError('validation', 'Invalid backup request.');
+      throw new DomainError('validation', 'err.invalidBackupRequest');
     const { id } = parsed.data;
     const job = this.p.write((tx) => {
       // Creation needs only a valid session (same-origin/CSRF checked at HTTP layer).
@@ -156,10 +156,7 @@ export class BackupService {
         .get();
       if (old) return dto(old);
       if (existsSync(this.p.storage.backupPath(id)))
-        throw new DomainError(
-          'validation',
-          'This backup identity already has an archive. Refresh the list.',
-        );
+        throw new DomainError('validation', 'err.thisBackupIdentityAlreadyHas');
       if (
         this.running ||
         tx
@@ -170,15 +167,9 @@ export class BackupService {
           )
           .get()
       )
-        throw new DomainError(
-          'busy',
-          'A backup is already running. Refresh its status.',
-        );
+        throw new DomainError('busy', 'err.aBackupIsAlreadyRunning');
       if (tx.select().from(backupJobs).all().length >= 1000)
-        throw new DomainError(
-          'busy',
-          'Backup history is full. Delete old backups or failed jobs first.',
-        );
+        throw new DomainError('busy', 'err.backupHistoryIsFullDelete');
       const now = Date.now();
       tx.insert(backupJobs)
         .values({ id, state: 'pending', createdAt: now, updatedAt: now })
@@ -299,10 +290,7 @@ export class BackupService {
           }
         }
         if (variants.length + 3 > BACKUP_MAX_ENTRIES)
-          throw new DomainError(
-            'validation',
-            'Too many files for this backup format.',
-          );
+          throw new DomainError('validation', 'err.tooManyFilesForThis');
         const dbBytes =
           (this.p.native.pragma('page_count', { simple: true }) as number) *
           (this.p.native.pragma('page_size', { simple: true }) as number);
@@ -310,7 +298,7 @@ export class BackupService {
         if (dbBytes >= 8 * 1024 ** 3 || dbBytes + fileBytes > BACKUP_MAX_BYTES)
           throw new DomainError(
             'validation',
-            'Notebook exceeds this backup format’s size limit.',
+            'err.notebookExceedsThisBackupFormat',
           );
         // Worst case: copied files + uncompressed/incompressible gzip, snapshot
         // + VACUUM scratch + archive DB. Hardlinks reduce actual peak, not estimate.
@@ -477,14 +465,14 @@ export class BackupService {
     input: unknown,
   ): Promise<Response> {
     if (!idSchema.safeParse(id).success)
-      throw new DomainError('not-found', 'Backup not found.');
+      throw new DomainError('not-found', 'err.backupNotFound');
     const parsed = backupDownloadSchema.safeParse(input);
     if (!parsed.success)
-      throw new DomainError('validation', 'Invalid backup download request.');
+      throw new DomainError('validation', 'err.invalidBackupDownloadRequest');
     return this.p.coordinator.writeAsync(async (lease) => {
       const path = this.p.storage.backupPath(id);
       const handle = await open(path, 'r').catch(() => {
-        throw new DomainError('not-found', 'Completed backup not found.');
+        throw new DomainError('not-found', 'err.completedBackupNotFound');
       });
       try {
         const stat = await handle.stat();
@@ -496,7 +484,7 @@ export class BackupService {
             .where(and(eq(backupJobs.id, id), eq(backupJobs.state, 'complete')))
             .get();
           if (!row || !stat.isFile() || stat.size !== row.bytes)
-            throw new DomainError('not-found', 'Completed backup not found.');
+            throw new DomainError('not-found', 'err.completedBackupNotFound');
         }, lease);
         return new Response(
           Readable.toWeb(
@@ -525,10 +513,10 @@ export class BackupService {
     input: unknown,
   ): Promise<void> {
     if (!idSchema.safeParse(id).success)
-      throw new DomainError('validation', 'Invalid backup ID.');
+      throw new DomainError('validation', 'err.invalidBackupId');
     const parsed = backupDeleteSchema.safeParse(input);
     if (!parsed.success)
-      throw new DomainError('validation', 'Confirm backup deletion.');
+      throw new DomainError('validation', 'err.confirmBackupDeletion');
     await this.p.coordinator.writeAsync(async (lease) => {
       this.p.write((tx) => {
         assertSessionIdentity(tx, identity);
@@ -538,7 +526,7 @@ export class BackupService {
           .where(eq(backupJobs.id, id))
           .get();
         if (row && !['complete', 'failed'].includes(row.state))
-          throw new DomainError('busy', 'Wait until this backup finishes.');
+          throw new DomainError('busy', 'err.waitUntilThisBackupFinishes');
       }, lease);
       await rm(this.p.storage.backupPath(id), { force: true });
       syncDirectory(join(this.p.storage.root, 'backups'));

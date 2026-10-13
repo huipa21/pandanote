@@ -38,10 +38,7 @@ export class DiskBudget {
     const floor =
       this.reserve ?? Math.max(5 * 1024 ** 3, Math.ceil(disk.total / 10));
     if (disk.available - this.reserved - bytes < floor)
-      throw new DomainError(
-        'storage-full',
-        'Not enough disk space above the safety reserve. Free space and retry.',
-      );
+      throw new DomainError('storage-full', 'err.notEnoughDiskSpaceAbove');
     this.reserved += bytes;
     return () => {
       this.reserved -= bytes;
@@ -66,10 +63,7 @@ export class ImageQueue {
   async run<T>(operation: () => Promise<T>): Promise<T> {
     if (this.running) {
       if (this.waiting.length >= this.maxWaiting)
-        throw new DomainError(
-          'busy',
-          'Image processing is busy. Retry this upload shortly.',
-        );
+        throw new DomainError('busy', 'err.imageProcessingIsBusyRetry');
       await new Promise<void>((resolve, reject) => {
         const job = {
           run: resolve,
@@ -77,12 +71,7 @@ export class ImageQueue {
           timer: setTimeout(() => {
             const index = this.waiting.indexOf(job);
             if (index >= 0) this.waiting.splice(index, 1);
-            reject(
-              new DomainError(
-                'busy',
-                'Image queue timed out. Retry this upload.',
-              ),
-            );
+            reject(new DomainError('busy', 'err.imageQueueTimedOutRetry'));
           }, this.waitMs),
         };
         this.waiting.push(job);

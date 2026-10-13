@@ -41,7 +41,7 @@ export function parseStatusQuery(params: URLSearchParams) {
       (key) => params.getAll(key).length > 1,
     )
   )
-    throw new DomainError('validation', 'Invalid Trash query.');
+    throw new DomainError('validation', 'err.invalidTrashQuery');
   const status = listStatusSchema.safeParse(params.get('status'));
   const rawLimit = params.get('limit') ?? '30';
   const cursor = params.get('cursor');
@@ -51,10 +51,7 @@ export function parseStatusQuery(params: URLSearchParams) {
     Number(rawLimit) > 100 ||
     (cursor !== null && (!cursor || cursor.length > 2048))
   )
-    throw new DomainError(
-      'validation',
-      'Choose Trash and a page size from 1 to 100.',
-    );
+    throw new DomainError('validation', 'err.chooseTrashAndAPage');
   // Same literal grammar as note search; an absent or empty q lists all Trash.
   const units = parseSearch(params.get('q') ?? '');
   return { status: status.data, limit: Number(rawLimit), cursor, units };

@@ -5,6 +5,7 @@ import {
   type RenderedMarkdown,
   type ImageReference,
 } from './markdown/render.ts';
+import { DEFAULT_LANGUAGE, type Language } from './i18n/registry.ts';
 import {
   calendarDate,
   calendarMonth,
@@ -49,6 +50,7 @@ export function boundedPreview(text: string): {
 export async function snapshotCard(
   note: NoteSnapshot,
   query = '',
+  language: Language = DEFAULT_LANGUAGE,
 ): Promise<TimelineCard> {
   const content = boundedPreview(note.bodyMarkdown);
   const units = parseSearch(query);
@@ -64,7 +66,11 @@ export async function snapshotCard(
   return {
     ...note,
     ...content,
-    rendered: await renderMarkdown(content.bodyMarkdown, cardImages(note)),
+    rendered: await renderMarkdown(
+      content.bodyMarkdown,
+      cardImages(note),
+      language,
+    ),
     snippets: units.length
       ? [
           firstSnippet('body', [note.bodyMarkdown]),
@@ -120,7 +126,7 @@ export function canonicalFilters(
       normalized.split('/').length > 5 ||
       normalized.split('/').some((part) => !part.length))
   )
-    throw new DomainError('validation', 'Invalid tag filter.');
+    throw new DomainError('validation', 'err.invalidTagFilter');
   const search = canonicalSearch(query);
   if (
     day &&
@@ -128,11 +134,11 @@ export function canonicalFilters(
       !rangeInstantSchema.safeParse(day.end).success ||
       day.end <= day.start)
   )
-    throw new DomainError('validation', 'Invalid selected-day range.');
+    throw new DomainError('validation', 'err.invalidSelectedDayRange');
   if (date) calendarDate(date);
   if (month) calendarMonth(month);
   if (month && (date || day))
-    throw new DomainError('validation', 'Choose a month or a day, not both.');
+    throw new DomainError('validation', 'err.chooseAMonthOrA');
   return {
     ...(date ? { date } : {}),
     ...(month ? { month } : {}),
@@ -187,7 +193,7 @@ export function noteHasTag(noteTags: readonly string[], tag: string): boolean {
 }
 export function parseTimelineQuery(params: URLSearchParams) {
   if (params.getAll('tag').length > 1)
-    throw new DomainError('validation', 'Select only one tag.');
+    throw new DomainError('validation', 'err.selectOnlyOneTag');
   if (
     params.toString().length > 8192 ||
     [...params.keys()].some(
@@ -208,16 +214,13 @@ export function parseTimelineQuery(params: URLSearchParams) {
       (key) => params.getAll(key).length > 1,
     )
   )
-    throw new DomainError('validation', 'Invalid timeline query.');
+    throw new DomainError('validation', 'err.invalidTimelineQuery');
   const limit = params.get('limit') ?? String(DEFAULT_PAGE_SIZE);
   if (!/^[1-9]\d{0,2}$/.test(limit) || Number(limit) > MAX_PAGE_SIZE)
-    throw new DomainError('validation', 'Page size must be between 1 and 100.');
+    throw new DomainError('validation', 'err.pageSizeMustBeBetween');
   const cursor = params.get('cursor');
   if (cursor !== null && (!cursor.length || cursor.length > 2048))
-    throw new DomainError(
-      'validation',
-      'Invalid timeline cursor. Start from the first page.',
-    );
+    throw new DomainError('validation', 'err.invalidTimelineCursorStartFrom');
   const start = params.get('dayStart'),
     end = params.get('dayEnd');
   if (
@@ -227,7 +230,7 @@ export function parseTimelineQuery(params: URLSearchParams) {
     (start === null) !== (end === null) ||
     [start, end].some((v) => v !== null && !/^-?\d{1,16}$/.test(v))
   )
-    throw new DomainError('validation', 'Invalid selected-day range.');
+    throw new DomainError('validation', 'err.invalidSelectedDayRange');
   return {
     filters: canonicalFilters(
       params.get('tag'),

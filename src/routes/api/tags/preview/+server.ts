@@ -4,7 +4,7 @@ import { noteErrorResponse, readNoteJson } from '#lib/server/notes/http.ts';
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json({
       ok: true,
       data: locals.runtime!.tags.preview(
@@ -13,9 +13,6 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Tag preview failed. No changes made; retry.',
-    );
+    return noteErrorResponse(error, 'err.tagPreviewFailed');
   }
 };

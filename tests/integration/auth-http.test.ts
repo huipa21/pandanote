@@ -54,7 +54,7 @@ it('unknown errors never send SQL, paths, stacks or credential material; rate fa
     /synthetic-secret|private.sqlite|SQL|stack/,
   );
   const limited = authErrorResponse(
-    new DomainError('rate-limited', 'Too many attempts.'),
+    new DomainError('rate-limited', { text: 'Too many attempts.' }),
   );
   expect(limited.status).toBe(429);
   expect(limited.headers.get('retry-after')).toBe('900');

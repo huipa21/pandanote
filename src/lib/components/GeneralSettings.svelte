@@ -30,7 +30,7 @@
       });
       const result = await response.json();
       if (!response.ok || result.ok !== true) {
-        error = result.error?.message ?? t('general.failed');
+        error = result.error ? i18n.error(result.error) : t('general.failed');
         return false;
       }
       // Apply only confirmed state; reload/SSR uses the same saved settings.

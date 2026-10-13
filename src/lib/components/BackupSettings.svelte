@@ -41,7 +41,9 @@
     });
     const result = await response.json();
     if (!response.ok || !result.ok)
-      throw new Error(result.error?.message ?? t('backup.requestFailed'));
+      throw new Error(
+        result.error ? i18n.error(result.error) : t('backup.requestFailed'),
+      );
     return result;
   }
   async function refresh() {

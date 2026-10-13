@@ -8,7 +8,7 @@ import {
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     const data = locals.runtime!.attachments.initialize(
       locals.identity,
       await readBatchJson(request),

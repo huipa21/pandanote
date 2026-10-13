@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  translate,
+  type MessageKey,
+  type MessageParams,
+} from './i18n/index.ts';
 
 // UTC epoch milliseconds, never a local wall-clock string or SQLite seconds.
 export const instantSchema = z.number().int().min(0).max(8_640_000_000_000_000);
@@ -94,30 +99,69 @@ export type ErrorCode =
   | 'busy'
   | 'invalid-backup'
   | 'not-found';
+export type ErrorText = import('./i18n/index.ts').ErrorText;
 export interface ApiError {
   code: ErrorCode;
+  /** English text for API consumers and logs. Never displayed verbatim in a non-English UI. */
   message: string;
+  /** Stable catalog key for the message; the client localizes it. */
+  messageKey?: MessageKey;
+  messageParams?: MessageParams;
   conflict?: NoteSnapshot;
+}
+/** Body of an API error with a stable message key and its English text. */
+export function apiError(
+  code: ErrorCode,
+  key: MessageKey,
+  params?: MessageParams,
+): ApiError {
+  return {
+    code,
+    message: translate('en', key, params),
+    messageKey: key,
+    ...(params ? { messageParams: params } : {}),
+  };
 }
 export type ApiResult<T> =
   { ok: true; data: T } | { ok: false; error: ApiError };
 
 export class DomainError extends Error {
   readonly code: ErrorCode;
-  constructor(code: ErrorCode, message: string, options?: ErrorOptions) {
-    super(message, options);
+  /** Catalog key of the message; `message` is its English text. Absent only for
+   * verbatim (operator/CLI) text. */
+  readonly messageKey?: MessageKey;
+  readonly messageParams?: MessageParams;
+  /** Browser-facing errors pass a catalog key. `{ text }` is for operator output
+   * (CLI scripts) that is never sent to a browser. */
+  constructor(
+    code: ErrorCode,
+    key: MessageKey | { text: string },
+    options?: ErrorOptions & { params?: MessageParams },
+  ) {
+    super(
+      typeof key === 'string'
+        ? translate('en', key, options?.params)
+        : key.text,
+      options,
+    );
     this.code = code;
+    if (typeof key === 'string') {
+      this.messageKey = key;
+      this.messageParams = options?.params;
+    }
     this.name = 'DomainError';
+  }
+  toApiError(): ApiError {
+    return this.messageKey
+      ? apiError(this.code, this.messageKey, this.messageParams)
+      : { code: this.code, message: this.message };
   }
 }
 
 export function assertRevision(actual: number, expected: number): void {
   expectedRevisionSchema.parse(expected);
   if (actual !== expected)
-    throw new DomainError(
-      'conflict',
-      'The note has changed. Keep your local edits and reload the server version.',
-    );
+    throw new DomainError('conflict', 'err.theNoteHasChangedKeep');
 }
 
 export type NoteAction = 'trash' | 'restore';
@@ -127,20 +171,17 @@ export function transitionNote(
   action: NoteAction,
 ): { status: NoteStatus; priorStatus: RestorableStatus | null } {
   if ((status === 'trash') !== (priorStatus !== null))
-    throw new DomainError('validation', 'Invalid note state.');
+    throw new DomainError('validation', 'err.invalidNoteState');
   if (action === 'trash' && status !== 'trash')
     return { status: 'trash', priorStatus: status };
   if (action === 'restore' && status === 'trash' && priorStatus)
     return { status: priorStatus, priorStatus: null };
-  throw new DomainError('validation', 'This note cannot make that transition.');
+  throw new DomainError('validation', 'err.thisNoteCannotMakeThat');
 }
 
 export function validateTimelineAt(value: unknown, now: number): number {
   const instant = instantSchema.parse(value);
   if (instant > instantSchema.parse(now))
-    throw new DomainError(
-      'validation',
-      'Timeline date must be now or earlier.',
-    );
+    throw new DomainError('validation', 'date.future');
   return instant;
 }

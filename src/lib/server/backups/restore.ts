@@ -68,10 +68,7 @@ export class RestoreService {
   }
   async discard(identity: SessionIdentity): Promise<void> {
     if (this.running)
-      throw new DomainError(
-        'busy',
-        'Restore work is in progress. Wait before discarding.',
-      );
+      throw new DomainError('busy', 'err.restoreWorkIsInProgress');
     await this.p.coordinator.writeAsync(async (lease) => {
       this.p.write((tx) => assertSessionIdentity(tx, identity), lease);
       if (this.candidate?.owner === identity.account.id) await this.clear();
@@ -93,10 +90,7 @@ export class RestoreService {
     request: Request,
   ): Promise<RestoreSummary> {
     if (this.running)
-      throw new DomainError(
-        'busy',
-        'A restore upload or replacement is already running.',
-      );
+      throw new DomainError('busy', 'err.aRestoreUploadOrReplacement');
     const bytesText = request.headers.get('x-archive-bytes') ?? '';
     const bytes = Number(bytesText);
     if (
@@ -105,10 +99,7 @@ export class RestoreService {
       bytes <= 0 ||
       bytes > BACKUP_MAX_BYTES
     )
-      throw new DomainError(
-        'validation',
-        'Invalid or oversized archive byte count.',
-      );
+      throw new DomainError('validation', 'err.invalidOrOversizedArchiveByte');
     const id = randomUUID(),
       stage = this.p.storage.stagingDirectory('restores', id);
     this.running = true;
@@ -201,13 +192,10 @@ export class RestoreService {
           (error as NodeJS.ErrnoException)?.code ?? '',
         )
       )
-        throw new DomainError(
-          'storage-full',
-          'Not enough disk space for restore staging. Free space and retry.',
-        );
+        throw new DomainError('storage-full', 'err.notEnoughDiskSpaceFor');
       throw new DomainError(
         'invalid-backup',
-        'Archive is corrupt, incompatible, unsafe, or exceeds restore validation limits. Current data is unchanged.',
+        'err.archiveIsCorruptIncompatibleUnsafe',
         { cause: error },
       );
     } finally {
@@ -219,18 +207,12 @@ export class RestoreService {
     if (!parsed.success)
       throw new DomainError(
         'validation',
-        'Explicitly confirm full replacement.',
+        'err.explicitlyConfirmFullReplacement',
       );
     if (this.running || this.backups.isRunning)
-      throw new DomainError(
-        'busy',
-        'Wait until backup or restore work finishes.',
-      );
+      throw new DomainError('busy', 'err.waitUntilBackupOrRestore');
     if (new JournalStore(this.p.storage, this.p.coordinator).list().length)
-      throw new DomainError(
-        'busy',
-        'Restore cleanup/recovery is pending. Restart the application before another restore.',
-      );
+      throw new DomainError('busy', 'err.restoreCleanupRecoveryIsPending');
     const candidate = this.candidate;
     if (
       !candidate ||
@@ -239,7 +221,7 @@ export class RestoreService {
     )
       throw new DomainError(
         'not-found',
-        'Validated restore is unavailable. Upload again; restart discards unconfirmed uploads.',
+        'err.validatedRestoreIsUnavailableUpload',
       );
     this.running = true;
     try {
@@ -267,7 +249,7 @@ export class RestoreService {
         if (names.length > 1000)
           throw new DomainError(
             'busy',
-            'Backup inventory needs operator inspection.',
+            'err.backupInventoryNeedsOperatorInspection',
           );
         const catalog: { id: string; createdAt: number; bytes: number }[] = [];
         for (const name of names) {
@@ -381,17 +363,15 @@ export class RestoreService {
               this.p.recoveryRequired = true;
               throw new DomainError(
                 'busy',
-                'Restore recovery requires application restart or operator inspection. Retained data and journal must not be deleted.',
+                'err.restoreRecoveryRequiresApplicationRestart',
                 { cause: recoveryError },
               );
             }
             this.candidate = undefined;
             candidate.release();
-            throw new DomainError(
-              'busy',
-              'Restore failed and the previous application was restored. Upload again to retry.',
-              { cause: error },
-            );
+            throw new DomainError('busy', 'err.restoreFailedAndThePrevious', {
+              cause: error,
+            });
           }
           // A committed restore must never be reported as rolled back. Cleanup is
           // restart-recoverable and cannot erase unrelated completed archives.

@@ -28,8 +28,5 @@ export function assertSessionIdentity(
     owner.securityRevision !== identity.securityRevision ||
     session.securityRevision !== owner.securityRevision
   )
-    throw new DomainError(
-      'unauthorized',
-      'Sign in again, then retry with your retained local work.',
-    );
+    throw new DomainError('unauthorized', 'err.signInAgainThenRetry');
 }

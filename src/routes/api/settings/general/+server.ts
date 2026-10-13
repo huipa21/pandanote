@@ -6,7 +6,7 @@ import { updateGeneral } from '#lib/server/settings/repository.ts';
 export const PATCH: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json({
       ok: true,
       data: updateGeneral(
@@ -16,9 +16,6 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'General settings could not be saved. Retry.',
-    );
+    return noteErrorResponse(error, 'err.generalSettingsSaveFailed');
   }
 };

@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { DomainError } from '#lib/shared/domain.ts';
+import { DomainError, apiError } from '#lib/shared/domain.ts';
 import { timelinePage } from '#lib/server/notes/timeline.ts';
 
 export const load: PageServerLoad = async ({ locals, url, depends }) => {
@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ locals, url, depends }) => {
     const key = timeline.filters.tag ?? null;
     return {
       timeline,
-      timelineError: '',
+      timelineError: null,
       tagSummary: key ? locals.runtime!.tags.summary(identity, key) : null,
     };
   } catch (error) {
@@ -21,8 +21,8 @@ export const load: PageServerLoad = async ({ locals, url, depends }) => {
       tagSummary: null,
       timelineError:
         error instanceof DomainError
-          ? error.message
-          : 'Notes could not be loaded. Retry in a moment.',
+          ? error.toApiError()
+          : apiError('busy', 'err.notesLoadFailed'),
     };
   }
 };

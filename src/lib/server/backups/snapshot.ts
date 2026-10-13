@@ -79,12 +79,7 @@ export async function sanitizeSnapshot(
     child.stderr.resume();
     child.stdin.on('error', () => {});
     child.on('error', () =>
-      reject(
-        new DomainError(
-          'busy',
-          'Snapshot processor could not start. Retry backup.',
-        ),
-      ),
+      reject(new DomainError('busy', 'err.snapshotProcessorCouldNotStart')),
     );
     child.on('close', (code) => {
       signal.removeEventListener('abort', abort);
@@ -99,8 +94,8 @@ export async function sanitizeSnapshot(
           new DomainError(
             full ? 'storage-full' : 'busy',
             full
-              ? 'Not enough disk space for snapshot processing. Free space and retry.'
-              : 'Snapshot processing failed or timed out. Retry backup.',
+              ? 'err.notEnoughDiskSpaceFor2'
+              : 'err.snapshotProcessingFailedOrTimed',
           ),
         );
         return;

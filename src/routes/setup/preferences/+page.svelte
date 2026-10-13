@@ -49,7 +49,7 @@
       const result = await response.json();
       if (!response.ok || !result.ok) {
         fields = i18n.msgs(result.error?.fields);
-        message = result.error?.message ?? t('prefs.failed');
+        message = result.error ? i18n.error(result.error) : t('prefs.failed');
         return;
       }
       window.location.assign('/');

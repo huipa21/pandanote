@@ -270,7 +270,11 @@
             (alreadyLoaded || withinLoadedDates || toPinned)
           ) {
             try {
-              const card = await snapshotCard(changed, filters.query);
+              const card = await snapshotCard(
+                changed,
+                filters.query,
+                i18n.language,
+              );
               if (disposed || key !== queryKey(filters)) return;
               place(card);
               await tick();
@@ -386,7 +390,7 @@
       const payload = (await response.json()) as ApiResult<TimelinePage>;
       if (current !== generation || key !== queryKey(filters) || disposed)
         return;
-      if (!payload.ok) throw new Error(payload.error.message);
+      if (!payload.ok) throw new Error(i18n.error(payload.error));
       if (queryKey(payload.data.filters) !== key)
         throw new Error(t('timeline.filtersChanged'));
       const anchor = captureAnchor(scroller);
@@ -455,7 +459,11 @@
           });
           const payload = (await response.json()) as ApiResult<NoteSnapshot>;
           if (payload.ok && !disposed && key === queryKey(filters)) {
-            const card = await snapshotCard(payload.data, filters.query);
+            const card = await snapshotCard(
+              payload.data,
+              filters.query,
+              i18n.language,
+            );
             if (disposed || key !== queryKey(filters)) return;
             const oldest = items.at(-1);
             const toPinned = isPlain(filters) && card.pinnedAt !== null;
@@ -509,7 +517,7 @@
       {t('timeline.outsideRange')}
     </p>{/if}
   {#if data.timelineError}<section class="surface">
-      <p role="alert">{data.timelineError}</p>
+      <p role="alert">{i18n.error(data.timelineError)}</p>
       <button onclick={() => invalidate('pandanote:timeline')}
         >{t('timeline.retry')}</button
       ><a href="/">{t('timeline.clearStart')}</a>

@@ -5,9 +5,9 @@ import { backupErrorResponse } from '#lib/server/backups/http.ts';
 export const GET: RequestHandler = ({ locals, url }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     if (url.search)
-      throw new DomainError('validation', 'Unexpected backup query.');
+      throw new DomainError('validation', 'err.unexpectedBackupQuery');
     return Response.json({
       ok: true,
       data: locals.runtime!.backups.list(locals.identity),
@@ -19,7 +19,7 @@ export const GET: RequestHandler = ({ locals, url }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json(
       {
         ok: true,

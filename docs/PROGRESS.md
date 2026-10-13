@@ -2,16 +2,23 @@
 
 ## Current state
 
-- **Multi-language UI: English and Simplified Chinese (user request) — implemented; validated, one tracked gap.**
+- **Server error text and Markdown control labels now localized (session 2026-10-15).** Every
+  `DomainError` takes a stable catalog key (`err.*`, 205 keys) instead of English text; the API
+  body is `{ code, message (English), messageKey, messageParams? }`; the client maps the key
+  with `i18n.error()` / `trError()`. Loader errors (`timelineError`, `statusError`, `error()`
+  pages) carry the same fields and a new `(app)/+error.svelte` shows them localized. The
+  Markdown code-copy label, its aria label and the Mermaid placeholder are rendered
+  server-side in the saved language (`renderMarkdown(..., language)`). Details: history entry
+  "Session 2026-10-15 — server error codes and SSR Markdown labels".
+- **Multi-language UI: English and Simplified Chinese (user request) — implemented; validated, one tracked gap (now narrowed to shared zod messages).**
   Every screen, dialog, editor/retry/upload message and form validation message now uses
   the catalogs: `en.ts` and `zh-CN.ts` both have 688 keys with identical placeholders, and
   zh-CN is declared complete in `registry.ts` (the "translation in progress" notice is
   hidden). Dates, numbers and month names follow the saved language (`I18n.locale`).
   Non-component client code uses `tr()` (`client/i18n-current.ts`). Known gap: server API
-  and SSR loader error text (about 98 distinct `DomainError`/`error()` strings) and most
+  and SSR loader error text and Markdown labels: fixed 2026-10-15 (see above). Most
   shared zod messages remain English unless they exactly match a catalog string
-  (`localizeMessage`); translating them needs stable error codes. Markdown code-copy labels
-  localize after hydration. Gates: `check` 0 errors (1 pre-existing AppShell CSS warning),
+  (`localizeMessage`). Gates (2026-10-14): `check` 0 errors (1 pre-existing AppShell CSS warning),
   `lint` clean except the pre-existing `docs/PROGRESS.md` Prettier warning, unit 172/172,
   integration 261 pass / 7 Linux-only skips, `build` pass, `language.test.ts` 1/1 PASS; full
   e2e 77 pass / 15 fail where all 15 also fail on clean HEAD (see history entry). Not run:
@@ -5080,3 +5087,43 @@ open; do not mark project/release done. No user commit/deploy without approval.
   in the client; files to read first: `src/lib/shared/domain.ts`, `src/lib/shared/i18n/index.ts`,
   `docs/ARCHITECTURE.md` SS04. Validation: `npm run check && npm run test:unit`, then
   `npx playwright test tests/e2e/language.test.ts tests/e2e/auth.test.ts`.
+
+### Session 2026-10-15 — server error codes and SSR Markdown labels
+
+- **State:** done for the two tracked gaps (server API/SSR error text; Markdown code-copy label
+  English until hydration). No commit made by the agent.
+- **Implemented:**
+  - `DomainError(code, key, { cause?, params? })`: the second argument is now a typed
+    `MessageKey` (`err.*`, plus reused keys such as `auth.invalid`); `message` stays the English
+    text for API consumers/logs. `{ text }` is accepted only for operator output
+    (`scripts/reset-password.ts`, tests). `DomainError.toApiError()` / `apiError()` build the
+    body; `ApiError` gained `messageKey` and `messageParams`. Dynamic messages (pin limit,
+    tag limits) use `{max}` / `{tag}` placeholders.
+  - ~220 `DomainError` call sites, the auth/note/attachment HTTP helpers, `hooks.server.ts`,
+    route fallbacks (`noteErrorResponse(error, key)`), `RateLimitError`, `NoteConflictError`,
+    field-validation responses and the page loaders (`(app)/+page.server.ts`,
+    `trash/+page.server.ts`, `notes/[noteId]/+page.server.ts`) now use keys. `App.Error` has an
+    optional `messageKey`; `src/routes/(app)/+error.svelte` renders it localized.
+  - Client: `errorText()` (shared/i18n/index.ts: key → exact-English lookup → raw text),
+    `I18n.error()`, `trError()`; all `result.error.message` / `payload.error.message` display
+    sites (about 25) use them. `timelineError`/`statusError` are `ApiError | null`.
+  - Markdown: `renderMarkdown(source, images, language)`, `snapshotCard(..., language)`;
+    `timelinePage` uses the saved language, the note page `locals.i18n.language`. New keys
+    `markdown.diagram`, `markdown.diagramWaiting`. The post-hydration relabel stays only for a
+    live language change.
+  - Catalogs: en/zh-CN now 903 keys (205 `err.*`), placeholder sets identical.
+- **Tests:** `tests/unit/i18n-messages.test.ts` (key round trip, params, fallbacks, every `err.*`
+  translated); `tests/integration/markdown-render.test.ts` (zh-CN labels rendered
+  server-side); `tests/e2e/language.test.ts` (401 body carries `messageKey`).
+- **Commands and results (host, Windows, Node 24):** `npm run check`: 0 errors, 1 pre-existing
+  AppShell warning. `npm run lint`: ESLint clean; Prettier warns only on `docs/PROGRESS.md`
+  (pre-existing). `npm run test:unit`: 176 passed. `npm run test:integration`: 262 passed, 7
+  skipped (Linux-only). `npm run build`: pass. `npx playwright test tests/e2e/language.test.ts
+  tests/e2e/auth.test.ts tests/e2e/markdown.test.ts tests/e2e/detail.test.ts`: 18 passed, 1 failed
+  (auth MFA security UI, expected 401 got 400 — already failing on clean HEAD per the
+  2026-10-14 entry; not caused by this change).
+- **Remaining:** shared zod messages used outside the four localized forms; Chinese layout and
+  mobile visual review; the `(app)/+error.svelte` page has no dedicated e2e; Linux/Alpine image
+  gate and full e2e suite were not run this session.
+- **Next task:** run the full Playwright suite and the Linux image gate; then continue the
+  Next-session list above. Validation: `npm run check && npm run test:unit`.

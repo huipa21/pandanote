@@ -77,10 +77,7 @@ export function decodeCursor(value: string): CursorPayload {
     if (buffer.toString('base64url') !== value) throw new Error();
     return cursorPayloadSchema.parse(JSON.parse(buffer.toString('utf8')));
   } catch {
-    throw new DomainError(
-      'validation',
-      'Invalid timeline cursor. Start from the first page.',
-    );
+    throw new DomainError('validation', 'err.invalidTimelineCursorStartFrom');
   }
 }
 type Reader = Persistence['db'];
@@ -191,7 +188,8 @@ export async function timelinePage(
 ): Promise<TimelinePage> {
   const { filters, cursor, limit } = parseTimelineQuery(params);
   const units = parseSearch(filters.query ?? '');
-  const timezone = readSettings(p).timezone;
+  const settings = readSettings(p);
+  const timezone = settings.timezone;
   if (filters.date) filters.day = dayRange(filters.date, timezone);
   const month = filters.month ? monthRange(filters.month, timezone) : null;
   const decoded = cursor ? decodeCursor(cursor) : null;
@@ -212,10 +210,7 @@ export async function timelinePage(
         (filters.tag !== undefined || units.length > 0 || filters.day) &&
         anchor !== null))
   )
-    throw new DomainError(
-      'validation',
-      'This cursor belongs to different filters or timezone. Start from the first page.',
-    );
+    throw new DomainError('validation', 'err.thisCursorBelongsToDifferent');
   // Plain "All notes" view: pinned notes live in their own first-page section and
   // are excluded from the chronological stream.
   const plain =
@@ -312,7 +307,11 @@ export async function timelinePage(
     for (const note of list)
       out.push({
         ...note,
-        rendered: await renderMarkdown(note.bodyMarkdown, cardImages(note)),
+        rendered: await renderMarkdown(
+          note.bodyMarkdown,
+          cardImages(note),
+          settings.language,
+        ),
       });
     return out;
   };

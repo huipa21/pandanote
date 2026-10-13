@@ -49,7 +49,7 @@ type AttachmentRow = typeof attachments.$inferSelect;
 type Reader = DomainDatabase | DomainTransaction;
 function validId(id: string): void {
   if (!idSchema.safeParse(id).success)
-    throw new DomainError('validation', 'Invalid attachment or batch ID.');
+    throw new DomainError('validation', 'err.invalidAttachmentOrBatchId');
 }
 export function attachmentDto(row: AttachmentRow): ReadyAttachment {
   return {
@@ -70,10 +70,7 @@ export function attachmentDto(row: AttachmentRow): ReadyAttachment {
   };
 }
 function mismatch(): never {
-  throw new DomainError(
-    'mutation-mismatch',
-    'This retry has different files or content. Start a new posting attempt.',
-  );
+  throw new DomainError('mutation-mismatch', 'err.thisRetryHasDifferentFiles');
 }
 
 export class AttachmentService {
@@ -98,7 +95,7 @@ export class AttachmentService {
         ),
       )
       .get();
-    if (!batch) throw new DomainError('not-found', 'Upload batch not found.');
+    if (!batch) throw new DomainError('not-found', 'err.uploadBatchNotFound');
     return batch;
   }
   private batchDto(
@@ -123,7 +120,7 @@ export class AttachmentService {
     if (!parsed.success)
       throw new DomainError(
         'validation',
-        'Invalid frozen upload manifest. Check IDs, filenames, sizes and checksums.',
+        'err.invalidFrozenUploadManifestCheck',
       );
     const value = parsed.data;
     return this.p.write((tx) => {
@@ -146,10 +143,7 @@ export class AttachmentService {
             Math.max(settings.fileMaxBytes, settings.imageInputMaxBytes),
         )
       )
-        throw new DomainError(
-          'validation',
-          'The upload manifest exceeds the attachment limits.',
-        );
+        throw new DomainError('validation', 'err.theUploadManifestExceedsThe');
       const existing = tx
         .select()
         .from(uploadBatches)
@@ -181,10 +175,7 @@ export class AttachmentService {
         )
           mismatch();
         if (existing.status !== 'pending')
-          throw new DomainError(
-            'conflict',
-            'This batch is no longer accepting uploads. Start a new posting attempt.',
-          );
+          throw new DomainError('conflict', 'err.thisBatchIsNoLonger');
         tx.update(uploadBatches)
           .set({ activityAt: Date.now() })
           .where(eq(uploadBatches.id, existing.id))
@@ -202,10 +193,7 @@ export class AttachmentService {
         .where(eq(uploadBatches.status, 'pending'))
         .get()!.value;
       if (pendingCount >= 100)
-        throw new DomainError(
-          'busy',
-          'Too many pending posting attempts. Clean unused uploads in Storage settings before retrying.',
-        );
+        throw new DomainError('busy', 'err.tooManyPendingPostingAttempts');
       for (const item of value.items)
         if (
           tx
@@ -256,7 +244,7 @@ export class AttachmentService {
   ): AttachmentRow {
     const batch = this.batch(db, identity, batchId);
     if (batch.status !== 'pending')
-      throw new DomainError('conflict', 'This batch is not accepting uploads.');
+      throw new DomainError('conflict', 'err.thisBatchIsNotAccepting');
     validId(id);
     const row = db
       .select()
@@ -271,7 +259,7 @@ export class AttachmentService {
         .where(eq(fileCleanupJobs.attachmentId, id))
         .get()
     )
-      throw new DomainError('not-found', 'Upload item not found.');
+      throw new DomainError('not-found', 'err.uploadItemNotFound');
     return row;
   }
   async upload(
@@ -287,33 +275,21 @@ export class AttachmentService {
       declared &&
       (!/^\d+$/.test(declared) || Number(declared) !== row.incomingBytes)
     )
-      throw new DomainError(
-        'validation',
-        'Upload size does not match the frozen file.',
-      );
+      throw new DomainError('validation', 'err.uploadSizeDoesNotMatch');
     const hint =
       request.headers.get('content-type')?.split(';')[0].trim() ?? '';
     const imageHint = hint.startsWith('image/');
     if (imageHint && hint === 'image/svg+xml')
-      throw new DomainError(
-        'validation',
-        'SVG is supported only as a downloadable file. Upload it as application/octet-stream.',
-      );
+      throw new DomainError('validation', 'err.svgIsSupportedOnlyAs');
     if (
       row.incomingBytes >
       (imageHint
         ? settings.imageInputMaxBytes
         : Math.max(settings.fileMaxBytes, settings.imageInputMaxBytes))
     )
-      throw new DomainError(
-        'validation',
-        'File exceeds the upload byte limit.',
-      );
+      throw new DomainError('validation', 'err.fileExceedsTheUploadByte');
     if (this.active.has(id) || this.active.size >= 3)
-      throw new DomainError(
-        'busy',
-        'Uploads are busy. Query readiness and retry shortly.',
-      );
+      throw new DomainError('busy', 'err.uploadsAreBusyQueryReadiness');
     this.active.add(id);
     try {
       return await this.p.coordinator.writeAsync(async (lease) => {
@@ -357,16 +333,13 @@ export class AttachmentService {
           );
           if (received.digest !== row.incomingDigest) mismatch();
           if (imageHint && !received.raster)
-            throw new DomainError(
-              'validation',
-              'The upload is not a supported raster image.',
-            );
+            throw new DomainError('validation', 'err.theUploadIsNotA');
           if (row.readiness === 'ready') {
             const current = this.item(this.p.db, identity, batchId, id);
             if (current.readiness !== 'ready')
               throw new DomainError(
                 'conflict',
-                'Upload readiness changed. Retry the posting attempt.',
+                'err.uploadReadinessChangedRetryThe',
               );
             return attachmentDto(current); // A duplicate PUT still validates bytes, never overwrites.
           }
@@ -401,7 +374,7 @@ export class AttachmentService {
             if (received.bytes > settings.fileMaxBytes)
               throw new DomainError(
                 'validation',
-                'File exceeds the byte limit.',
+                'err.fileExceedsTheByteLimit',
               );
             await rename(original, join(output, 'attachment.bin'));
             values = {
@@ -468,15 +441,10 @@ export class AttachmentService {
             }, lease);
           if (error instanceof DomainError) throw error;
           if ((error as NodeJS.ErrnoException).code === 'ENOSPC')
-            throw new DomainError(
-              'storage-full',
-              'The disk is full. Free space and retry; your local files are still needed.',
-            );
-          throw new DomainError(
-            'upload-failed',
-            'Upload could not be stored. Keep the local file and retry.',
-            { cause: error },
-          );
+            throw new DomainError('storage-full', 'err.theDiskIsFullFree');
+          throw new DomainError('upload-failed', 'err.uploadCouldNotBeStored', {
+            cause: error,
+          });
         } finally {
           try {
             if (installed && !confirmed) {
@@ -534,7 +502,7 @@ export class AttachmentService {
     if (!retry.success && !parsed.success)
       throw new DomainError(
         'validation',
-        'Confirm the selected unused posting attempts.',
+        'err.confirmTheSelectedUnusedPosting',
       );
     this.p.write((tx) => {
       assertUploadIdentity(tx, identity);
@@ -560,10 +528,7 @@ export class AttachmentService {
                 .get(),
           )
         )
-          throw new DomainError(
-            'conflict',
-            'A selected attempt is active, recently resumed, or referenced. Refresh storage before choosing again. Nothing from this selection was queued.',
-          );
+          throw new DomainError('conflict', 'err.aSelectedAttemptIsActive');
         tx.update(uploadBatches)
           .set({ status: 'abandoned' })
           .where(eq(uploadBatches.id, batch.id))
@@ -625,7 +590,7 @@ export class AttachmentService {
         .where(eq(fileCleanupJobs.attachmentId, id))
         .get()
     )
-      throw new DomainError('not-found', 'Attachment not found.');
+      throw new DomainError('not-found', 'err.attachmentNotFound');
     // Notes have one account; pending files must belong to this account's batch.
     const referenced = this.p.db
       .select()
@@ -645,12 +610,12 @@ export class AttachmentService {
         batch.accountId !== identity.account.id ||
         batch.status !== 'pending')
     )
-      throw new DomainError('not-found', 'Attachment not found.');
+      throw new DomainError('not-found', 'err.attachmentNotFound');
     const image = row.kind === 'image';
     if (
       !(image ? ['display', 'thumbnail'].includes(variant) : variant === 'file')
     )
-      throw new DomainError('not-found', 'Attachment variant not found.');
+      throw new DomainError('not-found', 'err.attachmentVariantNotFound');
     const path = this.p.storage.attachmentPath(
       id,
       image
@@ -665,7 +630,7 @@ export class AttachmentService {
       stream.once('open', () => resolve());
       stream.once('error', () =>
         reject(
-          new DomainError('not-found', 'Stored attachment is unavailable.'),
+          new DomainError('not-found', 'err.storedAttachmentIsUnavailable'),
         ),
       );
     });

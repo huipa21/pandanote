@@ -2,6 +2,8 @@ import { getContext } from 'svelte';
 import {
   translate,
   localizeMessage,
+  errorText,
+  type ErrorText,
   type MessageKey,
   type MessageParams,
 } from '#lib/shared/i18n/index.ts';
@@ -36,6 +38,8 @@ export class I18n {
     translate(this.language, key, params);
   /** Localizes a validation or server message known by its English text. */
   msg = (text: string): string => localizeMessage(this.language, text);
+  /** Localizes a server error by its stable message key (English text as fallback). */
+  error = (error: ErrorText): string => errorText(this.language, error);
   /** Localizes every value of a field-message record. */
   msgs = (record: Record<string, string> = {}): Record<string, string> =>
     Object.fromEntries(

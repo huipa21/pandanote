@@ -5,7 +5,7 @@ import { attachmentErrorResponse } from '#lib/server/attachments/http.ts';
 export const GET: RequestHandler = async ({ locals, params, url, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return await locals.runtime!.attachments.download(
       locals.identity,
       params.attachmentId,

@@ -1,5 +1,7 @@
 import {
   translate,
+  errorText,
+  type ErrorText,
   type MessageKey,
   type MessageParams,
 } from '#lib/shared/i18n/index.ts';
@@ -25,4 +27,9 @@ export function currentLanguage(): Language {
  * already displayed keeps the language it was created in until replaced. */
 export function tr(key: MessageKey, params?: MessageParams): string {
   return translate(current, key, params);
+}
+
+/** Localizes a server error outside components. */
+export function trError(error: ErrorText): string {
+  return errorText(current, error);
 }

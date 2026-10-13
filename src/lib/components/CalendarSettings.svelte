@@ -23,7 +23,8 @@
   let message = $state('');
   let error = $state('');
   const id = $props.id();
-  const t = useI18n().t;
+  const i18n = useI18n();
+  const t = i18n.t;
   onMount(() => {
     detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (typeof Intl.supportedValuesOf === 'function')
@@ -48,7 +49,9 @@
       });
       const result = await response.json();
       if (!result.ok)
-        throw new Error(result.error?.message ?? t('calset.failed'));
+        throw new Error(
+          result.error ? i18n.error(result.error) : t('calset.failed'),
+        );
       await invalidateAll();
       message = t('calset.saved');
     } catch (failure) {

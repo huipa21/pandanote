@@ -36,7 +36,7 @@ export async function readDownloadForm(request: Request): Promise<unknown> {
     request.headers.get('content-type')?.split(';')[0] !==
     'application/x-www-form-urlencoded'
   )
-    throw new DomainError('validation', 'Use a protected download form.');
+    throw new DomainError('validation', 'err.useAProtectedDownloadForm');
   // An empty form may arrive with no body stream at all.
   if (!request.body) return {};
   const reader = request.body.getReader();
@@ -54,12 +54,12 @@ export async function readDownloadForm(request: Request): Promise<unknown> {
       if (part.done) break;
       bytes += part.value.length;
       if (bytes > 256)
-        throw new DomainError('validation', 'Download form is too large.');
+        throw new DomainError('validation', 'err.downloadFormIsTooLarge');
       chunks.push(part.value);
     }
     const fields = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
     if ([...fields.keys()].length !== 0)
-      throw new DomainError('validation', 'Invalid download form.');
+      throw new DomainError('validation', 'err.invalidDownloadForm');
     return {};
   } finally {
     signal.removeEventListener('abort', abort);

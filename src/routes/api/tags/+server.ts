@@ -4,7 +4,7 @@ import { noteErrorResponse, readNoteJson } from '#lib/server/notes/http.ts';
 export const GET: RequestHandler = ({ locals, url }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     if (
       url.search.length > 2048 ||
       [...url.searchParams.keys()].some(
@@ -14,12 +14,12 @@ export const GET: RequestHandler = ({ locals, url }) => {
         (k) => url.searchParams.getAll(k).length > 1,
       )
     )
-      throw new DomainError('validation', 'Invalid tag search.');
+      throw new DomainError('validation', 'err.invalidTagSearch');
     const number = (name: string, fallback: number, max: number) => {
       const raw = url.searchParams.get(name);
       if (raw === null) return fallback;
       if (!/^\d{1,6}$/.test(raw) || Number(raw) > max)
-        throw new DomainError('validation', 'Invalid tag search.');
+        throw new DomainError('validation', 'err.invalidTagSearch');
       return Number(raw);
     };
     return Response.json({
@@ -32,13 +32,13 @@ export const GET: RequestHandler = ({ locals, url }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(error, 'Tags could not be loaded. Retry.');
+    return noteErrorResponse(error, 'err.tagsLoadFailed');
   }
 };
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json({
       ok: true,
       data: locals.runtime!.tags.execute(
@@ -47,9 +47,6 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Tag operation could not be confirmed. Retry the same operation safely.',
-    );
+    return noteErrorResponse(error, 'err.tagOperationUnconfirmed');
   }
 };

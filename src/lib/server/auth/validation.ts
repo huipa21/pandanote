@@ -1,4 +1,6 @@
 import type { z } from 'zod';
+import { apiError } from '../../shared/domain.ts';
+import { translate } from '../../shared/i18n/index.ts';
 /** Only fixed schema messages and field names cross the boundary, never values. */
 export function fieldValidationResponse(error: z.ZodError): Response {
   const fields: Record<string, string> = {};
@@ -7,17 +9,13 @@ export function fieldValidationResponse(error: z.ZodError): Response {
     if (!fields[field])
       fields[field] =
         issue.code === 'unrecognized_keys'
-          ? 'Unexpected fields.'
+          ? translate('en', 'err.unexpectedFields')
           : issue.message;
   }
   return Response.json(
     {
       ok: false,
-      error: {
-        code: 'validation',
-        message: 'Check the highlighted fields.',
-        fields,
-      },
+      error: { ...apiError('validation', 'err.checkFields'), fields },
     },
     { status: 400 },
   );

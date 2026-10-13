@@ -13,7 +13,7 @@ import type { SessionCredential } from '#lib/server/auth/service.ts';
 export const GET: RequestHandler = ({ locals }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json({
       ok: true,
       ...locals.runtime!.auth.securityStatus(locals.identity),
@@ -26,10 +26,10 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
   try {
     const identity = locals.identity;
     if (!identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     const parsed = securityRequestSchema.safeParse(await readAuthJson(request));
     if (!parsed.success)
-      throw new DomainError('validation', 'Invalid security request.');
+      throw new DomainError('validation', 'err.invalidSecurityRequest');
     const input = parsed.data;
     const runtime = locals.runtime!;
     const auth = runtime.auth;

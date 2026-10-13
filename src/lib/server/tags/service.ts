@@ -60,10 +60,7 @@ export function assertCurrentTags(
   acknowledged: TagAcknowledgement[] = [],
 ): void {
   if (staleTags(keys, tagHistory(tx), acknowledged).length)
-    throw new DomainError(
-      'validation',
-      'This note contains a retired tag. Review tag changes before posting. Your editor is unchanged.',
-    );
+    throw new DomainError('validation', 'err.thisNoteContainsARetired');
 }
 type TagRow = typeof tags.$inferSelect;
 /** Registry rows for `key` and every descendant path (BINARY index range). */
@@ -151,7 +148,7 @@ export class TagService {
   }
   private static needle(query: string): string {
     if (query.length > 256)
-      throw new DomainError('validation', 'Tag search is too long.');
+      throw new DomainError('validation', 'err.tagSearchIsTooLong');
     return tagKey(query.trim().replace(/^#/, ''));
   }
   /** Management inventory in tree order: matches plus their ancestors, first 100. */
@@ -241,10 +238,7 @@ export class TagService {
   execute(identity: SessionIdentity, input: unknown) {
     const parsed = tagExecuteSchema.safeParse(input);
     if (!parsed.success)
-      throw new DomainError(
-        'validation',
-        'Preview and confirm a valid tag operation first.',
-      );
+      throw new DomainError('validation', 'err.previewAndConfirmAValid');
     const command = parsed.data,
       digest = hash(command);
     return this.p.write((tx) => {
@@ -261,7 +255,7 @@ export class TagService {
         )
           throw new DomainError(
             'mutation-mismatch',
-            'This retry differs from the confirmed tag operation.',
+            'err.thisRetryDiffersFromThe',
           );
         return JSON.parse(receipt.resultJson) as {
           generation: number;
@@ -270,10 +264,7 @@ export class TagService {
       }
       const prepared = this.prepare(tx, command.operation);
       if (prepared.preview.previewToken !== command.previewToken)
-        throw new DomainError(
-          'conflict',
-          'Affected notes or tags changed after preview. Preview again; nothing was rewritten.',
-        );
+        throw new DomainError('conflict', 'err.affectedNotesOrTagsChanged');
       const { source, action, scope } = command.operation;
       const caseOnly = prepared.targetKey === source;
       // Registry first: resulting paths keep the confirmed target spelling rather
@@ -302,30 +293,18 @@ export class TagService {
         try {
           body = prepared.rewrite(row.bodyMarkdown);
         } catch {
-          throw new DomainError(
-            'validation',
-            'A rewritten tag would exceed the tag limits. Choose a shorter target.',
-          );
+          throw new DomainError('validation', 'err.aRewrittenTagWouldExceed');
         }
         if (Buffer.byteLength(body, 'utf8') > limit)
-          throw new DomainError(
-            'validation',
-            'A rewritten note would exceed the configured text limit. Choose a shorter tag.',
-          );
+          throw new DomainError('validation', 'err.aRewrittenNoteWouldExceed');
         let extracted: ReturnType<typeof extractTags>;
         try {
           extracted = extractTags(body);
         } catch {
-          throw new DomainError(
-            'validation',
-            'A rewritten note would exceed the tag limits. Choose a shorter tag.',
-          );
+          throw new DomainError('validation', 'err.aRewrittenNoteWouldExceed2');
         }
         if (row.revision === Number.MAX_SAFE_INTEGER)
-          throw new DomainError(
-            'validation',
-            'An affected note cannot accept another revision.',
-          );
+          throw new DomainError('validation', 'err.anAffectedNoteCannotAccept');
         if (
           tx
             .update(notes)
@@ -341,10 +320,7 @@ export class TagService {
             .where(and(eq(notes.id, row.id), eq(notes.revision, row.revision)))
             .run().changes !== 1
         )
-          throw new DomainError(
-            'conflict',
-            'An affected note changed. Preview again.',
-          );
+          throw new DomainError('conflict', 'err.anAffectedNoteChangedPreview');
         tx.delete(noteTags).where(eq(noteTags.noteId, row.id)).run();
         for (const tag of extracted) {
           tx.insert(tags)
@@ -406,29 +382,20 @@ export class TagService {
   private parse(input: unknown): TagAction {
     const parsed = tagActionSchema.safeParse(input);
     if (!parsed.success)
-      throw new DomainError(
-        'validation',
-        'Choose a valid source tag, scope and target spelling.',
-      );
+      throw new DomainError('validation', 'err.chooseAValidSourceTag');
     return parsed.data;
   }
   private prepare(tx: DomainTransaction, operation: TagAction) {
     const { source, action, scope } = operation;
     const inSource = subtreeRows(tx, source);
     if (!inSource.length)
-      throw new DomainError(
-        'not-found',
-        'The source tag no longer exists. Refresh tags.',
-      );
+      throw new DomainError('not-found', 'err.theSourceTagNoLonger');
     const sourceRows =
       scope === 'exact'
         ? inSource.filter((row) => row.normalizedKey === source)
         : inSource;
     if (!sourceRows.length)
-      throw new DomainError(
-        'validation',
-        'No note uses this exact tag; only its subtags. Choose "This tag and all subtags".',
-      );
+      throw new DomainError('validation', 'err.noNoteUsesThisExact');
     const displays = allDisplays(tx);
     const sourceDisplay = displays.get(source) ?? source;
     const targetKey =
@@ -437,10 +404,7 @@ export class TagService {
     let targetDisplay: string | null = null;
     if (targetKey !== null) {
       if (targetKey !== source && isWithinTag(targetKey, source))
-        throw new DomainError(
-          'validation',
-          'A tag cannot be moved inside its own subtags.',
-        );
+        throw new DomainError('validation', 'err.aTagCannotBeMoved');
       targetRows =
         targetKey === source
           ? []
@@ -450,15 +414,12 @@ export class TagService {
       if (action === 'merge' && (!targetRows.length || targetKey === source))
         throw new DomainError(
           'validation',
-          'Merge requires a different existing tag.',
+          'err.mergeRequiresADifferentExisting',
         );
       if (action === 'rename' && targetRows.length)
-        throw new DomainError(
-          'validation',
-          'That tag already exists. Choose Merge and preview the combined usage.',
-        );
+        throw new DomainError('validation', 'err.thatTagAlreadyExistsChoose');
       if (action === 'rename' && sourceDisplay === operation.target)
-        throw new DomainError('validation', 'Choose a different spelling.');
+        throw new DomainError('validation', 'err.chooseADifferentSpelling');
       targetDisplay =
         action === 'merge'
           ? (displays.get(targetKey) ?? operation.target!)
@@ -474,10 +435,9 @@ export class TagService {
         ? displays.get(toKey)!
         : joinTagSuffix(targetDisplay, row.display, depth);
       if (!tagSpellingSchema.safeParse(toDisplay).success)
-        throw new DomainError(
-          'validation',
-          `#${toDisplay} would exceed the tag limits (5 levels, 64 characters per level, 128 in total). Choose a shorter target.`,
-        );
+        throw new DomainError('validation', 'err.tagLimits', {
+          params: { tag: toDisplay },
+        });
       return { row, toKey, toDisplay, collision: existing.has(toKey) };
     });
     const ids = sourceRows.map((row) => row.id);
@@ -488,10 +448,7 @@ export class TagService {
       from notes n where n.id in (select nt.note_id from note_tags nt where nt.tag_id in (select value from json_each(${JSON.stringify(ids)})))`)!;
     // A bounded synchronous personal-scale transaction, not an unbounded main-thread job.
     if (size.count > 10000 || size.bytes > 32 * 1024 * 1024)
-      throw new DomainError(
-        'busy',
-        'This operation exceeds the safe management limit (10,000 notes / 32 MiB). Operator assistance is required; no changes made.',
-      );
+      throw new DomainError('busy', 'err.thisOperationExceedsTheSafe');
     const rows = tx
       .select()
       .from(notes)

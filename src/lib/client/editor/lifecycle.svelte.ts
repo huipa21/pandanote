@@ -1,4 +1,4 @@
-import { tr } from '#lib/client/i18n-current.ts';
+import { tr, trError } from '#lib/client/i18n-current.ts';
 import { z } from 'zod';
 import {
   idSchema,
@@ -164,7 +164,7 @@ export class LifecycleState {
       const payload = (await response.json()) as ApiResult<MutationResult>;
       if (!payload.ok) {
         this.observed = payload.error.conflict ?? null;
-        throw new Error(payload.error.message);
+        throw new Error(trError(payload.error));
       }
       this.onSaved(payload.data); // Receipt is authoritative, even if retry cleanup fails.
       this.persist(

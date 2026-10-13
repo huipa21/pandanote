@@ -81,12 +81,9 @@ type FreshAuthOutcome =
   | { kind: 'ok'; grant: { token: string; expiresAt: number } }
   | { kind: 'failed' };
 const failedLogin = (): DomainError =>
-  new DomainError('unauthorized', 'Invalid username or password.');
+  new DomainError('unauthorized', 'auth.invalid');
 const alreadySetUp = (): DomainError =>
-  new DomainError(
-    'already_set_up',
-    'An account already exists. Sign in to continue.',
-  );
+  new DomainError('already_set_up', 'setup.alreadySetUp');
 // Serialize first-account hashing across connections in this single app process.
 // Ordinary password work retains its one-operation/no-queue resource bound.
 let creatingAccount: Promise<SessionCredential> | undefined;
@@ -123,10 +120,7 @@ export class AuthService {
   assertSetupOpen(): void {
     if (this.setupState() !== 'new') throw alreadySetUp();
     if (!this.setupWindowOpen())
-      throw new DomainError(
-        'setup_closed',
-        'Setup has timed out. Restart PandaNote on the server to open it again (docker compose restart pandanote).',
-      );
+      throw new DomainError('setup_closed', 'err.setupHasTimedOutRestart');
   }
   // Generated lazily while no account exists and stable for this instance. A new
   // process gets a new code. Returns null once an account exists.
@@ -568,11 +562,11 @@ export class AuthService {
         return outcome.credential;
       case 'limited':
         throw new RateLimitError(
-          'Too many incorrect codes today. Sign in from a device you used before, or try again tomorrow.',
+          'err.mfaRateLimited',
           outcome.retryAfterSeconds,
         );
       case 'restart':
-        throw new DomainError('mfa_restart', 'Enter your password again.');
+        throw new DomainError('mfa_restart', 'err.enterYourPasswordAgain');
       case 'wrong':
         throw failedLogin();
     }
@@ -654,7 +648,7 @@ export class AuthService {
     if (!grant)
       throw new DomainError(
         'fresh-auth-required',
-        'Authenticate again for this action.',
+        'err.authenticateAgainForThisAction',
       );
     tx.delete(authChallenges)
       .where(eq(authChallenges.tokenHash, grant.tokenHash))
@@ -810,7 +804,7 @@ export class AuthService {
       this.consumeFreshGrant(tx, identity, grant, 'recovery-regenerate');
       const owner = this.currentIdentity(tx, identity);
       if (owner.totpEnabled !== 1)
-        throw new DomainError('conflict', 'Enable MFA first.');
+        throw new DomainError('conflict', 'err.enableMfaFirst');
       const codes = this.generateRecoveryCodes(tx, owner);
       return {
         codes,
@@ -841,7 +835,7 @@ export class AuthService {
         )
           throw new DomainError(
             'fresh-auth-required',
-            'Authenticate again for this action.',
+            'err.authenticateAgainForThisAction',
           );
       });
       const passwordHash = await hashPassword(password);
@@ -869,7 +863,7 @@ export class AuthService {
     deviceToken?: string,
   ) {
     if (!Number.isInteger(days) || days < 1 || days > 30)
-      throw new DomainError('validation', 'Use 1–30 days.');
+      throw new DomainError('validation', 'err.use130Days');
     return this.persistence.write((tx) => {
       this.consumeFreshGrant(tx, identity, grant, 'session-lifetime');
       const owner = this.currentIdentity(tx, identity);
@@ -921,10 +915,7 @@ export class AuthService {
           this.persistence.coordinator,
         ).list().length
       )
-        throw new DomainError(
-          'busy',
-          'Restore recovery is pending. Restart PandaNote before resetting the password.',
-        );
+        throw new DomainError('busy', 'err.restoreRecoveryIsPendingRestart');
     };
     assertNoRestore();
     const file = statSync(this.persistence.storage.databasePath);
@@ -939,10 +930,10 @@ export class AuthService {
         if (file.dev !== currentFile.dev || file.ino !== currentFile.ino)
           throw new DomainError(
             'busy',
-            'Application data changed during password reset. Run reset-password again.',
+            'err.applicationDataChangedDuringPassword',
           );
         const owner = tx.select().from(account).get();
-        if (!owner) throw new DomainError('conflict', 'No account exists.');
+        if (!owner) throw new DomainError('conflict', 'err.noAccountExists');
         tx.update(account)
           .set({
             passwordHash,

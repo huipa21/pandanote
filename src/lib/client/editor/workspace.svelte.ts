@@ -1,4 +1,4 @@
-import { tr } from '#lib/client/i18n-current.ts';
+import { tr, trError } from '#lib/client/i18n-current.ts';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
 import { storageLimitsFrom, type StorageLimits } from '#lib/shared/storage.ts';
@@ -706,7 +706,7 @@ export class EditorWorkspace {
         });
         const result = (await response.json()) as ApiResult<NoteSnapshot>;
         if (!result.ok) {
-          this.postError = result.error.message;
+          this.postError = trError(result.error);
           return false;
         }
         try {

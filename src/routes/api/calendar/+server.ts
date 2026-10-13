@@ -5,20 +5,17 @@ import { noteErrorResponse } from '#lib/server/notes/http.ts';
 export const GET: RequestHandler = ({ locals, url }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     if (url.searchParams.has('year')) {
       if (
         url.searchParams.toString().length > 100 ||
         url.searchParams.getAll('year').length !== 1 ||
         [...url.searchParams.keys()].some((k) => k !== 'year')
       )
-        throw new DomainError('validation', 'Choose one calendar year.');
+        throw new DomainError('validation', 'err.chooseOneCalendarYear');
       const year = Number(url.searchParams.get('year'));
       if (!Number.isInteger(year) || year < 1969 || year > 9998)
-        throw new DomainError(
-          'validation',
-          'Choose a year between 1969 and 9998.',
-        );
+        throw new DomainError('validation', 'err.chooseAYearBetween1969');
       return Response.json({
         ok: true,
         data: yearActivity(locals.runtime!.persistence, locals.identity, year),
@@ -29,7 +26,7 @@ export const GET: RequestHandler = ({ locals, url }) => {
       url.searchParams.getAll('month').length !== 1 ||
       [...url.searchParams.keys()].some((k) => k !== 'month')
     )
-      throw new DomainError('validation', 'Choose one calendar month.');
+      throw new DomainError('validation', 'err.chooseOneCalendarMonth');
     return Response.json({
       ok: true,
       data: monthActivity(
@@ -39,9 +36,6 @@ export const GET: RequestHandler = ({ locals, url }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Activity could not be loaded. Retry in a moment.',
-    );
+    return noteErrorResponse(error, 'err.activityLoadFailed');
   }
 };

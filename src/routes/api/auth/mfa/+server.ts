@@ -13,10 +13,7 @@ export const POST: RequestHandler = async ({ request, locals, cookies }) => {
   try {
     const parsed = mfaRequestSchema.safeParse(await readAuthJson(request));
     if (!parsed.success)
-      throw new DomainError(
-        'unauthorized',
-        'Unable to sign in. Check your credentials.',
-      );
+      throw new DomainError('unauthorized', 'err.unableToSignInCheck');
     const runtime = locals.runtime!;
     const credential = runtime.auth.completeMfa(
       parsed.data.challenge,

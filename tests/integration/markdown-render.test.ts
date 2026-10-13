@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { renderMarkdown } from '../../src/lib/shared/markdown/render.ts';
 
 describe('production Markdown pipeline with real remark/rehype/Shiki', () => {
+  it('server-renders the control labels in the requested language', async () => {
+    const source =
+      '```ts\nconst x = 1;\n```\n\n```mermaid\ngraph TD;A-->B\n```';
+    const english = await renderMarkdown(source);
+    expect(english.html).toContain('>Copy</button>');
+    expect(english.html).toContain('aria-label="Copy ts code"');
+    expect(english.html).toContain('aria-label="Mermaid diagram"');
+    const chinese = await renderMarkdown(source, [], 'zh-CN');
+    expect(chinese.html).toContain('>复制</button>');
+    expect(chinese.html).toContain('aria-label="复制ts代码"');
+    expect(chinese.html).toContain('图表将在可见时绘制');
+    expect(chinese.html).not.toContain('>Copy</button>');
+  });
   it('renders GFM and retains original code separately from highlighted HTML', async () => {
     const result = await renderMarkdown(
       '# Heading\n\n- [x] Task\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n~~old~~ [Link](https://example.test)\n\n```ts\n  const x = "<unsafe>";  \n\n```',

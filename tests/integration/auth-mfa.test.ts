@@ -959,10 +959,12 @@ it('a recovery code completes MFA exactly once and a used TOTP step cannot be re
 
 it('mfa_restart maps to 401 and rate-limit errors carry their own Retry-After (SEC-MFA-2)', () => {
   const restart = authErrorResponse(
-    new DomainError('mfa_restart', 'Enter your password again.'),
+    new DomainError('mfa_restart', { text: 'Enter your password again.' }),
   );
   expect(restart.status).toBe(401);
-  const limited = authErrorResponse(new RateLimitError('Too many.', 86_000));
+  const limited = authErrorResponse(
+    new RateLimitError({ text: 'Too many.' }, 86_000),
+  );
   expect(limited.status).toBe(429);
   expect(limited.headers.get('retry-after')).toBe('86000');
 });

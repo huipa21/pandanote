@@ -10,7 +10,7 @@ import { storageLimitsFrom } from '#lib/shared/storage.ts';
 export const GET: RequestHandler = ({ locals }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json({
       ok: true,
       data: {
@@ -19,16 +19,13 @@ export const GET: RequestHandler = ({ locals }) => {
       },
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Storage could not be measured. Retry refreshing storage.',
-    );
+    return noteErrorResponse(error, 'err.storageMeasureFailed');
   }
 };
 export const PATCH: RequestHandler = async ({ locals, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json({
       ok: true,
       data: updateStorageLimits(
@@ -38,9 +35,6 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Storage limits could not be saved. Your choices remain; retry.',
-    );
+    return noteErrorResponse(error, 'err.storageLimitsSaveFailed');
   }
 };

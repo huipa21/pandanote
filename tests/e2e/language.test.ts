@@ -129,6 +129,16 @@ test('language and site title: registry picker, zh-CN screens with English fallb
         data: { username: 'nobody', password: 'wrong-password' },
       });
       expect(failure.status()).toBe(401);
+      // API errors carry a stable catalog key next to the English text.
+      const denied = await anonymous.request.get('/api/notes', {
+        headers: { origin },
+      });
+      expect(denied.status()).toBe(401);
+      expect((await denied.json()).error).toMatchObject({
+        code: 'unauthorized',
+        message: 'Sign in to continue.',
+        messageKey: 'err.signInToContinue',
+      });
       await anonymous.getByLabel('用户名').fill('nobody');
       await anonymous
         .getByLabel('密码', { exact: true })

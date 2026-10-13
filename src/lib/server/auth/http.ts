@@ -1,5 +1,5 @@
 import type { Cookies } from '@sveltejs/kit';
-import { DomainError, type ApiError } from '../../shared/domain.ts';
+import { DomainError, apiError, type ApiError } from '../../shared/domain.ts';
 import type { SessionCredential } from './service.ts';
 import { DEVICE_COOKIE } from './device-trust.ts';
 import { RateLimitError } from './rate-limits.ts';
@@ -43,12 +43,12 @@ export async function readAuthJson(request: Request): Promise<unknown> {
     request.headers.get('content-type')?.split(';')[0].trim() !==
     'application/json'
   )
-    throw new DomainError('validation', 'Use an application/json request.');
+    throw new DomainError('validation', 'err.useAnApplicationJsonRequest');
   const declared = request.headers.get('content-length');
   if (declared && (!/^\d+$/.test(declared) || Number(declared) > 4096))
-    throw new DomainError('validation', 'Authentication request is too large.');
+    throw new DomainError('validation', 'err.authenticationRequestIsTooLarge');
   if (!request.body)
-    throw new DomainError('validation', 'Missing request body.');
+    throw new DomainError('validation', 'err.missingRequestBody');
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let bytes = 0;
@@ -61,7 +61,7 @@ export async function readAuthJson(request: Request): Promise<unknown> {
         await reader.cancel();
         throw new DomainError(
           'validation',
-          'Authentication request is too large.',
+          'err.authenticationRequestIsTooLarge',
         );
       }
       chunks.push(part.value);
@@ -69,7 +69,7 @@ export async function readAuthJson(request: Request): Promise<unknown> {
     return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
   } catch (error) {
     if (error instanceof DomainError) throw error;
-    throw new DomainError('validation', 'Invalid authentication request.');
+    throw new DomainError('validation', 'err.invalidAuthenticationRequest');
   } finally {
     reader.releaseLock();
   }
@@ -77,11 +77,8 @@ export async function readAuthJson(request: Request): Promise<unknown> {
 export function authErrorResponse(error: unknown): Response {
   const known = error instanceof DomainError;
   const body: ApiError = known
-    ? { code: error.code, message: error.message }
-    : {
-        code: 'busy',
-        message: 'Authentication is temporarily unavailable. Please retry.',
-      };
+    ? error.toApiError()
+    : apiError('busy', 'err.authUnavailable');
   const retryAfter =
     error instanceof RateLimitError ? error.retryAfterSeconds : 900;
   const status = ['setup_required', 'already_set_up'].includes(body.code)

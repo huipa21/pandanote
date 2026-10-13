@@ -5,7 +5,7 @@ import { attachmentErrorResponse } from '#lib/server/attachments/http.ts';
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     const data = await locals.runtime!.attachments.upload(
       locals.identity,
       params.batchId,

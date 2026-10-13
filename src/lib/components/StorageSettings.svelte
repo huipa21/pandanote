@@ -63,7 +63,9 @@
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok)
-      throw new Error(payload.error?.message ?? t('storage.requestFailed'));
+      throw new Error(
+        payload.error ? i18n.error(payload.error) : t('storage.requestFailed'),
+      );
     return payload.data;
   }
   async function refresh() {

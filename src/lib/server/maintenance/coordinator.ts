@@ -29,10 +29,7 @@ export class WriteCoordinator {
 
   private acquire(): () => void {
     if (this.current !== 'open')
-      throw new DomainError(
-        'busy',
-        'Maintenance is in progress. Please retry.',
-      );
+      throw new DomainError('busy', 'err.maintenanceIsInProgressPlease');
     this.active++;
     return () => {
       this.active--;
@@ -54,7 +51,7 @@ export class WriteCoordinator {
     let valid = true;
     const lease: MaintenanceLease = {
       write: <R>(work: () => R): R => {
-        if (!valid) throw new DomainError('busy', 'Write lease has expired.');
+        if (!valid) throw new DomainError('busy', 'err.writeLeaseHasExpired');
         return synchronous(work);
       },
     };
@@ -71,10 +68,7 @@ export class WriteCoordinator {
     close: boolean,
   ): Promise<T> {
     if (this.current !== 'open')
-      throw new DomainError(
-        'busy',
-        'Maintenance is in progress. Please retry.',
-      );
+      throw new DomainError('busy', 'err.maintenanceIsInProgressPlease');
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
       throw new TypeError('Invalid drain timeout');
     this.current = 'draining';
@@ -83,7 +77,7 @@ export class WriteCoordinator {
     const lease: MaintenanceLease = {
       write: <R>(work: () => R): R => {
         if (!valid)
-          throw new DomainError('busy', 'Maintenance lease has expired.');
+          throw new DomainError('busy', 'err.maintenanceLeaseHasExpired');
         return synchronous(work);
       },
     };
@@ -92,12 +86,7 @@ export class WriteCoordinator {
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(() => {
             this.drained = undefined;
-            reject(
-              new DomainError(
-                'busy',
-                'Active writes did not finish. Please retry.',
-              ),
-            );
+            reject(new DomainError('busy', 'err.activeWritesDidNotFinish'));
           }, timeoutMs);
           this.drained = () => {
             clearTimeout(timer);

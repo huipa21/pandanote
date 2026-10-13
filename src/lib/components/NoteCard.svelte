@@ -135,7 +135,7 @@
           signal: AbortSignal.timeout(15_000),
         });
         const payload = (await response.json()) as ApiResult<NoteSnapshot>;
-        if (!payload.ok) throw new Error(payload.error.message);
+        if (!payload.ok) throw new Error(i18n.error(payload.error));
         if (disposed) return;
         if (
           payload.data.status !== 'published' ||

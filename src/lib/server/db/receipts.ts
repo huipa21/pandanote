@@ -33,7 +33,7 @@ export function findReceipt(
   if (row.requestDigest !== requestDigest)
     throw new DomainError(
       'mutation-mismatch',
-      'This retry has different content. Start a new posting attempt.',
+      'err.thisRetryHasDifferentContent',
     );
   return mutationResultSchema.parse(JSON.parse(row.resultJson));
 }

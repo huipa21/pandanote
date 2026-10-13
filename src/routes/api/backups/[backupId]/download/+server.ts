@@ -12,12 +12,9 @@ export const POST: RequestHandler = async ({
 }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     if (url.search)
-      throw new DomainError(
-        'validation',
-        'Download grants must not be in URLs.',
-      );
+      throw new DomainError('validation', 'err.downloadGrantsMustNotBe');
     return await locals.runtime!.backups.download(
       locals.identity,
       params.backupId,

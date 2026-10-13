@@ -5,7 +5,7 @@ import { noteErrorResponse } from '#lib/server/notes/http.ts';
 export const GET: RequestHandler = ({ locals, url }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     return Response.json({
       ok: true,
       data: statusPage(
@@ -15,9 +15,6 @@ export const GET: RequestHandler = ({ locals, url }) => {
       ),
     });
   } catch (error) {
-    return noteErrorResponse(
-      error,
-      'Trash could not be loaded. Retry in a moment.',
-    );
+    return noteErrorResponse(error, 'err.trashLoadFailed');
   }
 };

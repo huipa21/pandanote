@@ -1,4 +1,5 @@
-import { DomainError, type ApiError } from '../../shared/domain.ts';
+import { DomainError, apiError, type ApiError } from '../../shared/domain.ts';
+import type { MessageKey } from '../../shared/i18n/index.ts';
 import { NoteConflictError } from './service.ts';
 
 // JSON escaping can expand a valid 1 MiB Markdown string six-fold. Keep an
@@ -13,13 +14,10 @@ export async function readNoteJson(
       'application/json' ||
     !request.body
   )
-    throw new DomainError(
-      'validation',
-      'Use an application/json note request.',
-    );
+    throw new DomainError('validation', 'err.useAnApplicationJsonNote');
   const length = request.headers.get('content-length');
   if (length && (!/^\d+$/.test(length) || Number(length) > maxBytes))
-    throw new DomainError('validation', 'Note request is too large.');
+    throw new DomainError('validation', 'err.noteRequestIsTooLarge');
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let bytes = 0;
@@ -32,20 +30,17 @@ export async function readNoteJson(
     while (true) {
       const part = await reader.read();
       if (timedOut)
-        throw new DomainError(
-          'validation',
-          'Note request timed out. Keep your local work and retry.',
-        );
+        throw new DomainError('validation', 'err.noteRequestTimedOutKeep');
       if (part.done) break;
       bytes += part.value.byteLength;
       if (bytes > maxBytes)
-        throw new DomainError('validation', 'Note request is too large.');
+        throw new DomainError('validation', 'err.noteRequestIsTooLarge');
       chunks.push(part.value);
     }
     return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
   } catch (error) {
     if (error instanceof DomainError) throw error;
-    throw new DomainError('validation', 'Invalid JSON note request.');
+    throw new DomainError('validation', 'err.invalidJsonNoteRequest');
   } finally {
     clearTimeout(timer);
     await reader.cancel().catch(() => {});
@@ -54,21 +49,17 @@ export async function readNoteJson(
 }
 export function noteErrorResponse(
   error: unknown,
-  fallback = 'Note could not be saved. Keep your local work and retry.',
+  fallback: MessageKey = 'err.noteSaveFailed',
 ): Response {
   const body: ApiError =
     error instanceof DomainError
       ? {
-          code: error.code,
-          message: error.message,
+          ...error.toApiError(),
           ...(error instanceof NoteConflictError
             ? { conflict: error.snapshot }
             : {}),
         }
-      : {
-          code: 'busy',
-          message: fallback,
-        };
+      : apiError('busy', fallback);
   const status =
     body.code === 'unauthorized'
       ? 401

@@ -6,7 +6,7 @@ import { authErrorResponse, readAuthJson } from '#lib/server/auth/http.ts';
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     if (!locals.identity)
-      throw new DomainError('unauthorized', 'Sign in to continue.');
+      throw new DomainError('unauthorized', 'err.signInToContinue');
     const parsed = accountUpdateSchema.safeParse(await readAuthJson(request));
     if (!parsed.success) return fieldValidationResponse(parsed.error);
     const { grant, ...details } = parsed.data;

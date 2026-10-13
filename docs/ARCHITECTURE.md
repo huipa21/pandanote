@@ -1454,7 +1454,8 @@ default credential.
   `client/i18n-current.ts`; the root `I18n.language` setter keeps it synchronous.
   `localizeMessage(language, text)` maps an exact English catalog value back to its
   translation (used for form validation and field messages from zod/server).
-  Markdown code-copy labels are localized after hydration (server HTML stays English).
+  Markdown code-copy and diagram-placeholder labels are rendered server-side in the saved
+  language (`renderMarkdown(source, images, language)`).
   `hooks.server.ts` sets `locals.i18n` = saved language/title once setup is complete,
   otherwise `Accept-Language` + stored title; `<html lang>` is substituted server-side
   from registry codes only. The root layout provides a reactive `I18n` context
@@ -1464,8 +1465,10 @@ default credential.
   `PATCH /api/settings/general` (`updateGeneral`, strict partial `{siteTitle?, language?}`,
   session-checked, merged inside the write transaction, no fresh auth) backs Settings →
   General: language saves immediately on change, the title via its Save button.
-  Server API/SSR error text and shared schema messages stay English unless they match a
-  catalog string (`localizeMessage`); translating them needs stable error codes (open gap).
+  Server errors carry stable catalog keys: `DomainError(code, key, { params })` →
+  `ApiError { code, message (English), messageKey, messageParams? }`; the client localizes
+  with `errorText()` (`I18n.error()`, `trError()`). Shared zod schema messages are still
+  localized only through exact-English lookup (`localizeMessage`).
 - Removed `api/auth/setup` and retired token methods. Browser test servers initialize
   empty storage through normal startup and claim/complete it through real endpoints;
   no token CLI, production seed or auth bypass remains in those fixtures. SS05

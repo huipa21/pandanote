@@ -51,10 +51,7 @@ export function statusPage(
       if (JSON.stringify(decoded.units) !== JSON.stringify(units))
         throw new Error();
     } catch {
-      throw new DomainError(
-        'validation',
-        'Invalid cursor or different status. Refresh this list.',
-      );
+      throw new DomainError('validation', 'err.invalidCursorOrDifferentStatus');
     }
   }
   return p.db.transaction((tx) => {

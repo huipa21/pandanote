@@ -841,6 +841,8 @@ export const en = {
   'life.notOverwritten':
     ' No newer revision was overwritten. The exact retry is kept on this browser; inspect the server version or retry safely.',
   'markdown.copy': 'Copy',
+  'markdown.diagram': 'Mermaid diagram',
+  'markdown.diagramWaiting': 'Diagram waiting until visible…',
   'markdown.copyCode': 'Copy {language} code',
   'markdown.copied': 'Copied!',
   'validation.passwordMax': 'Use at most 128 characters.',
@@ -852,6 +854,319 @@ export const en = {
   'validation.passwordMatch': 'Passwords must match exactly.',
   'validation.siteTitle': 'Use 1–60 characters without control characters.',
   'validation.timezone': 'Use a valid IANA timezone',
+
+  // Server API and page-loader errors (stable keys carried in ApiError.messageKey).
+  'err.restoreMaintenance':
+    'Restore maintenance is in progress. Retry shortly.',
+  'err.sameOrigin': 'Same-origin request required.',
+  'err.finishSetup': 'Finish setup to continue.',
+  'err.authUnavailable':
+    'Authentication is temporarily unavailable. Please retry.',
+  'err.attachmentRequestFailed':
+    'Attachment request failed. Keep your local files and retry.',
+  'err.noteSaveFailed':
+    'Note could not be saved. Keep your local work and retry.',
+  'err.appearanceSaveFailed':
+    'Appearance settings could not be saved. Please retry.',
+  'err.checkFields': 'Check the highlighted fields.',
+  'err.unexpectedFields': 'Unexpected fields.',
+  'err.setupCodeWrong':
+    'Setup code is incorrect. Use the newest code from the server log.',
+  'err.tagsLoadFailed': 'Tags could not be loaded. Retry.',
+  'err.activityLoadFailed': 'Activity could not be loaded. Retry in a moment.',
+  'err.notesLoadFailed': 'Notes could not be loaded. Retry in a moment.',
+  'err.trashLoadFailed': 'Trash could not be loaded. Retry in a moment.',
+  'err.trashPageLoadFailed':
+    'Trash could not be loaded. No notes were removed. Retry in a moment.',
+  'err.calendarSettingsSaveFailed':
+    'Calendar settings could not be saved. Retry.',
+  'err.generalSettingsSaveFailed':
+    'General settings could not be saved. Retry.',
+  'err.storageMeasureFailed':
+    'Storage could not be measured. Retry refreshing storage.',
+  'err.storageLimitsSaveFailed':
+    'Storage limits could not be saved. Your choices remain; retry.',
+  'err.cleanupFailed':
+    'Cleanup could not finish. Refresh storage and retry; queued deletion is retained for restart recovery.',
+  'err.tagOperationUnconfirmed':
+    'Tag operation could not be confirmed. Retry the same operation safely.',
+  'err.tagHistoryCheckFailed':
+    'Tag history could not be checked. Editor retained; retry.',
+  'err.tagPreviewFailed': 'Tag preview failed. No changes made; retry.',
+  'err.rateLimited': 'Too many attempts. Try again in 15 minutes.',
+  'err.mfaRateLimited':
+    'Too many incorrect codes today. Sign in from a device you used before, or try again tomorrow.',
+  'err.noteLoadFailed': 'This note could not be loaded. Retry in a moment.',
+  'err.noteNotFoundShort': 'Note not found.',
+  'err.noteChangedCompare':
+    'The note has changed. Keep your local edits and compare the server version.',
+  'err.preReleaseBackup':
+    'This backup was created by a pre-release PandaNote and cannot be restored. Start with an empty instance and create a new backup.',
+  'err.pinLimit': 'You can pin at most {max} notes. Unpin one first.',
+  'err.tagLimits':
+    '#{tag} would exceed the tag limits (5 levels, 64 characters per level, 128 in total). Choose a shorter target.',
+  'err.missingUploadBody': 'Missing upload body.',
+  'err.uploadTimedOutKeepYour':
+    'Upload timed out. Keep your local file and retry.',
+  'err.uploadExceedsThePermittedByte':
+    'Upload exceeds the permitted byte limit or frozen input size.',
+  'err.uploadIsIncompleteRetryWith':
+    'Upload is incomplete. Retry with the original file.',
+  'err.useAJsonUploadManifest': 'Use a JSON upload manifest.',
+  'err.uploadManifestTimedOutRetry':
+    'Upload manifest timed out. Retry the posting attempt.',
+  'err.uploadManifestIsTooLarge': 'Upload manifest is too large.',
+  'err.invalidUploadManifest': 'Invalid upload manifest.',
+  'err.imageProcessorCouldNotStart':
+    'Image processor could not start. Retry the upload.',
+  'err.imageProcessingTimedOutTry':
+    'Image processing timed out. Try a smaller image.',
+  'err.animatedImagesAreNotSupported':
+    'Animated images are not supported. Select a static image.',
+  'err.imageExceedsTheDecodedPixel': 'Image exceeds the decoded pixel limit.',
+  'err.imageIsCorruptOrUses': 'Image is corrupt or uses an unsupported format.',
+  'err.imageProcessingFailedRetryWith':
+    'Image processing failed. Retry with a valid static image.',
+  'err.notEnoughDiskSpaceAbove':
+    'Not enough disk space above the safety reserve. Free space and retry.',
+  'err.imageProcessingIsBusyRetry':
+    'Image processing is busy. Retry this upload shortly.',
+  'err.imageQueueTimedOutRetry': 'Image queue timed out. Retry this upload.',
+  'err.invalidAttachmentOrBatchId': 'Invalid attachment or batch ID.',
+  'err.thisRetryHasDifferentFiles':
+    'This retry has different files or content. Start a new posting attempt.',
+  'err.uploadBatchNotFound': 'Upload batch not found.',
+  'err.invalidFrozenUploadManifestCheck':
+    'Invalid frozen upload manifest. Check IDs, filenames, sizes and checksums.',
+  'err.theUploadManifestExceedsThe':
+    'The upload manifest exceeds the attachment limits.',
+  'err.thisBatchIsNoLonger':
+    'This batch is no longer accepting uploads. Start a new posting attempt.',
+  'err.tooManyPendingPostingAttempts':
+    'Too many pending posting attempts. Clean unused uploads in Storage settings before retrying.',
+  'err.thisBatchIsNotAccepting': 'This batch is not accepting uploads.',
+  'err.uploadItemNotFound': 'Upload item not found.',
+  'err.uploadSizeDoesNotMatch': 'Upload size does not match the frozen file.',
+  'err.svgIsSupportedOnlyAs':
+    'SVG is supported only as a downloadable file. Upload it as application/octet-stream.',
+  'err.fileExceedsTheUploadByte': 'File exceeds the upload byte limit.',
+  'err.uploadsAreBusyQueryReadiness':
+    'Uploads are busy. Query readiness and retry shortly.',
+  'err.theUploadIsNotA': 'The upload is not a supported raster image.',
+  'err.uploadReadinessChangedRetryThe':
+    'Upload readiness changed. Retry the posting attempt.',
+  'err.fileExceedsTheByteLimit': 'File exceeds the byte limit.',
+  'err.theDiskIsFullFree':
+    'The disk is full. Free space and retry; your local files are still needed.',
+  'err.uploadCouldNotBeStored':
+    'Upload could not be stored. Keep the local file and retry.',
+  'err.confirmTheSelectedUnusedPosting':
+    'Confirm the selected unused posting attempts.',
+  'err.aSelectedAttemptIsActive':
+    'A selected attempt is active, recently resumed, or referenced. Refresh storage before choosing again. Nothing from this selection was queued.',
+  'err.attachmentNotFound': 'Attachment not found.',
+  'err.attachmentVariantNotFound': 'Attachment variant not found.',
+  'err.storedAttachmentIsUnavailable': 'Stored attachment is unavailable.',
+  'err.useAnApplicationJsonRequest': 'Use an application/json request.',
+  'err.authenticationRequestIsTooLarge': 'Authentication request is too large.',
+  'err.missingRequestBody': 'Missing request body.',
+  'err.invalidAuthenticationRequest': 'Invalid authentication request.',
+  'err.signInAgainThenRetry':
+    'Sign in again, then retry with your retained local work.',
+  'err.authenticationIsBusyPleaseRetry':
+    'Authentication is busy. Please retry.',
+  'err.invalidClientAddress': 'Invalid client address.',
+  'err.invalidProxyClientAddress': 'Invalid proxy client address.',
+  'err.setupHasTimedOutRestart':
+    'Setup has timed out. Restart PandaNote on the server to open it again (docker compose restart pandanote).',
+  'err.enterYourPasswordAgain': 'Enter your password again.',
+  'err.authenticateAgainForThisAction': 'Authenticate again for this action.',
+  'err.enableMfaFirst': 'Enable MFA first.',
+  'err.use130Days': 'Use 1–30 days.',
+  'err.restoreRecoveryIsPendingRestart':
+    'Restore recovery is pending. Restart PandaNote before resetting the password.',
+  'err.applicationDataChangedDuringPassword':
+    'Application data changed during password reset. Run reset-password again.',
+  'err.noAccountExists': 'No account exists.',
+  'err.useAProtectedDownloadForm': 'Use a protected download form.',
+  'err.downloadFormIsTooLarge': 'Download form is too large.',
+  'err.invalidDownloadForm': 'Invalid download form.',
+  'err.restoreWorkIsInProgress':
+    'Restore work is in progress. Wait before discarding.',
+  'err.aRestoreUploadOrReplacement':
+    'A restore upload or replacement is already running.',
+  'err.invalidOrOversizedArchiveByte':
+    'Invalid or oversized archive byte count.',
+  'err.notEnoughDiskSpaceFor':
+    'Not enough disk space for restore staging. Free space and retry.',
+  'err.archiveIsCorruptIncompatibleUnsafe':
+    'Archive is corrupt, incompatible, unsafe, or exceeds restore validation limits. Current data is unchanged.',
+  'err.explicitlyConfirmFullReplacement':
+    'Explicitly confirm full replacement.',
+  'err.waitUntilBackupOrRestore': 'Wait until backup or restore work finishes.',
+  'err.restoreCleanupRecoveryIsPending':
+    'Restore cleanup/recovery is pending. Restart the application before another restore.',
+  'err.validatedRestoreIsUnavailableUpload':
+    'Validated restore is unavailable. Upload again; restart discards unconfirmed uploads.',
+  'err.backupInventoryNeedsOperatorInspection':
+    'Backup inventory needs operator inspection.',
+  'err.restoreRecoveryRequiresApplicationRestart':
+    'Restore recovery requires application restart or operator inspection. Retained data and journal must not be deleted.',
+  'err.restoreFailedAndThePrevious':
+    'Restore failed and the previous application was restored. Upload again to retry.',
+  'err.invalidBackupRequest': 'Invalid backup request.',
+  'err.thisBackupIdentityAlreadyHas':
+    'This backup identity already has an archive. Refresh the list.',
+  'err.aBackupIsAlreadyRunning':
+    'A backup is already running. Refresh its status.',
+  'err.backupHistoryIsFullDelete':
+    'Backup history is full. Delete old backups or failed jobs first.',
+  'err.tooManyFilesForThis': 'Too many files for this backup format.',
+  'err.notebookExceedsThisBackupFormat':
+    'Notebook exceeds this backup format’s size limit.',
+  'err.backupNotFound': 'Backup not found.',
+  'err.invalidBackupDownloadRequest': 'Invalid backup download request.',
+  'err.completedBackupNotFound': 'Completed backup not found.',
+  'err.invalidBackupId': 'Invalid backup ID.',
+  'err.confirmBackupDeletion': 'Confirm backup deletion.',
+  'err.waitUntilThisBackupFinishes': 'Wait until this backup finishes.',
+  'err.snapshotProcessorCouldNotStart':
+    'Snapshot processor could not start. Retry backup.',
+  'err.notEnoughDiskSpaceFor2':
+    'Not enough disk space for snapshot processing. Free space and retry.',
+  'err.snapshotProcessingFailedOrTimed':
+    'Snapshot processing failed or timed out. Retry backup.',
+  'err.thisRetryHasDifferentContent':
+    'This retry has different content. Start a new posting attempt.',
+  'err.theAttachmentIsStillReferenced': 'The attachment is still referenced.',
+  'err.maintenanceIsInProgressPlease':
+    'Maintenance is in progress. Please retry.',
+  'err.writeLeaseHasExpired': 'Write lease has expired.',
+  'err.maintenanceLeaseHasExpired': 'Maintenance lease has expired.',
+  'err.activeWritesDidNotFinish': 'Active writes did not finish. Please retry.',
+  'err.everyMarkdownImageMustReference':
+    'Every Markdown image must reference a ready image in this note. Repair or remove unavailable images before posting.',
+  'err.aNormalizedTagExceeds128': 'A normalized tag exceeds 128 characters.',
+  'err.checkTheMarkdownSizeAnd':
+    'Check the Markdown size and hashtag limits (64 characters per tag level, up to 5 levels and 128 characters per tag, 100 unique tags).',
+  'err.useAnApplicationJsonNote': 'Use an application/json note request.',
+  'err.noteRequestIsTooLarge': 'Note request is too large.',
+  'err.noteRequestTimedOutKeep':
+    'Note request timed out. Keep your local work and retry.',
+  'err.invalidJsonNoteRequest': 'Invalid JSON note request.',
+  'err.noteNotFoundKeepYour':
+    'Note not found. Keep your unsaved editor open if you need its text or files.',
+  'err.invalidNoteId': 'Invalid note ID.',
+  'err.invalidNoteActionContentDate':
+    'Invalid note action, content, date, location, attachments or expected revision.',
+  'err.thisNoteCannotAcceptAnother':
+    'This note cannot accept another revision. Save a separate copy.',
+  'err.thisPostingAttemptDoesNot':
+    'This posting attempt does not match its frozen upload batch. Start a new attempt.',
+  'err.aStatusActionCannotCommit':
+    'A status action cannot commit an upload batch.',
+  'err.publishedNotesUseSaveChanges':
+    'Published notes use Save changes; Trash must be restored first.',
+  'err.keepTheOriginalTimelineDate':
+    'Keep the original timeline date or explicitly choose a new one.',
+  'err.thisNoteExceedsTheConfigured':
+    'This note exceeds the configured text or attachment limit.',
+  'err.addTextOrAReady': 'Add text or a ready image/file before posting.',
+  'err.allFrozenBatchFilesMust':
+    'All frozen batch files must be included. Start a new attempt to change the file selection.',
+  'err.moveTheNoteToTrash':
+    'Move the note to Trash before permanently deleting it.',
+  'err.onlyAnUnpinnedPublishedNote':
+    'Only an unpinned published note can be pinned.',
+  'err.thisNoteIsNotPinned': 'This note is not pinned.',
+  'err.anAttachmentIsMissingUnready':
+    'An attachment is missing, unready or unavailable to this posting attempt. Keep your local files and retry.',
+  'err.aStoredAttachmentIsUnavailable':
+    'A stored attachment is unavailable. Repair or remove it before saving; your local work is retained.',
+  'err.invalidCursorOrDifferentStatus':
+    'Invalid cursor or different status. Refresh this list.',
+  'err.invalidTimelineCursorStartFrom':
+    'Invalid timeline cursor. Start from the first page.',
+  'err.thisCursorBelongsToDifferent':
+    'This cursor belongs to different filters or timezone. Start from the first page.',
+  'err.chooseValidAppearanceSettings': 'Choose valid appearance settings.',
+  'err.chooseASiteTitleOf':
+    'Choose a site title of 1–60 characters and an available language.',
+  'err.chooseAValidIanaTimezone':
+    'Choose a valid IANA timezone and week start.',
+  'err.chooseValidUploadImageAnd':
+    'Choose valid upload, image and note limits within the safe bounds.',
+  'err.thisNoteContainsARetired':
+    'This note contains a retired tag. Review tag changes before posting. Your editor is unchanged.',
+  'err.tagSearchIsTooLong': 'Tag search is too long.',
+  'err.previewAndConfirmAValid':
+    'Preview and confirm a valid tag operation first.',
+  'err.thisRetryDiffersFromThe':
+    'This retry differs from the confirmed tag operation.',
+  'err.affectedNotesOrTagsChanged':
+    'Affected notes or tags changed after preview. Preview again; nothing was rewritten.',
+  'err.aRewrittenTagWouldExceed':
+    'A rewritten tag would exceed the tag limits. Choose a shorter target.',
+  'err.aRewrittenNoteWouldExceed':
+    'A rewritten note would exceed the configured text limit. Choose a shorter tag.',
+  'err.aRewrittenNoteWouldExceed2':
+    'A rewritten note would exceed the tag limits. Choose a shorter tag.',
+  'err.anAffectedNoteCannotAccept':
+    'An affected note cannot accept another revision.',
+  'err.anAffectedNoteChangedPreview':
+    'An affected note changed. Preview again.',
+  'err.chooseAValidSourceTag':
+    'Choose a valid source tag, scope and target spelling.',
+  'err.theSourceTagNoLonger': 'The source tag no longer exists. Refresh tags.',
+  'err.noNoteUsesThisExact':
+    'No note uses this exact tag; only its subtags. Choose "This tag and all subtags".',
+  'err.aTagCannotBeMoved': 'A tag cannot be moved inside its own subtags.',
+  'err.mergeRequiresADifferentExisting':
+    'Merge requires a different existing tag.',
+  'err.thatTagAlreadyExistsChoose':
+    'That tag already exists. Choose Merge and preview the combined usage.',
+  'err.chooseADifferentSpelling': 'Choose a different spelling.',
+  'err.thisOperationExceedsTheSafe':
+    'This operation exceeds the safe management limit (10,000 notes / 32 MiB). Operator assistance is required; no changes made.',
+  'err.chooseAValidCalendarDate':
+    'Choose a valid calendar date between 1969 and 9998.',
+  'err.chooseAValidYearAnd': 'Choose a valid year and month.',
+  'err.theNoteHasChangedKeep':
+    'The note has changed. Keep your local edits and reload the server version.',
+  'err.invalidNoteState': 'Invalid note state.',
+  'err.thisNoteCannotMakeThat': 'This note cannot make that transition.',
+  'err.searchCannotContainANul': 'Search cannot contain a NUL character.',
+  'err.searchInputIsTooLong':
+    'Search input is too long (1024 characters including escapes).',
+  'err.putAPhraseInSeparate': 'Put a phrase in separate double quotes.',
+  'err.closeTheDoubleQuoteTo':
+    'Close the double quote to search an exact phrase.',
+  'err.separateSearchTermsWithSpaces': 'Separate search terms with spaces.',
+  'err.anExactPhraseCannotBe': 'An exact phrase cannot be empty.',
+  'err.normalizedSearchIsLimitedTo':
+    'Normalized search is limited to 256 characters.',
+  'err.useAtMost20Search': 'Use at most 20 search terms.',
+  'err.invalidTrashQuery': 'Invalid Trash query.',
+  'err.chooseTrashAndAPage': 'Choose Trash and a page size from 1 to 100.',
+  'err.invalidTagFilter': 'Invalid tag filter.',
+  'err.invalidSelectedDayRange': 'Invalid selected-day range.',
+  'err.chooseAMonthOrA': 'Choose a month or a day, not both.',
+  'err.selectOnlyOneTag': 'Select only one tag.',
+  'err.invalidTimelineQuery': 'Invalid timeline query.',
+  'err.pageSizeMustBeBetween': 'Page size must be between 1 and 100.',
+  'err.signInToContinue': 'Sign in to continue.',
+  'err.unableToSignInCheck': 'Unable to sign in. Check your credentials.',
+  'err.invalidSecurityRequest': 'Invalid security request.',
+  'err.unexpectedBackupQuery': 'Unexpected backup query.',
+  'err.downloadGrantsMustNotBe': 'Download grants must not be in URLs.',
+  'err.chooseOneCalendarYear': 'Choose one calendar year.',
+  'err.chooseAYearBetween1969': 'Choose a year between 1969 and 9998.',
+  'err.chooseOneCalendarMonth': 'Choose one calendar month.',
+  'err.useACreateNoteRequest': 'Use a create-note request.',
+  'err.useAnUpdateRequestFor': 'Use an update request for this note.',
+  'err.useALifecycleActionFor': 'Use a lifecycle action for this note.',
+  'err.invalidTagSearch': 'Invalid tag search.',
+  'err.invalidTagHistoryCheck': 'Invalid tag history check.',
 } as const;
 export type MessageKey = keyof typeof en;
 export type Catalog = Record<MessageKey, string>;

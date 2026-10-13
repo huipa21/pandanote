@@ -17,7 +17,8 @@
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const ops = new TagOperations(workspace);
   const id = $props.id();
-  const t = useI18n().t;
+  const i18n = useI18n();
+  const t = i18n.t;
   type Page = { items: ManagedTag[]; nextOffset: number | null };
   let items = $state<ManagedTag[]>(untrack(() => data.tagPage.items));
   let nextOffset = $state<number | null>(
@@ -66,7 +67,7 @@
       });
       const result = (await response.json()) as ApiResult<Page>;
       if (current !== generation) return;
-      if (!result.ok) throw new Error(result.error.message);
+      if (!result.ok) throw new Error(i18n.error(result.error));
       const seen = new Set(items.map((tag) => tag.key));
       items = [...items, ...result.data.items.filter((t) => !seen.has(t.key))];
       nextOffset = result.data.nextOffset;

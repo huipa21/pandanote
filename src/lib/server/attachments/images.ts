@@ -108,10 +108,7 @@ export async function processImage(
         child.on('error', () => {
           clearTimeout(timer);
           reject(
-            new DomainError(
-              'upload-failed',
-              'Image processor could not start. Retry the upload.',
-            ),
+            new DomainError('upload-failed', 'err.imageProcessorCouldNotStart'),
           );
         });
         child.on('close', (code) => {
@@ -120,7 +117,7 @@ export async function processImage(
             reject(
               new DomainError(
                 'upload-failed',
-                'Image processing timed out. Try a smaller image.',
+                'err.imageProcessingTimedOutTry',
               ),
             );
             return;
@@ -134,10 +131,10 @@ export async function processImage(
                 new DomainError(
                   'validation',
                   result.error === 'animation'
-                    ? 'Animated images are not supported. Select a static image.'
+                    ? 'err.animatedImagesAreNotSupported'
                     : result.error === 'pixels'
-                      ? 'Image exceeds the decoded pixel limit.'
-                      : 'Image is corrupt or uses an unsupported format.',
+                      ? 'err.imageExceedsTheDecodedPixel'
+                      : 'err.imageIsCorruptOrUses',
                 ),
               );
             } else if (
@@ -155,7 +152,7 @@ export async function processImage(
             reject(
               new DomainError(
                 'upload-failed',
-                'Image processing failed. Retry with a valid static image.',
+                'err.imageProcessingFailedRetryWith',
               ),
             );
           }
