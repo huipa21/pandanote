@@ -1,3 +1,4 @@
+import { openSettingsTab } from './settings-tab.ts';
 import { readFileSync } from 'node:fs';
 import { scanSetup } from '../helpers/setup-accessibility.ts';
 import { browserSession } from '../helpers/browser-session.ts';
@@ -258,6 +259,7 @@ test('two-step first run, field retention, resume, routing, secure sessions and 
     ).status(),
   ).toBe(403);
   await page.goto('/settings');
+  await openSettingsTab(page, 'Account');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(
@@ -543,6 +545,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
   page.on('dialog', (dialog) => dialog.accept());
   try {
     await page.goto('/settings');
+    await openSettingsTab(page, 'Account');
     await expect(
       page.getByText('MFA: disabled.', { exact: true }),
     ).toBeVisible();
@@ -619,6 +622,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     await other.reload();
     await expect(other).toHaveURL(/\/login$/);
     await page.reload();
+    await openSettingsTab(page, 'Account');
     await expect(
       page.getByLabel('Account authenticator or recovery code'),
     ).toBeVisible();
@@ -674,6 +678,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
       ).status(),
     ).toBe(401);
     await page.goto('/settings');
+    await openSettingsTab(page, 'Account');
     // SH3.4 owner notice: no notice after a successful sign-in; a wrong code in fresh
     // authentication is counted and the notice appears on the next Settings load.
     await expect(page.getByTestId('second-factor-failures')).toHaveCount(0);
@@ -704,6 +709,7 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
     ).toBeVisible();
     await page.unroute('**/api/auth/fresh');
     await page.goto('/settings');
+    await openSettingsTab(page, 'Account');
     await expect(page.getByTestId('second-factor-failures')).toHaveText(
       '1 incorrect second-factor code since your last sign-in. Someone may know your password — change it.',
     );
@@ -854,7 +860,11 @@ test('Sign out waits for hydration and then revokes the session', async ({
     await held;
     await route.continue();
   });
-  const signOut = page.getByRole('button', { name: 'Sign out', exact: true });
+  const signOut = page.getByRole('button', {
+    name: 'Sign out',
+    exact: true,
+    includeHidden: true,
+  });
   try {
     await page.goto('/settings', { waitUntil: 'commit' });
     await expect(signOut).toBeDisabled();
@@ -862,6 +872,7 @@ test('Sign out waits for hydration and then revokes the session', async ({
     release();
     await page.unrouteAll({ behavior: 'wait' });
   }
+  await openSettingsTab(page, 'Account');
   await expect(signOut).toBeEnabled();
   await signOut.click();
   await expect(page).toHaveURL(/\/login$/);
@@ -876,6 +887,7 @@ test('Account settings require fresh authentication, retain errors and change th
   const cookie = cookies.find((c) => c.name === 'pandanote_session')!;
   const headers = { origin, cookie: `${cookie.name}=${cookie.value}` };
   await page.goto('/settings');
+  await openSettingsTab(page, 'Account');
   await page.getByLabel('Account username').fill('!');
   await page
     .getByRole('button', { name: 'Authenticate and save account' })

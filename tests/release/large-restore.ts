@@ -173,7 +173,6 @@ try {
   const id = randomUUID();
   await request('/api/backups', 'POST', {
     id,
-    grant: await grant('backup-create'),
   });
   for (let i = 0; ; i++) {
     const job = (
@@ -187,9 +186,7 @@ try {
   const archive = `/data/backups/${id}.pnb`;
   const size = fs.statSync(archive).size;
   if (size < 1024 ** 3) throw new Error('Fixture is not at least 1 GiB');
-  const form = new URLSearchParams({
-    grant: await grant('backup-download'),
-  }).toString();
+  const form = new URLSearchParams().toString();
   const downloaded = '/tmp/dep-downloaded.pnb';
   await new Promise<void>((resolve, reject) => {
     const req = https.request(

@@ -175,32 +175,16 @@
       Measured {date(usage.measuredAt)} ({timezone}). Refresh for current usage.
     </p>
     <dl>
-      <dt>Note attachments</dt>
-      <dd>{size(usage.referencedBytes)}</dd>
-      <dt>Attachments only in Trash</dt>
-      <dd>{size(usage.trashOnlyBytes)}</dd>
-      <dt>Unused uploads & queued files</dt>
-      <dd>{size(usage.unusedBytes)}</dd>
-      <dt>Backup archives</dt>
-      <dd>{size(usage.backupBytes)}</dd>
-      <dt>Database & journals</dt>
+      <dt>Media (attachments, Trash & unused uploads)</dt>
+      <dd>
+        {size(usage.referencedBytes + usage.trashOnlyBytes + usage.unusedBytes)}
+      </dd>
+      <dt>SQL database & journals</dt>
       <dd>{size(usage.databaseBytes)}</dd>
-      <dt>Temporary staging</dt>
-      <dd>{size(usage.stagingBytes)}</dd>
-      <dt>Filesystem capacity</dt>
-      <dd>{size(usage.totalDiskBytes)}</dd>
-      <dt>Filesystem free space</dt>
-      <dd>{size(usage.freeDiskBytes)}</dd>
-      <dt>Protected disk reserve</dt>
-      <dd>{size(usage.reserveBytes)}</dd>
-      <dt>Free above reserve</dt>
-      <dd>{size(usage.availableAboveReserveBytes)}</dd>
     </dl>
     <p class="help">
-      Shared files count once: a file referenced outside Trash is not counted
-      again in Trash. Attachment totals use recorded processed bytes;
-      staging/database/archive sizes are measured on disk. The reserve is
-      deployment-configured, not a browser-editable path or setting.
+      Media uses recorded processed bytes; shared files count once. Database
+      size is measured on disk.
     </p>
     {#if usage.cleanupJobs}<p role="status">
         {usage.cleanupJobs} file deletion jobs remain queued. Retry queued cleanup

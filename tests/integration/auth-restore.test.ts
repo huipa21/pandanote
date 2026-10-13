@@ -44,17 +44,9 @@ async function sourceArchive(p: Persistence) {
     ip,
   );
   const identity = auth.authenticate(enabled.credential.token)!;
-  const grant = await auth.freshAuth(
-    identity,
-    'backup-create',
-    password,
-    enabled.codes[0],
-    ip,
-  );
   const backups = new BackupService(p, auth, new DiskBudget(p.storage.root, 0));
   const job = backups.create(identity, {
     id: randomUUID(),
-    grant: grant.token,
   });
   await backups.wait();
   expect(backups.list(identity)[0].state).toBe('complete');

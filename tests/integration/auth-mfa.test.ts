@@ -317,48 +317,41 @@ it('fresh authentication requires both factors, binds exact scope/session/revisi
     const f = await fixture(p);
     const enabled = f.enable();
     await expect(
-      f.auth.freshAuth(
-        f.identity,
-        'backup-download',
-        'wrong',
-        enabled.codes[0],
-        ip,
-      ),
+      f.auth.freshAuth(f.identity, 'restore', 'wrong', enabled.codes[0], ip),
     ).rejects.toMatchObject({ code: 'unauthorized' });
     await expect(
-      f.auth.freshAuth(f.identity, 'backup-download', password, undefined, ip),
+      f.auth.freshAuth(f.identity, 'restore', password, undefined, ip),
     ).rejects.toMatchObject({ code: 'unauthorized' });
     expect(f.auth.securityStatus(f.identity).recoveryCodesRemaining).toBe(10);
-    const grant = await f.grant('backup-download');
+    const grant = await f.grant('restore');
     const consume = (
       scope: FreshAuthScope,
       token = grant,
       identity = f.identity,
     ) => p.write((tx) => f.auth.consumeFreshGrant(tx, identity, token, scope));
-    expect(() => consume('backup-create')).toThrow(/Authenticate again/);
-    expect(() => consume('backup-download', f.initial.token)).toThrow(
+    expect(() => consume('restore', f.initial.token)).toThrow(
       /Authenticate again/,
     );
     const pending = await f.auth.login('fixture', password, ip);
     const other = f.auth.authenticate(
       f.auth.completeMfa(pending.token, enabled.codes[0], ip).token,
     )!;
-    expect(() => consume('backup-download', grant, other)).toThrow(
+    expect(() => consume('restore', grant, other)).toThrow(
       /Authenticate again/,
     );
-    consume('backup-download');
-    expect(() => consume('backup-download')).toThrow(/Authenticate again/);
+    consume('restore');
+    expect(() => consume('restore')).toThrow(/Authenticate again/);
     const expired = await f.grant('restore');
     f.advance(5 * 60_000);
     expect(() => consume('restore', expired)).toThrow(/Authenticate again/);
-    const revision = await f.grant('backup-delete');
+    const revision = await f.grant('restore');
     p.write((tx) =>
       tx
         .update(account)
         .set({ securityRevision: f.identity.securityRevision + 1 })
         .run(),
     );
-    expect(() => consume('backup-delete', revision)).toThrow();
+    expect(() => consume('restore', revision)).toThrow();
   });
 });
 it('password, recovery regeneration and disable rotate sessions and reject prior pending challenges and recovery sets', async () => {
@@ -455,7 +448,7 @@ it('password-only fresh authentication changes session lifetime and revoke-all i
     const identity = auth.authenticate(initial.token)!;
     const wrongScope = await auth.freshAuth(
       identity,
-      'backup-create',
+      'restore',
       password,
       undefined,
       ip,

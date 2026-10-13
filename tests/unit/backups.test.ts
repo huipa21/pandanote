@@ -47,30 +47,33 @@ it('bounds manifests and permits only explicit included/excluded fields and payl
     },
   ])
     expect(backupManifestSchema.safeParse(changed).success).toBe(false);
+  expect(backupCreateSchema.safeParse({ id: randomUUID() }).success).toBe(true);
   expect(
     backupCreateSchema.safeParse({ id: randomUUID(), grant: 'a'.repeat(43) })
       .success,
-  ).toBe(true);
+  ).toBe(false);
+  expect(backupDeleteSchema.safeParse({ confirmed: false }).success).toBe(
+    false,
+  );
+  expect(backupDeleteSchema.safeParse({ confirmed: true }).success).toBe(true);
   expect(
-    backupDeleteSchema.safeParse({ grant: 'a'.repeat(43), confirmed: false })
+    backupDeleteSchema.safeParse({ confirmed: true, grant: 'a'.repeat(43) })
       .success,
   ).toBe(false);
 });
-it('native protected download form is capped, unique, POST-body only and never accepts extra fields', async () => {
+it('native download form is POST-only, empty-bodied and rejects any field', async () => {
   const request = (body: string) =>
     new Request('http://localhost/download', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body,
     });
-  expect(await readDownloadForm(request('grant=' + 'a'.repeat(43)))).toEqual({
-    grant: 'a'.repeat(43),
-  });
+  expect(await readDownloadForm(request(''))).toEqual({});
   for (const body of [
+    'grant=' + 'a'.repeat(43),
     'grant=a&grant=b',
-    'grant=a&path=../private',
-    'x=a',
-    'grant=' + 'a'.repeat(300),
+    'path=../private',
+    'x=' + 'a'.repeat(300),
   ])
     await expect(readDownloadForm(request(body))).rejects.toThrow();
   for (const code of ['SQLITE_FULL', 'ENOSPC']) {

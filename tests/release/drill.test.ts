@@ -243,17 +243,15 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
     archive,
   };
   void published;
-  // Sensitive actions require fresh authentication even with a valid session, and
-  // cross-origin requests are rejected at the deployed edge.
+  // Restore confirmation still requires fresh authentication, and unconfirmed deletes
+  // are rejected; cross-origin requests are rejected at the deployed edge.
   const sensitive: [string, 'get' | 'post', string, unknown][] = [
-    ['create backup without grant', 'post', '/api/backups', {}],
     [
-      'download without grant',
-      'get',
-      `/api/backups/${job.id}/download`,
-      undefined,
+      'delete backup without confirmation',
+      'post',
+      `/api/backups/${job.id}`,
+      {},
     ],
-    ['delete backup without grant', 'post', `/api/backups/${job.id}`, {}],
     ['confirm restore without grant', 'post', '/api/restores/confirm', {}],
   ];
   for (const [name, method, path, body] of sensitive) {

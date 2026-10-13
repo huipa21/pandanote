@@ -82,9 +82,6 @@ export const freshAuthScopeSchema = z.enum([
   'recovery-regenerate',
   'sessions-revoke',
   'session-lifetime',
-  'backup-create',
-  'backup-download',
-  'backup-delete',
   'restore',
 ]);
 export type FreshAuthScope = z.infer<typeof freshAuthScopeSchema>;

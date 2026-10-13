@@ -1,25 +1,19 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import Modal from './Modal.svelte';
   import RestoreSettings from './RestoreSettings.svelte';
   import { idSchema } from '#lib/shared/domain.ts';
   import type { BackupJob } from '#lib/shared/backups.ts';
-  import type { FreshAuthScope } from '#lib/shared/auth.ts';
   let jobs = $state<BackupJob[]>([]);
   let ready = $state(false);
   let busy = $state(false);
   let open = $state(false);
-  let action = $state<'create' | 'download' | 'delete'>('create');
   let selected = $state('');
-  let password = $state('');
-  let code = $state('');
-  let mfa = $state(false);
   let error = $state('');
   let message = $state('');
   let retryId = $state('');
   const retryKey = 'pandanote:backup-create:v1';
   let downloadForm: HTMLFormElement;
-  let downloadGrant = $state('');
   let downloadPath = $state('');
   let refreshing = false;
   const lifetime = new AbortController();
@@ -81,79 +75,60 @@
     return () => {
       clearInterval(timer);
       lifetime.abort();
-      password = '';
-      code = '';
-      downloadGrant = '';
     };
   });
-  async function choose(next: typeof action, id = '') {
+  // Session and same-origin checks protect these actions; no password prompt (owner decision).
+  // Retry identity is a content-free UUID; idempotent by ID on the server.
+  async function startBackup() {
     if (busy) return;
     busy = true;
-    action = next;
-    selected = id;
-    password = '';
-    code = '';
     error = '';
     message = '';
     try {
-      mfa = (await request('/api/auth/security')).mfaEnabled;
-      open = true;
+      retryId ||= crypto.randomUUID();
+      sessionStorage.setItem(retryKey, retryId);
+      await request('/api/backups', { id: retryId });
+      sessionStorage.removeItem(retryKey);
+      retryId = '';
+      message =
+        'Manual backup started. It is downloadable only after verification completes.';
+      await refresh();
     } catch (e) {
       error =
         e instanceof Error
           ? e.message
-          : 'Could not load security status. Retry.';
+          : 'Connection failed. Refresh the backup list before retrying.';
     } finally {
       busy = false;
     }
   }
-  async function submit(event: SubmitEvent) {
+  async function startDownload(id: string) {
+    if (busy) return;
+    error = '';
+    // Native form avoids a multi-GB fetch/blob in browser memory. Form has no fields.
+    downloadPath = `/api/backups/${id}/download`;
+    await tick();
+    downloadForm.submit();
+    message =
+      'Download requested. Check browser downloads; any server error opens separately.';
+  }
+  function askDelete(id: string) {
+    if (busy) return;
+    selected = id;
+    error = '';
+    message = '';
+    open = true;
+  }
+  async function confirmDelete(event: SubmitEvent) {
     event.preventDefault();
     if (busy) return;
     busy = true;
     error = '';
     message = '';
-    const scopes: Record<typeof action, FreshAuthScope> = {
-      create: 'backup-create',
-      download: 'backup-download',
-      delete: 'backup-delete',
-    };
     try {
-      const fresh = await request('/api/auth/fresh', {
-        scope: scopes[action],
-        password,
-        ...(mfa ? { code } : {}),
-      });
-      password = '';
-      code = '';
-      if (action === 'create') {
-        retryId ||= crypto.randomUUID();
-        // Content-free identity only. No password/factor/grant in browser storage.
-        sessionStorage.setItem(retryKey, retryId);
-        await request('/api/backups', { id: retryId, grant: fresh.grant });
-        sessionStorage.removeItem(retryKey);
-        retryId = '';
-        message =
-          'Manual backup started. It is downloadable only after verification completes.';
-      } else if (action === 'delete') {
-        await request(
-          `/api/backups/${selected}`,
-          { grant: fresh.grant, confirmed: true },
-          'DELETE',
-        );
-        message = 'Backup or failed job deleted.';
-      } else {
-        // Native form avoids a multi-GB fetch/blob in browser memory. No URL grant.
-        downloadPath = `/api/backups/${selected}/download`;
-        downloadGrant = fresh.grant;
-        const { tick } = await import('svelte');
-        await tick();
-        downloadForm.submit();
-        downloadGrant = '';
-        message =
-          'Download requested. Check browser downloads; any server error opens separately. Retry with fresh authentication if needed.';
-      }
+      await request(`/api/backups/${selected}`, { confirmed: true }, 'DELETE');
       open = false;
+      message = 'Backup or failed job deleted.';
       await refresh();
     } catch (e) {
       error =
@@ -187,7 +162,7 @@
         jobs.some((job) =>
           ['pending', 'capturing', 'archiving'].includes(job.state),
         )}
-      onclick={() => choose('create')}
+      onclick={startBackup}
       >{retryId ? 'Retry backup request' : 'Create full backup'}</button
     >
     <button disabled={busy} onclick={refresh}>Refresh backups</button>
@@ -216,12 +191,12 @@
           </p>{/if}
         {#if job.state === 'complete'}<button
             disabled={busy}
-            onclick={() => choose('download', job.id)}>Download backup</button
+            onclick={() => startDownload(job.id)}>Download backup</button
           >{/if}
         {#if ['complete', 'failed'].includes(job.state)}<button
             class="danger"
             disabled={busy}
-            onclick={() => choose('delete', job.id)}>Delete backup</button
+            onclick={() => askDelete(job.id)}>Delete backup</button
           >{/if}
       </li>
     {/each}
@@ -234,52 +209,17 @@
     target="_blank"
     rel="noopener"
     hidden
-  >
-    <input type="hidden" name="grant" value={downloadGrant} />
-  </form>
+  ></form>
 </section>
-<Modal
-  bind:open
-  title="Authorize backup action"
-  dismissible={!busy}
-  onDismiss={() => {
-    password = '';
-    code = '';
-  }}
->
+<Modal bind:open title="Delete backup?" dismissible={!busy}>
   <p>
-    {action === 'delete'
-      ? 'Permanently delete this server backup or failed job? Downloaded copies are not deleted.'
-      : action === 'create'
-        ? 'Create an unencrypted full backup on this server?'
-        : 'Download this unencrypted private archive? Keep the downloaded file protected.'}
+    Permanently delete this server backup or failed job? Downloaded copies are
+    not deleted.
   </p>
-  <form onsubmit={submit}>
+  <form onsubmit={confirmDelete}>
     <fieldset disabled={busy}>
-      <label for="backup-password">Password for backup action</label>
-      <input
-        id="backup-password"
-        type="password"
-        autocomplete="current-password"
-        required
-        bind:value={password}
-      />
-      {#if mfa}<label for="backup-code"
-          >Authenticator or recovery code for backup action</label
-        ><input
-          id="backup-code"
-          autocomplete="one-time-code"
-          required
-          bind:value={code}
-        />{/if}
-      <button class={action === 'delete' ? 'danger' : 'primary'} type="submit"
-        >{busy
-          ? 'Authorizing…'
-          : action === 'delete'
-            ? 'Confirm delete backup'
-            : action === 'create'
-              ? 'Confirm create backup'
-              : 'Confirm download backup'}</button
+      <button class="danger" type="submit"
+        >{busy ? 'Deleting…' : 'Confirm delete backup'}</button
       >
     </fieldset>
     <p role="alert">{error}</p>
@@ -322,13 +262,5 @@
     border: 0;
     padding: 0;
     min-width: 0;
-  }
-  label {
-    display: block;
-    margin-block: var(--space-3) var(--space-1);
-  }
-  input {
-    width: 100%;
-    margin-bottom: var(--space-3);
   }
 </style>

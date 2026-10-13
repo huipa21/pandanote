@@ -1,3 +1,4 @@
+import { openSettingsTab } from './settings-tab.ts';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import sharp from 'sharp';
@@ -208,6 +209,7 @@ test.describe('axe WCAG 2.x AA scans', () => {
     await scan(page, 'image viewer');
     await page.keyboard.press('Escape');
     await page.goto('/settings');
+    await openSettingsTab(page, 'Backups');
     await page
       .getByTestId('backup-settings')
       .getByRole('button', { name: 'Create full backup', exact: true })

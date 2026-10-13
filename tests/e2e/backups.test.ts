@@ -1,10 +1,10 @@
+import { openSettingsTab } from './settings-tab.ts';
 import { randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { browserSession } from '../helpers/browser-session.ts';
 const origin = 'http://127.0.0.1:4173';
-const password = 'synthetic-e2e-only-secret 密碼';
 async function headers(page: Page) {
   const cookies = await browserSession(page);
   return {
@@ -15,22 +15,16 @@ async function headers(page: Page) {
 async function settings(page: Page) {
   await browserSession(page);
   await page.goto('/settings');
+  await openSettingsTab(page, 'Backups');
   await expect(
     page
       .getByTestId('backup-settings')
       .getByRole('button', { name: 'Create full backup' }),
   ).toBeEnabled();
 }
-async function confirm(
-  page: Page,
-  action: 'create' | 'download' | 'delete',
-  secret = password,
-) {
-  const dialog = page.getByRole('dialog', { name: 'Authorize backup action' });
-  await dialog.getByLabel('Password for backup action').fill(secret);
-  await dialog
-    .getByRole('button', { name: `Confirm ${action} backup` })
-    .click();
+async function confirmDelete(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Delete backup?' });
+  await dialog.getByRole('button', { name: 'Confirm delete backup' }).click();
 }
 function archiveFile(id: string) {
   const dir = readdirSync('.e2e-data').find((name) => name.startsWith('run-'))!;
@@ -61,15 +55,13 @@ test('manual full create, protected native download and confirmed delete work in
   await expect(section).toContainText(
     'does not protect against losing the VPS',
   );
-  await section.getByRole('button', { name: 'Create full backup' }).click();
-  await confirm(page, 'create', 'wrong-synthetic-password');
-  await expect(page.getByRole('dialog').getByRole('alert')).not.toBeEmpty();
   const created = page.waitForResponse(
     (response) =>
       response.url() === `${origin}/api/backups` &&
       response.request().method() === 'POST',
   );
-  await confirm(page, 'create');
+  await section.getByRole('button', { name: 'Create full backup' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   const result = await (await created).json();
   expect(result.ok).toBe(true);
   const id = result.data.id;
@@ -81,8 +73,8 @@ test('manual full create, protected native download and confirmed delete work in
   expect(
     (
       await page.request.post(`/api/backups/${id}/download`, {
-        headers: h,
-        form: { grant: 'a'.repeat(43) },
+        headers: { ...h, origin: 'https://attacker.invalid' },
+        form: {},
       })
     ).status(),
   ).toBe(403);
@@ -96,7 +88,7 @@ test('manual full create, protected native download and confirmed delete work in
     (
       await anonymous.request.post(`/api/backups/${id}/download`, {
         headers: { origin },
-        form: { grant: 'a'.repeat(43) },
+        form: {},
       })
     ).status(),
   ).toBe(401);
@@ -104,7 +96,6 @@ test('manual full create, protected native download and confirmed delete work in
   await row.getByRole('button', { name: 'Download backup' }).click();
   // Chromium reports a target=_blank attachment download on the initiating page.
   const downloadPromise = page.waitForEvent('download');
-  await confirm(page, 'download');
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe(`pandanote-${id}.pnb`);
   expect(readFileSync((await download.path())!)).toEqual(
@@ -113,7 +104,7 @@ test('manual full create, protected native download and confirmed delete work in
   for (const popup of context.pages()) if (popup !== page) await popup.close();
   await row.getByRole('button', { name: 'Delete backup' }).click();
   await expect(page.getByRole('dialog')).toContainText('Permanently delete');
-  await confirm(page, 'delete');
+  await confirmDelete(page);
   await expect(row).toHaveCount(0);
 });
 test('lost create response is recoverable by job identity and list refresh after reload, without automatic recreation', async ({
@@ -131,9 +122,9 @@ test('lost create response is recoverable by job identity and list refresh after
   });
   const section = page.getByTestId('backup-settings');
   await section.getByRole('button', { name: 'Create full backup' }).click();
-  await confirm(page, 'create');
-  await expect(page.getByRole('dialog').getByRole('alert')).not.toBeEmpty();
+  await expect(section.getByRole('alert')).not.toBeEmpty();
   await page.reload();
+  await openSettingsTab(page, 'Backups');
   await page.unrouteAll({ behavior: 'wait' });
   await expect(section.locator(`[data-backup-id="${id}"]`)).toContainText(
     'complete',
@@ -146,7 +137,7 @@ test('lost create response is recoverable by job identity and list refresh after
     ),
   ).toBeNull();
 });
-test('mobile backup fresh-auth dialog fits, closes safely, and private mutations reject cross-origin and oversized bodies', async ({
+test('mobile backup delete dialog fits, closes safely, and private mutations reject cross-origin and oversized bodies', async ({
   page,
 }) => {
   const h = await headers(page);
@@ -155,7 +146,7 @@ test('mobile backup fresh-auth dialog fits, closes safely, and private mutations
     (
       await page.request.post('/api/backups', {
         headers: { ...h, origin: 'https://attacker.invalid' },
-        data: { id, grant: 'a'.repeat(43) },
+        data: { id },
       })
     ).status(),
   ).toBe(403);
@@ -173,10 +164,15 @@ test('mobile backup fresh-auth dialog fits, closes safely, and private mutations
     .getByTestId('backup-settings')
     .getByRole('button', { name: 'Create full backup' })
     .click();
-  const dialog = page.getByRole('dialog', { name: 'Authorize backup action' });
-  await expect(dialog.getByLabel('Password for backup action')).toBeVisible();
+  const row = page
+    .getByTestId('backup-settings')
+    .locator('[data-backup-id]')
+    .first();
+  await expect(row).toContainText('complete', { timeout: 30_000 });
+  await row.getByRole('button', { name: 'Delete backup' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Delete backup?' });
   await expect(
-    dialog.getByRole('button', { name: 'Confirm create backup' }),
+    dialog.getByRole('button', { name: 'Confirm delete backup' }),
   ).toBeInViewport();
   await page.screenshot({ path: '.browser-spike/s16-backups-mobile.png' });
   await page.keyboard.press('Escape');

@@ -106,7 +106,6 @@ async function backup(p: Persistence, f: Awaited<ReturnType<typeof fixture>>) {
   const b = new BackupService(p, f.auth, new DiskBudget(p.storage.root, 0));
   const job = b.create(f.identity, {
     id: randomUUID(),
-    grant: await f.grant('backup-create'),
   });
   await b.wait();
   expect(b.list(f.identity)[0].state).toBe('complete');

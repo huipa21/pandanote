@@ -1,3 +1,4 @@
+import { openSettingsTab } from './settings-tab.ts';
 import { expect, test, type Page } from '@playwright/test';
 import { scanSetup } from '../helpers/setup-accessibility.ts';
 import { browserSession } from '../helpers/browser-session.ts';
@@ -45,11 +46,13 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     for (const name of ['全部笔记', '回收站', '设置'])
       await expect(side.getByRole('link', { name, exact: true })).toBeVisible();
     await expect(side.getByLabel('搜索笔记')).toBeVisible();
+    await openSettingsTab(page, 'Account');
     await expect(
       page.getByRole('heading', { name: '账号', exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel('账号用户名')).toBeVisible();
     // Not translated in this change: falls back to English per string.
+    await openSettingsTab(page, 'Appearance');
     await expect(
       page.getByRole('heading', { name: 'Appearance', exact: true }),
     ).toBeVisible();
@@ -59,6 +62,7 @@ test('language and site title: registry picker, zh-CN screens with English fallb
     await scanSetup(page);
 
     // Site title: tab, sidebar, mobile header; plain text, not markup.
+    await openSettingsTab(page, 'General');
     const hostile = '<img src=x onerror="window.__title=1"> & "q"';
     const title = page.locator('#general-title');
     await title.fill('   ');

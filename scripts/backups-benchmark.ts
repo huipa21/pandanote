@@ -135,15 +135,6 @@ try {
     const s = new BackupService(p, auth, new DiskBudget(root, 0), {
       forceCopy,
     });
-    const grant = (
-      await auth.freshAuth(
-        identity,
-        'backup-create',
-        password,
-        undefined,
-        '192.0.2.71',
-      )
-    ).token;
     const baseline = treeBytes();
     let peakLogical = baseline.logical,
       peakUnique = baseline.unique,
@@ -180,7 +171,7 @@ try {
       }
     };
     const timer = setInterval(sample, 25);
-    const job = s.create(identity, { id: randomUUID(), grant });
+    const job = s.create(identity, { id: randomUUID() });
     try {
       await s.wait();
       sample();

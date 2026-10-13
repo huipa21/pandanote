@@ -597,7 +597,7 @@ Use pending uploads for interrupted attempts only, not permanent published origi
 - Delete temporary originals on success/failure/restart cleanup. Do not retain originals for retries on the server.
 - Store result dimensions, exact output byte sizes, checksums.
 - Files download with `Content-Disposition: attachment`, safe filename escaping, `nosniff`, and conservative MIME where needed.
-- Image/file routes authenticate requests; backups have extra fresh-auth checks. No directory listing.
+- Image/file routes authenticate requests; backup create/download/delete need only an authenticated same-origin session (owner decision); restore keeps fresh-auth. No directory listing.
 
 ### 7.4 S06 implemented private upload contracts
 
@@ -1290,7 +1290,7 @@ archived credentials replace temporary ones.
 - TOTP secret encrypted at rest with a random server key kept in private persistent key material. Full backups include the key needed for portability; therefore unencrypted archives remain sensitive.
 - Security changes rotate session/security revision and revoke appropriate sessions.
 - Fresh-auth grants short-lived (initial default 5 minutes), scoped to sensitive actions, not a reusable full privileged cookie for hours.
-- Backup downloads have authenticated/fresh-auth headers and no public cache. Log safe audit events without secrets.
+- Backup downloads require an authenticated same-origin session (no fresh-auth, owner decision), no URL grant and no public cache. Log safe audit events without secrets.
 
 ### 12.3 Common protections
 
@@ -1488,7 +1488,7 @@ Backup-job records from the source are not valid paths on a destination; reset t
 
 A single in-process maintenance/write coordinator protects file/reference changes and security/settings writes during snapshot capture. All persistent mutations must pass through it; it cannot be an unused helper.
 
-1. Fresh-auth gate, free-space estimate, allocate private staging job.
+1. Free-space estimate, allocate private staging job. Create, download and delete require only an authenticated same-origin session (no fresh-auth grant, owner decision); restore keeps fresh-auth.
 2. Enter brief snapshot capture state; drain bounded active writes/uploads as needed and block new mutations with a clear retryable response. Reads may continue.
 3. Use SQLite online backup API to produce a consistent staged DB. Never copy a live main DB while ignoring WAL.
 4. Capture the referenced immutable files and portable key material consistently. Never modify stored attachment bytes in place. Prevent deletions/key rotation during capture; same-filesystem hardlinks/reflinks can keep the gate brief, with copy fallback if needed. Archive captured content as regular files, not hardlink entries. Do not rely on mutable file paths changing under the archiver.

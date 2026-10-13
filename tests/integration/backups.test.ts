@@ -110,7 +110,7 @@ async function upload(
   );
   return { s, id };
 }
-it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, strips transient data and downloads byte-identically with exact single-use grants', async () => {
+it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, strips transient data and downloads byte-identically', async () => {
   await withPersistence(async (p, root) => {
     const f = await fixture(p);
     const bytes = Buffer.from('private file unchanged');
@@ -157,11 +157,10 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
     writeFileSync(join(copy, 'manifest.json'), '{}');
     const s = new BackupService(p, f.auth, new DiskBudget(root, 0));
     const id = randomUUID();
-    const grant = await f.grant('backup-create');
-    expect(() => s.create(f.identity, { id, grant: 'a'.repeat(43) })).toThrow(
-      /Authenticate/,
-    );
-    s.create(f.identity, { id, grant });
+    expect(() =>
+      s.create(f.identity, { id, grant: 'a'.repeat(43) } as { id: string }),
+    ).toThrow(/Invalid backup request/);
+    s.create(f.identity, { id });
     await s.wait();
     expect(s.list(f.identity)[0]).toMatchObject({
       id,
@@ -257,29 +256,21 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
     } finally {
       db.close();
     }
-    const downloadGrant = await f.grant('backup-download');
-    const response = await s.download(f.identity, id, { grant: downloadGrant });
+    const response = await s.download(f.identity, id, {});
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(Buffer.from(await response.arrayBuffer())).toEqual(
       readFileSync(path),
     );
-    await expect(
-      s.download(f.identity, id, { grant: downloadGrant }),
-    ).rejects.toThrow(/Authenticate/);
     // Existing archive is not nested into another manual archive.
     s.create(f.identity, {
       id: randomUUID(),
-      grant: await f.grant('backup-create'),
     });
     await s.wait();
     expect(s.list(f.identity).every((job) => job.state === 'complete')).toBe(
       true,
     );
     expect(readdirSync(join(root, 'staging/backups'))).toEqual([]);
-    await s.delete(f.identity, id, {
-      confirmed: true,
-      grant: await f.grant('backup-delete'),
-    });
+    await s.delete(f.identity, id, { confirmed: true });
     expect(existsSync(path)).toBe(false);
     expect(s.list(f.identity)).toHaveLength(1);
     expect(p.db.select().from(sessions).all()).toHaveLength(1);
@@ -381,7 +372,6 @@ it.each([false, true])(
       });
       s.create(f.identity, {
         id: randomUUID(),
-        grant: await f.grant('backup-create'),
       });
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(p.coordinator.state).toBe('draining');
@@ -405,7 +395,6 @@ it('waits for an actual streamed admitted upload to finish, rejects new uploads 
   await withPersistence(async (p, root) => {
     const f = await fixture(p);
     seedNote(p);
-    const grant = await f.grant('backup-create');
     const uploads = new AttachmentService(p, new DiskBudget(root, 0));
     const id = randomUUID(),
       bytes = Buffer.from('admitted slow upload');
@@ -441,7 +430,7 @@ it('waits for an actual streamed admitted upload to finish, rejects new uploads 
       } as RequestInit),
     );
     const s = new BackupService(p, f.auth, new DiskBudget(root, 0));
-    const job = s.create(f.identity, { id: randomUUID(), grant });
+    const job = s.create(f.identity, { id: randomUUID() });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(p.coordinator.state).toBe('draining');
     expect(() =>
@@ -479,7 +468,7 @@ it('fails cleanly for full disk, corruption and pre-publication interruption, ke
       new DiskBudget(root, 0, () => ({ available: 0, total: 1 })),
     );
     const id = randomUUID();
-    full.create(f.identity, { id, grant: await f.grant('backup-create') });
+    full.create(f.identity, { id });
     await full.wait();
     expect(full.list(f.identity)[0]).toMatchObject({
       state: 'failed',
@@ -493,7 +482,6 @@ it('fails cleanly for full disk, corruption and pre-publication interruption, ke
     });
     failed.create(f.identity, {
       id: randomUUID(),
-      grant: await f.grant('backup-create'),
     });
     await failed.wait();
     expect(failed.list(f.identity).every((job) => job.state === 'failed')).toBe(
@@ -518,7 +506,6 @@ it('fails cleanly for full disk, corruption and pre-publication interruption, ke
     const fullId = randomUUID();
     fullDuringFinalize.create(f.identity, {
       id: fullId,
-      grant: await f.grant('backup-create'),
     });
     await fullDuringFinalize.wait();
     expect(
@@ -553,21 +540,20 @@ it('fails cleanly for full disk, corruption and pre-publication interruption, ke
     expect(p.coordinator.state).toBe('open');
   });
 });
-it('rejects revoked identities, wrong fresh scopes, unfinished downloads and unconfirmed deletion; exact create retries do not duplicate jobs', async () => {
+it('rejects revoked identities, extra create fields and unconfirmed deletion; exact create retries do not duplicate jobs', async () => {
   await withPersistence(async (p, root) => {
     const f = await fixture(p),
       s = new BackupService(p, f.auth, new DiskBudget(root, 0));
     const id = randomUUID();
-    const wrong = await f.grant('backup-delete');
-    expect(() => s.create(f.identity, { id, grant: wrong })).toThrow(
-      /Authenticate/,
-    );
-    s.create(f.identity, { id, grant: await f.grant('backup-create') });
+    expect(() =>
+      s.create(f.identity, { id, grant: 'a'.repeat(43) } as { id: string }),
+    ).toThrow(/Invalid backup request/);
+    s.create(f.identity, { id });
     await s.wait();
-    s.create(f.identity, { id, grant: await f.grant('backup-create') });
+    s.create(f.identity, { id });
     expect(s.list(f.identity)).toHaveLength(1);
     await expect(
-      s.delete(f.identity, id, { grant: wrong, confirmed: false }),
+      s.delete(f.identity, id, { confirmed: false }),
     ).rejects.toThrow(/Confirm/);
     p.write((tx) =>
       tx
@@ -576,9 +562,7 @@ it('rejects revoked identities, wrong fresh scopes, unfinished downloads and unc
         .run(),
     );
     expect(() => s.list(f.identity)).toThrow(/Sign in/);
-    await expect(
-      s.download(f.identity, id, { grant: wrong }),
-    ).rejects.toThrow();
+    await expect(s.download(f.identity, id, {})).rejects.toThrow();
   });
 });
 it('backs up processed image variants and portable MFA/recovery state without original inputs, including null manual accuracy', async () => {
@@ -619,17 +603,8 @@ it('backs up processed image variants and portable MFA/recovery state without or
       .toBuffer();
     await upload(p, { ...f, identity }, image, command);
     new NoteService(p).mutate(identity, command);
-    const grant = (
-      await f.auth.freshAuth(
-        identity,
-        'backup-create',
-        password,
-        enabled.codes[0],
-        '192.0.2.70',
-      )
-    ).token;
     const s = new BackupService(p, f.auth, new DiskBudget(root, 0));
-    const job = s.create(identity, { id: randomUUID(), grant });
+    const job = s.create(identity, { id: randomUUID() });
     await s.wait();
     expect(s.list(identity)[0].state).toBe('complete');
     const files = await payloads(p.storage.backupPath(job.id));
@@ -668,7 +643,7 @@ it('backs up processed image variants and portable MFA/recovery state without or
             'SELECT count(*) n FROM recovery_codes WHERE consumed_at IS NULL',
           )
           .get(),
-      ).toEqual({ n: 9 });
+      ).toEqual({ n: 10 });
       expect(
         db.prepare('SELECT latitude, longitude, accuracy FROM notes').get(),
       ).toEqual({ latitude: 0, longitude: 0, accuracy: null });
@@ -690,12 +665,10 @@ it('bounded capture/archiving timeout fails safely, and a security change draini
     });
     s.create(f.identity, {
       id: randomUUID(),
-      grant: await f.grant('backup-create'),
     });
     await s.wait();
     expect(s.list(f.identity)[0].state).toBe('failed');
     expect(p.coordinator.state).toBe('open');
-    const grant = await f.grant('backup-create');
     let release!: () => void;
     const held = p.coordinator.writeAsync(async (lease) => {
       await new Promise<void>((resolve) => {
@@ -707,7 +680,7 @@ it('bounded capture/archiving timeout fails safely, and a security change draini
       );
     });
     const later = new BackupService(p, f.auth, new DiskBudget(root, 0));
-    later.create(f.identity, { id: randomUUID(), grant });
+    later.create(f.identity, { id: randomUUID() });
     await new Promise((resolve) => setTimeout(resolve, 20));
     release();
     await held;
@@ -726,8 +699,7 @@ it('a real killed process after archive verification is failed on restart; no pa
   await withPersistence(async (p, root) => {
     const f = await fixture(p);
     seedNote(p);
-    const id = randomUUID(),
-      grant = await f.grant('backup-create');
+    const id = randomUUID();
     const storage = p.storage;
     await p.close();
     const url = (part: string) =>
@@ -745,7 +717,7 @@ it('a real killed process after archive verification is failed on restart; no pa
       const s = new BackupService(p, new AuthService(p), new DiskBudget(root, 0), { checkpoint: async phase => {
         if (phase === 'verified') { writeFileSync(${JSON.stringify(marker)}, 'verified'); await new Promise(() => { setInterval(() => {}, 1000); }); }
       }});
-      s.create(${JSON.stringify(f.identity)}, { id: ${JSON.stringify(id)}, grant: ${JSON.stringify(grant)} });
+      s.create(${JSON.stringify(f.identity)}, { id: ${JSON.stringify(id)} });
       await s.wait();
     `;
     const child = spawn(

@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { backupCommandSchema } from './backups.ts';
 import { idSchema } from './domain.ts';
-export const restoreConfirmSchema = backupCommandSchema.extend({
+export const restoreConfirmSchema = z.strictObject({
+  grant: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   id: idSchema,
   confirmed: z.literal(true),
 });

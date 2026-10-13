@@ -17,7 +17,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import {
   backupCreateSchema,
   backupDeleteSchema,
-  backupCommandSchema,
+  backupDownloadSchema,
   backupManifestSchema,
   BACKUP_FORMAT,
   BACKUP_MAX_ENTRIES,
@@ -145,9 +145,10 @@ export class BackupService {
     const parsed = backupCreateSchema.safeParse(input);
     if (!parsed.success)
       throw new DomainError('validation', 'Invalid backup request.');
-    const { id, grant } = parsed.data;
+    const { id } = parsed.data;
     const job = this.p.write((tx) => {
-      this.auth.consumeFreshGrant(tx, identity, grant, 'backup-create');
+      // Creation needs only a valid session (same-origin/CSRF checked at HTTP layer).
+      assertSessionIdentity(tx, identity);
       const old = tx
         .select()
         .from(backupJobs)
@@ -477,7 +478,7 @@ export class BackupService {
   ): Promise<Response> {
     if (!idSchema.safeParse(id).success)
       throw new DomainError('not-found', 'Backup not found.');
-    const parsed = backupCommandSchema.safeParse(input);
+    const parsed = backupDownloadSchema.safeParse(input);
     if (!parsed.success)
       throw new DomainError('validation', 'Invalid backup download request.');
     return this.p.coordinator.writeAsync(async (lease) => {
@@ -488,12 +489,7 @@ export class BackupService {
       try {
         const stat = await handle.stat();
         this.p.write((tx) => {
-          this.auth.consumeFreshGrant(
-            tx,
-            identity,
-            parsed.data.grant,
-            'backup-download',
-          );
+          assertSessionIdentity(tx, identity);
           const row = tx
             .select()
             .from(backupJobs)
@@ -535,12 +531,7 @@ export class BackupService {
       throw new DomainError('validation', 'Confirm backup deletion.');
     await this.p.coordinator.writeAsync(async (lease) => {
       this.p.write((tx) => {
-        this.auth.consumeFreshGrant(
-          tx,
-          identity,
-          parsed.data.grant,
-          'backup-delete',
-        );
+        assertSessionIdentity(tx, identity);
         const row = tx
           .select()
           .from(backupJobs)

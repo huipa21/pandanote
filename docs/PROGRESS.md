@@ -4930,3 +4930,58 @@ Read change handoff/new tests plus affected seven browser specs. Security rechec
 `npm run test:integration -- auth-isolation auth-restore auth-mfa rate-limit-counters`.
 Independent SS01 exchange/S18 real-VPS/physical-device/exact-release/ARM64 gates stay
 open; do not mark project/release done. No user commit/deploy without approval.
+
+### Session 2026-10-13 — backup creation without password (owner decision)
+
+- Owner chose to remove the account-password (and MFA) prompt for **creating** a
+  manual backup only. Download, delete and restore keep fresh-auth. Still a session
+  plus same-origin/CSRF requirement; archives remain unencrypted and sensitive.
+- Touched: `shared/backups.ts` (create body is `{ id }` only, strict), `shared/auth.ts`
+  (removed `backup-create` scope), `server/backups/service.ts` (create asserts session
+  identity instead of consuming a grant; idempotent retry by ID unchanged),
+  `components/BackupSettings.svelte` (Create button starts directly; no password
+  field), tests: unit `backups`, integration `backups`/`auth-mfa`/`auth-restore`/
+  `restores`, e2e `backups`, release drill/deployment/large-restore, `scripts/backups-benchmark.ts`.
+  Docs: ARCHITECTURE §13.2 step 1 and backup-API note, PRODUCT_SPEC §14.1.
+- Commands/results: `npm run check` 0 errors / 1 existing warning (AppShell unused CSS);
+  `npx tsc --noEmit -p tsconfig.tests.json` clean; `npx eslint src tests scripts` clean;
+  `npx prettier --check src/lib tests scripts` clean; `npm run test:unit` 169 PASS;
+  `vitest run --config vitest.integration.config.ts` backups/auth-mfa/auth-restore/restores
+  60 tests: 1 failure fixed (recovery-code count expectation 9→10, since the removed
+  fresh-auth step had consumed one code), then 36/36 PASS for backups/auth-mfa/auth-restore
+  (restores.test passed in the 60-test run; the only failure was the backups recovery-code count).
+  `npm run test:e2e -- tests/e2e/backups.test.ts` 3/3 PASS.
+- Production build ran as the pre-step of the e2e script and succeeded (not run standalone).
+- Not run: full `test:integration`, full `test:e2e`, Linux/Podman
+  validation image. Release drill/deployment tests not run (need live deployment).
+- Remaining: download/delete password prompts remain by design; if the owner wants
+  them removed too, that needs a further explicit decision.
+- Next: run full `npm run test:integration` before any milestone claim.
+
+### Session 2026-10-13 — remove password prompts for backup download and delete (owner decision)
+
+- Owner asked to remove the password prompt for download and delete too. Now only
+  restore requires fresh-auth (password, plus MFA when enabled). Create, download
+  and delete need an authenticated same-origin session only. Delete keeps a plain
+  "Delete backup?" confirmation (no password field); download is a direct native
+  POST form with no fields and no grant.
+- Touched: `shared/backups.ts` (`backupDownloadSchema` = empty strict object;
+  `backupDeleteSchema` = `{confirmed: true}`), `shared/restores.ts` (restore keeps its
+  own grant schema), `shared/auth.ts` (removed `backup-download`/`backup-delete`
+  scopes), `server/backups/service.ts` (download/delete assert session identity),
+  `server/backups/http.ts` (empty download form; a body-less empty form is valid),
+  `components/BackupSettings.svelte` (rewritten: no password/MFA fields),
+  tests: unit `backups`, integration `backups`/`auth-mfa`, e2e `backups`, release
+  drill/large-restore; docs ARCHITECTURE §13.2/§(backup headers), PRODUCT_SPEC §14.1.
+- Found and fixed during validation: native/empty download POST arrived with no body
+  stream and was rejected (400); now treated as an empty form.
+- Commands/results: `npm run check` 0 errors / 1 existing warning; `npx tsc --noEmit -p
+  tsconfig.tests.json` clean; `npx eslint src tests scripts` clean; `prettier --check`
+  clean; `npm run test:unit` 169 PASS; integration backups/auth-mfa/auth-restore/
+  restores 60 PASS (before the final http.ts empty-form fix) and backups 10 PASS after it;
+  `npm run test:e2e -- tests/e2e/backups.test.ts` 3/3 PASS (after the fix).
+- Not run: full `test:integration`, full `test:e2e`, release drill/large-restore
+  (need a live deployment; the edited large-restore/drill code is type-checked only).
+- Security note for the owner: any valid session (including a stolen session cookie)
+  can now create, download and delete the full unencrypted archive without re-entering
+  the password. Restore still requires password and MFA.

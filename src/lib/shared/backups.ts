@@ -58,11 +58,9 @@ export const backupManifestSchema = z
   });
 export type BackupManifest = z.infer<typeof backupManifestSchema>;
 export type BackupEntry = z.infer<typeof backupEntrySchema>;
-export const backupCommandSchema = z.strictObject({
-  grant: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-});
-export const backupCreateSchema = backupCommandSchema.extend({ id: idSchema });
-export const backupDeleteSchema = backupCommandSchema.extend({
+export const backupDownloadSchema = z.strictObject({});
+export const backupCreateSchema = z.strictObject({ id: idSchema });
+export const backupDeleteSchema = z.strictObject({
   confirmed: z.literal(true),
 });
 export interface BackupJob {

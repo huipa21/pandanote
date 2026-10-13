@@ -549,7 +549,7 @@ Settings sections:
 ### 14.1 Backup
 
 - Only user-triggered backups. No timers/automatic backup service.
-- Create saves a consistent full archive in a private server directory.
+- Create saves a consistent full archive in a private server directory. Create, download and delete ask for no password (owner decision: session + same-origin only); restore still requires the account password (plus MFA when enabled). Delete keeps a plain confirmation.
 - List creation time, size, completion state; allow web download and explicit deletion.
 - No separate backup password or passphrase encryption.
 - Format-v2 archive contains private application/authentication data, including

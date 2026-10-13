@@ -29,14 +29,16 @@ export function backupErrorResponse(error: unknown): Response {
   );
 }
 // Native form POST lets the browser stream a download to disk, not buffer a
-// potentially multi-GB archive in JS. Grants never enter URLs, cookies or storage.
+// potentially multi-GB archive in JS. The form carries no fields; the session and
+// same-origin checks are the protection (owner decision: no password prompt).
 export async function readDownloadForm(request: Request): Promise<unknown> {
   if (
     request.headers.get('content-type')?.split(';')[0] !==
-      'application/x-www-form-urlencoded' ||
-    !request.body
+    'application/x-www-form-urlencoded'
   )
     throw new DomainError('validation', 'Use a protected download form.');
+  // An empty form may arrive with no body stream at all.
+  if (!request.body) return {};
   const reader = request.body.getReader();
   const signal = AbortSignal.timeout(15_000);
   const abort = () => {
@@ -56,9 +58,9 @@ export async function readDownloadForm(request: Request): Promise<unknown> {
       chunks.push(part.value);
     }
     const fields = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
-    if ([...fields.keys()].length !== 1 || !fields.has('grant'))
+    if ([...fields.keys()].length !== 0)
       throw new DomainError('validation', 'Invalid download form.');
-    return { grant: fields.get('grant') };
+    return {};
   } finally {
     signal.removeEventListener('abort', abort);
     reader.releaseLock();
