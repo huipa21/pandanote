@@ -11,11 +11,11 @@
   } from '#lib/client/editor/workspace.svelte.ts';
   import { TagOperations } from '#lib/client/tags/operations.svelte.ts';
   import { tagKey } from '#lib/shared/markdown/tags.ts';
-  import type { TagAction, TagExecute, TagSummary } from '#lib/shared/tags.ts';
+  import type { TagAction, TagExecute, ManagedTag } from '#lib/shared/tags.ts';
   import type { MessageKey } from '#lib/shared/i18n/index.ts';
   import { filterHref } from '#lib/shared/timeline.ts';
   /** `leaveHref` leaves the tag view, keeping any search or day filter. */
-  let { summary, leaveHref }: { summary: TagSummary; leaveHref: string } =
+  let { summary, leaveHref }: { summary: ManagedTag; leaveHref: string } =
     $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const ops = new TagOperations(workspace);
@@ -35,7 +35,6 @@
   let formOpen = $state(false);
   let action = $state<TagAction['action']>('rename');
   let target = $state('');
-  let scope = $state<TagAction['scope']>('subtree');
   onMount(() => ops.start());
   const menuItems = $derived<ActionMenuItem[]>([
     {
@@ -62,18 +61,12 @@
     if (action !== 'merge') return [];
     const needle = tagKey(target.trim().replace(/^#/, ''));
     return workspace.knownTags
-      .filter(
-        (tag) =>
-          tag.key !== summary.key &&
-          !tag.key.startsWith(summary.key + '/') &&
-          tag.key.includes(needle),
-      )
+      .filter((tag) => tag.key !== summary.key && tag.key.includes(needle))
       .slice(0, 30);
   });
   function choose(next: TagAction['action']) {
     action = next;
     target = next === 'rename' ? summary.display : '';
-    scope = summary.explicit ? 'exact' : 'subtree';
     ops.reset();
     formOpen = true;
   }
@@ -82,8 +75,6 @@
       source: summary.key,
       action,
       target: action === 'remove' ? null : target.trim().replace(/^#/, ''),
-      // Rename/merge always move the whole subtree; removal states its scope.
-      scope: action === 'remove' ? scope : 'subtree',
     };
   }
   async function execute(command: TagExecute) {
@@ -100,9 +91,6 @@
   const meta = $derived(
     [
       plural(summary.published, 'tag.noteOne', 'tag.noteMany'),
-      summary.subtags
-        ? plural(summary.subtags, 'tag.subtagOne', 'tag.subtagMany')
-        : '',
       summary.trash ? t('tag.trashCount', { count: summary.trash }) : '',
     ]
       .filter(Boolean)
@@ -147,37 +135,14 @@
     >
       {#if action === 'remove'}
         <p>#{summary.display}</p>
-        {#if summary.hasChildren}
-          <fieldset>
-            <legend class="sr-only">{t('tag.removeQ')}</legend>
-            <label
-              ><input
-                type="radio"
-                bind:group={scope}
-                value="exact"
-                disabled={ops.busy || !summary.explicit}
-              />
-              {t('tag.onlyTag', { tag: summary.display })}</label
-            >
-            <label
-              ><input
-                type="radio"
-                bind:group={scope}
-                value="subtree"
-                disabled={ops.busy}
-              />
-              {t('tag.andSubtags', { tag: summary.display })}</label
-            >
-          </fieldset>
-        {/if}
       {:else}
         <label for={`${id}-target`}
-          >{action === 'rename' ? t('tag.path') : t('tag.mergeInto')}</label
+          >{action === 'rename' ? t('tag.name') : t('tag.mergeInto')}</label
         >
         <input
           id={`${id}-target`}
           bind:value={target}
-          maxlength="128"
+          maxlength="64"
           required
           disabled={ops.busy}
           list={action === 'merge' ? `${id}-choices` : undefined}
@@ -202,21 +167,8 @@
       {t(ACTIONS[preview.operation.action])} #{preview.operation.source}{preview
         .operation.target
         ? ` → #${preview.operation.target}`
-        : ''}{preview.operation.action === 'remove' &&
-      preview.operation.scope === 'subtree'
-        ? t('tag.andAllSubtags')
         : ''}
     </p>
-    {#if preview.mappings.length > 1 || preview.mappings.some((m) => m.collision)}<ul
-        aria-label={t('tag.affected')}
-      >
-        {#each preview.mappings as mapping (mapping.from)}<li>
-            #{mapping.from} → {mapping.to === null
-              ? t('tag.removed')
-              : `#${mapping.to}`}{#if mapping.collision}
-              {t('tag.mergedWith')}{/if}
-          </li>{/each}
-      </ul>{/if}
     <p>
       {t('tag.counts', {
         published: preview.counts.published,
@@ -294,13 +246,6 @@
     color: var(--muted);
   }
   form {
-    display: grid;
-    gap: var(--space-2);
-  }
-  fieldset {
-    border: 0;
-    margin: 0;
-    padding: 0;
     display: grid;
     gap: var(--space-2);
   }

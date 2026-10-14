@@ -38,15 +38,6 @@ rejected. The fresh-install baseline gains `notes.pinned_at` without migration.
 Authoritative details: [note-actions/README.md](note-actions/README.md) and
 [SPEC](note-actions/SPEC.md); they supersede conflicting lines in sections 6 and 12.
 
-## Approved change — nested tags
-
-The user approved hierarchical hashtags (`#work/meeting`), superseding the former
-"nested tags" non-goal and "Flat tags only". Parent tags include subtags for counts
-and filtering; the sidebar shows a collapsible tree ordered by count at every level;
-rename/merge move whole subtrees and remove asks for scope. The fresh-install
-baseline changes without migration. Authoritative details:
-[nested-tags/README.md](nested-tags/README.md) and [SPEC](nested-tags/SPEC.md).
-
 ## Approved change — miniature year heatmaps and no drafts
 
 This user-approved contract supersedes all older draft/recovery references below.
@@ -191,7 +182,7 @@ Main area:
 - Single-column chronological cards. Not masonry, despite the conversational use of “waterfall.” Reading order must be unambiguous.
 - Sidebar, calendar, and search do not scroll away with notes. Drag the sidebar's right edge to adjust its desktop width; keyboard resizing is also available.
 
-The sidebar lists the most-used tags as borderless flowing chips (a chevron on a chip reveals its subtags); a "+N" link and the heading open the Tags page for the rest. All search fields share one slim look: magnifier first, a (currently inert) filter icon last, no placeholder or help text. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
+The sidebar lists the most-used tags as borderless flowing chips a "+N" link and the heading open the Tags page for the rest. All search fields share one slim look: magnifier first, a (currently inert) filter icon last, no placeholder or help text. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
 
 ### 3.4 Mobile shell
 
@@ -219,7 +210,7 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
 - A bottom toolbar shows Tags, Photos/video and Date as icon buttons (bottom-left), matching the reference layout: icons at the left, Post at the right.
-- The Date icon opens the Timeline date dialog with the themed date/time picker already visible (no extra toggle); Done closes the dialog.
+- The Date icon opens a borderless Timeline date popup showing only the text bar and the themed calendar (no title, help text, close button, time fields, or Done). Clicking outside the popup closes it; Escape also closes it.
 - One Preview switch toggles rendered Markdown and raw text without losing content.
 - A bottom-right focus icon (next to Post) enters focus mode; the same button shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
 - Mobile uses the same integrated controls in its full-screen editor.
@@ -283,14 +274,14 @@ Trash:
 ## 7. Tags
 
 - Inline hashtags, with autocomplete of existing tags: at most five prefix-filtered options in a vertical, borderless list, with selected-row highlighting and existing keyboard/touch interaction. Suggestions narrow as text is typed, without sending the prefix or note content to the server.
-- Nested tags with `/` (up to 5 levels); a parent includes its subtags for counts and filters. See [nested-tags/SPEC.md](nested-tags/SPEC.md).
-- Sidebar tags are flowing chips ordered by published-note count (descending) at every level; a chevron expands subtags beneath the chip. Tags page: title "Tags", search directly below (Enter to search), flat list of every tag path as soft chips with counts, loaded lazily 60 at a time.
+- Flat tags only; no parent/child behavior. A `/` ends a hashtag (`#work/meeting` is the tag `work` followed by ordinary text).
+- Sidebar tags are flowing chips ordered by published-note count (descending). Tags page: title "Tags", search directly below (Enter to search), flat list of every tag as soft chips with counts, loaded lazily 60 at a time.
 - Unicode Chinese/Japanese/Cantonese characters supported.
 - English tag identity is case-insensitive: #Work and #work are the same tag.
 - Ignore code blocks, inline code, raw HTML, URLs/link destinations, and escaped hashtag markers when extracting tags.
 - Markdown heading markers are not tags.
 - Deduplicate tags per note.
-- Tag selection is single: clicking a tag opens that tag's view (search/day filters are kept) and replaces any other tag. A tag view shows the tag's summary (notes, subtags, Trash) with a three-dot menu: Rename Tag, Merge Tag, Remove Tag. Rename edits the full path, so it can change the parent. The tag is named by the view's header (no filter chip repeats it), which has an "All notes" link that leaves the tag view and keeps search/day filters; the filter strip shows only search/day chips. A URL or API call with more than one `tag` value is refused with "Select only one tag."
+- Tag selection is single: clicking a tag opens that tag's view (search/day filters are kept) and replaces any other tag. A tag view shows the tag's summary (notes, Trash) with a three-dot menu: Rename Tag, Merge Tag, Remove Tag. The tag is named by the view's header (no filter chip repeats it), which has an "All notes" link that leaves the tag view and keeps search/day filters; the filter strip shows only search/day chips. A URL or API call with more than one `tag` value is refused with "Select only one tag."
 - A card's tag is clickable; filter state is visible/removable above the timeline.
 
 Tag management (from the tag view menu) includes:

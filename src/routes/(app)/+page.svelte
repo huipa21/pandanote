@@ -24,14 +24,14 @@
     type ReadingState,
   } from '#lib/client/timeline/reading.svelte.ts';
   import { matchesSearch, parseSearch } from '#lib/shared/search.ts';
-  import { noteHasTag, type TimelineFilters } from '#lib/shared/timeline.ts';
+  import type { TimelineFilters } from '#lib/shared/timeline.ts';
   function matchesFilters(
     note: NoteSnapshot,
     filters: TimelineFilters,
   ): boolean {
     return (
       note.status === 'published' &&
-      (filters.tag === undefined || noteHasTag(note.tags, filters.tag)) &&
+      (filters.tag === undefined || note.tags.includes(filters.tag)) &&
       (!filters.day ||
         (note.timelineAt >= filters.day.start &&
           note.timelineAt < filters.day.end)) &&

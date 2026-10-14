@@ -5352,3 +5352,71 @@ Repeated `npm run lint` still fails only this file's existing formatting. `git d
 and `NUL` absent. Removed only this session's unique Linux validation image/tag after
 recording its ID/results; shared aliases/data untouched. No production source change
 after the successful host build, Linux270 and final affected25 browser gate.
+
+## UI tweak: composer Timeline date popup (user request)
+
+- Scope: the composer's Date icon popup ("Timeline date") is now borderless content with only
+  the text bar and the calendar. Removed: visible title, help text, field label (kept as
+  screen-reader-only), close button, time spinners and Done. Clicking outside closes it;
+  Escape still closes it. Time is still editable through the text bar.
+- Touched: `src/lib/components/Modal.svelte` (new `lightDismiss` prop, backdrop press+click),
+  `src/lib/components/DateTimeField.svelte` (new `calendarOnly` prop),
+  `src/lib/components/TimelineOptions.svelte`, `src/lib/shared/i18n/en.ts` and `zh-CN.ts`
+  (removed unused `date.help`), `docs/PRODUCT_SPEC.md` (section 5 Date-icon line updated to the
+  user's requirement), `tests/e2e/editor.test.ts`, `tests/e2e/calendar.test.ts`.
+- Commands run: `npm run check` 0 errors (1 pre-existing warning in AppShell.svelte);
+  `npx eslint src tests/e2e` clean; `prettier --check` on touched files clean;
+  `npm run test:unit` 175/175 pass; `npx vite build` pass;
+  `playwright test editor.test.ts -g "timeline date picker"` pass.
+- Full e2e run (`npx playwright test`, 91 tests): 77 passed, 14 failed. Failures seen include
+  calendar 475 and 607 (both also fail on the stashed original code, so pre-existing),
+  auth MFA, shell, tag-management, timeline, version, zzrestore, zzzaccessibility (the
+  "Authorize backup action" dialog is not found), and screenshot/snapshot diffs. Not all were
+  checked against a baseline; this is unresolved.
+- Not run: `npm run test:integration`, `npm run lint` in full (prettier warnings on docs were
+  pre-existing), `npm run build` (vite build used instead).
+- Next: investigate the 14 e2e failures (baseline-compare the zzzaccessibility and version
+  tests first) before claiming the UI gate is green.
+
+## UI tweak: Timeline date popup — consistent width, Save button, timestamp in composer
+
+- The popup's text bar and calendar now share one width (20rem, `DateTimeField` `calendarOnly`).
+  A **Save** button commits the draft date; Escape/outside click discards it. Save is disabled
+  for an invalid/future value (error is shown as before).
+- After Save, the composer's options row shows the chosen timestamp (`time.date-chip`); it is
+  also shown when editing an existing note. State: `EditorWorkspace.timelineSet` (reset by
+  `resetSession`). Opening on a future date no longer crashes the calendar (`startMonth` clamps).
+- Touched: `TimelineOptions.svelte`, `DateTimeField.svelte`, `EditorOptions.svelte`,
+  `workspace.svelte.ts`, i18n `en.ts`/`zh-CN.ts` (`date.save`, `date.chip`),
+  `tests/e2e/editor.test.ts`, `tests/e2e/calendar.test.ts`.
+- Commands: `npm run check` 0 errors (1 pre-existing warning); `npx eslint src tests/e2e` clean;
+  prettier clean on touched files; `npm run test:unit` 175 pass; `npx vite build` then
+  `playwright test editor.test.ts calendar.test.ts`: 9 pass, 2 fail (calendar 475 and 607,
+  both recorded above as pre-existing; not re-baselined). Integration/full e2e not run.
+- Follow-up: date popup dialog now shrinks to fit content (`dialog.popup` in Modal.svelte), so left/right padding is equal; verified by screenshot + editor e2e.
+
+## Change: nested tags removed, flat tags restored (user request)
+
+- Scope: the user cancelled nested tags. All nested-tag code, tests and docs were removed;
+  tags are flat again (`#a/b` is tag `a` followed by text; 64 codepoints/tag, 100 unique/note).
+  Treated as a new setup: the fresh-install baseline was edited in place (`tags` check back to
+  64, `tag_changes.scope` dropped, snapshots regenerated-equivalent; `drizzle-kit generate` reports
+  no drift). No migration or compatibility code. Existing development data folders created with
+  the nested baseline are refused by the migration hash check; `data/` was **not** deleted — remove
+  or move it for a fresh start.
+- Removed: `src/lib/shared/tag-tree.ts`, `TagTree.svelte`, `docs/nested-tags/`, `tests/{unit,integration,e2e}/nested-tags*`,
+  subtree/scope logic in `shared/tags.ts`, `server/tags/service.ts`, `notes/timeline.ts`, `shared/timeline.ts`
+  (`noteHasTag`), `TagHeader.svelte` (scope radios, subtag count), `workspace.svelte.ts` (prefix-aware stale rewrite),
+  nested i18n keys (en + zh-CN), nested sections of PRODUCT_SPEC/ARCHITECTURE/ACCEPTANCE/IMPLEMENTATION_PLAN.
+- Added: `src/lib/components/TagList.svelte` (flat chip list for the sidebar; chips ordered by note
+  count then key, via `publishedTags` returning `TimelineTag[]`). `TagService.summary` now returns `ManagedTag`;
+  `page()`/`list()` query SQL directly. i18n: `tag.name`, `err.aNormalizedTagExceeds64`.
+- Kept (not nested-specific): single-tag filtering, Tags page lazy cloud, tag actions menu, pinned notes.
+- Commands: `npm run check` 0 errors (1 pre-existing AppShell warning); `npm run test:unit` 161 pass;
+  `npm run test:integration` 256 pass, 7 skipped (Linux-only); `npm run build` pass;
+  `npm run lint`: ESLint clean, Prettier only flags `docs/PROGRESS.md` (pre-existing);
+  `playwright test tags-page tag-management shell`: 9 pass, 3 fail — `shell` (2: appearance/language and
+  screenshot matrix) and `tag-management` ("Saved on server." text) fail identically on a clean `HEAD` worktree
+  (tag-management verified; shell failures match earlier recorded pre-existing ones).
+  Full e2e suite and the Linux/Alpine validation image were not re-run.
+- Next: user review/commit; optionally add a sidebar e2e for count order and the "+N" link.

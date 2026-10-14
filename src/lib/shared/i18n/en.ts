@@ -16,9 +16,6 @@ export const en = {
   'shell.tags': 'Tags',
   'shell.allTags': 'All tags ({count})',
   'shell.noTags': 'No published tags yet.',
-  'shell.expandTag': 'Show subtags of #{tag}',
-  'shell.collapseTag': 'Hide subtags of #{tag}',
-  'shell.tagCount': '#{tag}, {count} notes',
   'shell.version': 'Version {version}',
   'shell.activeFilters': 'Active filters',
   'shell.noFilters': 'All notes · no active filters',
@@ -584,8 +581,8 @@ export const en = {
   'thumb.open': 'Open image {index}: {name}',
   'date.button': 'Date',
   'date.title': 'Timeline date',
-  'date.help':
-    'Choose now or earlier, in the configured app timezone. Ambiguous or nonexistent daylight-saving times are rejected.',
+  'date.save': 'Save',
+  'date.chip': 'Timeline date: {when}',
   'date.label': 'Timeline date/time ({timezone})',
   'date.invalid':
     'Choose a valid, unambiguous date/time that is now or earlier.',
@@ -665,19 +662,11 @@ export const en = {
   'search.checkQuery': 'Check the search query.',
   'tag.noteOne': '{count} note',
   'tag.noteMany': '{count} notes',
-  'tag.subtagOne': '{count} subtag',
-  'tag.subtagMany': '{count} subtags',
   'tag.trashCount': '{count} in Trash',
-  'tag.removeQ': 'Remove which hashtags?',
-  'tag.onlyTag': 'Only #{tag}',
-  'tag.andSubtags': '#{tag} and all subtags',
-  'tag.andAllSubtags': ' and all subtags',
-  'tag.path': 'Tag path',
+  'tag.name': 'Tag name',
   'tag.mergeInto': 'Merge into',
   'tag.previewChanges': 'Preview tag changes',
-  'tag.affected': 'Affected tags',
   'tag.removed': 'removed',
-  'tag.mergedWith': '(merged with existing tag)',
   'tag.counts':
     '{published} notes · {trash} Trash notes will receive new revisions. In-progress editors will conflict.',
   'tag.mergeNote':
@@ -731,8 +720,6 @@ export const en = {
     'The server base changed. Compare the server version before replacing it.',
   'work.saveFailed': 'Save failed.',
   'work.retiredChoice': 'Retired tags need an explicit choice.',
-  'work.tagLimit':
-    'A resolved tag would exceed the tag limits. Edit that hashtag manually; your text is unchanged.',
   'work.openFailed': 'Could not open the editor.',
   'work.conflictFailed':
     'Conflict resolution could not finish. Your editor and files are retained; retry.',
@@ -867,8 +854,6 @@ export const en = {
   'err.preReleaseBackup':
     'This backup was created by a pre-release PandaNote and cannot be restored. Start with an empty instance and create a new backup.',
   'err.pinLimit': 'You can pin at most {max} notes. Unpin one first.',
-  'err.tagLimits':
-    '#{tag} would exceed the tag limits (5 levels, 64 characters per level, 128 in total). Choose a shorter target.',
   'err.missingUploadBody': 'Missing upload body.',
   'err.uploadTimedOutKeepYour':
     'Upload timed out. Keep your local file and retry.',
@@ -1010,9 +995,9 @@ export const en = {
   'err.activeWritesDidNotFinish': 'Active writes did not finish. Please retry.',
   'err.everyMarkdownImageMustReference':
     'Every Markdown image must reference a ready image in this note. Repair or remove unavailable images before posting.',
-  'err.aNormalizedTagExceeds128': 'A normalized tag exceeds 128 characters.',
+  'err.aNormalizedTagExceeds64': 'A normalized tag exceeds 64 characters.',
   'err.checkTheMarkdownSizeAnd':
-    'Check the Markdown size and hashtag limits (64 characters per tag level, up to 5 levels and 128 characters per tag, 100 unique tags).',
+    'Check the Markdown size and hashtag limits (64 characters per tag, 100 unique tags).',
   'err.useAnApplicationJsonNote': 'Use an application/json note request.',
   'err.noteRequestIsTooLarge': 'Note request is too large.',
   'err.noteRequestTimedOutKeep':
@@ -1069,22 +1054,14 @@ export const en = {
     'This retry differs from the confirmed tag operation.',
   'err.affectedNotesOrTagsChanged':
     'Affected notes or tags changed after preview. Preview again; nothing was rewritten.',
-  'err.aRewrittenTagWouldExceed':
-    'A rewritten tag would exceed the tag limits. Choose a shorter target.',
   'err.aRewrittenNoteWouldExceed':
     'A rewritten note would exceed the configured text limit. Choose a shorter tag.',
-  'err.aRewrittenNoteWouldExceed2':
-    'A rewritten note would exceed the tag limits. Choose a shorter tag.',
   'err.anAffectedNoteCannotAccept':
     'An affected note cannot accept another revision.',
   'err.anAffectedNoteChangedPreview':
     'An affected note changed. Preview again.',
-  'err.chooseAValidSourceTag':
-    'Choose a valid source tag, scope and target spelling.',
+  'err.chooseAValidSourceTag': 'Choose a valid source tag and target spelling.',
   'err.theSourceTagNoLonger': 'The source tag no longer exists. Refresh tags.',
-  'err.noNoteUsesThisExact':
-    'No note uses this exact tag; only its subtags. Choose "This tag and all subtags".',
-  'err.aTagCannotBeMoved': 'A tag cannot be moved inside its own subtags.',
   'err.mergeRequiresADifferentExisting':
     'Merge requires a different existing tag.',
   'err.thatTagAlreadyExistsChoose':

@@ -55,15 +55,15 @@ async function post(
   expect(response.status()).toBe(200);
 }
 
-test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge of the full path', async ({
+test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge', async ({
   page,
 }) => {
   await browserSession(page);
   const headers = await authenticatedHeaders(page);
   const root = `tp${randomUUID().slice(0, 8)}`;
   const lazy = `lz${randomUUID().slice(0, 8)}`;
-  await post(page, headers, `#${root}/a/x one`);
-  await post(page, headers, `#${root}/b two`);
+  await post(page, headers, `#${root}a one`);
+  await post(page, headers, `#${root}b two`);
   // A note holds at most 100 tags, so spread 130 across two notes.
   for (const range of [
     [0, 65],
@@ -111,25 +111,21 @@ test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge
     })
     .toBe(130);
 
-  // Flat list of every path, parents included.
+  // Flat list of every matching tag.
   await search.fill(root);
   await search.press('Enter');
   const paths = main.getByRole('link', { name: new RegExp(`^#${root}`) });
   await expect(paths).toHaveText([
-    new RegExp(`^#${root}\\s*2$`),
-    new RegExp(`^#${root}/a\\s*1$`),
-    new RegExp(`^#${root}/a/x\\s*1$`),
-    new RegExp(`^#${root}/b\\s*1$`),
+    new RegExp(`^#${root}a\\s*1$`),
+    new RegExp(`^#${root}b\\s*1$`),
   ]);
-  await paths.nth(1).click();
-  await expect(page).toHaveURL(`/?tag=${root}%2Fa`);
+  await paths.first().click();
+  await expect(page).toHaveURL(`/?tag=${root}a`);
 
   // The tag view shows the summary and a three-dot menu.
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    `#${root}/a`,
-  );
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`#${root}a`);
   await expect(page.getByTestId('posted-note')).toHaveCount(1);
-  await expect(page.getByText('1 note · 1 subtag')).toBeVisible();
+  await expect(page.getByText('1 note', { exact: true })).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
   await page.getByRole('button', { name: 'Tag actions' }).click();
   await expect(
@@ -140,24 +136,24 @@ test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge
     page.getByRole('menuitem', { name: 'Remove Tag' }),
   ).toBeVisible();
 
-  // Rename rewrites the full path, so the parent changes too.
+  // Rename rewrites the hashtag in every affected note.
   await page.getByRole('menuitem', { name: 'Rename Tag' }).click();
   const form = page.getByRole('dialog', { name: 'Rename Tag' });
-  await expect(form.getByLabel('Tag path')).toHaveValue(`${root}/a`);
-  await form.getByLabel('Tag path').fill(`${root}2/c`);
+  await expect(form.getByLabel('Tag name')).toHaveValue(`${root}a`);
+  await form.getByLabel('Tag name').fill(`${root}c`);
   await form.getByRole('button', { name: 'Preview tag changes' }).click();
   await form.getByRole('button', { name: 'Confirm rename' }).click();
-  await expect(page).toHaveURL(`/?tag=${root}2%2Fc`);
-  await expect(page.getByTestId('posted-note')).toContainText(`#${root}2/c/x`);
+  await expect(page).toHaveURL(`/?tag=${root}c`);
+  await expect(page.getByTestId('posted-note')).toContainText(`#${root}c`);
 
-  // Merge the renamed tree into an existing tag.
+  // Merge the renamed tag into an existing tag.
   await page.getByRole('button', { name: 'Tag actions' }).click();
   await page.getByRole('menuitem', { name: 'Merge Tag' }).click();
   const merge = page.getByRole('dialog', { name: 'Merge Tag' });
-  await merge.getByLabel('Merge into').fill(`${root}/b`);
+  await merge.getByLabel('Merge into').fill(`${root}b`);
   await merge.getByRole('button', { name: 'Preview tag changes' }).click();
   await merge.getByRole('button', { name: 'Confirm merge' }).click();
-  await expect(page).toHaveURL(`/?tag=${root}%2Fb`);
+  await expect(page).toHaveURL(`/?tag=${root}b`);
   await expect(page.getByTestId('posted-note')).toHaveCount(2);
 });
 
@@ -203,4 +199,18 @@ test('a tag view has no redundant filter chip, leaves with search kept, and refu
     headers,
   });
   expect(api.status()).toBe(400);
+});
+
+test('tags are flat: a slash ends the hashtag instead of nesting', async ({
+  page,
+}) => {
+  await browserSession(page);
+  const headers = await authenticatedHeaders(page);
+  const tag = `fl${randomUUID().slice(0, 8)}`;
+  await post(page, headers, `#${tag}/sub text`);
+  const response = await page.request.get(`/api/tags?q=${tag}`, { headers });
+  const { items } = (await response.json()).data as {
+    items: { key: string; published: number }[];
+  };
+  expect(items.map((t) => [t.key, t.published])).toEqual([[tag, 1]]);
 });

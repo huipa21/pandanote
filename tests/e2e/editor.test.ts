@@ -19,6 +19,11 @@ test('timeline date picker is themed with site tokens and picks a day and time',
   const input = dialog.getByLabel(/Timeline date\/time/);
   const panel = dialog.getByRole('group', { name: 'Date and time picker' });
   await expect(panel).toBeVisible();
+  // Calendar and text bar only: no close button, no title text, no time fields or Done.
+  await expect(dialog.getByRole('button', { name: /Close/ })).toHaveCount(0);
+  await expect(dialog.locator('header')).toHaveCount(0); // title is screen-reader-only
+  await expect(panel.getByRole('button', { name: 'Done' })).toHaveCount(0);
+  await expect(panel.getByLabel('Hour')).toHaveCount(0);
   await expect(
     dialog.getByRole('button', { name: 'Choose date and time' }),
   ).toHaveCount(0);
@@ -42,11 +47,26 @@ test('timeline date picker is themed with site tokens and picks a day and time',
       return color;
     }),
   );
-  await panel.getByLabel('Hour').fill('7');
-  await panel.getByLabel('Hour').dispatchEvent('change');
+  await input.fill((await input.inputValue()).replace(/T\d\d:/, 'T07:'));
+  await input.dispatchEvent('change');
   await expect(input).toHaveValue(/-15T07:/);
-  await panel.getByRole('button', { name: 'Done' }).click();
+  // The text bar and the calendar have the same width.
+  const inputBox = (await input.boundingBox())!;
+  const panelBox = (await panel.boundingBox())!;
+  expect(Math.abs(inputBox.width - panelBox.width)).toBeLessThan(2);
+  // Nothing is shown in the composer until the date is saved.
+  const chip = composer.locator('time.date-chip');
+  await expect(chip).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog).toBeHidden();
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveAttribute('datetime', /-15T07:/);
+  // Unsaved changes are discarded by clicking outside the dialog.
+  await composer.getByRole('button', { name: 'Set date', exact: true }).click();
+  await panel.getByRole('button', { name: /-10$/ }).click();
+  await page.mouse.click(2, 2);
+  await expect(dialog).toBeHidden();
+  await expect(chip).toHaveAttribute('datetime', /-15T07:/);
 });
 
 test('media picker accepts only photos or one video and limits a note to nine photos', async ({
@@ -233,6 +253,9 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   await dateInput.fill('9999-01-01T12:00');
   await dateInput.dispatchEvent('change');
   await expect(date.getByRole('alert')).toContainText('now or earlier');
+  await expect(
+    date.getByRole('button', { name: 'Save', exact: true }),
+  ).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(dateButton).toBeFocused();
   await dateButton.click();

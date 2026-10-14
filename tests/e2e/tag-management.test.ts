@@ -39,12 +39,7 @@ test('tag management rewrites notes and Trash; open unsaved source receives expl
   await page.goto('/');
   const text = page.getByTestId('composer').getByRole('textbox');
   await text.fill(`Unsaved #${key}`);
-  const operation = {
-    source: key,
-    action: 'rename',
-    target: `${key}new`,
-    scope: 'subtree',
-  };
+  const operation = { source: key, action: 'rename', target: `${key}new` };
   const preview = await page.request.post('/api/tags/preview', {
     headers,
     data: operation,

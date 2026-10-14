@@ -33,14 +33,6 @@ Contracts in sections 4.4, 10.3,
 11.3 and 11.4 that conflict are superseded by
 [note-actions/SPEC.md](note-actions/SPEC.md).
 
-## Current override — nested tags
-
-Hashtags may contain up to 5 `/`-separated segments (64 codepoints each, 128 per
-path). Parents are implicit; subtree predicates use the binary key range
-`[key/, key0)`. Tag history has `exact`/`subtree` scope. Contracts in sections 9,
-10.3 and 11.2 that say "flat", "64 codepoints per tag" or "slash is not a
-nested-tag operator" are superseded by [nested-tags/SPEC.md](nested-tags/SPEC.md).
-
 ## Current override — in-memory editor and yearly heatmaps
 
 The approved no-drafts contract in PRODUCT_SPEC supersedes historical S05/S08/S13
@@ -822,7 +814,7 @@ Initial grammar:
 
 - Hashtag marker at start or after whitespace/opening punctuation.
 - Body allows Unicode letters/numbers/combining marks, underscore, and hyphen.
-- Ends at whitespace/other punctuation. Slash separates nested-tag segments (superseded contract; see nested-tags/SPEC.md).
+- Ends at whitespace/other punctuation. Slash is not a nested-tag operator; it ends the hashtag.
 - Escaped markers, code, raw HTML, URL destinations, and heading marker runs are ignored.
 - Limit tag length/count with documented validation defaults (e.g. 64 codepoints/tag, 100 unique tags/note).
 

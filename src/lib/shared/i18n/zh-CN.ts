@@ -19,9 +19,6 @@ export const zhCN: Partial<Catalog> = {
   'shell.tags': '标签',
   'shell.allTags': '全部标签（{count}）',
   'shell.noTags': '还没有已发布的标签。',
-  'shell.expandTag': '展开 #{tag} 的子标签',
-  'shell.collapseTag': '收起 #{tag} 的子标签',
-  'shell.tagCount': '#{tag}，{count} 条笔记',
   'shell.version': '版本 {version}',
   'shell.activeFilters': '当前筛选',
   'shell.noFilters': '全部笔记 · 无筛选',
@@ -541,9 +538,9 @@ export const zhCN: Partial<Catalog> = {
   'thumb.open': '打开第 {index} 张图片：{name}',
   'date.button': '日期',
   'date.title': '时间线日期',
-  'date.help':
-    '请在已配置的应用时区中选择现在或更早的时间。有歧义或不存在的夏令时时间会被拒绝。',
   'date.label': '时间线日期和时间（{timezone}）',
+  'date.save': '保存',
+  'date.chip': '时间线日期：{when}',
   'date.invalid': '请选择有效且无歧义的日期和时间，且不晚于现在。',
   'calendar.previousMonth': '上个月',
   'calendar.nextMonth': '下个月',
@@ -619,19 +616,11 @@ export const zhCN: Partial<Catalog> = {
   'search.checkQuery': '请检查搜索条件。',
   'tag.noteOne': '{count} 条笔记',
   'tag.noteMany': '{count} 条笔记',
-  'tag.subtagOne': '{count} 个子标签',
-  'tag.subtagMany': '{count} 个子标签',
   'tag.trashCount': '回收站中 {count} 条',
-  'tag.removeQ': '要移除哪些话题标签？',
-  'tag.onlyTag': '仅 #{tag}',
-  'tag.andSubtags': '#{tag} 及其所有子标签',
-  'tag.andAllSubtags': '及其所有子标签',
-  'tag.path': '标签路径',
+  'tag.name': '标签名称',
   'tag.mergeInto': '合并到',
   'tag.previewChanges': '预览标签更改',
-  'tag.affected': '受影响的标签',
   'tag.removed': '已移除',
-  'tag.mergedWith': '（与现有标签合并）',
   'tag.counts':
     '{published} 条笔记 · 回收站中的 {trash} 条笔记将获得新修订。正在编辑的编辑器会发生冲突。',
   'tag.mergeNote': '保留现有目标标签的写法；重复的笔记关联会被合并。',
@@ -680,8 +669,6 @@ export const zhCN: Partial<Catalog> = {
   'work.baseChanged': '服务器的基础版本已更改。替换前请先比较服务器版本。',
   'work.saveFailed': '保存失败。',
   'work.retiredChoice': '已停用的标签需要明确选择。',
-  'work.tagLimit':
-    '解决后的标签会超出标签数量限制。请手动编辑该话题标签；你的文本未改变。',
   'work.openFailed': '无法打开编辑器。',
   'work.conflictFailed': '冲突处理未能完成。你的编辑器和文件已保留；请重试。',
   'life.unreadable':
@@ -794,8 +781,6 @@ export const zhCN: Partial<Catalog> = {
   'err.preReleaseBackup':
     '此备份由预发布版 PandaNote 创建，无法恢复。请从空实例开始并创建新备份。',
   'err.pinLimit': '最多只能置顶 {max} 条笔记。请先取消置顶一条。',
-  'err.tagLimits':
-    '#{tag} 将超出标签限制（最多 5 级，每级 64 个字符，共 128 个字符）。请选择更短的目标。',
   'err.missingUploadBody': '缺少上传内容。',
   'err.uploadTimedOutKeepYour': '上传超时。请保留本地文件并重试。',
   'err.uploadExceedsThePermittedByte':
@@ -907,9 +892,9 @@ export const zhCN: Partial<Catalog> = {
   'err.activeWritesDidNotFinish': '进行中的写入未能完成。请重试。',
   'err.everyMarkdownImageMustReference':
     '每张 Markdown 图片都必须引用此笔记中已就绪的图片。发布前请修复或移除不可用的图片。',
-  'err.aNormalizedTagExceeds128': '规范化后的标签超过 128 个字符。',
+  'err.aNormalizedTagExceeds64': '规范化后的标签超过 64 个字符。',
   'err.checkTheMarkdownSizeAnd':
-    '请检查 Markdown 大小和话题标签限制（每级标签 64 个字符，最多 5 级、共 128 个字符，最多 100 个不同标签）。',
+    '请检查 Markdown 大小和话题标签限制（每个标签 64 个字符，最多 100 个不同标签）。',
   'err.useAnApplicationJsonNote': '请使用 application/json 笔记请求。',
   'err.noteRequestIsTooLarge': '笔记请求过大。',
   'err.noteRequestTimedOutKeep': '笔记请求超时。请保留本地内容并重试。',
@@ -954,19 +939,12 @@ export const zhCN: Partial<Catalog> = {
   'err.thisRetryDiffersFromThe': '此次重试与已确认的标签操作不同。',
   'err.affectedNotesOrTagsChanged':
     '预览之后受影响的笔记或标签发生了变化。请重新预览；未改写任何内容。',
-  'err.aRewrittenTagWouldExceed':
-    '改写后的标签将超出标签限制。请选择更短的目标。',
   'err.aRewrittenNoteWouldExceed':
     '改写后的笔记将超出已配置的文字限制。请选择更短的标签。',
-  'err.aRewrittenNoteWouldExceed2':
-    '改写后的笔记将超出标签限制。请选择更短的标签。',
   'err.anAffectedNoteCannotAccept': '某个受影响的笔记无法再接受新的修订。',
   'err.anAffectedNoteChangedPreview': '某个受影响的笔记已变化。请重新预览。',
   'err.chooseAValidSourceTag': '请选择有效的源标签、范围和目标写法。',
   'err.theSourceTagNoLonger': '源标签已不存在。请刷新标签。',
-  'err.noNoteUsesThisExact':
-    '没有笔记使用这个确切的标签，只有其子标签。请选择“此标签及所有子标签”。',
-  'err.aTagCannotBeMoved': '标签不能移入其自身的子标签中。',
   'err.mergeRequiresADifferentExisting': '合并需要另一个不同的现有标签。',
   'err.thatTagAlreadyExistsChoose':
     '该标签已存在。请选择合并并预览合并后的用量。',

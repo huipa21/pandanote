@@ -33,10 +33,10 @@ export function inspectContent(body: string, imageIds: Set<string>) {
     };
     visit(tree);
     const extracted = extractTags(body);
-    // NFKC may expand a valid source spelling beyond the registry's 128-codepoint
-    // path bound (e.g. ligatures). Reject at the domain boundary, not via raw SQL error.
-    if (extracted.some((tag) => [...tag.key].length > 128))
-      throw new DomainError('validation', 'err.aNormalizedTagExceeds128');
+    // NFKC may expand a valid source spelling beyond the registry's 64-codepoint
+    // bound (e.g. ligatures). Reject at the domain boundary, not via raw SQL error.
+    if (extracted.some((tag) => [...tag.key].length > 64))
+      throw new DomainError('validation', 'err.aNormalizedTagExceeds64');
     return extracted;
   } catch (error) {
     if (error instanceof DomainError) throw error;

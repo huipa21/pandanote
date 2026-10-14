@@ -12,19 +12,12 @@ const history: TagChange[] = [
   { generation: 2, oldKey: '仕事', action: 'merge', targetKey: '香港' },
   { generation: 3, oldKey: '香港', action: 'remove', targetKey: null },
 ];
-const gone = (key: string, generation: number) => ({
-  key,
-  generation,
-  target: null,
-  targetPrefix: null,
-  suffixStart: 1,
-});
 describe('S14 history and source contracts', () => {
   it('follows chronological chains, ignores case-only identity changes, binds recreation acknowledgements to the latest retirement', () => {
     expect(staleTags(['work', '仕事', '香港', 'other'], history)).toEqual([
-      gone('work', 1),
-      gone('仕事', 2),
-      gone('香港', 3),
+      { key: 'work', generation: 1, target: null },
+      { key: '仕事', generation: 2, target: null },
+      { key: '香港', generation: 3, target: null },
     ]);
     expect(
       staleTags(['work'], history, [{ key: 'work', generation: 1 }]),
@@ -42,7 +35,7 @@ describe('S14 history and source contracts', () => {
           },
         ],
       ),
-    ).toEqual([gone('work', 1)]);
+    ).toEqual([{ key: 'work', generation: 1, target: null }]);
     expect(
       staleTags(
         ['work'],
@@ -52,15 +45,7 @@ describe('S14 history and source contracts', () => {
         ],
         [{ key: 'work', generation: 1 }],
       ),
-    ).toEqual([
-      {
-        key: 'work',
-        generation: 5,
-        target: 'new',
-        targetPrefix: 'new',
-        suffixStart: 1,
-      },
-    ]);
+    ).toEqual([{ key: 'work', generation: 5, target: 'new' }]);
     expect(
       staleTags(
         ['work'],
@@ -74,15 +59,7 @@ describe('S14 history and source contracts', () => {
           },
         ],
       ),
-    ).toEqual([
-      {
-        key: 'work',
-        generation: 1,
-        target: 'work',
-        targetPrefix: 'work',
-        suffixStart: 1,
-      },
-    ]);
+    ).toEqual([{ key: 'work', generation: 1, target: 'work' }]);
   });
   it('uses simultaneous literal source spans; leaves URLs/code/escapes/HTML byte-identical and does not reserialize Markdown', () => {
     const source =
@@ -140,7 +117,6 @@ describe('S14 history and source contracts', () => {
         source: 'work',
         action: 'remove',
         target: 'other',
-        scope: 'subtree',
       }).success,
     ).toBe(false);
     expect(
@@ -148,7 +124,6 @@ describe('S14 history and source contracts', () => {
         source: 'work',
         action: 'rename',
         target: 'bad tag',
-        scope: 'subtree',
       }).success,
     ).toBe(false);
   });

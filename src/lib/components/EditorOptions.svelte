@@ -2,7 +2,8 @@
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
-  const t = useI18n().t;
+  const i18n = useI18n();
+  const t = i18n.t;
 
   let {
     workspace,
@@ -14,6 +15,15 @@
     onFiles: () => void;
   } = $props();
   let dateOpen = $state(false);
+  const when = $derived(
+    workspace?.active
+      ? new Date(workspace.active.timelineAt).toLocaleString(i18n.locale, {
+          timeZone: workspace.timezone,
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : '',
+  );
   let locked = $derived(
     !workspace?.ready ||
       workspace.busy ||
@@ -62,6 +72,13 @@
       /></svg
     >
   </button>
+  {#if workspace?.active && (workspace.timelineSet || workspace.active.kind === 'edit')}
+    <time
+      class="date-chip"
+      datetime={new Date(workspace.active.timelineAt).toISOString()}
+      title={t('date.chip', { when })}>{when}</time
+    >
+  {/if}
 </div>
 {#if workspace}
   <TimelineOptions {workspace} bind:open={dateOpen} showTrigger={false} />
@@ -82,6 +99,12 @@
     border: 0;
     background: transparent;
     color: var(--muted);
+  }
+  .date-chip {
+    padding-inline: var(--space-2);
+    color: var(--muted);
+    font-size: 0.875rem;
+    white-space: nowrap;
   }
   svg {
     width: 1.25rem;

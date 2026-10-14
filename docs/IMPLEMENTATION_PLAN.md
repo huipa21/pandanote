@@ -349,7 +349,7 @@ posting/editor/detail/Storage browsers and actual Linux SQLite/archive behavior.
 - Equal timestamps paginate without duplicates/skips in an unchanged dataset.
 - Filter changes invalidate stale cursors/results; clear/removal predictable.
 - Long content/code/images do not overflow or shift scroll unexpectedly.
-- Sidebar remains stationary; homepage composer scrolls with notes, and Back to Top returns to it. The selected tag narrows the timeline to that tag and its subtags (one tag at a time).
+- Sidebar remains stationary; homepage composer scrolls with notes, and Back to Top returns to it. The selected tag narrows the timeline to that tag (one tag at a time).
 
 **Next hint:** S10 supplies exact multilingual search on the same list contract, not a parallel result system.
 

@@ -8,7 +8,6 @@
   import TitleControls from './TitleControls.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import Sidebar from './Sidebar.svelte';
-  import type { TagNode } from '#lib/shared/tag-tree.ts';
   import Modal from './Modal.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Composer from './Composer.svelte';
@@ -18,7 +17,11 @@
     clampSidebarWidth,
     sidebarMaximum,
   } from '#lib/client/sidebar-size.ts';
-  import { filterHref, type TimelineFilters } from '#lib/shared/timeline.ts';
+  import {
+    filterHref,
+    type TimelineFilters,
+    type TimelineTag,
+  } from '#lib/shared/timeline.ts';
   let {
     calendar,
     active = '/',
@@ -30,7 +33,7 @@
   }: {
     calendar?: CalendarState;
     active?: string;
-    tags?: TagNode[];
+    tags?: TimelineTag[];
     filters?: TimelineFilters;
     searchQuery?: string;
     onSearch?: (href: string) => Promise<unknown>;

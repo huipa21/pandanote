@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
   import DateTimeField from './DateTimeField.svelte';
   import { timelineInput, timelineInstant } from '#lib/client/uploads/date.ts';
@@ -16,8 +17,44 @@
   const fieldId = $props.id();
   const t = useI18n().t;
   let error = $state('');
+  let draft = $state<string | null>(null);
+  const locked = $derived(
+    !workspace.active ||
+      workspace.busy ||
+      workspace.frozen ||
+      workspace.conflict,
+  );
+  function check(next: string) {
+    draft = next;
+    try {
+      timelineInstant(next, workspace.timezone);
+      error = '';
+    } catch {
+      error = t('date.invalid');
+    }
+  }
+  function save() {
+    try {
+      workspace.updateMetadata({
+        timelineAt: timelineInstant(draft ?? '', workspace.timezone),
+      });
+      error = '';
+      open = false;
+    } catch {
+      error = t('date.invalid');
+    }
+  }
   $effect(() => {
-    if (open) error = '';
+    if (!open) draft = null;
+    else {
+      error = '';
+      // Edit a draft; nothing changes until Save.
+      draft = untrack(() =>
+        workspace.active
+          ? timelineInput(workspace.active.timelineAt, workspace.timezone)
+          : '',
+      );
+    }
   });
 </script>
 
@@ -31,37 +68,36 @@
       error = '';
     }}>{t('date.button')}</button
   >{/if}
-<Modal bind:open title={t('date.title')}>
-  <p>
-    {t('date.help')}
-  </p>
-  {#if open && workspace.active}
-    <label for={fieldId}
+<Modal bind:open title={t('date.title')} customHeader lightDismiss>
+  {#if open && workspace.active && draft !== null}
+    <!-- Visually hidden: the calendar and text bar are the only visible controls. -->
+    <label class="sr-only" for={fieldId}
       >{t('date.label', { timezone: workspace.timezone })}</label
     >
     <DateTimeField
       id={fieldId}
       alwaysOpen
-      ondone={() => (open = false)}
-      value={timelineInput(workspace.active.timelineAt, workspace.timezone)}
+      calendarOnly
+      value={draft ?? ''}
       max={timelineInput(Date.now(), workspace.timezone)}
-      disabled={workspace.busy || workspace.frozen || workspace.conflict}
-      onchange={(next) => {
-        try {
-          workspace.updateMetadata({
-            timelineAt: timelineInstant(next, workspace.timezone),
-          });
-          error = '';
-        } catch {
-          error = t('date.invalid');
-        }
-      }}
+      disabled={locked}
+      onchange={check}
     />
+    <button
+      type="button"
+      class="primary save"
+      disabled={locked || Boolean(error) || !draft}
+      onclick={save}>{t('date.save')}</button
+    >
   {/if}
   {#if error}<p role="alert">{error}</p>{/if}
 </Modal>
 
 <style>
+  .save {
+    margin-top: var(--space-3);
+    width: min(20rem, 100%);
+  }
   @media (max-width: 899px) and (max-height: 400px) {
     button {
       min-height: 2rem;

@@ -9,7 +9,7 @@ describe('source-span Unicode hashtags', () => {
   it('normalizes, deduplicates and preserves spelling', () => {
     expect(
       extractTags(
-        '#Work #work #ＷＯＲＫ (#香港) 「#図書館」 #数据库 #cafe\u0301 #a-b_c #one/two #One/Two/ #a//b',
+        '#Work #work #ＷＯＲＫ (#香港) 「#図書館」 #数据库 #cafe\u0301 #a-b_c #one/two',
       ),
     ).toEqual([
       { key: 'work', spelling: 'Work' },
@@ -18,8 +18,7 @@ describe('source-span Unicode hashtags', () => {
       { key: '数据库', spelling: '数据库' },
       { key: 'café', spelling: 'cafe\u0301' },
       { key: 'a-b_c', spelling: 'a-b_c' },
-      { key: 'one/two', spelling: 'one/two' },
-      { key: 'a', spelling: 'a' },
+      { key: 'one', spelling: 'one' },
     ]);
   });
   it('excludes code, escapes, HTML, heading markers, URLs and destinations', () => {

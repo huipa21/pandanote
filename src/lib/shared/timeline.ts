@@ -84,7 +84,7 @@ export async function snapshotCard(
   };
 }
 export interface TimelineFilters {
-  /** At most one tag (normalized key); it matches the tag and its subtags. */
+  /** At most one tag (normalized key). */
   tag?: string;
   query?: string;
   day?: { start: number; end: number };
@@ -106,6 +106,13 @@ export interface TimelinePage {
   nextCursor: string | null;
 }
 
+export interface TimelineTag {
+  id: string;
+  key: string;
+  label: string;
+  count: number;
+}
+
 export function canonicalFilters(
   tag: string | null | undefined,
   query = '',
@@ -120,11 +127,8 @@ export function canonicalFilters(
     // NFKC can expand a valid tag (including spaces in Arabic
     // ligatures); reapplying the source grammar here would make it unfilterable.
     (!normalized.length ||
-      [...normalized].length > 128 ||
-      /[\p{Cc}#]/u.test(normalized) ||
-      // Nested paths: 1–5 non-empty segments separated by single slashes.
-      normalized.split('/').length > 5 ||
-      normalized.split('/').some((part) => !part.length))
+      [...normalized].length > 64 ||
+      /[\p{Cc}#]/u.test(normalized))
   )
     throw new DomainError('validation', 'err.invalidTagFilter');
   const search = canonicalSearch(query);
@@ -186,10 +190,6 @@ export function selectTag(filters: TimelineFilters, tag: string): string {
   return filterHref(
     canonicalFilters(tag, filters.query, filters.day, filters.date),
   );
-}
-/** Does a note's tag set fall under the selected tag (itself or a subtag)? */
-export function noteHasTag(noteTags: readonly string[], tag: string): boolean {
-  return noteTags.some((t) => t === tag || t.startsWith(tag + '/'));
 }
 export function parseTimelineQuery(params: URLSearchParams) {
   if (params.getAll('tag').length > 1)

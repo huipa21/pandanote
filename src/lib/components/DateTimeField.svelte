@@ -8,6 +8,8 @@
     max,
     disabled = false,
     alwaysOpen = false,
+    /** With alwaysOpen: show only the calendar (no time fields or Done). */
+    calendarOnly = false,
     ondone,
     onchange,
   }: {
@@ -19,6 +21,7 @@
     disabled?: boolean;
     /** Show the themed picker immediately, without the toggle button. */
     alwaysOpen?: boolean;
+    calendarOnly?: boolean;
     /** Called by Done; defaults to collapsing the picker. */
     ondone?: () => void;
     onchange: (value: string) => void;
@@ -36,7 +39,8 @@
   ]);
   const startMonth = () => {
     const day = untrack(() => value.slice(0, 10));
-    return /^\d{4}-\d{2}/.test(day)
+    // A future (or unsupported) day opens on the latest selectable month.
+    return /^\d{4}-\d{2}/.test(day) && day <= untrack(() => max).slice(0, 10)
       ? day.slice(0, 7)
       : untrack(() => max).slice(0, 7);
   };
@@ -93,7 +97,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions (Escape handling for the popup; its controls are focusable.) -->
-<div class="field" onkeydown={keydown}>
+<div class="field" class:compact={calendarOnly} onkeydown={keydown}>
   <div class="row">
     <input
       {id}
@@ -161,47 +165,47 @@
           {:else}<span></span>{/if}
         {/each}
       </div>
-      <div class="time">
-        <label
-          >{t('picker.hour')}
-          <input
-            type="number"
-            min="0"
-            max="23"
-            value={pad(time[0]!)}
-            onchange={(event) => setTime(0, 23, event.currentTarget.value)}
-          /></label
-        >
-        <label
-          >{t('picker.minute')}
-          <input
-            type="number"
-            min="0"
-            max="59"
-            value={pad(time[1]!)}
-            onchange={(event) => setTime(1, 59, event.currentTarget.value)}
-          /></label
-        >
-        <label
-          >{t('picker.second')}
-          <input
-            type="number"
-            min="0"
-            max="59"
-            value={pad(time[2]!)}
-            onchange={(event) => setTime(2, 59, event.currentTarget.value)}
-          /></label
-        >
-      </div>
-      <button
-        type="button"
-        class="primary done"
-        onclick={() => {
-          if (ondone) return ondone();
-          open = false;
-          trigger?.focus();
-        }}>{t('picker.done')}</button
-      >
+      {#if !calendarOnly}<div class="time">
+          <label
+            >{t('picker.hour')}
+            <input
+              type="number"
+              min="0"
+              max="23"
+              value={pad(time[0]!)}
+              onchange={(event) => setTime(0, 23, event.currentTarget.value)}
+            /></label
+          >
+          <label
+            >{t('picker.minute')}
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={pad(time[1]!)}
+              onchange={(event) => setTime(1, 59, event.currentTarget.value)}
+            /></label
+          >
+          <label
+            >{t('picker.second')}
+            <input
+              type="number"
+              min="0"
+              max="59"
+              value={pad(time[2]!)}
+              onchange={(event) => setTime(2, 59, event.currentTarget.value)}
+            /></label
+          >
+        </div>{/if}
+      {#if !calendarOnly}<button
+          type="button"
+          class="primary done"
+          onclick={() => {
+            if (ondone) return ondone();
+            open = false;
+            trigger?.focus();
+          }}>{t('picker.done')}</button
+        >{/if}
     </div>
   {/if}
 </div>
@@ -210,6 +214,14 @@
   .field {
     display: block;
     margin-top: var(--space-1);
+  }
+  /* Calendar-only popup: text bar and calendar share one width. */
+  .field.compact {
+    width: min(20rem, 100%);
+  }
+  .field.compact .panel {
+    max-width: none;
+    box-sizing: border-box;
   }
   .row {
     display: flex;

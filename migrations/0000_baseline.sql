@@ -194,9 +194,8 @@ CREATE TABLE `tag_changes` (
 	`old_key` text NOT NULL,
 	`action` text NOT NULL,
 	`target_key` text,
-	`scope` text DEFAULT 'exact' NOT NULL,
 	`created_at` integer NOT NULL,
-	CONSTRAINT "tag_change_check" CHECK((("tag_changes"."action" = 'remove' AND "tag_changes"."target_key" IS NULL) OR ("tag_changes"."action" IN ('rename','merge') AND "tag_changes"."target_key" IS NOT NULL)) AND "tag_changes"."scope" IN ('exact','subtree') AND ("tag_changes"."action" = 'remove' OR "tag_changes"."scope" = 'subtree'))
+	CONSTRAINT "tag_change_check" CHECK(("tag_changes"."action" = 'remove' AND "tag_changes"."target_key" IS NULL) OR ("tag_changes"."action" IN ('rename','merge') AND "tag_changes"."target_key" IS NOT NULL))
 );
 --> statement-breakpoint
 CREATE INDEX `tag_changes_old_key` ON `tag_changes` (`old_key`,`generation`);--> statement-breakpoint
@@ -213,7 +212,7 @@ CREATE TABLE `tags` (
 	`id` text PRIMARY KEY NOT NULL,
 	`normalized_key` text NOT NULL,
 	`display` text NOT NULL,
-	CONSTRAINT "tag_length_check" CHECK(length("tags"."normalized_key") BETWEEN 1 AND 128 AND length("tags"."display") BETWEEN 1 AND 128)
+	CONSTRAINT "tag_length_check" CHECK(length("tags"."normalized_key") BETWEEN 1 AND 64 AND length("tags"."display") BETWEEN 1 AND 64)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `tags_normalized_key` ON `tags` (`normalized_key`);--> statement-breakpoint

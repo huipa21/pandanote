@@ -634,8 +634,12 @@ test('posting from the composer invalidates calendar counts and a delayed image 
   await input.fill('2024-12-30T12:00');
   await input.dispatchEvent('change');
   await page
-    .getByRole('button', { name: 'Close Timeline date', exact: true })
+    .getByRole('dialog', { name: 'Timeline date', exact: true })
+    .getByRole('button', { name: 'Save', exact: true })
     .click();
+  await expect(
+    page.getByRole('dialog', { name: 'Timeline date', exact: true }),
+  ).toBeHidden();
   await page
     .getByTestId('composer')
     .getByRole('button', { name: 'Post', exact: true })

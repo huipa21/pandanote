@@ -5,10 +5,8 @@
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
   import { buildInfo } from '#lib/shared/version.ts';
-  import TagTree from './TagTree.svelte';
-  import { SvelteSet } from 'svelte/reactivity';
-  import type { TimelineFilters } from '#lib/shared/timeline.ts';
-  import { tagAncestors, type TagNode } from '#lib/shared/tag-tree.ts';
+  import TagList from './TagList.svelte';
+  import type { TimelineFilters, TimelineTag } from '#lib/shared/timeline.ts';
   let {
     calendar,
     active = '/',
@@ -20,8 +18,8 @@
   }: {
     calendar?: CalendarState;
     active?: string;
-    /** Count-ordered nested tag tree (docs/nested-tags/SPEC.md §3). */
-    tags?: TagNode[];
+    /** Tags of published notes, most used first. */
+    tags?: TimelineTag[];
     filters?: TimelineFilters;
     searchQuery?: string;
     onSearch?: (href: string) => Promise<unknown>;
@@ -30,15 +28,8 @@
   const id = $props.id();
   const i18n = useI18n();
   const t = i18n.t;
-  /** Top-level tags shown here; the Tags page lists everything. */
+  /** Tags shown here; the Tags page lists everything. */
   const VISIBLE_TAGS = 12;
-  // In-memory per page session; never persisted.
-  const expanded = new SvelteSet<string>();
-  $effect(() => {
-    // Reveal the branches holding active filters (the user may collapse them).
-    if (filters.tag !== undefined)
-      for (const ancestor of tagAncestors(filters.tag)) expanded.add(ancestor);
-  });
 </script>
 
 <div class="sidebar-content">
@@ -79,12 +70,7 @@
       </h2>
       {#if tags.length}
         <div class="tag-list">
-          <TagTree
-            nodes={tags.slice(0, VISIBLE_TAGS)}
-            {filters}
-            {expanded}
-            {onNavigate}
-          />
+          <TagList tags={tags.slice(0, VISIBLE_TAGS)} {filters} {onNavigate} />
           {#if tags.length > VISIBLE_TAGS}<a
               class="more"
               href="/tags"

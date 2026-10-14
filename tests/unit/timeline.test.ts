@@ -3,7 +3,6 @@ import {
   canonicalFilters,
   filterHref,
   filterKey,
-  noteHasTag,
   selectTag,
   parseTimelineQuery,
   currentMonthEnd,
@@ -75,13 +74,6 @@ describe('canonical timeline state', () => {
     expect(canonicalFilters('ﷺ').tag).toBe('صلى الله عليه وسلم');
     expect(() => canonicalFilters('')).toThrow();
   });
-  it('matches a note to a tag filter by the tag itself or any subtag', () => {
-    expect(noteHasTag(['work/meeting'], 'work')).toBe(true);
-    expect(noteHasTag(['work'], 'work')).toBe(true);
-    expect(noteHasTag(['workshop'], 'work')).toBe(false);
-    expect(noteHasTag(['home', 'x/work'], 'work')).toBe(false);
-    expect(noteHasTag([], 'work')).toBe(false);
-  });
   it('rejects malformed and unbounded query parameters rather than silently changing meaning', () => {
     for (const query of [
       'limit=0',
@@ -94,9 +86,7 @@ describe('canonical timeline state', () => {
       'day=2020-01-01',
       'tag=%23work',
       'tag=%00',
-      `tag=${'港'.repeat(129)}`,
-      'tag=a%2F%2Fb',
-      'tag=a%2F',
+      `tag=${'港'.repeat(65)}`,
       // A tag view has exactly one tag: repeated tag parameters are refused,
       // identical or not, instead of silently meaning something else.
       'tag=work&tag=home',

@@ -28,7 +28,6 @@ import {
 } from '../uploads/file-kind.ts';
 import { extractTags } from '#lib/shared/markdown/tags.ts';
 import { rewriteTagKeys, type StaleTag } from '#lib/shared/tags.ts';
-import { joinTagSuffix } from '#lib/shared/tag-tree.ts';
 
 import {
   newSession,
@@ -59,6 +58,8 @@ export class EditorWorkspace {
   error = $state('');
   status = $state<'' | 'saved'>('');
   ready = $state(false);
+  /** True once the user saved a timeline date in this composer session. */
+  timelineSet = $state(false);
   busy = $state(false);
   dirty = $derived(isSessionDirty(this.active, this.cleanSnapshot));
   conflict = $state(false);
@@ -68,7 +69,7 @@ export class EditorWorkspace {
   postConflict = $state<NoteSnapshot | null>(null);
   staleTagChoices = $state<StaleTag[]>([]);
   tagsChanged = $state(0);
-  knownTags = $state<{ key: string; display: string; count?: number }[]>([]);
+  knownTags = $state<{ key: string; display: string }[]>([]);
   postProgress = $state<PostingProgress | null>(null);
   saved = $state<{
     serial: number;
@@ -136,6 +137,7 @@ export class EditorWorkspace {
     this.revokeUrls();
     this.localBlobs.clear();
     this.active = newSession();
+    this.timelineSet = false;
     this.editOrigin = null;
     this.cleanSnapshot = getSessionDigest(this.active);
     this.missing = [];
@@ -157,6 +159,7 @@ export class EditorWorkspace {
     if (!this.ready || this.busy || this.frozen || this.posting || !this.active)
       return;
     this.active = { ...this.active, ...values };
+    this.timelineSet = true;
   }
 
   async addFiles(files: File[]): Promise<void> {
@@ -512,27 +515,18 @@ export class EditorWorkspace {
     const choices = this.staleTagChoices;
     if (this.frozen) this.forkAttempt();
     const session = this.active;
-    let bodyMarkdown: string;
-    try {
-      bodyMarkdown =
-        choice === 'recreate'
-          ? session.bodyMarkdown
-          : rewriteTagKeys(session.bodyMarkdown, (span) => {
-              const stale = choices.find((t) => t.key === span.key);
-              if (!stale) return undefined;
-              if (choice === 'remove' || stale.targetPrefix === null)
-                return null;
-              // Keep this editor's own spelling of segments history did not rename.
-              return joinTagSuffix(
-                stale.targetPrefix,
-                span.spelling,
-                stale.suffixStart,
-              );
-            });
-    } catch {
-      this.postError = tr('work.tagLimit');
-      return false;
-    }
+    const bodyMarkdown =
+      choice === 'recreate'
+        ? session.bodyMarkdown
+        : rewriteTagKeys(
+            session.bodyMarkdown,
+            new SvelteMap(
+              choices.map((t) => [
+                t.key,
+                choice === 'remove' ? null : t.target,
+              ]),
+            ),
+          );
     const acknowledgements =
       choice === 'recreate'
         ? [

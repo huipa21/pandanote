@@ -10,6 +10,7 @@
     ssrOpen = false,
     onKey = () => {},
     customHeader = false,
+    lightDismiss = false,
     children,
   }: {
     open?: boolean;
@@ -20,6 +21,8 @@
     ssrOpen?: boolean;
     onKey?: (event: KeyboardEvent) => void;
     customHeader?: boolean;
+    /** Clicking the backdrop (outside the content) dismisses the dialog. */
+    lightDismiss?: boolean;
     children: Snippet;
   } = $props();
   const titleId = $props.id();
@@ -102,6 +105,8 @@
     open = false;
     onDismiss();
   }
+  // A press that starts inside the content and ends on the backdrop is not a dismissal.
+  let pressedBackdrop = false;
   function closed() {
     // The SSR-to-modal upgrade queues close; ignore it once reopened.
     if (dialog.open) return;
@@ -114,6 +119,7 @@
   bind:this={dialog}
   open={mounted ? dialog?.open : initialOpen || undefined}
   class={kind}
+  class:popup={customHeader && lightDismiss}
   aria-labelledby={titleId}
   onclose={closed}
   oncancel={(event) => {
@@ -121,6 +127,13 @@
     dismiss();
   }}
   onkeydown={keydown}
+  onpointerdown={(event) => {
+    pressedBackdrop = lightDismiss && event.target === dialog;
+  }}
+  onclick={(event) => {
+    if (pressedBackdrop && event.target === dialog) dismiss();
+    pressedBackdrop = false;
+  }}
 >
   {#if customHeader}<h2 class="sr-only" id={titleId}>{title}</h2>{:else}<header>
       <h2 id={titleId}>{title}</h2>
@@ -151,6 +164,13 @@
   dialog[open] {
     display: flex;
     flex-direction: column;
+  }
+  /* Light-dismiss popup: fit the content so padding is equal on both sides. */
+  dialog.popup {
+    width: min(
+      calc(20rem + 2 * var(--space-4) + 2px),
+      calc(100% - 2 * var(--outer-gap))
+    );
   }
   dialog::backdrop {
     background: var(--overlay);

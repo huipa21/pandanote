@@ -158,11 +158,11 @@ Open detail from timeline, close/Escape/Back, recover filters/scroll/focus. Deep
 
 ### TAG-01 — Extraction/identity
 
-English case-insensitive identity; Unicode Cantonese/Chinese/Japanese tags and marks supported. Nested `/` paths per [nested-tags/ACCEPTANCE_TESTS.md](nested-tags/ACCEPTANCE_TESTS.md). Duplicate tags collapse. Heading `# Heading`, inline/fenced code, escaped `\#tag`, HTML/URLs/link destinations do not become tags. Grammar/punctuation/source-offset edge cases have fixtures.
+English case-insensitive identity; Unicode Cantonese/Chinese/Japanese tags and marks supported. Flat only; `/` ends a tag. Duplicate tags collapse. Heading `# Heading`, inline/fenced code, escaped `\#tag`, HTML/URLs/link destinations do not become tags. Grammar/punctuation/source-offset edge cases have fixtures.
 
 ### TAG-02 — Filtering/autocomplete
 
-Existing-tag autocomplete is a vertical, borderless list of at most five locally prefix-filtered options, with selected-row highlight and keyboard/touch access; typing narrows results without uploading content. Selection uses exactly one tag including its subtree; repeated `tag` values are rejected. Card tags select the tag view without a redundant tag chip. Published usage counts exclude Trash. Large tag list remains usable without scrolling the entire desktop page.
+Existing-tag autocomplete is a vertical, borderless list of at most five locally prefix-filtered options, with selected-row highlight and keyboard/touch access; typing narrows results without uploading content. Selection uses exactly one tag; repeated `tag` values are rejected. Card tags select the tag view without a redundant tag chip. Published usage counts exclude Trash. Large tag list remains usable without scrolling the entire desktop page.
 
 ### TAG-03 — Management
 
@@ -195,7 +195,7 @@ Test `%`, `_`, quotes, `OR`, `NEAR`, asterisks, apostrophes, hyphens, emoji, wid
 
 ### SEARCH-03 — Filters/pagination/updates
 
-Published-only. Search AND the single selected tag (with subtags) AND selected-day range; several `tag` values are rejected. Sort timeline descending, not relevance. Calendar month never silently bounds search. Cursor from another filter rejected. Edit/publish/draft/trash/restore/tag/file-name changes reflected immediately. Reindex yields equivalent results. Stale browser responses cannot replace newer search query results.
+Published-only. Search AND the single selected tag AND selected-day range; several `tag` values are rejected. Sort timeline descending, not relevance. Calendar month never silently bounds search. Cursor from another filter rejected. Edit/publish/draft/trash/restore/tag/file-name changes reflected immediately. Reindex yields equivalent results. Stale browser responses cannot replace newer search query results.
 
 ### SEARCH-04 — Snippets
 

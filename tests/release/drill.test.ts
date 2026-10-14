@@ -85,10 +85,10 @@ test('deployment A: HTTPS edge, setup, TOTP, realistic private data and manual b
   const published = await mutate(
     page,
     A,
-    'Drill published 香港 café #Drill/Alpha 全文',
+    'Drill published 香港 café #DrillAlpha 全文',
     { timelineAt: Date.UTC(2023, 4, 17, 8, 30) },
   );
-  notes.published = 'Drill published 香港 café #Drill/Alpha 全文';
+  notes.published = 'Drill published 香港 café #DrillAlpha 全文';
   await mutate(page, A, 'Drill unfinished posted note #Unfinished');
   notes.unfinished = 'Drill unfinished posted note #Unfinished';
   const trashed = await mutate(page, A, 'Drill trashed note #TrashTag');
