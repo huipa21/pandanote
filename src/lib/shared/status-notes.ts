@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DomainError, idSchema, instantSchema } from './domain.ts';
-import { parseSearch } from './search.ts';
+import { canonicalSearch, parseSearch } from './search.ts';
 
 export const listStatusSchema = z.enum(['trash']);
 export type ListStatus = z.infer<typeof listStatusSchema>;
@@ -28,8 +28,8 @@ export const statusCursorSchema = z.strictObject({
   status: listStatusSchema,
   at: instantSchema,
   id: idSchema,
-  // Normalized search units bind the cursor to the query that produced it.
-  units: z.array(z.string().max(1024)).max(20),
+  // The canonical search expression binds the cursor to the query that produced it.
+  q: z.string().max(4096),
 });
 export function parseStatusQuery(params: URLSearchParams) {
   if (
@@ -52,9 +52,16 @@ export function parseStatusQuery(params: URLSearchParams) {
     (cursor !== null && (!cursor || cursor.length > 2048))
   )
     throw new DomainError('validation', 'err.chooseTrashAndAPage');
-  // Same literal grammar as note search; an absent or empty q lists all Trash.
-  const units = parseSearch(params.get('q') ?? '');
-  return { status: status.data, limit: Number(rawLimit), cursor, units };
+  // Same grammar as note search; an absent or empty q lists all Trash.
+  const query = params.get('q') ?? '';
+  const search = parseSearch(query);
+  return {
+    status: status.data,
+    limit: Number(rawLimit),
+    cursor,
+    search,
+    query: canonicalSearch(query),
+  };
 }
 export function statusExcerpt(
   text: string,

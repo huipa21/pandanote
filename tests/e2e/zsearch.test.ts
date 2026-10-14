@@ -192,3 +192,45 @@ test('superseded search/paging responses cannot replace newer results; AND tags,
     ),
   ).toBe(true);
 });
+
+test('boolean search: AND/OR/NOT, parentheses and tag: combine, malformed syntax is explained, help is available', async ({
+  page,
+}) => {
+  const { search } = await start(page);
+  const cards = page.getByTestId('posted-note');
+  await search.fill('latestNeedle OR "coffee shop"');
+  await expect(cards).toHaveCount(2);
+  await search.fill('coffee NOT "at a new"');
+  await expect(cards).toHaveCount(1);
+  await search.fill('(latestNeedle OR "coffee shop") NOT tag:s10even');
+  await expect(cards).toHaveCount(1);
+  await expect(cards.first()).toContainText('latestNeedle');
+  await expect(page).toHaveURL(/q=/);
+  // Lower-case words and quoted operators stay literal text.
+  await search.fill('"coffee or tea"');
+  await expect(
+    page.getByRole('heading', { name: 'No matching notes' }),
+  ).toBeVisible();
+  const url = page.url();
+  await search.fill('coffee AND');
+  await expect(search).toHaveAttribute('aria-invalid', 'true');
+  await expect(
+    page
+      .getByText('AND, OR and NOT need a search term', { exact: false })
+      .first(),
+  ).toBeVisible();
+  await search.fill('(coffee');
+  await expect(
+    page.getByText('Close every ( with )', { exact: false }).first(),
+  ).toBeVisible();
+  await page.waitForTimeout(450);
+  expect(page.url()).toBe(url);
+  const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+  const help = sidebar.getByRole('button', { name: 'Search syntax help' });
+  await expect(help).toHaveAttribute('aria-expanded', 'false');
+  await help.click();
+  await expect(help).toHaveAttribute('aria-expanded', 'true');
+  await expect(sidebar.getByText('tag:name', { exact: false })).toBeVisible();
+  await help.click();
+  await expect(sidebar.getByText('tag:name', { exact: false })).toHaveCount(0);
+});

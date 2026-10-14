@@ -84,12 +84,16 @@ test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge
   const main = page.getByRole('main', { name: 'Notes pane' });
   await expect(main.getByRole('heading', { level: 1 })).toHaveText('Tags');
 
-  // One slim search field: no placeholder/help text, inert filter control.
+  // One slim search field: no placeholder; the last control opens the syntax help.
   const search = main.getByRole('searchbox', { name: 'Search tags' });
   await expect(search).toBeEnabled();
   expect(await search.getAttribute('placeholder')).toBeNull();
-  await expect(main.getByRole('button', { name: 'Filter' })).toBeDisabled();
-  await expect(main.getByRole('button', { name: /search/i })).toHaveCount(0);
+  const help = main.getByRole('button', { name: 'Search syntax help' });
+  await expect(help).toHaveAttribute('aria-expanded', 'false');
+  await help.click();
+  await expect(main.getByText('tag:name', { exact: false })).toBeVisible();
+  await help.click();
+  await expect(main.getByRole('button', { name: /search/i })).toHaveCount(1);
 
   expect(await axeViolations(page)).toEqual([]);
 
@@ -119,6 +123,19 @@ test('Tags page: flat lazy list, Enter search, single-tag view with rename/merge
     new RegExp(`^#${root}a\\s*1$`),
     new RegExp(`^#${root}b\\s*1$`),
   ]);
+  // The same AND/OR/NOT/parentheses/tag: grammar searches tag names.
+  await search.fill(`${root} NOT ${root}b`);
+  await search.press('Enter');
+  await expect(paths).toHaveText([new RegExp(`^#${root}a\\s*1$`)]);
+  await search.fill(`tag:${root}b OR (${root}a NOT ${root}a)`);
+  await search.press('Enter');
+  await expect(paths).toHaveText([new RegExp(`^#${root}b\\s*1$`)]);
+  await search.fill('(a');
+  await search.press('Enter');
+  await expect(main.getByRole('alert')).toContainText('Close every (');
+  await search.fill(root);
+  await search.press('Enter');
+  await expect(paths).toHaveCount(2);
   await paths.first().click();
   await expect(page).toHaveURL(`/?tag=${root}a`);
 

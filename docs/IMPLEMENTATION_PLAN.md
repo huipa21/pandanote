@@ -592,6 +592,17 @@ posting/editor/detail/Storage browsers and actual Linux SQLite/archive behavior.
 
 **Next hint:** only after this gate, collect actual usage feedback. Treat new features as separately approved scope, not reasons to destabilize the completed core.
 
+## Approved change — Boolean search (AND / OR / NOT / parentheses / tag:)
+
+User-approved (implemented in one session). Supersedes the "all units ANDed,
+OR/NOT literal" contract for note, Trash and tag-name search; the single `tag` filter is
+unchanged. Spec: PRODUCT_SPEC §8, ARCHITECTURE §8.4, acceptance SEARCH-05. Order followed:
+BS1 AST parser/canonical form/oracle (`shared/search.ts`), BS2 SQL tree + sound FTS
+candidates (`server/search/query.ts`), BS3 timeline/Trash/snippet/client reconciliation,
+BS4 tag-name search + Tags-page error state, BS5 syntax-help control (formerly inert filter
+icon), BS6 docs/benchmark/tests. Gate: check, lint, unit, integration, build, affected e2e,
+`search:benchmark`.
+
 ## Approved enhancement — Commit-derived release versioning
 
 User explicitly approved implementation before the outstanding S18 deployment/manual

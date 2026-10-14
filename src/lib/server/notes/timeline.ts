@@ -18,6 +18,7 @@ import type { Persistence } from '../db/connection.ts';
 import { searchPredicates, snippetColumns } from '../search/query.ts';
 import {
   parseSearch,
+  positiveSearch,
   searchSnippet,
   type SearchSnippet,
 } from '../../shared/search.ts';
@@ -86,9 +87,11 @@ type TimelineItem = NoteSnapshot & {
 function hydrate(
   tx: Pick<Reader, 'select'>,
   rows: CardRow[],
-  units: ReturnType<typeof parseSearch>,
+  search: ReturnType<typeof parseSearch>,
 ): TimelineItem[] {
   const ids = rows.map((r) => r.id);
+  const { terms, tags: tagKeys } = positiveSearch(search);
+  const hasPositive = terms.length > 0 || tagKeys.length > 0;
   const linkedTags = ids.length
     ? tx
         .select({ noteId: noteTags.noteId, key: tags.normalizedKey })
@@ -115,16 +118,16 @@ function hydrate(
     const files = linkedFiles
       .filter((a) => a.noteId === row.id)
       .map((a) => attachmentDto(a.attachment));
-    const snippets = units.length
+    const snippets = hasPositive
       ? [
           row.searchBody
-            ? searchSnippet('body', row.searchBody, units)
+            ? searchSnippet('body', row.searchBody, terms)
             : undefined,
           row.searchTag
-            ? searchSnippet('tag', row.searchTag, units)
+            ? searchSnippet('tag', row.searchTag, [...terms, ...tagKeys])
             : undefined,
           row.searchFilename
-            ? searchSnippet('filename', row.searchFilename, units)
+            ? searchSnippet('filename', row.searchFilename, terms)
             : undefined,
         ].filter((s): s is SearchSnippet => !!s)
       : undefined;
@@ -152,13 +155,13 @@ function hydrate(
 }
 function pinnedRows(
   tx: Pick<Reader, 'select'>,
-  units: ReturnType<typeof parseSearch>,
+  search: ReturnType<typeof parseSearch>,
 ) {
   return tx
     .select({
       ...getTableColumns(notes),
       bodyMarkdown: sql<string>`substr(${notes.bodyMarkdown}, 1, ${CARD_SOURCE_BYTES + 1})`,
-      ...snippetColumns(units),
+      ...snippetColumns(search),
     })
     .from(notes)
     .where(and(eq(notes.status, 'published'), isNotNull(notes.pinnedAt)))
@@ -173,7 +176,7 @@ export async function timelinePage(
   now = Date.now(),
 ): Promise<TimelinePage> {
   const { filters, cursor, limit } = parseTimelineQuery(params);
-  const units = parseSearch(filters.query ?? '');
+  const search = parseSearch(filters.query ?? '');
   const settings = readSettings(p);
   const timezone = settings.timezone;
   if (filters.date) filters.day = dayRange(filters.date, timezone);
@@ -183,7 +186,7 @@ export async function timelinePage(
     ? decoded.anchor
     : month
       ? month.end
-      : filters.tag !== undefined || units.length || filters.day
+      : filters.tag !== undefined || search || filters.day
         ? null
         : currentMonthEnd(timezone, now);
   const key = fingerprint(filterKey(filters), timezone, anchor);
@@ -193,22 +196,19 @@ export async function timelinePage(
       decoded.timezone !== timezone ||
       (month && anchor !== month.end) ||
       (!month &&
-        (filters.tag !== undefined || units.length > 0 || filters.day) &&
+        (filters.tag !== undefined || search || filters.day) &&
         anchor !== null))
   )
     throw new DomainError('validation', 'err.thisCursorBelongsToDifferent');
   // Plain "All notes" view: pinned notes live in their own first-page section and
   // are excluded from the chronological stream.
   const plain =
-    filters.tag === undefined &&
-    !units.length &&
-    !filters.day &&
-    !filters.month;
+    filters.tag === undefined && !search && !filters.day && !filters.month;
   const result = p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
     const predicates = [
       eq(notes.status, 'published'),
-      ...searchPredicates(units),
+      ...searchPredicates(search),
     ];
     if (plain) predicates.push(isNull(notes.pinnedAt));
     if (filters.day)
@@ -234,7 +234,7 @@ export async function timelinePage(
       .select({
         ...getTableColumns(notes),
         bodyMarkdown: sql<string>`substr(${notes.bodyMarkdown}, 1, ${CARD_SOURCE_BYTES + 1})`,
-        ...snippetColumns(units),
+        ...snippetColumns(search),
       })
       .from(notes)
       .where(and(...predicates))
@@ -256,9 +256,11 @@ export async function timelinePage(
       bounded.push(row);
       used += bytes;
     }
-    const items = hydrate(tx, bounded, units);
+    const items = hydrate(tx, bounded, search);
     const pinned =
-      plain && !decoded ? hydrate(tx, pinnedRows(tx, units), units) : undefined;
+      plain && !decoded
+        ? hydrate(tx, pinnedRows(tx, search), search)
+        : undefined;
     const last = items.at(-1);
     return {
       items,

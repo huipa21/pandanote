@@ -182,7 +182,7 @@ Main area:
 - Single-column chronological cards. Not masonry, despite the conversational use of “waterfall.” Reading order must be unambiguous.
 - Sidebar, calendar, and search do not scroll away with notes. Drag the sidebar's right edge to adjust its desktop width; keyboard resizing is also available.
 
-The sidebar lists the most-used tags as borderless flowing chips a "+N" link and the heading open the Tags page for the rest. All search fields share one slim look: magnifier first, a (currently inert) filter icon last, no placeholder or help text. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
+The sidebar lists the most-used tags as borderless flowing chips a "+N" link and the heading open the Tags page for the rest. All search fields share one slim look: magnifier first, a help icon last that toggles a short syntax note (AND/OR/NOT, parentheses, `tag:`), and no placeholder. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
 
 ### 3.4 Mobile shell
 
@@ -266,7 +266,7 @@ Trash:
 - Permanent delete requires explicit confirmation.
 - No automatic Trash emptying.
 - Trash is excluded from normal search/calendar/timeline.
-- Trash page search: a search field sits directly under the Trash title (Enter to search, like the Tags page). It matches trashed notes only, with the same literal multi-term grammar as note search. The sidebar search still covers active notes only.
+- Trash page search: a search field sits directly under the Trash title (Enter to search, like the Tags page). It matches trashed notes only, with the same boolean grammar as note search (§8). The sidebar search still covers active notes only.
 - Trash list: 30 notes first; scrolling lazy-loads 30 more. Each entry is a compact list row (checkbox, date, tag chips, one-line excerpt) spanning the full column width at one fixed height; long text clamps to one line. The checkbox sits inside the row. The list header has a select-all checkbox, then Restore and Delete Permanently icons; with nothing selected the icons are disabled. The date opens the note detail. Rows have no per-note buttons.
 - Selection: a checkbox before each row and a text-free Select all icon that selects the displayed notes. With a selection, a restore icon and a delete-permanently icon appear on the Select all row. Each bulk action asks for confirmation first and runs the per-note lifecycle one note at a time; a failure stops the batch and opens the usual dialog.
 - Attachment bytes still in Trash count toward storage.
@@ -275,7 +275,7 @@ Trash:
 
 - Inline hashtags, with autocomplete of existing tags: at most five prefix-filtered options in a vertical, borderless list, with selected-row highlighting and existing keyboard/touch interaction. Suggestions narrow as text is typed, without sending the prefix or note content to the server.
 - Flat tags only; no parent/child behavior. A `/` ends a hashtag (`#work/meeting` is the tag `work` followed by ordinary text).
-- Sidebar tags are flowing chips ordered by published-note count (descending). Tags page: title "Tags", search directly below (Enter to search), flat list of every tag as soft chips with counts, loaded lazily 60 at a time.
+- Sidebar tags are flowing chips ordered by published-note count (descending). Tags page: title "Tags", search directly below (Enter to search), flat list of every tag as soft chips with counts, loaded lazily 60 at a time. Tags-page search uses the §8 boolean grammar over tag names: a bare term matches part of a tag name, `tag:name` an exact tag, and a leading `#` is ignored.
 - Unicode Chinese/Japanese/Cantonese characters supported.
 - English tag identity is case-insensitive: #Work and #work are the same tag.
 - Ignore code blocks, inline code, raw HTML, URLs/link destinations, and escaped hashtag markers when extracting tags.
@@ -302,8 +302,13 @@ Meaning: normalized literal substring matching, not whole-note equality, fuzzy s
 - Search published Markdown source, tags, and attachment filenames.
 - Code content is searchable.
 - Do not search inside files.
-- Multi-term query: all terms must match somewhere in the note's searchable fields.
+- Multi-term query: all terms must match somewhere in the note's searchable fields (adjacent terms mean AND).
 - Quoted text is one exact phrase.
+- Boolean operators (approved change): uppercase `AND`, `OR` and `NOT` and parentheses `( )` (full-width `（ ）` too) combine terms, phrases and `tag:name`. Precedence is NOT, then AND, then OR; adjacent operands are an implicit AND, e.g. `coffee (tea OR milk) NOT sugar`.
+- Operators are recognised only when unquoted and exactly uppercase. Lower-case `and`/`or`/`not`, `NEAR`, `%`, `_`, `*`, `-` and every other punctuation character stay literal text. Quote a phrase or a word to make operators or parentheses literal (`"a OR b"`, `"f(x)"`).
+- `NOT term` excludes a note when any searchable field contains the term. A query of only NOTs is allowed and scans all published notes.
+- `tag:name` (also `tag:#name`, `tag:"name"`) matches the exact normalized tag, unlike a bare term which matches part of the body, any tag or a file name. It is a search term; the single `tag` filter and tag view are unchanged and still combine with the search by AND.
+- Malformed syntax (dangling operator, empty or unbalanced parentheses, `tag:` without a name, over 8 levels of nesting, over 40 operators, plus the existing quote/length/20-unit limits) shows a clear validation message and does not change the results. Only terms that must be present (not under NOT) are highlighted.
 - Terms without spaces, e.g. 香港 or 図書館, are literal substrings.
 - English matching is case-insensitive.
 - No automatic Traditional/Simplified equivalence, Japanese reading conversion, or Jyutping.
@@ -312,7 +317,7 @@ Meaning: normalized literal substring matching, not whole-note equality, fuzzy s
 - Results are newest-first by timeline date, not relevance-ranked.
 - Search and tag filters cover all months unless a day filter is selected.
 - Calendar's active month is not an implicit search filter.
-- Search, tags, and selected day combine using AND.
+- Search (including its own boolean logic), the selected tag, and the selected day combine using AND.
 - Visible filter chips and Clear all.
 - Cursor pagination/lazy loading for results, not a download of the whole collection.
 

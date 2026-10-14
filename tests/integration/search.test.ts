@@ -16,6 +16,7 @@ import {
 } from '../../src/lib/server/db/schema.ts';
 import { NoteService } from '../../src/lib/server/notes/service.ts';
 import { timelinePage } from '../../src/lib/server/notes/timeline.ts';
+import { statusPage } from '../../src/lib/server/notes/status-list.ts';
 import { searchPredicates } from '../../src/lib/server/search/query.ts';
 import {
   reindexSearch,
@@ -116,8 +117,8 @@ it('matches SEARCH-01/02 literals across separate fields, code and normalization
       'codeonly',
       '%',
       '_',
-      'OR',
-      'NEAR',
+      '"OR"',
+      '"NEAR"',
       '*',
       '\\path',
       'café',
@@ -222,7 +223,11 @@ it('uses actual trigram candidates plus a separate-field literal oracle with det
     for (const unit of units) {
       if (!unit.length) continue;
       const oracle = data
-        .filter((r, i) => i % 11 !== 0 && matchesSearch(r.fields, [unit]))
+        .filter(
+          (r, i) =>
+            i % 11 !== 0 &&
+            matchesSearch(r.fields, { type: 'term', value: unit }),
+        )
         .map((r) => r.id)
         .sort();
       for (const accelerate of [true, false]) {
@@ -232,7 +237,7 @@ it('uses actual trigram candidates plus a separate-field literal oracle with det
           .where(
             and(
               eq(notes.status, 'published'),
-              ...searchPredicates([unit], accelerate),
+              ...searchPredicates({ type: 'term', value: unit }, accelerate),
             ),
           )
           .all()
@@ -374,5 +379,178 @@ it('combines search, tag, UTC day and tied-date cursors; source changes/status/d
         .prepare('select note_id from note_search_fts where note_id=?')
         .get(target.noteId),
     ).toBeUndefined();
+  });
+});
+
+it('evaluates AND/OR/NOT/parentheses/tag: identically in SQL (FTS candidates on and off), the literal oracle and Trash', async () => {
+  await withPersistence(async (p) => {
+    const identity = owner(p),
+      service = new NoteService(p);
+    let state = 424242;
+    const next = (n: number) => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state % n;
+    };
+    const words = ['alpha', 'beta', 'gamma', 'delta', '香港', '猫', 'ab', 'OR'];
+    const tagNames = ['work', 'home', 'old', 'ab'];
+    const data: { id: string; fields: string[]; tags: string[] }[] = [];
+    for (let n = 0; n < 160; n++) {
+      const body = Array.from(
+        { length: 1 + next(4) },
+        () => words[next(words.length)],
+      );
+      const chosen = tagNames.filter(() => next(3) === 0);
+      const source = [...body, ...chosen.map((t) => '#' + t)].join(' ');
+      const made = service.mutate(identity, command(source));
+      data.push({
+        id: made.noteId,
+        fields: [source, ...chosen],
+        tags: chosen,
+      });
+    }
+    // The last ten notes go to Trash and must never appear in published results.
+    const trashed = data.splice(-10);
+    for (const t of trashed)
+      service.mutate(identity, {
+        action: 'trash',
+        mutationId: randomUUID(),
+        noteId: t.id,
+        expectedRevision: 1,
+      });
+    const leaf = (): string => {
+      const r = next(10);
+      if (r < 6)
+        return words[next(words.length)] === 'OR'
+          ? '"OR"'
+          : words[next(words.length)];
+      if (r < 8) return `tag:${tagNames[next(tagNames.length)]}`;
+      return `"${words[next(words.length)]}"`;
+    };
+    const gen = (depth: number): string => {
+      const r = next(depth > 2 ? 3 : 9);
+      if (r < 3) return leaf();
+      if (r === 3) return `NOT ${gen(depth + 1)}`;
+      if (r === 4) return `(${gen(depth + 1)})`;
+      if (r < 7)
+        return `${gen(depth + 1)} ${['AND', 'OR', ''][next(3)]} ${gen(depth + 1)}`;
+      return `NOT (${gen(depth + 1)} OR ${gen(depth + 1)})`;
+    };
+    const queries = Array.from({ length: 150 }, () => gen(0));
+    let checked = 0,
+      nonEmpty = 0;
+    for (const query of queries) {
+      let search;
+      try {
+        search = parseSearch(query);
+      } catch {
+        continue; // over a bound, e.g. too many units
+      }
+      const oracle = data
+        .filter((r) => matchesSearch(r.fields, search, r.tags))
+        .map((r) => r.id)
+        .sort();
+      checked++;
+      if (oracle.length) nonEmpty++;
+      for (const accelerate of [true, false]) {
+        const actual = p.db
+          .select({ id: notes.id })
+          .from(notes)
+          .where(
+            and(
+              eq(notes.status, 'published'),
+              ...searchPredicates(search, accelerate),
+            ),
+          )
+          .all()
+          .map((r) => r.id)
+          .sort();
+        expect(actual, JSON.stringify([query, accelerate])).toEqual(oracle);
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+    expect(nonEmpty).toBeGreaterThan(60);
+    // The timeline contract: newest-first, same results, only positive terms highlighted.
+    const page = await timelinePage(
+      p,
+      identity,
+      params('(alpha OR 香港) AND NOT tag:old', { limit: '100' }),
+    );
+    const search = parseSearch('(alpha OR 香港) AND NOT tag:old');
+    // Equal timeline dates tie-break by descending id; one page holds at most 100.
+    expect(page.items.map((n) => n.id)).toEqual(
+      data
+        .filter((r) => matchesSearch(r.fields, search, r.tags))
+        .map((r) => r.id)
+        .sort()
+        .reverse()
+        .slice(0, 100),
+    );
+    const highlighted = page.items.flatMap((n) =>
+      (n.snippets ?? [])
+        .flatMap((s) => s.segments)
+        .filter((s) => s.highlighted)
+        .map((s) => s.text),
+    );
+    expect(highlighted.length).toBeGreaterThan(0);
+    for (const text of highlighted) expect(['alpha', '香港']).toContain(text);
+    // A purely negative query has no highlights and still paginates/filters.
+    const negative = await timelinePage(
+      p,
+      identity,
+      params('NOT alpha', { limit: '100' }),
+    );
+    expect(negative.items.length).toBe(
+      Math.min(
+        100,
+        data.filter((r) => !matchesSearch(r.fields, parseSearch('alpha')))
+          .length,
+      ),
+    );
+    expect(negative.items.every((n) => !n.snippets?.length)).toBe(true);
+    // Cursor identity uses the canonical expression, not operand order.
+    const a = await timelinePage(
+      p,
+      identity,
+      params('beta OR gamma', { limit: '5' }),
+    );
+    expect(a.nextCursor).toBeTruthy();
+    await expect(
+      timelinePage(
+        p,
+        identity,
+        params('beta OR gamma OR delta', { limit: '5', cursor: a.nextCursor! }),
+      ),
+    ).rejects.toThrow();
+    expect(
+      (
+        await timelinePage(
+          p,
+          identity,
+          params('gamma OR beta', { limit: '5', cursor: a.nextCursor! }),
+        )
+      ).items.length,
+    ).toBeGreaterThan(0);
+    await expect(
+      timelinePage(p, identity, params('alpha AND (beta', { limit: '5' })),
+    ).rejects.toThrow();
+    // Trash uses the same grammar and only lists trashed notes.
+    const trash = statusPage(
+      p,
+      identity,
+      new URLSearchParams({
+        status: 'trash',
+        limit: '50',
+        q: 'NOT alpha AND (beta OR gamma OR delta OR "OR" OR ab)',
+      }),
+    );
+    const trashSearch = parseSearch(
+      'NOT alpha AND (beta OR gamma OR delta OR "OR" OR ab)',
+    );
+    expect(trash.items.map((i) => i.id).sort()).toEqual(
+      trashed
+        .filter((r) => matchesSearch(r.fields, trashSearch, r.tags))
+        .map((r) => r.id)
+        .sort(),
+    );
   });
 });

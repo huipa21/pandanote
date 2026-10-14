@@ -654,7 +654,9 @@ export const zhCN: Partial<Catalog> = {
   'stale.nothingPosts':
     '不会自动发布。请检查你的源内容，并明确点击“发布”或“保存更改”。另一项标签更改需要重新复查。',
   'tagauto.existing': '已有标签',
-  'search.filter': '筛选',
+  'search.filter': '搜索语法帮助',
+  'search.help':
+    '所有词都必须匹配。用大写的 OR、NOT 和 ( ) 组合条件，用 tag:名称 精确匹配标签。把文字放进双引号可按字面匹配，例如 "a OR b" 或 "f(x)"。',
   'work.maxFiles': '一条笔记最多可附加 {count} 个文件。',
   'work.onlyMedia': '笔记只能添加照片和视频。',
   'work.oneVideo': '一条笔记只能有一个视频。',
@@ -965,6 +967,12 @@ export const zhCN: Partial<Catalog> = {
   'err.anExactPhraseCannotBe': '精确短语不能为空。',
   'err.normalizedSearchIsLimitedTo': '规范化后的搜索限制为 256 个字符。',
   'err.useAtMost20Search': '最多使用 20 个搜索词。',
+  'err.searchTagNeedsAName': 'tag: 后请写标签名，例如 tag:work。',
+  'err.searchHasTooManyOperators': '最多使用 40 个 AND、OR 或 NOT 运算符。',
+  'err.searchIsNestedTooDeeply': '搜索分组和 NOT 嵌套过深。',
+  'err.searchOperatorNeedsOperand': 'AND、OR 和 NOT 的适用一侧需要搜索词。',
+  'err.searchEmptyGroup': '括号内不能为空。',
+  'err.searchUnbalancedParentheses': '请用 ) 闭合每个 (，或把文字放进双引号。',
   'err.invalidTrashQuery': '回收站查询无效。',
   'err.chooseTrashAndAPage': '请选择回收站和 1 至 100 的每页数量。',
   'err.invalidTagFilter': '标签筛选无效。',

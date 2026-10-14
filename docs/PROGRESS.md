@@ -2,6 +2,14 @@
 
 ## Current state
 
+- **Boolean search (AND / OR / NOT / parentheses / `tag:`) — implemented / host-verified; Linux image and full release gates not re-run.**
+  Note, Trash and Tags-page search share one AST grammar (uppercase unquoted operators,
+  `( )` and full-width `（ ）`, implicit AND, NOT > AND > OR, `tag:name` exact tag).
+  Quoted text and everything else stay literal; the single `tag` filter is unchanged.
+  Canonical pure-AND form is unchanged (existing URLs/cursors stay valid); Trash cursor field `units` → `q`.
+  The formerly inert search filter icon is now a syntax-help toggle. Gates and details:
+  history entry "Session — boolean search" at the end of this file.
+
 - **User-requested location removal — implemented / host and Linux-native verified;
   full release gate not claimed.** Removed toolbar/dialog/popover/map helpers,
   note/editor/API/SQLite fields and translations; location tests removed, unrelated
@@ -5420,3 +5428,32 @@ after the successful host build, Linux270 and final affected25 browser gate.
   (tag-management verified; shell failures match earlier recorded pre-existing ones).
   Full e2e suite and the Linux/Alpine validation image were not re-run.
 - Next: user review/commit; optionally add a sidebar e2e for count order and the "+N" link.
+
+## Session — boolean search (AND / OR / NOT / parentheses / tag:) (user request)
+
+- Step: implemented the plan described in the assessment; state **done for the requested scope** (see limits below).
+- Decisions (recorded in PRODUCT_SPEC §8/§7, ARCHITECTURE §8.4, ACCEPTANCE SEARCH-05, IMPLEMENTATION_PLAN):
+  uppercase unquoted `AND`/`OR`/`NOT` only; unquoted parentheses are always structural (quote `"f(x)"` to search
+  them) and full-width parentheses group; implicit AND; precedence NOT > AND > OR; `tag:name` (exact tag) is a search
+  term while the `tag` URL filter/tag view stay single-tag; limits 20 units/256 normalized codepoints/1024 input +
+  40 operators + 8 nesting levels; NOT is note-level; a NOT-only query scans; FTS candidates are a sound
+  over-approximation (AND narrows, OR only if all branches indexable, NOT never); help control reuses the inert filter icon.
+- Code: `shared/search.ts` (AST, tokenizer, canonicalization, `matchesSearch(fields, search, tags)`, `positiveSearch`,
+  `mapSearchValues`), `server/search/query.ts` (`compileSearch`, `ftsCandidates`, snippet columns from positive terms),
+  `server/notes/timeline.ts`, `server/notes/status-list.ts`, `shared/status-notes.ts`, `shared/timeline.ts`,
+  `routes/(app)/+page.svelte`, `server/tags/service.ts`, `routes/(app)/tags/+page.{server.ts,svelte}`,
+  `components/SearchBox.svelte`, i18n en + zh-CN (`err.search*`, `search.help`, `search.filter` text), `scripts/search-benchmark.ts`.
+- Tests: rewrote the literal `OR NEAR` unit expectation; new unit tests (precedence, errors/bounds, canonical round-trip,
+  evaluator, positive terms, FTS candidate soundness); integration randomized-AST oracle (SQL with FTS on/off vs JS, 150 queries,
+  >60 non-empty), timeline/Trash/cursor/snippet checks, tag-name search; e2e boolean search + help control + tags-page grammar.
+- Commands/results (Windows host): `npm run check` 0 errors, 1 pre-existing AppShell warning; `npm run lint` ESLint clean,
+  Prettier only flags `docs/PROGRESS.md` (pre-existing); `npm run test:unit` 167 pass; `npm run test:integration` 257 pass,
+  7 platform skips, 1 fail — `release-hygiene` DOC link check (`docs/PROGRESS.md` links missing `nested-tags/PROGRESS.md`),
+  identical on clean HEAD (verified with `git stash`); `npm run build` pass; `playwright test zsearch tags-page`: 6 pass;
+  `search-navigation status-notes shell calendar zzzaccessibility`: 20 pass / 7 fail, the same 7 fail on a clean HEAD build
+  (shell 41/189 screenshot baselines, calendar 475/607, accessibility 128 light/dark/163). `npm run search:benchmark`
+  (10k notes) oracle-equal for the 4 new boolean queries, indexed and scanned (sub-3 ms p95 for the early-exit 31-row page).
+- Not run: Linux/Alpine image gate, full e2e suite, real-VPS/browser-cold budgets; no native/dependency change was made.
+- Known limits: unquoted `(`/`)` in a query changes meaning (documented); a lone `(` reports "needs a search term" rather
+  than "unbalanced"; operators are English-only and uppercase; old Trash cursors from before the change are rejected as invalid.
+- Next: user review/commit; optionally run full e2e and the Linux image gate at the next milestone.

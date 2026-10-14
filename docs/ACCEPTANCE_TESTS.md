@@ -191,7 +191,7 @@ Rename, case-only rename, merge, remove across server statuses. Modify hashtag s
 
 ### SEARCH-02 — Literal safety/oracle
 
-Test `%`, `_`, quotes, `OR`, `NEAR`, asterisks, apostrophes, hyphens, emoji, width variants and combining forms. Unsupported malformed query syntax has clear validation. Compare FTS candidate/fallback results to a direct normalized literal oracle on randomized fixtures; no false negatives allowed from acceleration. Unicode length measured by codepoints, not UTF-16 length alone.
+Test `%`, `_`, quotes, lower-case `or`/`and`/`not`, quoted `"OR"`, `NEAR`, asterisks, apostrophes, hyphens, emoji, width variants and combining forms. Unsupported malformed query syntax has clear validation. Compare FTS candidate/fallback results to a direct normalized literal oracle on randomized fixtures; no false negatives allowed from acceleration. Unicode length measured by codepoints, not UTF-16 length alone.
 
 ### SEARCH-03 — Filters/pagination/updates
 
@@ -200,6 +200,16 @@ Published-only. Search AND the single selected tag AND selected-day range; sever
 ### SEARCH-04 — Snippets
 
 Matches visibly highlighted, snippets escaped and safe. Unicode normalization cannot corrupt saved body or misapply HTML ranges. Malicious source text/snippet does not execute. Long note/result payloads remain bounded.
+
+### SEARCH-05 — Boolean operators and tag terms
+
+- `a OR b`, `a AND b`, `a NOT b`, `NOT a`, `(a OR b) c`, nested groups and chained NOT return exactly the notes the literal oracle expects across body, tag and file-name fields; precedence is NOT > AND > OR; adjacent terms are AND.
+- Lower-case `and`/`or`/`not`, quoted `"OR"`/`"(x)"`/`"tag:x"`, `NEAR`, `%`, `_`, `*` and hyphens are literal. Full-width parentheses group.
+- `tag:work` matches only the exact tag (not `work-log`, not body text); `NOT tag:old`, `tag:a OR tag:b` work and combine with the single `tag` filter and day by AND. Several `tag` params are still rejected.
+- Malformed input (`a AND`, `OR a`, `()`, `(a`, `a)`, `tag:`, >8 nesting, >40 operators, >20 units) gives a localized validation message, keeps the typed text, leaves the URL/results unchanged and never reaches SQL as syntax.
+- Randomized SQL (FTS candidates on and off) equals the oracle with no false negatives, including NOT-only, OR with short CJK units and OR branches that cannot be indexed. Canonical forms are order/redundancy independent, idempotent and keep the old pure-AND form; a cursor from another expression is rejected.
+- Only positive terms are highlighted; pure-negative queries show no snippets. Trash search uses the same grammar. Tags-page search accepts the grammar over tag names (`#` ignored, `tag:` exact) and shows invalid input beside the field. The search help control toggles the syntax note (keyboard operable, `aria-expanded`).
+- Short-term/OR/NOT-only scans are measured in the search benchmark and reported with the other short-query timings.
 
 ## 8. Calendar and scrolling
 

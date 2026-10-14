@@ -2,8 +2,8 @@
   import type { HTMLInputAttributes } from 'svelte/elements';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   /**
-   * The one search field look: slim, magnifier first, filter control last. The
-   * filter control is a placeholder for now and stays inert.
+   * The one search field look: slim, magnifier first, help control last. The
+   * last control toggles a short note on the search syntax (AND/OR/NOT, tag:).
    */
   const t = useI18n().t;
   let {
@@ -19,6 +19,7 @@
     filterLabel?: string;
     id: string;
   } & Omit<HTMLInputAttributes, 'value' | 'type' | 'id'> = $props();
+  let helpOpen = $state(false);
 </script>
 
 <div class="search-box" class:invalid={rest['aria-invalid']}>
@@ -28,12 +29,22 @@
   </svg>
   <label class="sr-only" for={id}>{label}</label>
   <input {id} type="search" bind:value {...rest} />
-  <button type="button" class="filter" aria-label={filterLabel} disabled>
+  <button
+    type="button"
+    class="filter"
+    aria-label={filterLabel}
+    aria-expanded={helpOpen}
+    aria-controls={`${id}-help`}
+    onclick={() => (helpOpen = !helpOpen)}
+  >
     <svg aria-hidden="true" viewBox="0 0 20 20" class="icon">
       <path d="M3 5.5h14M6 10h8M8.5 14.5h3" />
     </svg>
   </button>
 </div>
+{#if helpOpen}
+  <p id={`${id}-help`} class="search-help">{t('search.help')}</p>
+{/if}
 
 <style>
   .search-box {
@@ -91,7 +102,17 @@
     background: transparent;
     color: inherit;
   }
-  .filter:disabled {
+  .filter {
     opacity: 0.7;
+  }
+  .filter:hover,
+  .filter[aria-expanded='true'] {
+    opacity: 1;
+  }
+  .search-help {
+    margin: var(--space-1) 0 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
   }
 </style>

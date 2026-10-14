@@ -703,7 +703,9 @@ export const en = {
   'stale.nothingPosts':
     'Nothing posts automatically. Review your source and explicitly Post or Save changes. Another tag change will require a new review.',
   'tagauto.existing': 'Existing tags',
-  'search.filter': 'Filter',
+  'search.filter': 'Search syntax help',
+  'search.help':
+    'Words must all match. Use OR, NOT (capitals) and ( ) to combine, and tag:name for an exact tag. Put text in double quotes to match it literally, such as "a OR b" or "f(x)".',
   'work.maxFiles': 'You can attach at most {count} files to one note.',
   'work.onlyMedia': 'Only photos and videos can be added to a note.',
   'work.oneVideo': 'A note can have only one video.',
@@ -1087,6 +1089,15 @@ export const en = {
   'err.normalizedSearchIsLimitedTo':
     'Normalized search is limited to 256 characters.',
   'err.useAtMost20Search': 'Use at most 20 search terms.',
+  'err.searchTagNeedsAName':
+    'Write a tag name after tag:, for example tag:work.',
+  'err.searchHasTooManyOperators': 'Use at most 40 AND, OR or NOT operators.',
+  'err.searchIsNestedTooDeeply': 'Search groups and NOT are nested too deeply.',
+  'err.searchOperatorNeedsOperand':
+    'AND, OR and NOT need a search term on each side that applies.',
+  'err.searchEmptyGroup': 'Parentheses cannot be empty.',
+  'err.searchUnbalancedParentheses':
+    'Close every ( with ) or put the text in double quotes.',
   'err.invalidTrashQuery': 'Invalid Trash query.',
   'err.chooseTrashAndAPage': 'Choose Trash and a page size from 1 to 100.',
   'err.invalidTagFilter': 'Invalid tag filter.',

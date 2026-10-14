@@ -112,7 +112,9 @@
   />
   <PendingTagOps {ops} />
   {#if ops.error}<p role="alert">{ops.error}</p>{/if}
-  {#if items.length}
+  {#if data.searchError}<p class="search-error" role="alert">
+      {i18n.error(data.searchError)}
+    </p>{:else if items.length}
     <ul class="tag-cloud">
       {#each items as tag (tag.key)}
         <li>
@@ -163,6 +165,11 @@
   .count {
     color: var(--muted);
     font-size: 0.8125rem;
+  }
+  .search-error {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--danger);
   }
   .more {
     min-height: 1px;

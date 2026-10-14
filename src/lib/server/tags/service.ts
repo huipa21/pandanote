@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { DomainError } from '../../shared/domain.ts';
 import { extractTags, tagKey } from '../../shared/markdown/tags.ts';
+import { mapSearchValues, parseSearch } from '../../shared/search.ts';
+import { compileSearch } from '../search/query.ts';
 import {
   tagActionSchema,
   tagExecuteSchema,
@@ -43,12 +45,21 @@ export class TagService {
   constructor(p: Persistence) {
     this.p = p;
   }
-  private static needle(query: string): string {
+  /** Same grammar as note search over tag names: a term is a substring of the
+   * key, `tag:name` is exact; a leading # on either is ignored. Empty = all. */
+  private static filter(query: string) {
     if (query.length > 256)
       throw new DomainError('validation', 'err.tagSearchIsTooLong');
-    return tagKey(query.trim().replace(/^#/, ''));
+    const search = mapSearchValues(parseSearch(query.trim()), (value) =>
+      tagKey(value.replace(/^#/, '')),
+    );
+    if (!search) return sql`1`;
+    return compileSearch(search, {
+      term: (value) => sql`instr(t.normalized_key,${value}) > 0`,
+      tag: (value) => sql`t.normalized_key = ${value}`,
+    });
   }
-  /** Tags whose key contains `query`, ordered by key (BINARY), with note counts. */
+  /** Tags matching the search expression, ordered by key (BINARY), with note counts. */
   private matching(
     tx: DomainTransaction,
     query: string,
@@ -58,7 +69,7 @@ export class TagService {
     return tx.all<ManagedTag>(sql`select t.normalized_key as key, t.display,
         coalesce(sum(n.status='published'),0) as published,
         coalesce(sum(n.status='trash'),0) as trash from tags t left join note_tags nt on nt.tag_id=t.id
-        left join notes n on n.id=nt.note_id where instr(t.normalized_key,${TagService.needle(query)})>0
+        left join notes n on n.id=nt.note_id where ${TagService.filter(query)}
         group by t.id order by t.normalized_key limit ${limit} offset ${offset}`);
   }
   list(identity: SessionIdentity, query = ''): ManagedTag[] {

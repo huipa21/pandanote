@@ -15,6 +15,7 @@ import {
 import {
   canonicalSearch,
   parseSearch,
+  positiveSearch,
   searchSnippet,
   normalizeSearch,
   type SearchSnippet,
@@ -53,10 +54,11 @@ export async function snapshotCard(
   language: Language = DEFAULT_LANGUAGE,
 ): Promise<TimelineCard> {
   const content = boundedPreview(note.bodyMarkdown);
-  const units = parseSearch(query);
+  const { terms, tags: tagKeys } = positiveSearch(parseSearch(query));
   const firstSnippet = (
     field: SearchSnippet['field'],
     fields: readonly string[],
+    units: readonly string[] = terms,
   ) => {
     for (const value of fields) {
       const snippet = searchSnippet(field, normalizeSearch(value), units);
@@ -71,16 +73,17 @@ export async function snapshotCard(
       cardImages(note),
       language,
     ),
-    snippets: units.length
-      ? [
-          firstSnippet('body', [note.bodyMarkdown]),
-          firstSnippet('tag', note.tags),
-          firstSnippet(
-            'filename',
-            (note.attachments ?? []).map((file) => file.filename),
-          ),
-        ].filter((s): s is SearchSnippet => !!s)
-      : undefined,
+    snippets:
+      terms.length || tagKeys.length
+        ? [
+            firstSnippet('body', [note.bodyMarkdown]),
+            firstSnippet('tag', note.tags, [...terms, ...tagKeys]),
+            firstSnippet(
+              'filename',
+              (note.attachments ?? []).map((file) => file.filename),
+            ),
+          ].filter((s): s is SearchSnippet => !!s)
+        : undefined,
   };
 }
 export interface TimelineFilters {

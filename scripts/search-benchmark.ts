@@ -125,6 +125,10 @@ try {
     '%',
     'coffee shop',
     '"coffee shop"',
+    'typescript OR 数据库',
+    '(香港 OR 猫) NOT coffee',
+    'NOT coffee',
+    'coffee OR 猫',
   ]) {
     const units = parseSearch(query);
     const run = (accelerate: boolean) =>

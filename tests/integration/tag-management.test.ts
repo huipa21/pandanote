@@ -18,6 +18,7 @@ import { TagService } from '../../src/lib/server/tags/service.ts';
 import type { TagAction } from '../../src/lib/shared/tags.ts';
 import { extractTags } from '../../src/lib/shared/markdown/tags.ts';
 import { timelinePage } from '../../src/lib/server/notes/timeline.ts';
+import { DomainError } from '../../src/lib/shared/domain.ts';
 function owner(p: Persistence): SessionIdentity {
   const id = seedAccount(p),
     expiresAt = Date.now() + 3600000,
@@ -333,5 +334,39 @@ describe('S14 real coordinated tag transactions', () => {
       expect(p.native.pragma('integrity_check')).toEqual([
         { integrity_check: 'ok' },
       ]);
+    }));
+});
+describe('tag-name search expressions', () => {
+  it('uses AND/OR/NOT/parentheses/tag: over tag names, ignores a leading #, and rejects malformed input', async () =>
+    withPersistence(async (p) => {
+      const id = owner(p),
+        n = new NoteService(p),
+        t = new TagService(p);
+      create(n, id, '#work #work-log #home');
+      create(n, id, '#work-old #香港');
+      const keys = (q: string) => t.list(id, q).map((r) => r.key);
+      expect(keys('')).toEqual([
+        'home',
+        'work',
+        'work-log',
+        'work-old',
+        '香港',
+      ]);
+      expect(keys('work')).toEqual(['work', 'work-log', 'work-old']);
+      expect(keys('#work')).toEqual(['work', 'work-log', 'work-old']);
+      expect(keys('work NOT old')).toEqual(['work', 'work-log']);
+      expect(keys('work NOT (old OR log)')).toEqual(['work']);
+      expect(keys('home OR 香港')).toEqual(['home', '香港']);
+      expect(keys('tag:work')).toEqual(['work']);
+      expect(keys('tag:#WORK OR tag:home')).toEqual(['home', 'work']);
+      expect(keys('NOT work')).toEqual(['home', '香港']);
+      expect(keys('"work-log" OR "no such"')).toEqual(['work-log']);
+      expect(t.page(id, 'work OR home', 1, 2)).toMatchObject({
+        items: [{ key: 'work' }, { key: 'work-log' }],
+        nextOffset: 3,
+      });
+      for (const bad of ['work AND', '(work', 'work)', '()', 'tag:'])
+        expect(() => t.list(id, bad), bad).toThrow(DomainError);
+      expect(() => t.list(id, 'a'.repeat(257))).toThrow(DomainError);
     }));
 });

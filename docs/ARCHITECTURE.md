@@ -732,7 +732,7 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
 
 Initial default normalization: Unicode NFKC, then deterministic lowercase for search/tag identity. This intentionally treats width variants equivalently and ignores English case; it does not convert Han variants/readings or remove arbitrary accents. Keep original Markdown unchanged.
 
-Parse unquoted whitespace-separated terms and double-quoted phrases. All parsed units are ANDed. Define escaping for quotes/backslashes; malformed quotes get a helpful validation error rather than changing meaning silently. Cap query length and unit count (initial defaults 256 characters / 20 units).
+Parse unquoted whitespace-separated terms and double-quoted phrases into a boolean expression (§8.4); adjacent units are ANDed. Define escaping for quotes/backslashes; malformed quotes get a helpful validation error rather than changing meaning silently. Cap query length and unit count (initial defaults 256 characters / 20 units).
 
 Search fields: Markdown source, canonical tags, attachment original filenames. A unit may match any field; different units can match different fields. Phrase matching must not falsely join unrelated fields. Parameterize queries; LIKE `%`/`_` and FTS operators are literal user data unless part of the explicitly supported query grammar.
 
@@ -741,7 +741,7 @@ Search fields: Markdown source, canonical tags, attachment original filenames. A
 Use FTS5 `tokenize='trigram'` over normalized derived text. S00 must prove this SQLite build supports FTS5/trigram.
 
 - For a suitable unit of >=3 Unicode codepoints, safely quote it in FTS MATCH as a literal candidate query. Do not concatenate raw user input as FTS syntax.
-- Candidate intersection can narrow results for multiple indexable units.
+- Candidates narrow results by a sound rule over the expression tree (§8.4): AND may use any indexable child, OR only when every branch is indexable, NOT never narrows.
 - Always apply the literal semantic predicate to candidates. FTS is an accelerator, not the definition of a match.
 - One/two-codepoint units and any unsupported edge cases use `instr()` or equivalent literal scanning on normalized fields.
 - If no unit is indexable, scan the filtered published set. Tag/day/cursor predicates still apply.
@@ -805,6 +805,17 @@ Safe snippets are escaped text plus structured highlight ranges/segments, not da
   notes (~2 KiB, 300 tags) with indexed/fallback oracle comparisons, first-query
   and 30 warm samples, 30-card SSR payload/RSS/disk/reindex metrics. PROGRESS records
   Windows/Linux results; real VPS/OS-cold/browser/network release budgets remain S18.
+
+### 8.4 Boolean search expressions (approved change)
+
+- `shared/search.ts` parses into a typed AST (`term`, `tag`, `not`, `and`, `or`; `null` for a blank query). The tokenizer treats unquoted `(`/`)` (and full-width `（`/`）`) as structure and the exact uppercase words `AND`/`OR`/`NOT` as operators _before_ normalization; quoted units and every other word are literal, then NFKC/lower-cased. `tag:name` (case-insensitive prefix, optional `#`, or `tag:"name"`) is an exact-tag leaf. Recursive descent: `or := and ('OR' and)*`; `and := not (['AND'] not)*` (implicit AND); `not := 'NOT' not | primary`; `primary := '(' or ')' | leaf`.
+- Bounds: the existing 20 units (terms+tags, counting duplicates)/256 normalized codepoints/1024 input codepoints, plus 40 operators and 8 levels of nesting (parentheses plus chained NOT). Violations, dangling operators, empty/unbalanced groups and `tag:` without a name throw validation `DomainError` keys (`err.search*`), localized in en and zh-CN.
+- Canonical form is flattened, de-duplicated, binary-sorted and free of double negation; it is serialized as quoted literals (`tag:"x"`, `NOT`, `OR`, parentheses only where needed) and round-trips. A plain AND of terms keeps the earlier `"a" "b"` form, so existing URLs/cursor fingerprints stay valid. The canonical string is the cursor/filter identity for timeline and Trash (the Trash cursor field is now `q`, replacing `units`).
+- `shared/search.ts matchesSearch(fields, search, tags)` is the literal oracle used by the client reconciliation path and tests. `server/search/query.ts compileSearch` builds the SQL from the same tree with parameterised leaves: a term is `exists(note_search …)` over body/tag/filename fields (per-term, so `NOT term` is note-level), a tag is an exact `json_each` match. `ftsCandidates` derives the optional FTS5 expression, built only from quoted literals plus fixed `AND`/`OR`/parentheses, always followed by the exact predicate.
+- Snippets and highlights come from `positiveSearch`: only terms/tags not under an odd number of NOTs. A query with no positive units yields no snippets.
+- Tag-name search (`TagService`) reuses the parser and `compileSearch` with `t.normalized_key` leaves (term = substring, `tag:` = equality, leading `#` stripped). A malformed expression on the Tags page load is returned as `searchError` and shown beside the field.
+- The selected `tag` filter is deliberately unchanged (single tag, "Select only one tag." for several); `tag:` inside `q` is how a user expresses several/alternative/negated tags.
+- Verification: randomized AST oracle (SQL with FTS on/off vs JS evaluator), canonical round-trip, FTS candidate soundness, Trash/cursor/snippet/tag-page integration tests, and Chromium coverage.
 
 ## 9. Tag parsing and management
 

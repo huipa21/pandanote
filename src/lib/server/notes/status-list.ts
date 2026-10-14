@@ -39,7 +39,7 @@ export function statusPage(
   identity: SessionIdentity,
   params: URLSearchParams,
 ): StatusPage {
-  const { status, limit, cursor, units } = parseStatusQuery(params);
+  const { status, limit, cursor, search, query } = parseStatusQuery(params);
   let decoded: ReturnType<typeof statusCursorSchema.parse> | null = null;
   if (cursor) {
     try {
@@ -48,15 +48,14 @@ export function statusPage(
       if (bytes.toString('base64url') !== cursor) throw new Error();
       decoded = statusCursorSchema.parse(JSON.parse(bytes.toString('utf8')));
       if (decoded.status !== status) throw new Error();
-      if (JSON.stringify(decoded.units) !== JSON.stringify(units))
-        throw new Error();
+      if (decoded.q !== query) throw new Error();
     } catch {
       throw new DomainError('validation', 'err.invalidCursorOrDifferentStatus');
     }
   }
   return p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
-    const predicates = [eq(notes.status, status), ...searchPredicates(units)];
+    const predicates = [eq(notes.status, status), ...searchPredicates(search)];
     if (decoded)
       predicates.push(
         or(
@@ -145,7 +144,7 @@ export function statusPage(
                 status,
                 at: last.timelineAt,
                 id: last.id,
-                units,
+                q: query,
               }),
             ).toString('base64url')
           : null,

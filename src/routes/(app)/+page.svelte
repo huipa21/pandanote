@@ -42,6 +42,7 @@
           ...(note.attachments ?? []).map((file) => file.filename),
         ],
         parseSearch(filters.query ?? ''),
+        note.tags,
       )
     );
   }
