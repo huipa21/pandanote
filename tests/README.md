@@ -157,7 +157,7 @@ production credential is committed.
   without restart. PTY cases explicitly skip on Windows and must actually pass on Linux.
 - `e2e/zzrestore.test.ts`: downloaded archive uploaded/confirmed in Settings restores
   zh-CN/title/timezone/account metadata, returns to archived username/password login,
-  retains browser drafts and destination archives; real auth/CSRF/invalid uploads.
+  retains destination archives; real auth/CSRF/invalid uploads.
   Synthetic per-suite client buckets keep production abuse limits unchanged.
 - No CLI starts migrations/recovery. Existing stopped-app reindex regression still
   proves notes/revisions unchanged; production Docker COPY already ships named
@@ -232,7 +232,7 @@ production credential is committed.
   inputs; this does not claim S17 extraction/DB trust/restore/rollback.
 - `e2e/backups.test.ts`: built Settings fresh-password failures/create/status,
   actual browser native POST download with exact server bytes, anonymous/ordinary/
-  GET/cross-origin rejection, explicit deletion, local-draft retention, lost-create-
+  GET/cross-origin rejection, explicit deletion, lost-create-
   response/reload identity discovery, and mobile dialog/overflow. No mock success.
 - `npm run backups:benchmark`: isolated synthetic 10k multilingual notes in all
   statuses plus 32 MiB incompressible file; hardlink and forced-copy timing, sampled
@@ -559,9 +559,8 @@ full restore; backend-only tests cannot substitute for its gate.
   rejection, upload and local-persistence failures, server error propagation,
   restored missing receipts, create/update/publish/date contracts, additive v1
   draft decoding, parsed image destination remapping and DST/future validation.
-- `unit/drafts.test.ts`: frozen command/manifest immutability and stale-tab checks,
-  separate-copy new local IDs/exact blobs, no removal before confirmation, scoped
-  confirmed cleanup. Existing quota/cross-tab/tombstone tests remain unchanged.
+- Browser draft storage and its `unit/drafts.test.ts` were removed (see the banner at
+  the top); there is no draft-storage coverage in this section.
 - `e2e/posting.test.ts`: real built composer + actual SQLite/Sharp/files, text/two
   images/file with cursor insertion and renamed-image detection, repeated clicks,
   upload progress and editor locks, unchanged download/WebP/metadata bytes, only

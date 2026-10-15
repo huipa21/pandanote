@@ -73,11 +73,17 @@ test('tag management rewrites notes and Trash; open unsaved source receives expl
     .getByTestId('composer')
     .getByRole('button', { name: 'Post', exact: true })
     .click();
-  await expect(page.getByTestId('composer')).toContainText('Saved on server.');
+  // The composer clears after Post; the saved result is checked on the server.
   for (const id of ids) {
-    const note = (
-      await (await page.request.get(`/api/notes/${id}`, { headers })).json()
-    ).data;
-    expect(note.bodyMarkdown).toBe(`#${key}new body`);
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await page.request.get(`/api/notes/${id}`, { headers })
+            ).json()
+          ).data.bodyMarkdown,
+      )
+      .toBe(`#${key}new body`);
   }
 });

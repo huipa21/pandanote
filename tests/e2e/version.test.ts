@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { browserSession } from '../helpers/browser-session.ts';
 import { buildInfoFromEnvironment } from '../../src/lib/shared/build-info.ts';
+import { openSettingsTab } from './settings-tab.ts';
 
 const expected = buildInfoFromEnvironment(process.env);
 test('embedded version agrees in desktop sidebar, mobile drawer and no-JavaScript About', async ({
@@ -10,6 +11,7 @@ test('embedded version agrees in desktop sidebar, mobile drawer and no-JavaScrip
   const cookies = await browserSession(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/settings');
+  await openSettingsTab(page, 'About');
   await expect(page.locator('.desktop-sidebar [data-app-version]')).toHaveText(
     `Version ${expected.version}`,
   );

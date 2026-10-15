@@ -292,7 +292,7 @@ test('note page keeps the card header: date, tag chips under it, hashtag text hi
   await page.goto(`/notes/${id}`);
   const detail = page.getByTestId('note-detail');
   await expect(detail.locator('header .when time')).toBeVisible();
-  await expect(detail.locator('.note-tags a')).toHaveText(`#${tag}/1`);
+  await expect(detail.locator('.note-tags a')).toHaveText(`#${tag}`);
   await expect(detail.locator('.note-body')).toContainText(
     'This is a test post.',
   );

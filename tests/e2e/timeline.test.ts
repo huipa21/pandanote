@@ -226,9 +226,10 @@ test('older loading is confined to the notes pane; retry/stale-filter cancellati
   await expect(page).toHaveURL('/');
   release();
   await page.unrouteAll({ behavior: 'wait' });
+  // The filter strip is shown only while a query or day filter is active.
   await expect(
     page.getByRole('region', { name: 'Active filters' }),
-  ).toContainText('no active filters');
+  ).toHaveCount(0);
   await expect
     .poll(() => page.locator('#notes-pane').evaluate((node) => node.scrollTop))
     .toBe(0);

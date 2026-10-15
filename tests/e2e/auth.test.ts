@@ -714,12 +714,10 @@ test('confirmed MFA, recovery download/regeneration, fresh scopes, security chan
       '1 incorrect second-factor code since your last sign-in. Someone may know your password — change it.',
     );
     expect(
-      (
-        await post('/api/auth/fresh', { scope: 'backup-download', password })
-      ).status(),
+      (await post('/api/auth/fresh', { scope: 'restore', password })).status(),
     ).toBe(401);
     const scoped = await post('/api/auth/fresh', {
-      scope: 'backup-download',
+      scope: 'restore',
       password,
       code: codes[0],
     });
