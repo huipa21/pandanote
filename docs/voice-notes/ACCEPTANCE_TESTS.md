@@ -46,7 +46,9 @@ collapsed long card makes no hidden audio network requests.
 ## VN-BACKUP — Backup round trip (integration)
 
 Full archive restore keeps clips, MIME classification and playback (also in the Linux
-image).
+image). Covered by `tests/integration/voice-backup.test.ts` (webm/mp4/ogg clips plus an
+unflagged webm; restored bytes, MIME, inline disposition, Range/If-Range and
+`?download=1` behavior); passes on the Windows host and in the Alpine image.
 
 ## VN-MANUAL — Not automatable (record honestly)
 

@@ -2,9 +2,9 @@
 
 ## Current state
 
-- **Voice clips (user request) — VN02 (server), VN03 (client recorder core), VN04 (editor UI), VN05 (display on cards and note page) and VN06 (Playwright coverage, 29 voice e2e tests) done; VN07 not started.** Spec, plan VN01–VN07 and
+- **Voice clips (user request) — VN01–VN07 automated gates done (host + Alpine image); the manual real-device pass (VN-MANUAL) is NOT done, so not release-complete.** Spec, plan VN01–VN07 and
   acceptance cases in [voice-notes/](voice-notes/README.md); status in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
-  Next: VN07 (milestone gate; add the VN-BACKUP integration test, Linux image run, manual device pass).
+  Next: human VN-MANUAL on Chrome/Firefox/Safari-iOS. Full e2e 121 passed / 6 pre-existing failures.
   VN04 follow-up (voice Session 5): added a 0.5 s minimum take, dimmed disabled buttons app-wide, and fixed the
   month picker so Escape no longer closes the whole phone drawer. Also fixed the stale shell screenshot baselines, the
   axe month-picker/backup steps, the calendar tab/image selectors, `zzrestore` (tabs, password-free backups, cleanup)
@@ -5483,3 +5483,11 @@ after the successful host build, Linux270 and final affected25 browser gate.
 
 - Step: VN03 done (client logic only; no UI). Details, commands and results in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
 - Next: VN04 — read `voice-notes/SPEC.md` §1.1–1.2, §1.4; validate with `npm run check && npm run test:unit` + e2e.
+
+## Session — voice clips VN07 (milestone gate)
+
+- Step: VN07 automated gates done; manual device pass not done. Added `tests/integration/voice-backup.test.ts`.
+  Host: check/lint/unit 232/integration 267+7 skipped/build pass; Alpine (Podman): integration 274/274; full Playwright
+  121 passed, 6 pre-existing failures. Details and the intermittent Windows worker crash note in
+  [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md) (Session 6).
+- Next: VN-MANUAL on real devices; fix/retire the six stale e2e specs.

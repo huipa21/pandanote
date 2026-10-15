@@ -8,8 +8,10 @@ alongside text and up to 9 photos; a video stays exclusive. They stay in browser
 until Post/Save changes, are stored unchanged in the browser's native format (no
 transcoding, no speech-to-text), and play inline on cards and the note page. Clips can be
 reordered and removed, not trimmed. Details: [voice-notes/README.md](voice-notes/README.md)
-and [SPEC](voice-notes/SPEC.md); until implemented (see its PROGRESS) the running code
-still accepts only photos/video as described in section 4.2.
+and [SPEC](voice-notes/SPEC.md). Implemented and automatically verified on the host and the
+Alpine image (VN01–VN07); real-device microphone checks (Chrome/Firefox/Safari/iOS) are
+still pending, see voice-notes/PROGRESS.md. Where section 4.2 says photos/video only,
+this change takes precedence.
 
 ## Approved change — security hardening
 

@@ -63,7 +63,7 @@ Chromium with `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream
 (per-spec `launchOptions`, not global). Cases in [ACCEPTANCE_TESTS.md](ACCEPTANCE_TESTS.md).
 Permission-denied via context permissions.
 
-## VN07 — Milestone gate
+## VN07 — Milestone gate — automated gates done; manual device pass NOT done
 
 Full check/lint/unit/integration/build, full e2e, Alpine image integration, and a
 manual real-device pass (Chrome, Firefox, Safari/iOS) recorded honestly. Update the

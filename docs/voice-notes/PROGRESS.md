@@ -2,9 +2,8 @@
 
 ## Current state
 
-- **VN01 docs, VN02 (server), VN03 (client recorder core), VN04 (editor UI), VN05 (display), VN06 (Playwright coverage) done**, plus a
-  Session 5 follow-up (minimum take length, disabled-button dimming, stale e2e specs fixed). Next: VN07 (milestone gate;
-  VN-BACKUP integration test still missing).
+- **VN01–VN07 automated gates done. VN-MANUAL (real microphone/device pass) is NOT done**, so the feature is not
+  release-complete. Six pre-existing, non-voice Playwright specs still fail (listed in the VN07 entry).
 
 ## History
 
@@ -341,3 +340,41 @@ Next: VN07 — milestone gate. Add the VN-BACKUP integration test (full archive 
 Range playback), run the Alpine image integration, do and honestly record the manual real-device pass, update the main
 spec sections. Validation: `npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run
 build && npx playwright test`.
+
+### Session 6 — VN07 milestone gate
+
+Added `tests/integration/voice-backup.test.ts` (VN-BACKUP): a source instance uploads three flagged clips (webm,
+mp4/M4A, ogg) and one unflagged webm-looking file to a note, creates a real backup, uploads and confirms it as a
+restore into a different instance, signs in as the restored owner and checks: same attachment ids on the note;
+bytes identical (API and private files); MIME `audio/webm|mp4|ogg` for clips and `application/octet-stream` for
+the unflagged file; clips inline with `Accept-Ranges`, `nosniff`, sandbox CSP; `bytes=10-19` → 206 with correct
+Content-Range/bytes; `bytes=-5` with a matching If-Range → 206; `?download=1` stays an opaque attachment; the
+unflagged file stays an attachment without ranges. It passed first time (the restore path needed no code change).
+
+Commands and real results:
+
+- Windows host: `npm run check` 0 errors, 1 pre-existing warning; `npm run lint` clean; `npm run test:unit` 232
+  passed; `npm run test:integration` 267 passed, 7 skipped (existing platform skips), 0 failed; `npm run build` OK.
+  One earlier integration run reported "Worker exited unexpectedly, exit code 3221226505" for `setup-server` and
+  `runtime-server` (server-spawning files; the first run had 1 such error, the second 2) and the run was not counted;
+  both files pass alone and the full suite passed on rerun. Intermittent Windows worker crash, cause not
+  investigated. One `npm run check` run failed on my own type error in the new test (fixed).
+- Alpine/musl: Podman machine (stopped; started for this) `podman build -f ops/Dockerfile.alpine-validation -t
+pandanote-alpine-tests .` then `podman run --rm --cpus=2 --memory=4g pandanote-alpine-tests`: exit 0; check 0
+  errors, lint clean, unit 232 passed, **integration 274 passed, 0 skipped** (includes voice-attachments and
+  voice-backup), build OK.
+- `npx playwright test` (full, Windows host, built app): **121 passed, 6 failed (8.1 min)**. The six are the same
+  pre-existing stale specs from Session 5 (`auth:448`, `detail:256`, `detail:273`, `tag-management:8`,
+  `timeline:146`, `version:6`), none are voice tests; not fixed here. All 36 voice/voice-language specs pass.
+- NOT run: `playwright.release.config.ts` image/deployment tests; the production-image Range/Permissions-Policy check
+  through the real Caddy/Compose stack.
+
+VN-MANUAL (real microphone in Chrome, Firefox, Safari/iOS; iOS permission prompt; mp4/aac recording and seeking;
+cross-browser playback) was **not performed**: no devices/human available in this session. Chromium only has been
+exercised, with a fake media device.
+
+Doc updates: PRODUCT_SPEC (approved change now implemented, manual pass pending), ARCHITECTURE (override is current),
+voice ACCEPTANCE_TESTS (VN-BACKUP coverage), PLAN (VN07 status).
+
+Next: a human runs VN-MANUAL on real devices and records results here; separately, fix or retire the six stale e2e specs.
+Then the voice change may be called release-complete. Validation: `npx playwright test voice`.
