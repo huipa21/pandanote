@@ -2,9 +2,9 @@
 
 ## Current state
 
-- **Voice clips (user request) — VN02 (server), VN03 (client recorder core) and VN04 (editor UI) done; VN05+ not started.** Spec, plan VN01–VN07 and
+- **Voice clips (user request) — VN02 (server), VN03 (client recorder core), VN04 (editor UI) and VN05 (display on cards and note page) done; VN06+ not started.** Spec, plan VN01–VN07 and
   acceptance cases in [voice-notes/](voice-notes/README.md); status in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
-  Next: VN05 (display on cards and note page).
+  Next: VN06 (Playwright coverage).
   VN04 follow-up (voice Session 5): added a 0.5 s minimum take, dimmed disabled buttons app-wide, and fixed the
   month picker so Escape no longer closes the whole phone drawer. Also fixed the stale shell screenshot baselines, the
   axe month-picker/backup steps, the calendar tab/image selectors, `zzrestore` (tabs, password-free backups, cleanup)

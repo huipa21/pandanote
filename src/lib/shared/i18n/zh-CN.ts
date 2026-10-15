@@ -584,6 +584,8 @@ export const zhCN: Partial<Catalog> = {
   'note.showMore': '展开',
   'note.refresh': '刷新',
   'note.attachments': '附件',
+  'note.voiceClips': '语音',
+  'note.downloadClip': '下载 {name}',
   'note.bytes': '{count} 字节',
   'note.savedOnServer': '已保存到服务器。',
   'note.detail': '笔记详情',

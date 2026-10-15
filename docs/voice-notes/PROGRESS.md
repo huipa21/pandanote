@@ -2,8 +2,8 @@
 
 ## Current state
 
-- **VN01 docs, VN02 (server), VN03 (client recorder core), VN04 (editor UI) done**, plus a Session 5 follow-up
-  (minimum take length, disabled-button dimming, stale e2e specs fixed). Next: VN05 (display on cards and note page).
+- **VN01 docs, VN02 (server), VN03 (client recorder core), VN04 (editor UI), VN05 (display) done**, plus a Session 5 follow-up
+  (minimum take length, disabled-button dimming, stale e2e specs fixed). Next: VN06 (Playwright coverage).
 
 ## History
 
@@ -235,3 +235,35 @@ Not verified: real microphone (fake device only), Firefox/Safari/iOS minimum-len
 Next: VN05 (display on cards and note page). Read SPEC §1.3, `NoteCard.svelte`, `NoteDetail.svelte`,
 `AttachmentGrid.svelte`, `AudioClipList.svelte`, then build `AudioClip.svelte` with single-playback coordination. Validation:
 `npm run check && npm run lint && npm run test:unit` + e2e. Optional owner task: update the 6 stale specs above.
+
+### Session 6 — VN05 display on cards and note page (done)
+
+Implemented:
+
+- New `AudioClip.svelte`: a list row with the filename, native `<audio controls preload="none">` (src
+  `/api/attachments/{id}/file`, so nothing loads until Play) and a secondary download link (`/file?download=1`,
+  since the plain route now streams voice clips inline). A module-level `current` coordinates playback across every
+  card and the note page: a `play` event pauses the previous clip. A `suspended` prop pauses the clip while the
+  card/page is editing (its view is `hidden`).
+- `NoteCard.svelte` and `NoteDetail.svelte`: clips (`isVoiceClip`, new in `shared/attachments.ts`: a `file` with a
+  voice container MIME) render in a `Voice clips` list under the photo grid; the generic Attachments list now
+  excludes them. On cards the clips sit outside the collapsed `.card-content`, and `preload="none"` means no media
+  is fetched for any card. Clips are not rendered in Markdown. Clip-only notes work.
+- Inline edit already shows server clips with remove/reorder (VN04 `AudioClipList`, `editorKind`); verified in e2e.
+- i18n: `note.voiceClips`, `note.downloadClip` (en + zh-CN).
+- Touched: `src/lib/components/{AudioClip,NoteCard,NoteDetail}.svelte`, `src/lib/shared/attachments.ts`,
+  `src/lib/shared/i18n/{en,zh-CN}.ts`, new `tests/e2e/voice-display.test.ts`, docs.
+
+Commands and real results (Windows host):
+
+- `npm run check`: 0 errors, 1 pre-existing warning. `npm run lint`: clean. `npm run build`: OK.
+- `npm run test:unit`: 232 passed. `npm run test:integration`: 266 passed, 7 skipped on two runs; one earlier run
+  showed 41/42 files, 264 tests and an unattributed vitest "1 error". Cause not investigated; it did not recur.
+- `npx playwright test voice-editor voice-display detail uploads posting note-edit`: 23 passed, 1 failed:
+  `detail:273` (stale nested `#tag/1` expectation, listed in Session 5).
+
+Not verified: real playback on a real device, Firefox/Safari/iOS, Linux image, screen readers, an axe scan of the
+card/page clip rows, zh-CN rendering of the new labels, an actual download click (only the href is asserted).
+
+Next: VN06 — Playwright coverage per ACCEPTANCE_TESTS.md (display cases can extend `voice-display.test.ts`).
+Validation: `npm run build && npx playwright test voice`.

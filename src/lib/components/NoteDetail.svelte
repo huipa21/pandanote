@@ -9,6 +9,7 @@
     type LifecycleState,
   } from '#lib/client/editor/lifecycle.svelte.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import { isVoiceClip } from '#lib/shared/attachments.ts';
   import type { NoteSnapshot } from '#lib/shared/domain.ts';
   import type { RenderedMarkdown } from '#lib/shared/markdown/render.ts';
   import {
@@ -22,6 +23,7 @@
   import Markdown from './Markdown.svelte';
   import ImageViewer from './ImageViewer.svelte';
   import Icon from './Icon.svelte';
+  import AudioClip from './AudioClip.svelte';
   import { canReturnInApp } from '#lib/client/history.ts';
   import { countWords } from '#lib/shared/word-count.ts';
   import NoteEditor from './NoteEditor.svelte';
@@ -45,6 +47,12 @@
   let editor = $state<ReturnType<typeof NoteEditor>>();
   const images = $derived(
     (note.attachments ?? []).filter((file) => file.kind === 'image'),
+  );
+  const clips = $derived((note.attachments ?? []).filter(isVoiceClip));
+  const plainFiles = $derived(
+    (note.attachments ?? []).filter(
+      (a) => a.kind === 'file' && !isVoiceClip(a),
+    ),
   );
   const trashed = $derived(note.status === 'trash');
   const pinned = $derived(note.pinnedAt !== null);
@@ -210,9 +218,17 @@
           selected = id;
         }}
       />
+      {#if clips.length}
+        <ul class="clips" aria-label={t('note.voiceClips')}>
+          {#each clips as clip (clip.id)}<AudioClip
+              id={clip.id}
+              filename={clip.filename}
+              suspended={editing}
+            />{/each}
+        </ul>
+      {/if}
       <ul class="files" aria-label={t('note.attachments')}>
-        {#each (note.attachments ?? []).filter((file) => file.kind === 'file') as file (file.id)}<li
-          >
+        {#each plainFiles as file (file.id)}<li>
             <a href={`/api/attachments/${file.id}/file`} download
               >{file.filename}</a
             >
@@ -388,6 +404,13 @@
   }
   .files {
     list-style: none;
+    padding: 0;
+  }
+  .clips {
+    display: grid;
+    gap: var(--space-1);
+    list-style: none;
+    margin: var(--space-2) 0;
     padding: 0;
   }
 </style>

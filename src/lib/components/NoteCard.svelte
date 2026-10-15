@@ -14,6 +14,7 @@
   import ThumbnailGrid from './ThumbnailGrid.svelte';
   import ActionMenu, { type ActionMenuItem } from './ActionMenu.svelte';
   import Icon from './Icon.svelte';
+  import AudioClip from './AudioClip.svelte';
   import NoteEditor from './NoteEditor.svelte';
   import ImageViewer from './ImageViewer.svelte';
   import {
@@ -33,6 +34,7 @@
     type TimelineCard,
     type TimelineFilters,
   } from '#lib/shared/timeline.ts';
+  import { isVoiceClip } from '#lib/shared/attachments.ts';
   import type {
     ApiResult,
     MutationResult,
@@ -69,6 +71,12 @@
   const source = $derived(full?.revision === note.revision ? full : note);
   const readyImages = $derived(
     (source.attachments ?? []).filter((file) => file.kind === 'image'),
+  );
+  const clips = $derived((source.attachments ?? []).filter(isVoiceClip));
+  const plainFiles = $derived(
+    (source.attachments ?? []).filter(
+      (a) => a.kind === 'file' && !isVoiceClip(a),
+    ),
   );
   $effect(() => {
     const revision = note.revision;
@@ -323,6 +331,15 @@
         selectedImage = id;
       }}
     />
+    {#if clips.length}
+      <ul class="clips" aria-label={t('note.voiceClips')}>
+        {#each clips as clip (clip.id)}<AudioClip
+            id={clip.id}
+            filename={clip.filename}
+            suspended={editing}
+          />{/each}
+      </ul>
+    {/if}
     {#if note.bodyTruncated && source === note}<p class="help">
         {t('note.preview')}
       </p>{/if}
@@ -351,10 +368,9 @@
             })}>{t('note.refresh')}</button
         >
       </p>{/if}
-    {#if (note.attachments ?? []).some((a) => a.kind === 'file')}
+    {#if plainFiles.length}
       <ul class="files" aria-label={t('note.attachments')}>
-        {#each (note.attachments ?? []).filter((a) => a.kind === 'file') as file (file.id)}<li
-          >
+        {#each plainFiles as file (file.id)}<li>
             <a href={`/api/attachments/${file.id}/file`} download
               >{file.filename}</a
             ><span class="help"
@@ -376,6 +392,13 @@
 {/if}
 
 <style>
+  .clips {
+    display: grid;
+    gap: var(--space-1);
+    list-style: none;
+    margin: var(--space-2) 0 0;
+    padding: 0;
+  }
   .note-card {
     min-width: 0;
   }

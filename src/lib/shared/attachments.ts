@@ -30,6 +30,9 @@ export const VOICE_PENDING_MIME = 'audio/x-voice-pending';
 export const VOICE_MIMES = ['audio/webm', 'audio/mp4', 'audio/ogg'] as const;
 export const isVoiceMime = (mime: string): boolean =>
   (VOICE_MIMES as readonly string[]).includes(mime);
+/** A stored voice clip: a `file` attachment whose detected MIME is an audio container. */
+export const isVoiceClip = (file: { kind: string; mime: string }): boolean =>
+  file.kind === 'file' && isVoiceMime(file.mime);
 export const initializeBatchSchema = mutationIdentitySchema
   .extend({
     items: z.array(uploadItemSchema).max(100),

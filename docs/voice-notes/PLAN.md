@@ -52,7 +52,7 @@ disabled while recording, focus-mode continuity), unsaved-guard hooks in
 `workspace.svelte.ts`/`lifecycle.svelte.ts`, i18n `en.ts`/`zh-CN.ts`, CSS (390 px
 mobile, light/dark, 44 px targets, ARIA live announcements for start/stop).
 
-## VN05 — Display on cards and note page
+## VN05 — Display on cards and note page — done
 
 Files: `NoteCard.svelte`, `NoteDetail.svelte`, new `AudioClip.svelte` (single-playback
 coordination), i18n. Inline edit shows server clips with remove/reorder.

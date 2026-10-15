@@ -630,6 +630,8 @@ export const en = {
   'note.showMore': 'Show more',
   'note.refresh': 'Refresh',
   'note.attachments': 'Attachments',
+  'note.voiceClips': 'Voice clips',
+  'note.downloadClip': 'Download {name}',
   'note.bytes': '{count} bytes',
   'note.savedOnServer': 'Saved on server.',
   'note.detail': 'Note detail',
