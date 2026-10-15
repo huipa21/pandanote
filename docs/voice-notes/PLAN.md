@@ -57,7 +57,7 @@ mobile, light/dark, 44 px targets, ARIA live announcements for start/stop).
 Files: `NoteCard.svelte`, `NoteDetail.svelte`, new `AudioClip.svelte` (single-playback
 coordination), i18n. Inline edit shows server clips with remove/reorder.
 
-## VN06 — Playwright coverage
+## VN06 — Playwright coverage — done
 
 Chromium with `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`
 (per-spec `launchOptions`, not global). Cases in [ACCEPTANCE_TESTS.md](ACCEPTANCE_TESTS.md).

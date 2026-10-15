@@ -2,8 +2,9 @@
 
 ## Current state
 
-- **VN01 docs, VN02 (server), VN03 (client recorder core), VN04 (editor UI), VN05 (display) done**, plus a Session 5 follow-up
-  (minimum take length, disabled-button dimming, stale e2e specs fixed). Next: VN06 (Playwright coverage).
+- **VN01 docs, VN02 (server), VN03 (client recorder core), VN04 (editor UI), VN05 (display), VN06 (Playwright coverage) done**, plus a
+  Session 5 follow-up (minimum take length, disabled-button dimming, stale e2e specs fixed). Next: VN07 (milestone gate;
+  VN-BACKUP integration test still missing).
 
 ## History
 
@@ -267,3 +268,76 @@ card/page clip rows, zh-CN rendering of the new labels, an actual download click
 
 Next: VN06 — Playwright coverage per ACCEPTANCE_TESTS.md (display cases can extend `voice-display.test.ts`).
 Validation: `npm run build && npx playwright test voice`.
+
+### Session 7 — VN06 Playwright coverage (done)
+
+No product code changed; tests and a helper only. Chromium fake device, per-spec `test.use(fakeMicrophone)`
+(`tests/helpers/voice.ts`; the same options everywhere, so all voice specs share one browser launch).
+
+New helper `tests/helpers/voice.ts`: `fakeMicrophone`, `recordClip`, `clipRows`, `trackMicrophone` (wraps
+`getUserMedia`, counts opened/stopped audio tracks through an exposed binding that survives navigation, plus a
+`sessionStorage` counter for stops made while the page unloads) and `axeViolationsIn`.
+
+New specs (29 voice tests in total with the VN04/VN05 ones):
+
+- `voice-recording.test.ts` (8): Pause holds the timer; two takes in order; auto-stop at 10:00 using `page.clock`
+  (`fastForward('10:05')` after the real recorder has captured audio) keeps the clip with the notice; no device
+  (alert, no clip, editor usable); insecure context and missing `MediaRecorder` (disabled button with the reason as
+  title; both injected with init scripts, since the test origin is secure); microphone track stopped on Stop, Cancel
+  (recording and paused) and navigation with Discard; a full page load of `/login` (the last step of Sign out)
+  stops the track via `pagehide`.
+- `voice-limits.test.ts` (4): 21st clip refused (20 real recordings, ~32 s) and a freed slot works; 2–3 clips + 9
+  photos, tenth photo refused by the photo rule; video excludes clips both ways; clip-only note postable, empty
+  refused.
+- `voice-post.test.ts` (5): photo + 3 clips + text persist in order, clips classified as audio (inline `audio/*`);
+  forced first-PUT failure then retry creates no duplicate note/attachments; editing a saved note (add, Alt+Arrow
+  reorder, remove, save; a stale second editor gets the revision conflict dialog and the server is unchanged);
+  Discard of an edit leaves server clips and revision untouched; Trash keeps clips, restore returns them,
+  permanent delete stops serving the files (polls for the queued cleanup).
+- `voice-display.test.ts` (+3): recorded order, `preload="none"`, Space plays/pauses the native control, download
+  link focusable; a collapsed long card requests no `/file` until Play, then only that clip; axe clean on card and
+  note page at 390/1280 px in light and dark (theme set through the appearance API and restored to `system`).
+  `postClips` now returns the clip names.
+
+Commands and real results (Windows host, after `npm run build`):
+
+- `npx playwright test voice`: **29 passed** (2.1 min).
+- `npx playwright test` (full): **115 passed, 6 failed, 7.1 min**. The six are the same pre-existing stale specs listed
+  in Session 5 (`auth:448`, `detail:256`, `detail:273`, `tag-management:8`, `timeline:146`, `version:6`).
+- `npm run check`: 0 errors, 1 pre-existing warning. `npm run lint`: clean. `npm run test:unit`: 232 passed.
+  `npm run test:integration`: 266 passed, 7 skipped, 0 failed. `npm run build`: OK.
+
+Findings and deviations:
+
+- **Sign-out with a live take cannot happen**: Sign out exists only on Settings, there is no composer there, and
+  reaching Settings with a take open already asks to Discard (and stops it). The spec therefore covers the guard
+  (navigation + Discard) and the final `window.location.assign('/login')` full load. Its first version used the
+  exposed-binding counter and failed only because a binding call during unload is lost; the track _was_ stopped
+  (confirmed through `sessionStorage`). Not a product bug.
+- Localization was first asserted in English only; the follow-up below adds the zh-CN browser pass.
+- The per-note attachment cap and the 50 MB file rule are covered by unit tests only (`voice-clips.test.ts`); 100
+  attachments / 50 MB through the browser is not worth the run time.
+- **VN-BACKUP is still not covered anywhere** (`grep voice` finds only `voice-attachments.test.ts`). It is an
+  integration case, so it was left for VN07 together with the Linux image run.
+
+Not verified: real microphone; Firefox/Safari/iOS; Linux image; screen readers; seeking/playback of clips recorded in
+another browser.
+
+Follow-up (same session) — zh-CN verified in a real browser: new `tests/e2e/voice-language.test.ts` (6 tests, serial, language
+set through `PATCH /api/settings/general` and restored to English in `afterEach`). Covered in Simplified Chinese:
+mic button and title, strip group/state labels/meter/Pause/Resume/Stop/Discard, Post-blocked label, the live-region
+announcements (started, paused, added, discarded), the too-short, 10:00, denied, no-device, busy, insecure and unsupported
+messages, video/clip exclusion and 20-clip messages, the clip list/rows (play, remove, reorder hint), unsaved-changes dialog,
+card and note page `语音` list with `下载 …` link, inline-edit clip list, and a server rejection (`err.theVoiceClipIsNot`).
+Findings: all of these rendered correctly; no missing or English-fallback strings. Observations: the API responds in
+English with a `messageKey` and the client localizes by key, so the rejection test replays the server's real 400 body
+through `page.route` (verified separately against the live server) rather than checking the raw API text. `recordClip`
+takes a language argument. Results: `npx playwright test voice language`: 36 passed (2.9 min); lint clean; check 0 errors.
+Still not browser-verified in zh-CN, because they cannot be triggered reliably: `rec.errFailedKept` (device unplugged
+mid-take), `rec.sizeReached`, `rec.tooLarge`, `rec.errEmpty`, `rec.errFailed`; they exist in zh-CN (key parity is unit
+tested) and use the same rendering path as the covered messages.
+
+Next: VN07 — milestone gate. Add the VN-BACKUP integration test (full archive restore keeps clips, MIME class and
+Range playback), run the Alpine image integration, do and honestly record the manual real-device pass, update the main
+spec sections. Validation: `npm run check && npm run lint && npm run test:unit && npm run test:integration && npm run
+build && npx playwright test`.
