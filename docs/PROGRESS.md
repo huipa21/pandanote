@@ -2,6 +2,10 @@
 
 ## Current state
 
+- **Voice clips (user request) — VN02 (server) done; VN03+ not started.** Spec, plan VN01–VN07 and
+  acceptance cases in [voice-notes/](voice-notes/README.md); status in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
+  Next: VN03 (client recorder core, no UI).
+
 - **Boolean search (AND / OR / NOT / parentheses / `tag:`) — implemented / host-verified; Linux image and full release gates not re-run.**
   Note, Trash and Tags-page search share one AST grammar (uppercase unquoted operators,
   `( )` and full-width `（ ）`, implicit AND, NOT > AND > OR, `tag:name` exact tag).
@@ -395,7 +399,7 @@ Subsequent sessions should always follow the next unfinished step recorded here.
 | S12  | Detail/edit/conflict/image viewer  | Done                                                         |
 | S13  | Drafts and Trash screens           | Done                                                         |
 | S14  | Tag administration                 | Done                                                         |
-| S15  | Settings/storage          | Done                                                         |
+| S15  | Settings/storage                   | Done                                                         |
 | S16  | Manual backup/create/download      | Done                                                         |
 | S17  | Uploaded restore and rollback      | Done                                                         |
 | S18  | VPS deployment/release validation  | In progress — locally verified; real-VPS/device/AT gate open |
@@ -5038,7 +5042,7 @@ open; do not mark project/release done. No user commit/deploy without approval.
 - Found and fixed during validation: native/empty download POST arrived with no body
   stream and was rejected (400); now treated as an empty form.
 - Commands/results: `npm run check` 0 errors / 1 existing warning; `npx tsc --noEmit -p
-  tsconfig.tests.json` clean; `npx eslint src tests scripts` clean; `prettier --check`
+tsconfig.tests.json` clean; `npx eslint src tests scripts` clean; `prettier --check`
   clean; `npm run test:unit` 169 PASS; integration backups/auth-mfa/auth-restore/
   restores 60 PASS (before the final http.ts empty-form fix) and backups 10 PASS after it;
   `npm run test:e2e -- tests/e2e/backups.test.ts` 3/3 PASS (after the fix).
@@ -5104,7 +5108,7 @@ open; do not mark project/release done. No user commit/deploy without approval.
       on the Calendar tab without selecting it), location-storage refresh button, version
       About tab, two restore tests, composer axe walk. These are not caused by this change
       and were not fixed in this session.
-    The worktree was removed afterwards (node_modules junction removed first).
+      The worktree was removed afterwards (node_modules junction removed first).
 - **Known gaps (not done):**
   1. Server API and SSR error text: about 98 distinct English messages in `src/lib/server`,
      `src/routes/api` and `+page.server.ts` (e.g. "Sign in to continue.", the timeline
@@ -5158,7 +5162,7 @@ open; do not mark project/release done. No user commit/deploy without approval.
   AppShell warning. `npm run lint`: ESLint clean; Prettier warns only on `docs/PROGRESS.md`
   (pre-existing). `npm run test:unit`: 176 passed. `npm run test:integration`: 262 passed, 7
   skipped (Linux-only). `npm run build`: pass. `npx playwright test tests/e2e/language.test.ts
-  tests/e2e/auth.test.ts tests/e2e/markdown.test.ts tests/e2e/detail.test.ts`: 18 passed, 1 failed
+tests/e2e/auth.test.ts tests/e2e/markdown.test.ts tests/e2e/detail.test.ts`: 18 passed, 1 failed
   (auth MFA security UI, expected 401 got 400 — already failing on clean HEAD per the
   2026-10-14 entry; not caused by this change).
 - **Remaining:** shared zod messages used outside the four localized forms; Chinese layout and
@@ -5178,6 +5182,7 @@ open; do not mark project/release done. No user commit/deploy without approval.
 - Old rows without `tagline` parse via schema default `''` (no DB migration needed).
 
 Commands / results:
+
 - `npm run check`: 0 errors (1 pre-existing unused-CSS warning in AppShell).
 - `npm run lint`: eslint clean; prettier reports only `docs/PROGRESS.md` (pre-existing).
 - `npm run test:unit`: 176 pass. `npm run test:integration`: after fixes the 3 affected files pass (earlier full run: 2 failures, both fixed); full integration suite not re-run after the fixes.
@@ -5235,9 +5240,9 @@ Commands actually run (Windows, explicit `/tmp/pandanote-node24/node.exe`, Node
 - `npm run build`: pass, runtime dependency check + adapter-node build. Repeated
   after the fixture-import fix; existing large lazy-library chunk warning remains.
 - Direct Playwright `title-preferences language shell --grep 'General has three|
-  language and site title|appearance persists' --ignore-snapshots`: **3 pass**.
+language and site title|appearance persists' --ignore-snapshots`: **3 pass**.
 - First broader direct Playwright `title-preferences language shell
-  --ignore-snapshots`: **5 pass / 5 fail**. Four standalone fixtures could not
+--ignore-snapshots`: **5 pass / 5 fail**. Four standalone fixtures could not
   resolve transitive `$app/navigation`; injected the invalidation callback, rebuilt.
   Rerun **9 pass / 1 fail**, the stale Compose-on-Trash test. Corrected its navigation;
   final same command **10/10 pass (48.5s)**. Screenshot assertions are explicitly
@@ -5265,7 +5270,7 @@ Remaining / next:
   gate before release. Do not erase the preserved staged changes or old history.
   First validation: `npm run check && npm run lint && npm run test:unit`, then
   `npm run build` and `npx playwright test tests/e2e/title-preferences.test.ts
-  tests/e2e/language.test.ts tests/e2e/shell.test.ts` without snapshot suppression.
+tests/e2e/language.test.ts tests/e2e/shell.test.ts` without snapshot suppression.
 
 Final documentation-close checks: `npm run check` zero errors/one existing warning,
 `npm run test:unit` **177 pass**, `npm run test:integration -- general-settings
@@ -5318,20 +5323,20 @@ Git OpenSSL for Playwright, host build-mutating suites sequential):
   299.65s; real native SQLite/Sharp/files/archive/restore tests, no added exclusions.
   `npm run build`: pass; existing large lazy-chunk warnings remain.
 - `node node_modules/@playwright/test/cli.js test tests/e2e/editor.test.ts
-  tests/e2e/posting.test.ts tests/e2e/detail.test.ts tests/e2e/note-edit.test.ts
-  tests/e2e/note-actions.test.ts tests/e2e/storage.test.ts`: first 24 pass / 1 Storage
+tests/e2e/posting.test.ts tests/e2e/detail.test.ts tests/e2e/note-edit.test.ts
+tests/e2e/note-actions.test.ts tests/e2e/storage.test.ts`: first 24 pass / 1 Storage
   failure (the tab helper selects but does not navigate; restored `/settings` goto).
   Next 24 pass / 1 upload-retry failure: editor retained bytes with safe
   "Upload could not be stored" feedback; no note committed, cause not established.
   Same complete command without source change: final **25/25 pass**, 56.0s.
   No assertion weakening, automatic retry, skipped case or snapshot regeneration.
 - `podman build -f ops/Dockerfile.alpine-validation -t
-  localhost/pandanote-location-validation .`: pass, fresh Linux-native npm ci;
+localhost/pandanote-location-validation .`: pass, fresh Linux-native npm ci;
   existing 2 low advisories/install-script warnings retained, no forced update.
   Image `cd459b5342c84b8a7c17ca220387df01c31f86da9af91ed88e95ca02f6e9a40e`.
 - `podman run --rm --cpus=2 --memory=4g -e NODE_TLS_REJECT_UNAUTHORIZED=1
-  localhost/pandanote-location-validation sh -c 'node --version && npm run check
-  && npx eslint . && npm run test:unit && npm run test:integration && npm run build'`:
+localhost/pandanote-location-validation sh -c 'node --version && npm run check
+&& npx eslint . && npm run test:unit && npm run test:integration && npm run build'`:
   pass: Node24.21.0 Alpine/musl, check/ESLint/build, **175 unit + all270 integration**
   (266.21s, zero skips/exclusions), actual native/archive/rollback/process-kill/PTY.
   Formatting stage explicitly not included because of the known host handoff warning;
@@ -5349,7 +5354,7 @@ Remaining / next:
   documented in earlier handoffs. Lint formatting remains a separate existing blocker.
 - Next: review this handoff and PRODUCT_SPEC §11; resolve formatting and previously
   recorded full-browser issues, then `npm run check && npm run lint && npm run
-  test:unit`, fresh `npm run build` and normal `npm run test:e2e`. Preserve private
+test:unit`, fresh `npm run build` and normal `npm run test:e2e`. Preserve private
   folders/archives, shared images and prior history; commit/deploy only with approval.
 
 Final close: targeted Prettier passes; repeated `npm run check` passes with the one
@@ -5445,7 +5450,7 @@ after the successful host build, Linux270 and final affected25 browser gate.
   `components/SearchBox.svelte`, i18n en + zh-CN (`err.search*`, `search.help`, `search.filter` text), `scripts/search-benchmark.ts`.
 - Tests: rewrote the literal `OR NEAR` unit expectation; new unit tests (precedence, errors/bounds, canonical round-trip,
   evaluator, positive terms, FTS candidate soundness); integration randomized-AST oracle (SQL with FTS on/off vs JS, 150 queries,
-  >60 non-empty), timeline/Trash/cursor/snippet checks, tag-name search; e2e boolean search + help control + tags-page grammar.
+  > 60 non-empty), timeline/Trash/cursor/snippet checks, tag-name search; e2e boolean search + help control + tags-page grammar.
 - Commands/results (Windows host): `npm run check` 0 errors, 1 pre-existing AppShell warning; `npm run lint` ESLint clean,
   Prettier only flags `docs/PROGRESS.md` (pre-existing); `npm run test:unit` 167 pass; `npm run test:integration` 257 pass,
   7 platform skips, 1 fail — `release-hygiene` DOC link check (`docs/PROGRESS.md` links missing `nested-tags/PROGRESS.md`),
@@ -5457,3 +5462,14 @@ after the successful host build, Linux270 and final affected25 browser gate.
 - Known limits: unquoted `(`/`)` in a query changes meaning (documented); a lone `(` reports "needs a search term" rather
   than "unbalanced"; operators are English-only and uppercase; old Trash cursors from before the change are rejected as invalid.
 - Next: user review/commit; optionally run full e2e and the Linux image gate at the next milestone.
+
+## Session — voice clips planning
+
+- Step: planning only. Wrote `docs/voice-notes/*` and pointers in PRODUCT_SPEC, ARCHITECTURE, ACCEPTANCE_TESTS. User answers are in `voice-notes/README.md`.
+- Commands: `npx prettier --write docs/voice-notes`. No application code, tests or builds run.
+- Next: VN02 — read `voice-notes/SPEC.md` §2.2–2.3; validate with `npm run test:integration`.
+
+## Session — voice clips VN02 (server)
+
+- Step: VN02 done (server only; no UI). Details, commands and results in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
+- Next: VN03 — read `voice-notes/SPEC.md` §2.1; validate with `npm run test:unit`.

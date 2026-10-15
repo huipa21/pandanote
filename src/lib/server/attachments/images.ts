@@ -194,3 +194,22 @@ export function fileMime(head: Buffer): string {
   if (/^(?:<!doctype html|<html)[\s>]/i.test(text)) return 'text/html';
   return 'application/octet-stream';
 }
+
+/** Audio containers by magic bytes only. webm/mp4/ogg may also hold video, so the
+ * caller applies this solely to items explicitly flagged `voice`; the client MIME
+ * is never consulted. Returns null when the bytes are not a supported container. */
+export function voiceMime(head: Buffer): string | null {
+  if (head.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])))
+    // EBML header: require the WebM doctype (not generic Matroska).
+    return head.subarray(4, 64).includes(Buffer.from('webm', 'ascii'))
+      ? 'audio/webm'
+      : null;
+  if (head.toString('latin1', 4, 8) === 'ftyp') {
+    const brand = head.toString('latin1', 8, 12);
+    return brand === 'M4A ' || brand === 'mp42' || /^iso[0-9a-z]$/.test(brand)
+      ? 'audio/mp4'
+      : null;
+  }
+  if (head.toString('latin1', 0, 4) === 'OggS') return 'audio/ogg';
+  return null;
+}

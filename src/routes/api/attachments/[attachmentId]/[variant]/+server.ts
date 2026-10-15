@@ -12,6 +12,10 @@ export const GET: RequestHandler = async ({ locals, params, url, request }) => {
       params.variant,
       url.searchParams.get('download') === '1',
       request.method === 'HEAD',
+      {
+        range: request.headers.get('range'),
+        ifRange: request.headers.get('if-range'),
+      },
     );
   } catch (error) {
     return attachmentErrorResponse(error);

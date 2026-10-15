@@ -7,6 +7,11 @@ Cases SEC-LOCK, SEC-SETUP, SEC-MFA and SEC-XFF in
 SEC-SETUP-1 to -13 are in force: account creation requires the setup code printed to
 the server log, so the old "first visitor owns the instance" wording no longer applies.
 
+## Voice clips (approved change)
+
+Cases VN-REC, VN-LIMIT, VN-POST, VN-SERVE, VN-PLAY, VN-BACKUP and VN-MANUAL in
+[voice-notes/ACCEPTANCE_TESTS.md](voice-notes/ACCEPTANCE_TESTS.md).
+
 ## Note card actions (approved change)
 
 Cases NA-LAYOUT, NA-MENU, NA-PIN, NA-EDIT, NA-DELETE in

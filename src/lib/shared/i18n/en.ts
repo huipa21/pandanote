@@ -904,6 +904,8 @@ export const en = {
   'err.uploadsAreBusyQueryReadiness':
     'Uploads are busy. Query readiness and retry shortly.',
   'err.theUploadIsNotA': 'The upload is not a supported raster image.',
+  'err.theVoiceClipIsNot':
+    'The voice clip is not a supported audio recording (webm, mp4 or ogg).',
   'err.uploadReadinessChangedRetryThe':
     'Upload readiness changed. Retry the posting attempt.',
   'err.fileExceedsTheByteLimit': 'File exceeds the byte limit.',

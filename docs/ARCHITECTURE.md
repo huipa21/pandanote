@@ -16,6 +16,13 @@ those allowances even behind the same NAT or IPv6 /64. Persistence publishes a
 validated immutable key snapshot with each DB reopen (replacement or rollback),
 and retained auth helpers read that snapshot instead of keeping process-lifetime keys.
 
+## Planned override — voice clips
+
+Voice clips reuse the file attachment pipeline with an explicit upload `voice` flag, no
+schema change, server-side audio container detection, inline audio serving with `Range`
+support, `media-src` in the page CSP and `Permissions-Policy: microphone=(self)`.
+Contracts: [voice-notes/SPEC.md](voice-notes/SPEC.md) §2. Server side (VN02) is implemented; client/UI are not yet.
+
 ## Current override — note card actions
 
 `notes.pinned_at` (nullable UTC ms, published only, partial index) is added to the

@@ -21,6 +21,8 @@ import { enqueueAttachmentCleanup } from '../maintenance/cleanup.ts';
 import { runAttachmentCleanup } from './cleanup.ts';
 import {
   initializeBatchSchema,
+  isVoiceMime,
+  VOICE_PENDING_MIME,
   type InitializeBatchResult,
   type ReadyAttachment,
   type UploadBatchDto,
@@ -42,8 +44,14 @@ import { findReceipt } from '../db/receipts.ts';
 import { readSettings } from '../settings/repository.ts';
 import { syncDirectory, rejectSymlinks } from '../storage/private-storage.ts';
 import { DiskBudget } from './resources.ts';
-import { processImage, fileMime } from './images.ts';
-import { receive, checksum, syncFile, downloadDisposition } from './files.ts';
+import { processImage, fileMime, voiceMime } from './images.ts';
+import {
+  receive,
+  checksum,
+  syncFile,
+  downloadDisposition,
+  parseRange,
+} from './files.ts';
 
 type AttachmentRow = typeof attachments.$inferSelect;
 type Reader = DomainDatabase | DomainTransaction;
@@ -169,7 +177,9 @@ export class AttachmentService {
                   item.id === row.id &&
                   item.filename === row.originalFilename &&
                   item.incomingBytes === row.incomingBytes &&
-                  item.incomingDigest === row.incomingDigest,
+                  item.incomingDigest === row.incomingDigest &&
+                  (item.voice === true) ===
+                    row.detectedMime.startsWith('audio/'),
               ),
           )
         )
@@ -222,7 +232,9 @@ export class AttachmentService {
             id: item.id,
             kind: 'file',
             originalFilename: item.filename,
-            detectedMime: 'application/octet-stream',
+            detectedMime: item.voice
+              ? VOICE_PENDING_MIME
+              : 'application/octet-stream',
             incomingBytes: item.incomingBytes,
             incomingDigest: item.incomingDigest,
             readiness: 'pending',
@@ -332,7 +344,13 @@ export class AttachmentService {
             imageHint,
           );
           if (received.digest !== row.incomingDigest) mismatch();
-          if (imageHint && !received.raster)
+          // A pending `audio/*` marker means the frozen manifest flagged a voice clip.
+          const voice = row.detectedMime.startsWith('audio/');
+          const raster = received.raster && !voice;
+          const audio = voice ? voiceMime(received.head) : null;
+          if (voice && !audio)
+            throw new DomainError('validation', 'err.theVoiceClipIsNot');
+          if (imageHint && !raster)
             throw new DomainError('validation', 'err.theUploadIsNotA');
           if (row.readiness === 'ready') {
             const current = this.item(this.p.db, identity, batchId, id);
@@ -345,7 +363,7 @@ export class AttachmentService {
           }
           mkdirSync(output, { mode: 0o700 });
           let values: Partial<typeof attachments.$inferInsert>;
-          if (received.raster) {
+          if (raster) {
             const display = join(output, 'display.webp');
             const thumbnail = join(output, 'thumbnail.webp');
             const result = await processImage(
@@ -379,7 +397,7 @@ export class AttachmentService {
             await rename(original, join(output, 'attachment.bin'));
             values = {
               kind: 'file',
-              detectedMime: fileMime(received.head),
+              detectedMime: audio ?? fileMime(received.head),
               fileBytes: received.bytes,
               fileDigest: received.digest,
               displayBytes: null,
@@ -573,6 +591,7 @@ export class AttachmentService {
     variant: string,
     download = false,
     head = false,
+    conditional: { range?: string | null; ifRange?: string | null } = {},
   ): Promise<Response> {
     validId(id);
     assertUploadIdentity(this.p.db, identity);
@@ -624,8 +643,61 @@ export class AttachmentService {
           : 'thumbnail.webp'
         : 'attachment.bin',
     );
+    // Voice clips (audio containers verified at upload) play inline with Range.
+    const audio = !image && !download && isVoiceMime(row.detectedMime);
+    const total = Number(
+      image
+        ? variant === 'display'
+          ? row.displayBytes
+          : row.thumbnailBytes
+        : row.fileBytes,
+    );
+    const headers: Record<string, string> = {
+      'content-type': image
+        ? 'image/webp'
+        : audio
+          ? row.detectedMime
+          : 'application/octet-stream',
+      'content-length': String(total),
+      'cache-control': 'private, no-store',
+      'x-content-type-options': 'nosniff',
+      'content-security-policy':
+        "default-src 'none'; sandbox; frame-ancestors 'none'",
+    };
+    if (audio) {
+      headers['accept-ranges'] = 'bytes';
+      headers.etag = `"${row.fileDigest}"`;
+      headers['content-disposition'] = downloadDisposition(
+        row.originalFilename,
+        'inline',
+      );
+    } else if (!image || download)
+      headers['content-disposition'] = downloadDisposition(
+        image ? `${id}.webp` : row.originalFilename,
+      );
+    let status = 200;
+    let range: { start: number; end: number } | undefined;
+    // Without a matching If-Range validator the Range header must be ignored.
+    if (audio && (conditional.ifRange ?? headers.etag) === headers.etag) {
+      const parsed = parseRange(conditional.range ?? null, total);
+      if (parsed === 'unsatisfiable')
+        return new Response(null, {
+          status: 416,
+          headers: {
+            ...headers,
+            'content-length': '0',
+            'content-range': `bytes */${total}`,
+          },
+        });
+      if (parsed !== 'ignore') {
+        range = parsed;
+        status = 206;
+        headers['content-range'] = `bytes ${range.start}-${range.end}/${total}`;
+        headers['content-length'] = String(range.end - range.start + 1);
+      }
+    }
     // Open before returning; a missing/failed file never yields a bogus HTTP 200.
-    const stream = createReadStream(path);
+    const stream = createReadStream(path, range);
     await new Promise<void>((resolve, reject) => {
       stream.once('open', () => resolve());
       stream.once('error', () =>
@@ -634,32 +706,15 @@ export class AttachmentService {
         ),
       );
     });
-    const headers: Record<string, string> = {
-      'content-type': image ? 'image/webp' : 'application/octet-stream',
-      'content-length': String(
-        image
-          ? variant === 'display'
-            ? row.displayBytes
-            : row.thumbnailBytes
-          : row.fileBytes,
-      ),
-      'cache-control': 'private, no-store',
-      'x-content-type-options': 'nosniff',
-      'content-security-policy':
-        "default-src 'none'; sandbox; frame-ancestors 'none'",
-    };
-    if (!image || download)
-      headers['content-disposition'] = downloadDisposition(
-        image ? `${id}.webp` : row.originalFilename,
-      );
     if (head) {
       await new Promise<void>((resolve) => {
         stream.once('close', resolve);
         stream.destroy();
       });
-      return new Response(null, { headers });
+      return new Response(null, { status, headers });
     }
     return new Response(Readable.toWeb(stream) as ReadableStream<Uint8Array>, {
+      status,
       headers,
     });
   }

@@ -821,6 +821,8 @@ export const zhCN: Partial<Catalog> = {
   'err.fileExceedsTheUploadByte': '文件超出上传字节数限制。',
   'err.uploadsAreBusyQueryReadiness': '上传繁忙。请查询就绪状态并稍后重试。',
   'err.theUploadIsNotA': '此上传不是受支持的位图图片。',
+  'err.theVoiceClipIsNot':
+    '此语音片段不是受支持的音频录音（webm、mp4 或 ogg）。',
   'err.uploadReadinessChangedRetryThe': '上传就绪状态已变化。请重试此次发布。',
   'err.fileExceedsTheByteLimit': '文件超出字节数限制。',
   'err.theDiskIsFullFree':

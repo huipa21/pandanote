@@ -19,7 +19,17 @@ export const uploadItemSchema = z.strictObject({
     .min(0)
     .max(500 * 1024 * 1024),
   incomingDigest: digestSchema,
+  /** Voice clip: the bytes must be a recognised audio container and are then
+   * stored as `audio/*`. Without it audio containers stay opaque downloads. */
+  voice: z.boolean().optional(),
 });
+/** Provisional `detectedMime` of a pending voice item. The flag is persisted in
+ * this existing column (no schema change); it is replaced by the detected
+ * container MIME when the upload becomes ready. */
+export const VOICE_PENDING_MIME = 'audio/x-voice-pending';
+export const VOICE_MIMES = ['audio/webm', 'audio/mp4', 'audio/ogg'] as const;
+export const isVoiceMime = (mime: string): boolean =>
+  (VOICE_MIMES as readonly string[]).includes(mime);
 export const initializeBatchSchema = mutationIdentitySchema
   .extend({
     items: z.array(uploadItemSchema).max(100),

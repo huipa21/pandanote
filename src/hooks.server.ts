@@ -45,7 +45,10 @@ function protect(response: Response): Response {
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('referrer-policy', 'same-origin');
   response.headers.set('x-frame-options', 'DENY');
-  response.headers.set('permissions-policy', 'geolocation=()');
+  response.headers.set(
+    'permissions-policy',
+    'geolocation=(), microphone=(self)',
+  );
   if (!response.headers.has('content-security-policy'))
     response.headers.set(
       'content-security-policy',

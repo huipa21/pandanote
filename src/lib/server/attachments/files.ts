@@ -109,7 +109,10 @@ export async function syncFile(path: string): Promise<void> {
   }
 }
 
-export function downloadDisposition(filename: string): string {
+export function downloadDisposition(
+  filename: string,
+  type: 'attachment' | 'inline' = 'attachment',
+): string {
   // Keep the original filename in metadata, but offer only a portable basename.
   // Strip path fragments, hidden-name prefixes and OS-reserved characters.
   // Both filename parameters use the SAME sanitized name; RFC 5987 keeps Unicode.
@@ -122,5 +125,33 @@ export function downloadDisposition(filename: string): string {
     /['()*]/g,
     (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
   );
-  return `attachment; filename="${fallback || 'attachment'}"; filename*=UTF-8''${encoded}`;
+  return `${type}; filename="${fallback || 'attachment'}"; filename*=UTF-8''${encoded}`;
+}
+
+export type ByteRange = { start: number; end: number };
+/** RFC 9110 single byte range. `ignore` = absent/unsupported unit/multi-range/invalid
+ * syntax (serve the full representation); `unsatisfiable` = well-formed but outside it. */
+export function parseRange(
+  header: string | null,
+  size: number,
+): ByteRange | 'ignore' | 'unsatisfiable' {
+  if (header === null) return 'ignore';
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(header.trim());
+  if (!match || (match[1] === '' && match[2] === '')) return 'ignore';
+  if (match[1] === '') {
+    const length = Number(match[2]);
+    if (!Number.isSafeInteger(length)) return 'ignore';
+    return length === 0 || size === 0
+      ? 'unsatisfiable'
+      : { start: Math.max(0, size - length), end: size - 1 };
+  }
+  const start = Number(match[1]);
+  if (!Number.isSafeInteger(start)) return 'ignore';
+  if (match[2] === '')
+    return start >= size ? 'unsatisfiable' : { start, end: size - 1 };
+  const end = Number(match[2]);
+  if (!Number.isSafeInteger(end) || end < start) return 'ignore';
+  return start >= size
+    ? 'unsatisfiable'
+    : { start, end: Math.min(end, size - 1) };
 }

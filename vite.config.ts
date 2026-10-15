@@ -64,6 +64,7 @@ export default defineConfig({
           'script-src': ['self'],
           'style-src': ['self', 'unsafe-inline'],
           'img-src': ['self', 'blob:'],
+          'media-src': ['self', 'blob:'],
           'object-src': ['none'],
           'base-uri': ['self'],
           'frame-ancestors': ['none'],
