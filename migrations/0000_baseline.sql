@@ -104,6 +104,28 @@ CREATE TABLE `file_cleanup_jobs` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `cleanup_attachment_unique` ON `file_cleanup_jobs` (`attachment_id`);--> statement-breakpoint
 CREATE INDEX `cleanup_pending` ON `file_cleanup_jobs` (`state`,`created_at`);--> statement-breakpoint
+CREATE TABLE `label_mutation_receipts` (
+	`mutation_id` text PRIMARY KEY NOT NULL,
+	`account_id` text NOT NULL,
+	`request_digest` text NOT NULL,
+	`result_json` text NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`account_id`) REFERENCES `account`(`id`) ON UPDATE no action ON DELETE restrict
+);
+--> statement-breakpoint
+CREATE TABLE `labels` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`name_key` text NOT NULL,
+	`color` text NOT NULL,
+	`icon` text,
+	`revision` integer DEFAULT 1 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	CONSTRAINT "label_check" CHECK(length("labels"."name") BETWEEN 1 AND 40 AND length("labels"."name_key") BETWEEN 1 AND 160 AND "labels"."color" IN ('red','orange','amber','green','teal','blue','purple','gray') AND ("labels"."icon" IS NULL OR "labels"."icon" IN ('star','heart','flag','bookmark','folder','briefcase','book','home','warning','info','check-circle','camera')) AND "labels"."revision" BETWEEN 1 AND 9007199254740991 AND "labels"."created_at" BETWEEN 0 AND 8640000000000000 AND "labels"."updated_at" BETWEEN "labels"."created_at" AND 8640000000000000)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `labels_name_key` ON `labels` (`name_key`);--> statement-breakpoint
 CREATE TABLE `mutation_receipts` (
 	`mutation_id` text PRIMARY KEY NOT NULL,
 	`account_id` text NOT NULL,
@@ -157,6 +179,8 @@ CREATE TABLE `notes` (
 	`content_edited_at` integer,
 	`revision` integer DEFAULT 1 NOT NULL,
 	`pinned_at` integer,
+	`label_id` text,
+	FOREIGN KEY (`label_id`) REFERENCES `labels`(`id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "note_pinned_check" CHECK("notes"."pinned_at" IS NULL OR ("notes"."status" = 'published' AND "notes"."pinned_at" BETWEEN 0 AND 8640000000000000)),
 	CONSTRAINT "note_status_check" CHECK("notes"."status" IN ('published','trash')),
 	CONSTRAINT "note_trash_check" CHECK(("notes"."status" = 'trash' AND "notes"."prior_status" IS NOT NULL AND "notes"."prior_status" = 'published') OR ("notes"."status" <> 'trash' AND "notes"."prior_status" IS NULL)),
@@ -164,6 +188,7 @@ CREATE TABLE `notes` (
 	CONSTRAINT "note_time_check" CHECK("notes"."timeline_at" BETWEEN 0 AND 8640000000000000 AND "notes"."created_at" BETWEEN 0 AND 8640000000000000 AND "notes"."updated_at" BETWEEN "notes"."created_at" AND 8640000000000000 AND ("notes"."content_edited_at" IS NULL OR "notes"."content_edited_at" BETWEEN "notes"."created_at" AND "notes"."updated_at"))
 );
 --> statement-breakpoint
+CREATE INDEX `notes_label` ON `notes` (`label_id`,"timeline_at" DESC,"id" DESC) WHERE "notes"."label_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX `notes_pinned` ON `notes` ("pinned_at" DESC,"id" DESC) WHERE "notes"."pinned_at" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX `notes_status_timeline` ON `notes` (`status`,"timeline_at" DESC,"id" DESC);--> statement-breakpoint
 CREATE TABLE `recovery_codes` (

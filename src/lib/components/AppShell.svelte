@@ -22,10 +22,12 @@
     type TimelineFilters,
     type TimelineTag,
   } from '#lib/shared/timeline.ts';
+  import type { LabelSummary } from '#lib/shared/labels.ts';
   let {
     calendar,
     active = '/',
     tags = [],
+    labels = [],
     filters = {},
     searchQuery = '',
     onSearch = async () => {},
@@ -34,6 +36,7 @@
     calendar?: CalendarState;
     active?: string;
     tags?: TimelineTag[];
+    labels?: LabelSummary[];
     filters?: TimelineFilters;
     searchQuery?: string;
     onSearch?: (href: string) => Promise<unknown>;
@@ -41,11 +44,21 @@
   } = $props();
   // The composer belongs only to the unfiltered main timeline.
   const hasFilters = $derived(
-    Boolean(filters.tag !== undefined || filters.query || filters.day),
+    Boolean(
+      filters.tag !== undefined ||
+      filters.label !== undefined ||
+      filters.query ||
+      filters.day,
+    ),
   );
   // A tag view is announced by its own header (with a way back to all notes),
-  // so the chip strip appears only for the search and day filters.
-  const showStrip = $derived(Boolean(filters.query || filters.day));
+  // so the chip strip appears only for the search, label and day filters.
+  const showStrip = $derived(
+    Boolean(filters.query || filters.day || filters.label !== undefined),
+  );
+  const selectedLabel = $derived(
+    filters.label ? labels.find((l) => l.id === filters.label) : undefined,
+  );
   const i18n = useI18n();
   const t = i18n.t;
   // Isolated shell fixtures get the same controls without a root route layout.
@@ -119,7 +132,15 @@
     class="desktop-sidebar"
     aria-label={t('shell.sidebar')}
   >
-    <Sidebar {calendar} {active} {tags} {filters} {searchQuery} {onSearch} />
+    <Sidebar
+      {calendar}
+      {active}
+      {tags}
+      {labels}
+      {filters}
+      {searchQuery}
+      {onSearch}
+    />
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (A focusable ARIA window splitter supports pointer and keyboard resizing.) -->
     <div
       class="sidebar-resizer"
@@ -184,6 +205,12 @@
                     aria-label={t('shell.removeDay')}
                     >{filters.date ?? t('shell.selectedDay')} ×</a
                   >{/if}
+                {#if selectedLabel}<a
+                    class="filter-chip"
+                    href={filterHref({ ...filters, label: undefined })}
+                    aria-label={t('shell.removeLabel')}
+                    >{selectedLabel.name} ×</a
+                  >{/if}
               </div>
               <a href="/">{t('shell.clearAll')}</a>
             {/if}
@@ -219,6 +246,7 @@
     {calendar}
     {active}
     {tags}
+    {labels}
     {filters}
     {searchQuery}
     {onSearch}

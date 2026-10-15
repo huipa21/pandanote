@@ -14,6 +14,7 @@
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
   import TemplatePicker from './TemplatePicker.svelte';
+  import LabelPicker from './LabelPicker.svelte';
   import { tr } from '#lib/client/i18n-current.ts';
   import {
     insertTemplateText,
@@ -56,6 +57,7 @@
   let desktop = $state(false);
   let confirmCancel = $state(false);
   let templatePickerOpen = $state(false);
+  let labelPickerOpen = $state(false);
   const dialogTitle = $derived(
     variant === 'inline' ? t('editor.editNote') : t('editor.writeNote'),
   );
@@ -345,6 +347,7 @@
         {workspace}
         onTag={addTag}
         onTemplate={() => (templatePickerOpen = true)}
+        onLabel={() => (labelPickerOpen = true)}
         onFiles={() => fileInput.click()}
       />
       <button
@@ -443,6 +446,11 @@
 {#if workspace}<TemplatePicker
     bind:open={templatePickerOpen}
     onPick={(template) => void insertTemplate(template)}
+  />
+  <LabelPicker
+    bind:open={labelPickerOpen}
+    current={workspace.active?.labelId ?? null}
+    onPick={(labelId) => workspace.updateLabel(labelId)}
   />{/if}
 
 <style>

@@ -23,6 +23,8 @@
   import Markdown from './Markdown.svelte';
   import ImageViewer from './ImageViewer.svelte';
   import Icon from './Icon.svelte';
+  import LabelChip from './LabelChip.svelte';
+  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import AudioClip from './AudioClip.svelte';
   import { canReturnInApp } from '#lib/client/history.ts';
   import { countWords } from '#lib/shared/word-count.ts';
@@ -38,6 +40,7 @@
   } = $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
+  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
   const i18n = useI18n();
   const t = i18n.t;
   let ready = $state(false);
@@ -56,6 +59,9 @@
   );
   const trashed = $derived(note.status === 'trash');
   const pinned = $derived(note.pinnedAt !== null);
+  const label = $derived(
+    note.labelId ? labelsMap?.get(note.labelId) : undefined,
+  );
   // The note page edits in place; the editor replaces the rendered body.
   const editing = $derived(workspace.isEditing(note.id));
   const lifecycleBusy = $derived(!lifecycle.ready || lifecycle.busy);
@@ -99,7 +105,7 @@
     data-note-id={note.id}
     data-revision={note.revision}
   >
-    <header class:has-tags={note.tags.length > 0}>
+    <header class:has-tags={note.tags.length > 0 || Boolean(label)}>
       <span class="when-wrap">
         <a
           class="when"
@@ -189,7 +195,11 @@
           >
         </div>{/if}
     </header>
-    {#if note.tags.length}<ul class="note-tags" aria-label={t('note.tags')}>
+    {#if note.tags.length || label}<ul
+        class="note-tags"
+        aria-label={t('note.tags')}
+      >
+        {#if label}<li><LabelChip {label} /></li>{/if}
         {#each note.tags as tag (tag)}<li>
             <a href={selectTag({}, tag)}>#{tag}</a>
           </li>{/each}

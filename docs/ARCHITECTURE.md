@@ -4,6 +4,27 @@
 
 Schema is now **3 / 20 domain tables**: migration `0002_note_templates` adds `note_templates` and `template_mutation_receipts`. `TemplateService` follows the note pattern (session recheck in the write transaction, receipt-first retries, expected-revision conflicts). Backup archives include the tables; restore trust validates template rows for schema 3 archives and a schema 2 archive migrates with none. Contracts: [templates/SPEC.md](templates/SPEC.md).
 
+## Current override — color or icon labels
+
+Adds a `labels` table and a nullable `notes.label_id` (`ON DELETE SET NULL`) directly into
+the baseline migration/schema in place (22 tables total per `drizzle-kit generate`'s
+accounting, two more than the templates note above) — not a new numbered migration, no
+`SCHEMA_VERSION` bump — per the user's "treat as new setup" decision (same precedent as
+the nested-tags removal). The `notes_update_guard` trigger (migration `0001`) was also
+edited in place to permit the one same-revision update SQLite's own `ON DELETE SET NULL`
+performs when a label is deleted (every other column, including revision, stays
+identical); any other update still requires `revision = old.revision + 1` as before.
+`LabelService` follows the templates/notes pattern (session recheck in the write
+transaction, receipt-first retries via a dedicated `label_mutation_receipts` table,
+expected-revision conflicts). Note label assignment is **not** a separate note mutation:
+it is `content.labelId`, alongside `attachmentIds`/`tagAcknowledgements`, validated and
+persisted in the existing create/update content path (simpler than the originally planned
+`setLabel`/`clearLabel` commands — see labels/SPEC.md §3 and labels/PROGRESS.md). Backup
+archives include the new table/column with no special-casing beyond restore-validator
+checks (labels exist in every schema version, since the change lives in the baseline).
+Implemented and host-verified. Contracts: [labels/SPEC.md](labels/SPEC.md); plan:
+[labels/PLAN.md](labels/PLAN.md); status: [labels/PROGRESS.md](labels/PROGRESS.md).
+
 ## Approved override — security hardening
 
 Approved changes to authentication contracts (trusted-device rate buckets, an

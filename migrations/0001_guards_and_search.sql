@@ -10,7 +10,18 @@ END;
 --> statement-breakpoint
 CREATE TRIGGER notes_update_guard BEFORE UPDATE ON notes BEGIN
   SELECT CASE WHEN NEW.id <> OLD.id OR NEW.created_at <> OLD.created_at
-    OR typeof(NEW.revision) <> 'integer' OR NEW.revision <> OLD.revision + 1
+    OR typeof(NEW.revision) <> 'integer'
+    OR (NEW.revision <> OLD.revision + 1 AND NOT (
+      NEW.revision = OLD.revision
+      AND NEW.body_markdown = OLD.body_markdown
+      AND NEW.status = OLD.status
+      AND NEW.prior_status IS OLD.prior_status
+      AND NEW.timeline_at = OLD.timeline_at
+      AND NEW.updated_at = OLD.updated_at
+      AND NEW.content_edited_at IS OLD.content_edited_at
+      AND NEW.pinned_at IS OLD.pinned_at
+      AND NEW.label_id IS NOT OLD.label_id
+    ))
     OR NEW.updated_at < OLD.updated_at OR typeof(NEW.updated_at) <> 'integer'
     OR typeof(NEW.timeline_at) <> 'integer'
     OR (NEW.content_edited_at IS NOT NULL AND typeof(NEW.content_edited_at) <> 'integer')

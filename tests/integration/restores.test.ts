@@ -29,6 +29,7 @@ import { AuthService } from '../../src/lib/server/auth/service.ts';
 import { createFixtureAccount } from '../helpers/auth.ts';
 import { BackupService } from '../../src/lib/server/backups/service.ts';
 import { TemplateService } from '../../src/lib/server/templates/service.ts';
+import { LabelService } from '../../src/lib/server/labels/service.ts';
 import { RestoreService } from '../../src/lib/server/backups/restore.ts';
 import {
   recoverRestores,
@@ -933,6 +934,68 @@ it('restores private note templates from a schema 3 archive and a schema 2 archi
       expect(
         p.native.prepare('SELECT count(*) n FROM note_templates').get(),
       ).toEqual({ n: 0 });
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it('restores labels and notes.label_id; a tampered color/icon/dangling reference is refused', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pandanote-label-restore-'));
+  try {
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      const labelSvc = new LabelService(p);
+      const created = labelSvc.mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        name: 'Urgent',
+        color: 'red',
+        icon: 'flag',
+      });
+      const noteSvc = new NoteService(p);
+      const note = noteSvc.mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        content: {
+          bodyMarkdown: 'labeled note',
+          timelineAt: Date.now(),
+          attachmentIds: [],
+          labelId: created.labelId,
+        },
+      });
+      const archive = await backup(p, f);
+      const s = restore(p, f);
+      const summary = await upload(s, f, archive);
+      await s.confirm(f.identity, {
+        id: summary.id,
+        confirmed: true,
+        grant: await f.grant('restore'),
+      });
+      expect(
+        p.native.prepare('SELECT name, color, icon FROM labels').all(),
+      ).toEqual([{ name: 'Urgent', color: 'red', icon: 'flag' }]);
+      expect(
+        p.native
+          .prepare('SELECT label_id FROM notes WHERE id=?')
+          .get(note.noteId),
+      ).toEqual({ label_id: created.labelId });
+    });
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      note(p, f);
+      const archive = await backup(p, f);
+      const tampered = await alteredArchive(archive, root, (db) => {
+        // The CHECK constraint already refuses an invalid color/icon enum value
+        // and SQLite's own foreign key enforcement already refuses a dangling
+        // notes.label_id at the storage layer; exercise the remaining JS-level
+        // guard instead: a name/name_key identity mismatch that no CHECK covers.
+        db.exec(
+          `INSERT INTO labels (id, name, name_key, color, icon, revision, created_at, updated_at) VALUES ('${randomUUID()}','Weird Name','not-the-real-key',${"'blue'"},NULL,1,0,0)`,
+        );
+      });
+      const s = restore(p, f);
+      await expect(upload(s, f, tampered)).rejects.toThrow();
     });
   } finally {
     await rm(root, { recursive: true, force: true });

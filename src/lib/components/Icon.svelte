@@ -15,7 +15,19 @@
     | 'select-all'
     | 'merge'
     | 'dots'
-    | 'back';
+    | 'back'
+    | 'star'
+    | 'heart'
+    | 'flag'
+    | 'bookmark'
+    | 'folder'
+    | 'briefcase'
+    | 'book'
+    | 'home'
+    | 'warning'
+    | 'info'
+    | 'check-circle'
+    | 'camera';
 </script>
 
 <script lang="ts">
@@ -67,6 +79,40 @@
       <path
         d="M6 4v4a4 4 0 0 0 4 4h4a4 4 0 0 1 4 4v4M18 4v4a4 4 0 0 1-4 4M6 20v-4"
       />
+    {:else if name === 'star'}
+      <path
+        d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9Z"
+      />
+    {:else if name === 'heart'}
+      <path
+        d="M12 20.5s-7.5-4.6-9.8-9A5.2 5.2 0 0 1 12 6.3 5.2 5.2 0 0 1 21.8 11.5c-2.3 4.4-9.8 9-9.8 9Z"
+      />
+    {:else if name === 'flag'}
+      <path d="M5 3v18M5 4h12l-3 4 3 4H5" />
+    {:else if name === 'bookmark'}
+      <path d="M6 3h12v18l-6-4-6 4Z" />
+    {:else if name === 'folder'}
+      <path
+        d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"
+      />
+    {:else if name === 'briefcase'}
+      <path
+        d="M3 8a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1ZM8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"
+      />
+    {:else if name === 'book'}
+      <path
+        d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3Zm0 0v13a3 3 0 0 0 3 3"
+      />
+    {:else if name === 'home'}
+      <path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z" />
+    {:else if name === 'warning'}
+      <path d="M12 3 2 21h20ZM12 10v4M12 17.5v.01" />
+    {:else if name === 'info'}
+      <circle cx="12" cy="12" r="9" /><path d="M12 11v5.5M12 7.5v.01" />
+    {:else if name === 'check-circle'}
+      <circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 4.5-5" />
+    {:else if name === 'camera'}
+      <path d="M4 8h3l2-2h6l2 2h3v11H4Z" /><circle cx="12" cy="13" r="3.2" />
     {:else}
       <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
     {/if}

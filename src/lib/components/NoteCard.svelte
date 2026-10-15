@@ -14,6 +14,8 @@
   import ThumbnailGrid from './ThumbnailGrid.svelte';
   import ActionMenu, { type ActionMenuItem } from './ActionMenu.svelte';
   import Icon from './Icon.svelte';
+  import LabelChip from './LabelChip.svelte';
+  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import AudioClip from './AudioClip.svelte';
   import NoteEditor from './NoteEditor.svelte';
   import ImageViewer from './ImageViewer.svelte';
@@ -23,6 +25,7 @@
   } from '#lib/client/editor/lifecycle.svelte.ts';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
+  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
   const i18n = useI18n();
   const t = i18n.t;
   import {
@@ -180,6 +183,9 @@
       void untrack(loadFull);
   });
   const pinned = $derived(note.pinnedAt !== null);
+  const label = $derived(
+    source.labelId ? labelsMap?.get(source.labelId) : undefined,
+  );
   // This card renders the workspace's one editor session while it edits this note.
   const editing = $derived(workspace.isEditing(note.id));
   const lifecycleBusy = $derived(!lifecycle.ready || lifecycle.busy);
@@ -245,7 +251,7 @@
 >
   {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
   <div class="card-view" hidden={editing} inert={editing}>
-    <header class:has-tags={note.tags.length > 0}>
+    <header class:has-tags={note.tags.length > 0 || Boolean(label)}>
       <span class="when-wrap">
         <a
           class="when"
@@ -287,7 +293,11 @@
         />
       </div>
     </header>
-    {#if note.tags.length}<ul class="card-tags" aria-label={t('note.tags')}>
+    {#if note.tags.length || label}<ul
+        class="card-tags"
+        aria-label={t('note.tags')}
+      >
+        {#if label}<li><LabelChip {label} /></li>{/if}
         {#each note.tags as tag (tag)}<li>
             <a
               href={selectTag(filters, tag)}

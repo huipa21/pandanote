@@ -25,6 +25,8 @@
     READING,
     ReadingState,
   } from '#lib/client/timeline/reading.svelte.ts';
+  import { SvelteMap } from 'svelte/reactivity';
+  import { LABELS } from '#lib/client/labels-context.ts';
   let { children, data } = $props();
   const t = useI18n().t;
   const ACTION_LABELS: Record<string, MessageKey> = {
@@ -68,8 +70,19 @@
   setContext(LIFECYCLE, lifecycle);
   const reading = new ReadingState();
   setContext(READING, reading);
+  const labelsMap = new SvelteMap(
+    untrack(() => data.availableLabels).map((l) => [l.id, l]),
+  );
+  setContext(LABELS, labelsMap);
   $effect(() => {
     reading.detail = Boolean(page.data.detail);
+  });
+  $effect(() => {
+    const fresh = data.availableLabels;
+    untrack(() => {
+      labelsMap.clear();
+      for (const label of fresh) labelsMap.set(label.id, label);
+    });
   });
   const calendar = new CalendarState(untrack(() => data.calendar));
   setContext(CALENDAR, calendar);
@@ -138,6 +151,7 @@
   {calendar}
   active={page.url.pathname}
   tags={data.availableTags}
+  labels={data.availableLabels}
   filters={page.data.timeline?.filters ?? {}}
   searchQuery={page.url.pathname === '/'
     ? (page.url.searchParams.get('q') ?? '')

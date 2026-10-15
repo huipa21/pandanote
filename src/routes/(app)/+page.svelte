@@ -32,6 +32,7 @@
     return (
       note.status === 'published' &&
       (filters.tag === undefined || note.tags.includes(filters.tag)) &&
+      (filters.label === undefined || note.labelId === filters.label) &&
       (!filters.day ||
         (note.timelineAt >= filters.day.start &&
           note.timelineAt < filters.day.end)) &&
@@ -513,6 +514,14 @@
         summary={data.tagSummary}
         leaveHref={filterHref({ ...filters, tag: undefined })}
       />{/key}{:else}<h1 class="sr-only">{t('shell.allNotes')}</h1>{/if}
+  {#if data.labelSummary}
+    <p class="label-strip">
+      {t('labels.pick')}: <strong>{data.labelSummary.name}</strong>
+      <a href={filterHref({ ...filters, label: undefined })}
+        >{t('shell.removeLabel')}</a
+      >
+    </p>
+  {/if}
   <span class="sr-only">{t('timeline.signedIn')}</span>
   {#if workspace.status === 'saved' && savedOutsideRange}<p class="help">
       {t('timeline.outsideRange')}
@@ -534,6 +543,7 @@
     <a
       href={filterHref({
         tag: filters.tag,
+        label: filters.label,
         query: filters.query,
         month: localDate(Date.now(), data.timezone).slice(0, 7),
       })}>{t('timeline.returnToday')}</a
@@ -542,12 +552,18 @@
 {:else if !items.length && !pinned.length && !data.timelineError}
   <section class="surface">
     <h2>
-      {filters.tag !== undefined || filters.query || filters.day
+      {filters.tag !== undefined ||
+      filters.label !== undefined ||
+      filters.query ||
+      filters.day
         ? t('timeline.noMatchTitle')
         : t('timeline.emptyTitle')}
     </h2>
     <p>
-      {filters.tag !== undefined || filters.query || filters.day
+      {filters.tag !== undefined ||
+      filters.label !== undefined ||
+      filters.query ||
+      filters.day
         ? t('timeline.noMatchHelp')
         : t('timeline.emptyHelp')}
     </p>
@@ -603,6 +619,17 @@
 </div>
 
 <style>
+  .label-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .label-strip a {
+    color: var(--accent);
+  }
   .timeline-status:empty {
     display: none;
   }

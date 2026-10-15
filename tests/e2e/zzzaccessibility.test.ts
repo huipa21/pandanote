@@ -107,7 +107,7 @@ async function theme(page: Page, value: 'light' | 'dark') {
   expect(response.status()).toBe(200);
 }
 
-const SCREENS = ['/', '/trash', '/tags', '/settings'];
+const SCREENS = ['/', '/trash', '/tags', '/labels', '/settings'];
 const SIZES = [
   { name: 'phone', width: 360, height: 800 },
   { name: 'desktop', width: 1440, height: 900 },

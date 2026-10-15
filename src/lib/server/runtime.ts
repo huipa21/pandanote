@@ -5,6 +5,7 @@ import { AttachmentService } from './attachments/service.ts';
 import { NoteService } from './notes/service.ts';
 import { TemplateService } from './templates/service.ts';
 import { TagService } from './tags/service.ts';
+import { LabelService } from './labels/service.ts';
 import { runAttachmentCleanup } from './attachments/cleanup.ts';
 import {
   authPolicy,
@@ -27,6 +28,7 @@ export interface Runtime {
   notes: NoteService;
   tags: TagService;
   templates: TemplateService;
+  labels: LabelService;
   backups: BackupService;
   restores: RestoreService;
   ready: Promise<void>;
@@ -66,6 +68,7 @@ async function openRuntime(development: boolean): Promise<void> {
     const notes = new NoteService(persistence);
     const tags = new TagService(persistence);
     const templates = new TemplateService(persistence);
+    const labels = new LabelService(persistence);
     const ready = runAttachmentCleanup(persistence);
     let closing: Promise<void> | undefined;
     const close = (): Promise<void> =>
@@ -81,6 +84,7 @@ async function openRuntime(development: boolean): Promise<void> {
       notes,
       tags,
       templates,
+      labels,
       backups,
       restores,
       ready,

@@ -139,6 +139,7 @@ function hydrate(
       status: row.status,
       priorStatus: row.priorStatus,
       pinnedAt: row.pinnedAt,
+      labelId: row.labelId,
       timelineAt: row.timelineAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -186,7 +187,10 @@ export async function timelinePage(
     ? decoded.anchor
     : month
       ? month.end
-      : filters.tag !== undefined || search || filters.day
+      : filters.tag !== undefined ||
+          filters.label !== undefined ||
+          search ||
+          filters.day
         ? null
         : currentMonthEnd(timezone, now);
   const key = fingerprint(filterKey(filters), timezone, anchor);
@@ -196,14 +200,21 @@ export async function timelinePage(
       decoded.timezone !== timezone ||
       (month && anchor !== month.end) ||
       (!month &&
-        (filters.tag !== undefined || search || filters.day) &&
+        (filters.tag !== undefined ||
+          filters.label !== undefined ||
+          search ||
+          filters.day) &&
         anchor !== null))
   )
     throw new DomainError('validation', 'err.thisCursorBelongsToDifferent');
   // Plain "All notes" view: pinned notes live in their own first-page section and
   // are excluded from the chronological stream.
   const plain =
-    filters.tag === undefined && !search && !filters.day && !filters.month;
+    filters.tag === undefined &&
+    filters.label === undefined &&
+    !search &&
+    !filters.day &&
+    !filters.month;
   const result = p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
     const predicates = [
@@ -230,6 +241,8 @@ export async function timelinePage(
         sql`exists (select 1 from ${noteTags} inner join ${tags} on ${tags.id} = ${noteTags.tagId} where ${noteTags.noteId} = ${notes.id} and ${tags.normalizedKey} = ${tag})`,
       );
     }
+    if (filters.label !== undefined)
+      predicates.push(eq(notes.labelId, filters.label));
     const rows = tx
       .select({
         ...getTableColumns(notes),

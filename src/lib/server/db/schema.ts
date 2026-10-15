@@ -129,6 +129,11 @@ export const notes = sqliteTable(
     revision: integer('revision').notNull().default(1),
     // UTC ms the note was pinned; only published notes can be pinned.
     pinnedAt: integer('pinned_at'),
+    // At most one color/icon label; null clears it. Carried unchanged through
+    // pin/trash/restore; cleared automatically if the label is deleted.
+    labelId: text('label_id').references(() => labels.id, {
+      onDelete: 'set null',
+    }),
   },
   (t) => [
     index('notes_status_timeline').on(
@@ -139,6 +144,9 @@ export const notes = sqliteTable(
     index('notes_pinned')
       .on(sql`${t.pinnedAt} DESC`, sql`${t.id} DESC`)
       .where(sql`${t.pinnedAt} IS NOT NULL`),
+    index('notes_label')
+      .on(t.labelId, sql`${t.timelineAt} DESC`, sql`${t.id} DESC`)
+      .where(sql`${t.labelId} IS NOT NULL`),
     check(
       'note_pinned_check',
       sql`${t.pinnedAt} IS NULL OR (${t.status} = 'published' AND ${t.pinnedAt} BETWEEN 0 AND 8640000000000000)`,
@@ -158,6 +166,41 @@ export const notes = sqliteTable(
     ),
   ],
 );
+// Private user-named classifiers: a fixed color plus an optional fixed icon. At
+// most one per note (notes.label_id). Deleting a label clears it from notes
+// (ON DELETE SET NULL); no note is ever deleted by a label change.
+export const labels = sqliteTable(
+  'labels',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    color: text('color').notNull(),
+    icon: text('icon'),
+    revision: integer('revision').notNull().default(1),
+    createdAt: created(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('labels_name_key').on(t.nameKey),
+    check(
+      'label_check',
+      sql`length(${t.name}) BETWEEN 1 AND 40 AND length(${t.nameKey}) BETWEEN 1 AND 160 AND ${t.color} IN ('red','orange','amber','green','teal','blue','purple','gray') AND (${t.icon} IS NULL OR ${t.icon} IN ('star','heart','flag','bookmark','folder','briefcase','book','home','warning','info','check-circle','camera')) AND ${t.revision} BETWEEN 1 AND 9007199254740991 AND ${t.createdAt} BETWEEN 0 AND 8640000000000000 AND ${t.updatedAt} BETWEEN ${t.createdAt} AND 8640000000000000`,
+    ),
+  ],
+);
+// Receipts for label create/update/delete, separate from note and template
+// receipts whose result schemas describe different mutations. Same retry rule:
+// a matching ID returns the original result even after later edits or deletion.
+export const labelMutationReceipts = sqliteTable('label_mutation_receipts', {
+  mutationId: text('mutation_id').primaryKey().notNull(),
+  accountId: text('account_id')
+    .notNull()
+    .references(() => account.id, { onDelete: 'restrict' }),
+  requestDigest: text('request_digest').notNull(),
+  resultJson: text('result_json').notNull(),
+  createdAt: created(),
+});
 export const tags = sqliteTable(
   'tags',
   {

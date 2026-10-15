@@ -7,6 +7,13 @@ Cases SEC-LOCK, SEC-SETUP, SEC-MFA and SEC-XFF in
 SEC-SETUP-1 to -13 are in force: account creation requires the setup code printed to
 the server log, so the old "first visitor owns the instance" wording no longer applies.
 
+## Color or icon labels (approved change)
+
+Cases LBL-SCHEMA, LBL-CRUD, LBL-ASSIGN, LBL-DISPLAY, LBL-FILTER and LBL-BACKUP in
+[labels/ACCEPTANCE_TESTS.md](labels/ACCEPTANCE_TESTS.md). Implemented and host-verified;
+Linux/Alpine image gate and a manual real-device/screen-reader pass are open; see
+[labels/PROGRESS.md](labels/PROGRESS.md).
+
 ## Voice clips (approved change)
 
 Cases VN-REC, VN-LIMIT, VN-POST, VN-SERVE, VN-PLAY, VN-BACKUP and VN-MANUAL in

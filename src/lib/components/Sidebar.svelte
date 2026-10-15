@@ -6,11 +6,14 @@
   import SearchControl from './SearchControl.svelte';
   import { buildInfo } from '#lib/shared/version.ts';
   import TagList from './TagList.svelte';
+  import LabelList from './LabelList.svelte';
   import type { TimelineFilters, TimelineTag } from '#lib/shared/timeline.ts';
+  import type { LabelSummary } from '#lib/shared/labels.ts';
   let {
     calendar,
     active = '/',
     tags = [],
+    labels = [],
     filters = {},
     searchQuery = '',
     onSearch = async () => {},
@@ -20,6 +23,8 @@
     active?: string;
     /** Tags of published notes, most used first. */
     tags?: TimelineTag[];
+    /** Labels of published notes, most used first. */
+    labels?: LabelSummary[];
     filters?: TimelineFilters;
     searchQuery?: string;
     onSearch?: (href: string) => Promise<unknown>;
@@ -28,8 +33,14 @@
   const id = $props.id();
   const i18n = useI18n();
   const t = i18n.t;
-  /** Tags shown here; the Tags page lists everything. */
+  /** Tags/labels shown here; the Tags/Labels pages list everything. */
   const VISIBLE_TAGS = 12;
+  const VISIBLE_LABELS = 12;
+  const sortedLabels = $derived(
+    [...labels].sort(
+      (a, b) => b.noteCount - a.noteCount || a.name.localeCompare(b.name),
+    ),
+  );
 </script>
 
 <div class="sidebar-content">
@@ -80,12 +91,37 @@
         </div>
       {:else}<p class="help">{t('shell.noTags')}</p>{/if}
     </section>
+    <section aria-labelledby={`${id}-labels`}>
+      <h2 id={`${id}-labels`}>
+        <a href="/labels" onclick={onNavigate}>{t('shell.labels')}</a>
+      </h2>
+      {#if sortedLabels.length}
+        <div class="tag-list">
+          <LabelList
+            labels={sortedLabels.slice(0, VISIBLE_LABELS)}
+            {filters}
+            {onNavigate}
+          />
+          {#if sortedLabels.length > VISIBLE_LABELS}<a
+              class="more"
+              href="/labels"
+              aria-label={t('shell.allLabels', { count: sortedLabels.length })}
+              onclick={onNavigate}>+{sortedLabels.length - VISIBLE_LABELS}</a
+            >{/if}
+        </div>
+      {:else}<p class="help">{t('shell.noLabels')}</p>{/if}
+    </section>
   </div>
   <nav class="sidebar-bottom" aria-label={t('shell.utilities')}>
     <a
       href="/templates"
       aria-current={active === '/templates' ? 'page' : undefined}
       onclick={onNavigate}>{t('shell.templates')}</a
+    >
+    <a
+      href="/labels"
+      aria-current={active === '/labels' ? 'page' : undefined}
+      onclick={onNavigate}>{t('shell.labels')}</a
     >
     <a
       href="/trash"

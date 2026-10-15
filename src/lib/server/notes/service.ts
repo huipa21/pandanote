@@ -35,6 +35,7 @@ import { inspectContent } from './content.ts';
 import { attachmentDto } from '../attachments/service.ts';
 import { refreshNoteSearch, removeNoteSearch } from '../search/index.ts';
 import { assertCurrentTags } from '../tags/service.ts';
+import { assertLabelExists } from '../labels/service.ts';
 
 export function noteMutationDigest(value: NoteMutation): string {
   return createHash('sha256')
@@ -77,6 +78,7 @@ function snapshot(db: Reader, row: NoteRow): NoteSnapshot {
     contentEditedAt: row.contentEditedAt,
     revision: row.revision,
     pinnedAt: row.pinnedAt,
+    labelId: row.labelId,
     attachmentIds: linkedIds(db, row.id),
     attachments: db
       .select({ attachment: attachments })
@@ -189,6 +191,8 @@ export class NoteService {
         const rows = this.readyAttachments(tx, identity, content, batch?.id);
         if (!content.bodyMarkdown.trim() && rows.length === 0)
           throw new DomainError('validation', 'err.addTextOrAReady');
+        const labelId = content.labelId ?? null;
+        if (labelId !== null) assertLabelExists(tx, labelId);
         const extracted = inspectContent(
           content.bodyMarkdown,
           new Set(rows.filter((r) => r.kind === 'image').map((r) => r.id)),
@@ -221,6 +225,7 @@ export class NoteService {
           status: 'published' as const,
           priorStatus: null,
           pinnedAt: old?.pinnedAt ?? null,
+          labelId,
         };
         if (old) this.update(tx, old, fields);
         else

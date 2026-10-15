@@ -2,6 +2,31 @@
 
 ## Current state
 
+- **Color or icon labels (user request) — L01–L07 implemented, host-verified; Linux image
+  gate and a manual real-device/screen-reader pass NOT done.** One label per note;
+  user-named labels with color (8 fixed swatches) + optional icon (12 fixed icons);
+  `/labels` management page (create/edit/delete, no search — capped at 40); editor
+  toolbar picker ("Choose a label"); card/detail chip that always shows the name as real
+  text (never color-only); sidebar "Labels" section filtering via a `label` URL parameter,
+  combinable with tag/day/month/search, not part of free-text search; carried through
+  pin/Trash/restore; deleting a label clears it from notes via `ON DELETE SET NULL`
+  without deleting any note; not reflected on the calendar. Schema folded directly into
+  the baseline per "treat as new setup" (`SCHEMA_VERSION` stays 3, no new migration file;
+  `notes_update_guard` also extended in place to allow the one same-revision FK-cascade
+  update). Label assignment ended up simpler than originally planned: it is
+  `content.labelId` on the note's own create/update mutation, not separate `setLabel`/
+  `clearLabel` commands (see labels/SPEC.md §3 and labels/PROGRESS.md for the rationale).
+  Commands/results: `npm run check` 0 errors (1 pre-existing warning); `npm run lint`
+  clean; `npm run test:unit` 258 pass; `npm run test:integration` 289 pass + 7 platform
+  skips; `npm run build` pass; `playwright test labels` 3/3 (CRUD, axe on the New-label
+  dialog, composer pick/post/chip/sidebar-filter); full `npx playwright test` (139 tests):
+  135 pass outright, 4 failed only under full sequential load and passed standalone
+  (`detail:256`, `editor:205` worker crash, `voice-naming:161`, `zzrestore:24` — the same
+  pre-existing Windows flakiness class documented in earlier sessions, not a regression);
+  2 shell screenshot baselines regenerated for the new sidebar link/section (same
+  precedent as the templates sidebar link). Details: [labels/PROGRESS.md](labels/PROGRESS.md).
+  Next: Linux/Alpine image gate, then a manual screen-reader/real-device pass.
+
 - **Note templates (user request) — implemented / host-verified; Linux image gate not run.** `/templates` page (search, select-all, multi-select delete, New template, click to edit; unlimited), sidebar link, editor toolbar picker with search that inserts at the caret. Schema 3 (migration `0002_note_templates`). Check/lint pass, unit 254, integration 282 + 7 skips, build pass, new e2e 3/3; full e2e 134 pass / 2 fail where `detail:256` fails at HEAD too and `shell:54` was a baseline legitimately changed by the sidebar link (updated). A Windows-only `EPERM` restore flake appears at the repo path (not in a clean worktree). Details and open items: [templates/PROGRESS.md](templates/PROGRESS.md).
 
 - **Voice clips (user request) — VN01–VN07 automated gates done (host + Alpine image); the manual real-device pass (VN-MANUAL) is NOT done, so not release-complete.** Spec, plan VN01–VN07 and
