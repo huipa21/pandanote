@@ -167,7 +167,7 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
     });
     const path = p.storage.backupPath(id);
     const manifest = await verifyArchive(path, AbortSignal.timeout(10_000));
-    expect(manifest).toMatchObject({ formatVersion: 2, schemaVersion: 2 });
+    expect(manifest).toMatchObject({ formatVersion: 2, schemaVersion: 3 });
     expect(manifest.excluded).toContain('pre-upgrade');
     expect(
       manifest.entries.every((entry) => !entry.path.includes('pre-upgrade')),

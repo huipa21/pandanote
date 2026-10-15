@@ -83,6 +83,11 @@
   </div>
   <nav class="sidebar-bottom" aria-label={t('shell.utilities')}>
     <a
+      href="/templates"
+      aria-current={active === '/templates' ? 'page' : undefined}
+      onclick={onNavigate}>{t('shell.templates')}</a
+    >
+    <a
       href="/trash"
       aria-current={active === '/trash' ? 'page' : undefined}
       onclick={onNavigate}>{t('shell.trash')}</a

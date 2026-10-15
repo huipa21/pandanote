@@ -11,10 +11,12 @@
   let {
     workspace,
     onTag,
+    onTemplate,
     onFiles,
   }: {
     workspace: EditorWorkspace | undefined;
     onTag: () => void;
+    onTemplate: () => void;
     onFiles: () => void;
   } = $props();
   let dateOpen = $state(false);
@@ -53,6 +55,17 @@
   >
     <svg viewBox="0 0 24 24" aria-hidden="true"
       ><path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" /></svg
+    >
+  </button>
+  <button
+    type="button"
+    disabled={locked}
+    aria-label={t('templates.insert')}
+    title={t('templates.insertTitle')}
+    onclick={onTemplate}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true"
+      ><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6" /></svg
     >
   </button>
   <button

@@ -1,5 +1,9 @@
 # PandaNote — Product specification
 
+## Approved change — note templates
+
+The user approved reusable note templates: a **Templates** page (sidebar link, laid out like Tags) with search, select-all, multi-select delete, a New template button and click-to-edit, with no limit on the count; and a template icon in the editor toolbar that opens a searchable picker and inserts the chosen text at the caret. Templates are private copies of text only (no attachments, no placeholders); notes made from them are independent. Adds schema version 3. Details: [templates/SPEC.md](templates/SPEC.md) and [PROGRESS](templates/PROGRESS.md).
+
 ## Approved change — voice clips
 
 The user approved a microphone button in the editor toolbar that records audio clips;

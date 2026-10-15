@@ -104,7 +104,7 @@ it('uses the shared SQL/data runner on an isolated known-v1 staging copy without
       staged.pragma('trusted_schema=OFF');
       staged.pragma('journal_mode=DELETE');
       applyMigrations(staged, loadMigrations(), { now: 123 });
-      expect(staged.pragma('user_version', { simple: true })).toBe(2);
+      expect(staged.pragma('user_version', { simple: true })).toBe(3);
       expect(
         staged.prepare('SELECT body_normalized FROM note_search').get(),
       ).toEqual({ body_normalized: 'café 香港 図書館' });

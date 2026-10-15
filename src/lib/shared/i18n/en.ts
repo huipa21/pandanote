@@ -1174,6 +1174,58 @@ export const en = {
   'err.useALifecycleActionFor': 'Use a lifecycle action for this note.',
   'err.invalidTagSearch': 'Invalid tag search.',
   'err.invalidTagHistoryCheck': 'Invalid tag history check.',
+  'shell.templates': 'Templates',
+  'templates.title': 'Templates',
+  'templates.search': 'Search templates',
+  'templates.new': 'New template',
+  'templates.none': 'No templates yet. Create one to start notes faster.',
+  'templates.noMatch': 'No templates match your search.',
+  'templates.selectAll': 'Select all templates',
+  'templates.selectOne': 'Select template {name}',
+  'templates.selectedCount': '{count} selected',
+  'templates.deleteSelected': 'Delete selected templates',
+  'templates.deleteTitle': 'Delete templates?',
+  'templates.deleteOne':
+    'Delete this template? Notes already created from it are not changed.',
+  'templates.deleteMany':
+    'Delete {count} templates? Notes already created from them are not changed.',
+  'templates.deleteConfirm': 'Delete',
+  'templates.deleteStopped':
+    'Stopped after {done} of {total}. The remaining templates are still selected.',
+  'templates.editTitle': 'Edit template',
+  'templates.newTitle': 'New template',
+  'templates.name': 'Name',
+  'templates.body': 'Template text',
+  'templates.save': 'Save template',
+  'templates.saving': 'Saving…',
+  'templates.discardQuestion': 'Discard your changes to this template?',
+  'templates.keepEditing': 'Keep editing',
+  'templates.reloadHint':
+    'Close this window and reopen the template to see the latest version. Your text is still here to copy.',
+  'templates.insert': 'Insert template',
+  'templates.insertTitle': 'Template',
+  'templates.pickerNone': 'No templates yet. Create one on the Templates page.',
+  'templates.pickerNoMatch': 'No templates match your search.',
+  'templates.tooLarge':
+    'The template would exceed the Markdown size limit, so nothing was inserted.',
+  'templates.loadFailed': 'Templates could not be loaded. Try again.',
+  'templates.busy': 'Finish the current action first.',
+  'err.templateChanged':
+    'This template changed somewhere else. Close and reopen it to see the latest version.',
+  'err.templateNotFound': 'This template no longer exists.',
+  'err.templateRequestInvalid': 'The template request is not valid.',
+  'err.templateNameInvalid':
+    'Use a name of 1–60 characters without control characters.',
+  'err.templateBodyRequired': 'Write some text for the template.',
+  'err.templateAttachmentReference':
+    'Templates cannot contain attached photos or files.',
+  'err.templateBodyTooLarge':
+    'This template is larger than the Markdown size limit.',
+  'err.templateNameExists': 'A template with this name already exists.',
+  'err.templateMutationMismatch':
+    'This retry has different template content. Start again.',
+  'err.templateLoadFailed': 'Templates could not be loaded. Try again.',
+  'err.templateSaveFailed': 'The template could not be saved. Try again.',
 } as const;
 export type MessageKey = keyof typeof en;
 export type Catalog = Record<MessageKey, string>;

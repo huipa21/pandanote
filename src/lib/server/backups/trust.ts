@@ -16,6 +16,12 @@ import { settingsSchema } from '../../shared/settings.ts';
 import { usernameSchema, emailSchema } from '../../shared/auth.ts';
 import { uploadItemSchema } from '../../shared/attachments.ts';
 import {
+  isBlankTemplateBody,
+  normalizeTemplateBody,
+  normalizeTemplateName,
+  templateNameKey,
+} from '../../shared/templates.ts';
+import {
   idSchema,
   digestSchema,
   instantSchema,
@@ -50,7 +56,7 @@ let db;
     if (db.prepare('SELECT count(*) n FROM "'+object.name+'"').get().n > 1000000) throw Error('count');
     const columns = db.prepare('PRAGMA table_info("'+object.name+'")').all();
     for (const col of columns) {
-      const max = object.name==='notes' && col.name==='body_markdown' ? 1048576 : 16384;
+      const max = (object.name==='notes' || object.name==='note_templates') && col.name==='body_markdown' ? 1048576 : 16384;
       if (db.prepare('SELECT 1 FROM "'+object.name+'" WHERE length(CAST("'+col.name+'" AS BLOB)) > ? LIMIT 1').get(max)) throw Error('cell');
     }
   }
@@ -330,6 +336,27 @@ export async function trustSnapshot(
       )
         throw new Error('Tag identity');
     }
+    // Schema 3 adds private templates; schema 2 archives stage with an empty set.
+    if (manifest.schemaVersion >= 3)
+      for await (const row of asRows(db, 'note_templates', signal)) {
+        idSchema.parse(row.id);
+        const name = z.string().parse(row.name);
+        if (
+          normalizeTemplateName(name) !== name ||
+          templateNameKey(name) !== row.name_key
+        )
+          throw new Error('Template identity');
+        const body = z.string().max(1048576).parse(row.body_markdown);
+        if (normalizeTemplateBody(body) !== body || isBlankTemplateBody(body))
+          throw new Error('Template body');
+        z.number()
+          .int()
+          .min(1)
+          .max(Number.MAX_SAFE_INTEGER)
+          .parse(row.revision);
+        instantSchema.parse(row.created_at);
+        instantSchema.parse(row.updated_at);
+      }
     let count = 0,
       published = 0,
       trash = 0;

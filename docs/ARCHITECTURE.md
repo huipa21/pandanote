@@ -1,5 +1,9 @@
 # PandaNote — Architecture and technical contracts
 
+## Current override — note templates
+
+Schema is now **3 / 20 domain tables**: migration `0002_note_templates` adds `note_templates` and `template_mutation_receipts`. `TemplateService` follows the note pattern (session recheck in the write transaction, receipt-first retries, expected-revision conflicts). Backup archives include the tables; restore trust validates template rows for schema 3 archives and a schema 2 archive migrates with none. Contracts: [templates/SPEC.md](templates/SPEC.md).
+
 ## Approved override — security hardening
 
 Approved changes to authentication contracts (trusted-device rate buckets, an

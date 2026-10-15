@@ -312,6 +312,42 @@ export const mutationReceipts = sqliteTable(
     check('receipt_json_check', sql`json_valid(${t.resultJson})`),
   ],
 );
+// Private reusable Markdown starting texts. Notes copy the text when created from
+// a template, so there is no foreign key to notes and no Trash lifecycle.
+export const noteTemplates = sqliteTable(
+  'note_templates',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    nameKey: text('name_key').notNull(),
+    bodyMarkdown: text('body_markdown').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdAt: created(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('note_templates_name_key').on(t.nameKey),
+    check(
+      'note_template_check',
+      sql`length(${t.name}) BETWEEN 1 AND 60 AND length(${t.nameKey}) BETWEEN 1 AND 240 AND length(${t.bodyMarkdown}) > 0 AND ${t.revision} BETWEEN 1 AND 9007199254740991 AND ${t.createdAt} BETWEEN 0 AND 8640000000000000 AND ${t.updatedAt} BETWEEN ${t.createdAt} AND 8640000000000000`,
+    ),
+  ],
+);
+// Receipts for template create/update/delete, separate from note receipts whose
+// result schema describes note mutations. Same retry rule: a matching ID returns
+// the original result even after later edits or deletion.
+export const templateMutationReceipts = sqliteTable(
+  'template_mutation_receipts',
+  {
+    mutationId: text('mutation_id').primaryKey().notNull(),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => account.id, { onDelete: 'restrict' }),
+    requestDigest: text('request_digest').notNull(),
+    resultJson: text('result_json').notNull(),
+    createdAt: created(),
+  },
+);
 export const appSettings = sqliteTable(
   'app_settings',
   {

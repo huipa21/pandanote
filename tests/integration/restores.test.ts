@@ -28,6 +28,7 @@ import { writePrivateJson } from '../../src/lib/server/storage/private-storage.t
 import { AuthService } from '../../src/lib/server/auth/service.ts';
 import { createFixtureAccount } from '../helpers/auth.ts';
 import { BackupService } from '../../src/lib/server/backups/service.ts';
+import { TemplateService } from '../../src/lib/server/templates/service.ts';
 import { RestoreService } from '../../src/lib/server/backups/restore.ts';
 import {
   recoverRestores,
@@ -560,8 +561,9 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
           db.unsafeMode(false);
         },
         (db, m) => {
-          m.schemaVersion = 3;
-          db.pragma('user_version=3');
+          // Newer than this build (current schema is 3).
+          m.schemaVersion = 4;
+          db.pragma('user_version=4');
         },
         (db, m) => {
           m.counts.notes++;
@@ -613,6 +615,13 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
               }[]
             ).map((row) => row.name),
           );
+          // Tables added by later migrations (for example schema 3 templates).
+          for (const row of db
+            .prepare(
+              "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            )
+            .all() as { name: string }[])
+            if (!names.has(row.name)) db.exec(`DROP TABLE "${row.name}"`);
           for (const row of db
             .prepare("SELECT name FROM sqlite_schema WHERE type='trigger'")
             .all() as { name: string }[])
@@ -620,7 +629,7 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
         } finally {
           trusted.close();
         }
-        db.exec('DELETE FROM __pandanote_migrations WHERE version=2');
+        db.exec('DELETE FROM __pandanote_migrations WHERE version>=2');
         db.pragma('user_version=1');
         m.schemaVersion = 1;
       });
@@ -637,7 +646,7 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
         { readonly: true },
       );
       try {
-        expect(stage.pragma('user_version', { simple: true })).toBe(2);
+        expect(stage.pragma('user_version', { simple: true })).toBe(3);
         expect(
           stage
             .prepare(
@@ -657,7 +666,7 @@ it('rejects untrusted SQLite schema/triggers/views/modules, corrupt data, mismat
         confirmed: true,
         grant: await f.grant('restore'),
       });
-      expect(p.native.pragma('user_version', { simple: true })).toBe(2);
+      expect(p.native.pragma('user_version', { simple: true })).toBe(3);
       expect(
         p.native.prepare('SELECT count(*) n FROM note_search_fts').get(),
       ).toEqual({ n: 1 });
@@ -852,4 +861,80 @@ it('drains admitted writers, rechecks revoked security identity before swap, and
       await restarted.close();
     }
   });
+});
+
+it('restores private note templates from a schema 3 archive and a schema 2 archive restores with none', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pandanote-template-restore-'));
+  try {
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      const templates = new TemplateService(p);
+      templates.mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        name: 'Weekly 周报',
+        bodyMarkdown: '## Goals\n- rest #Work',
+      });
+      templates.mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        name: 'Plain',
+        bodyMarkdown: 'Line one\r\nLine two',
+      });
+      const archive = await backup(p, f);
+      const s = restore(p, f);
+      const summary = await upload(s, f, archive);
+      expect(summary.schemaVersion).toBe(3);
+      await s.confirm(f.identity, {
+        id: summary.id,
+        confirmed: true,
+        grant: await f.grant('restore'),
+      });
+      expect(
+        p.native
+          .prepare(
+            'SELECT name, body_markdown, revision FROM note_templates ORDER BY name_key',
+          )
+          .all(),
+      ).toEqual([
+        { name: 'Plain', body_markdown: 'Line one\nLine two', revision: 1 },
+        {
+          name: 'Weekly 周报',
+          body_markdown: '## Goals\n- rest #Work',
+          revision: 1,
+        },
+      ]);
+    });
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      new TemplateService(p).mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        name: 'Future only',
+        bodyMarkdown: 'not in schema 2',
+      });
+      const archive = await backup(p, f);
+      const older = await alteredArchive(archive, root, (db, m) => {
+        db.exec('DROP TABLE template_mutation_receipts');
+        db.exec('DROP TABLE note_templates');
+        db.exec('DELETE FROM __pandanote_migrations WHERE version>=3');
+        db.pragma('user_version=2');
+        m.schemaVersion = 2;
+      });
+      const s = restore(p, f);
+      const summary = await upload(s, f, older);
+      expect(summary.schemaVersion).toBe(2);
+      await s.confirm(f.identity, {
+        id: summary.id,
+        confirmed: true,
+        grant: await f.grant('restore'),
+      });
+      expect(p.native.pragma('user_version', { simple: true })).toBe(3);
+      expect(
+        p.native.prepare('SELECT count(*) n FROM note_templates').get(),
+      ).toEqual({ n: 0 });
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

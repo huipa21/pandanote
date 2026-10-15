@@ -74,6 +74,7 @@ it('migrates a fresh real DB, uses durable pragmas, repeats safely and seeds no 
       expect(loadMigrations().map((migration) => migration.name)).toEqual([
         '0000_baseline',
         '0001_guards_and_search',
+        '0002_note_templates',
       ]);
       expect(
         (inspector.pragma('table_info(notes)') as { name: string }[]).map(

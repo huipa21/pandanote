@@ -15,6 +15,13 @@
       "when": 1791364351344,
       "tag": "0001_guards_and_search",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792070389188,
+      "tag": "0002_note_templates",
+      "breakpoints": true
     }
   ]
 }

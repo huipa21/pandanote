@@ -2,6 +2,8 @@
 
 ## Current state
 
+- **Note templates (user request) — implemented / host-verified; Linux image gate not run.** `/templates` page (search, select-all, multi-select delete, New template, click to edit; unlimited), sidebar link, editor toolbar picker with search that inserts at the caret. Schema 3 (migration `0002_note_templates`). Check/lint pass, unit 254, integration 282 + 7 skips, build pass, new e2e 3/3; full e2e 134 pass / 2 fail where `detail:256` fails at HEAD too and `shell:54` was a baseline legitimately changed by the sidebar link (updated). A Windows-only `EPERM` restore flake appears at the repo path (not in a clean worktree). Details and open items: [templates/PROGRESS.md](templates/PROGRESS.md).
+
 - **Voice clips (user request) — VN01–VN07 automated gates done (host + Alpine image); the manual real-device pass (VN-MANUAL) is NOT done, so not release-complete.** Spec, plan VN01–VN07 and
   acceptance cases in [voice-notes/](voice-notes/README.md); status in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
   Next: human VN-MANUAL on Chrome/Firefox/Safari-iOS. Full e2e 121 passed / 6 pre-existing failures.
@@ -5504,3 +5506,8 @@ after the successful host build, Linux270 and final affected25 browser gate.
 - Done: `PATCH /api/attachments/<id>`, rename pencil on every clip (editor, cards, note page). The `0001` baseline trigger was edited in place
   (new instance, data folder to be removed — delete the old /data first). Check/lint/unit 240/integration 270 (+7 skips)/build pass;
   `playwright test voice zzzaccessibility` 49 passed. Alpine image and full e2e not re-run. See [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md) (Session 8).
+
+## Session 2026-10-15 — note templates
+
+- Done: T01–T06 on the host; see [templates/PROGRESS.md](templates/PROGRESS.md) for files, exact results, the restore-flake investigation and remaining work.
+- Next: Alpine image integration + deployment drill for schema 3; tampered-template restore test.

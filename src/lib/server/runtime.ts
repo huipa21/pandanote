@@ -3,6 +3,7 @@ import { readSettings } from './settings/repository.ts';
 import { AuthService } from './auth/service.ts';
 import { AttachmentService } from './attachments/service.ts';
 import { NoteService } from './notes/service.ts';
+import { TemplateService } from './templates/service.ts';
 import { TagService } from './tags/service.ts';
 import { runAttachmentCleanup } from './attachments/cleanup.ts';
 import {
@@ -25,6 +26,7 @@ export interface Runtime {
   attachments: AttachmentService;
   notes: NoteService;
   tags: TagService;
+  templates: TemplateService;
   backups: BackupService;
   restores: RestoreService;
   ready: Promise<void>;
@@ -63,6 +65,7 @@ async function openRuntime(development: boolean): Promise<void> {
     const restores = new RestoreService(persistence, auth, backups, disk);
     const notes = new NoteService(persistence);
     const tags = new TagService(persistence);
+    const templates = new TemplateService(persistence);
     const ready = runAttachmentCleanup(persistence);
     let closing: Promise<void> | undefined;
     const close = (): Promise<void> =>
@@ -77,6 +80,7 @@ async function openRuntime(development: boolean): Promise<void> {
       attachments,
       notes,
       tags,
+      templates,
       backups,
       restores,
       ready,

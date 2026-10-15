@@ -13,6 +13,12 @@
   import EditorOptions from './EditorOptions.svelte';
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
+  import TemplatePicker from './TemplatePicker.svelte';
+  import { tr } from '#lib/client/i18n-current.ts';
+  import {
+    insertTemplateText,
+    type NoteTemplate,
+  } from '#lib/shared/templates.ts';
   import { MEDIA_ACCEPT } from '#lib/client/uploads/file-kind.ts';
 
   /**
@@ -49,6 +55,7 @@
   let expandedTextarea = $state<HTMLTextAreaElement>();
   let desktop = $state(false);
   let confirmCancel = $state(false);
+  let templatePickerOpen = $state(false);
   const dialogTitle = $derived(
     variant === 'inline' ? t('editor.editNote') : t('editor.writeNote'),
   );
@@ -105,6 +112,42 @@
       addFiles(files);
     }
   }
+  /**
+   * Inserts a template at the caret of the current session text. Nothing posts; the
+   * usual Post/Save rules apply. A violation of the Markdown size limit adds nothing.
+   */
+  async function insertTemplate(template: NoteTemplate) {
+    if (
+      !workspace?.active ||
+      !workspace.ready ||
+      workspace.busy ||
+      workspace.frozen ||
+      workspace.conflict ||
+      workspace.posting ||
+      workspace.recording
+    )
+      return;
+    const next = insertTemplateText(
+      workspace.active.bodyMarkdown,
+      cursor.start,
+      cursor.end,
+      template.bodyMarkdown,
+    );
+    if (
+      new TextEncoder().encode(next.text).byteLength >
+      workspace.limits.markdownMaxBytes
+    ) {
+      workspace.error = tr('templates.tooLarge');
+      return;
+    }
+    workspace.change(next.text);
+    preview = false;
+    cursor = { start: next.caret, end: next.caret };
+    await tick();
+    const input = focusOpen ? expandedTextarea : textarea;
+    input?.setSelectionRange(next.caret, next.caret);
+  }
+
   async function addTag() {
     if (!workspace || workspace.busy || workspace.frozen || workspace.conflict)
       return;
@@ -301,6 +344,7 @@
       <EditorOptions
         {workspace}
         onTag={addTag}
+        onTemplate={() => (templatePickerOpen = true)}
         onFiles={() => fileInput.click()}
       />
       <button
@@ -396,6 +440,10 @@
 >
   {#if focusOpen}{@render editor(true)}{/if}
 </Modal>
+{#if workspace}<TemplatePicker
+    bind:open={templatePickerOpen}
+    onPick={(template) => void insertTemplate(template)}
+  />{/if}
 
 <style>
   .note-editor.composer {

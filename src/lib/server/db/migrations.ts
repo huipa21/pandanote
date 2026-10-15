@@ -8,7 +8,7 @@ import {
   type DataMigrationRegistry,
 } from './data-migrations.ts';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 /** Only these explicitly safe messages may be printed by startup/CLI code. */
 export class DatabaseUpgradeError extends Error {}
 export const PRE_RELEASE_DATABASE_MESSAGE =
