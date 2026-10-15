@@ -223,8 +223,13 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   ).toBeVisible();
   const options = composer.getByRole('group', { name: 'Note options' });
   await expect(options).toBeVisible();
-  await expect(options.getByRole('button')).toHaveCount(3);
-  for (const name of ['Add tag', 'Add photos or video', 'Set date'])
+  await expect(options.getByRole('button')).toHaveCount(4);
+  for (const name of [
+    'Add tag',
+    'Add photos or video',
+    'Record a voice clip',
+    'Set date',
+  ])
     await expect(
       options.getByRole('button', { name, exact: true }),
     ).toBeVisible();

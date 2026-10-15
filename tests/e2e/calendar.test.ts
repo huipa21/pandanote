@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { openSettingsTab } from './settings-tab.ts';
 import sharp from 'sharp';
 import { expect, test, type Page } from '@playwright/test';
 import { browserSession } from '../helpers/browser-session.ts';
@@ -354,6 +355,17 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
   expect(mobileMonths.every((box) => box.width >= 44 && box.height >= 44)).toBe(
     true,
   );
+  // Inside the drawer, Escape cancels the year edit, then closes only the picker.
+  await picker.getByRole('button', { name: 'Enter year, 2024' }).click();
+  await page.keyboard.press('Escape');
+  await expect(
+    picker.getByRole('button', { name: 'Enter year, 2024' }),
+  ).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(picker).toHaveCount(0);
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'January 2025' }).click();
+  await picker.getByRole('button', { name: 'Previous year' }).click();
   await picker
     .getByRole('link', { name: 'February 2024', exact: true })
     .click();
@@ -478,6 +490,7 @@ test('timezone detection is an explicit proposal; settings errors retain choices
 }) => {
   const { headers } = await start(page);
   await page.goto('/settings');
+  await openSettingsTab(page, 'Calendar');
   await page.getByLabel('App timezone', { exact: true }).fill('Mars/Invalid');
   await page
     .getByRole('button', { name: 'Save calendar', exact: true })
@@ -505,6 +518,7 @@ test('timezone detection is an explicit proposal; settings errors retain choices
     page.getByText('Calendar saved. Dates and counts now use this timezone.'),
   ).toBeVisible();
   await page.reload();
+  await openSettingsTab(page, 'Calendar');
   await expect(page.getByLabel('App timezone', { exact: true })).toHaveValue(
     'Asia/Tokyo',
   );
@@ -671,7 +685,8 @@ test('posting from the composer invalidates calendar counts and a delayed image 
   await expect
     .poll(() =>
       card
-        .locator('.markdown img')
+        .getByRole('list', { name: 'Note images' })
+        .locator('img')
         .evaluate((image) => (image as HTMLImageElement).naturalWidth),
     )
     .toBe(400);

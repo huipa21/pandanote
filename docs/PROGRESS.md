@@ -2,9 +2,14 @@
 
 ## Current state
 
-- **Voice clips (user request) — VN02 (server) and VN03 (client recorder core) done; VN04+ not started.** Spec, plan VN01–VN07 and
+- **Voice clips (user request) — VN02 (server), VN03 (client recorder core) and VN04 (editor UI) done; VN05+ not started.** Spec, plan VN01–VN07 and
   acceptance cases in [voice-notes/](voice-notes/README.md); status in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
-  Next: VN04 (editor UI).
+  Next: VN05 (display on cards and note page).
+  VN04 follow-up (voice Session 5): added a 0.5 s minimum take, dimmed disabled buttons app-wide, and fixed the
+  month picker so Escape no longer closes the whole phone drawer. Also fixed the stale shell screenshot baselines, the
+  axe month-picker/backup steps, the calendar tab/image selectors, `zzrestore` (tabs, password-free backups, cleanup)
+  and the dead nested-tags doc link. Integration is now 266/0 failed. Full e2e is 94 passed / 6 failed; the 6 are
+  pre-existing stale specs (auth:448, detail:256/273, tag-management:8, timeline:146, version:6) and are listed there.
 
 - **Boolean search (AND / OR / NOT / parentheses / `tag:`) — implemented / host-verified; Linux image and full release gates not re-run.**
   Note, Trash and Tags-page search share one AST grammar (uppercase unquoted operators,
@@ -169,8 +174,8 @@
   220 integration + 7 existing Linux skips on host; Alpine image check/lint/147 unit/
   227 integration (zero skips)/build pass. Full e2e 64 pass / 5 fail; all 5 also
   fail on a clean HEAD worktree (language "全部笔记", two screenshots, two axe walks at
-  the calendar "Choose year" button) and are unrelated. Details/handoff:
-  [nested-tags/PROGRESS.md](nested-tags/PROGRESS.md). Not committed by the agent.
+  the calendar "Choose year" button) and are unrelated. Details/handoff: the former `docs/nested-tags/PROGRESS.md`
+  (folder removed with the feature in `3b7d12a`; see git history). Not committed by the agent.
 
 - **Editor toolbar layout (user request) — done / host verified.** Tags/Files/Date/
   Location are now direct icon buttons at the bottom-left of the editor (the `+`

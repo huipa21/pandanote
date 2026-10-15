@@ -14,6 +14,19 @@ import {
 } from '@playwright/test';
 
 const origin = 'http://127.0.0.1:4173';
+// Screenshot-only: the sidebar calendar/tags region (masked) always fills the free
+// space, so its size does not depend on how many tags earlier specs created. Set via
+// CSSOM because the page CSP blocks an injected <style> (toHaveScreenshot 'style').
+const SIDEBAR_DATA = '.sidebar-sections';
+async function fixSidebar(page: Page) {
+  await page
+    .locator(SIDEBAR_DATA)
+    .evaluateAll((els) =>
+      els.forEach((el) =>
+        (el as HTMLElement).style.setProperty('flex', '1 1 0', 'important'),
+      ),
+    );
+}
 async function signIn(page: Page, context: BrowserContext) {
   await browserSession(page);
   // Browser request contexts do not send Secure cookies over loopback HTTP,
@@ -91,8 +104,10 @@ test('appearance persists in SQLite and SSR before JavaScript, follows system, a
   } finally {
     await noJs.close();
   }
+  await fixSidebar(page);
   await expect(page).toHaveScreenshot('settings-dark-compact.png', {
-    mask: [page.locator('[data-calendar-month]')],
+    // Sidebar calendar/tags depend on notes created by earlier specs in the same run.
+    mask: [page.locator('[data-calendar-month]'), page.locator(SIDEBAR_DATA)],
   });
   await page.reload();
   await expect(page.getByLabel('Density', { exact: true })).toHaveValue(
@@ -193,6 +208,20 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
   await signIn(page, context);
   // Real current-month notes make screenshot scroller height independent of other specs.
   const headers = await authenticatedHeaders(page);
+  // Light baselines: never inherit a theme/density another test left in SQLite.
+  expect(
+    (
+      await page.request.patch('/api/settings/appearance', {
+        headers,
+        data: {
+          theme: 'system',
+          density: 'comfortable',
+          collapseLongNotes: true,
+        },
+      })
+    ).status(),
+  ).toBe(200);
+  await page.emulateMedia({ colorScheme: 'light' });
   for (let n = 0; n < 34; n++) {
     const response = await page.request.post('/api/notes', {
       headers,
@@ -221,16 +250,19 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
       page.getByRole('heading', { name: 'All notes', exact: true }),
     ).toBeVisible();
     await noOverflow(page);
-    if (width === 390 || (width === 1440 && height === 900))
+    if (width === 390 || (width === 1440 && height === 900)) {
+      await fixSidebar(page);
       await expect(page).toHaveScreenshot(
         `shell-light-${width}x${height}.png`,
         {
           mask: [
             page.locator('#notes-pane .timeline-content'),
             page.locator('[data-calendar-month]'),
+            page.locator(SIDEBAR_DATA),
           ],
         },
       );
+    }
     await testInfo.attach(`shell-${width}x${height}`, {
       body: await page.screenshot(),
       contentType: 'image/png',

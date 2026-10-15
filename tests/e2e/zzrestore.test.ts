@@ -1,9 +1,26 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { browserSession } from '../helpers/browser-session.ts';
+import {
+  authenticatedHeaders,
+  browserSession,
+} from '../helpers/browser-session.ts';
+import { openSettingsTab } from './settings-tab.ts';
 const origin = 'http://127.0.0.1:4173',
   password = 'synthetic-e2e-only-secret 密碼';
+// Restore replaces shared live data (zh-CN, custom title/timezone). Reset it even when
+// a step fails, so later specs (and later worker groups) start from English defaults.
+test.afterEach(async ({ page }) => {
+  const headers = await authenticatedHeaders(page);
+  await page.request.patch('/api/settings/general', {
+    headers,
+    data: { siteTitle: 'PandaNote', language: 'en' },
+  });
+  await page.request.patch('/api/settings/calendar', {
+    headers,
+    data: { timezone: 'UTC', weekStart: 1 },
+  });
+});
 test('downloaded full archive is uploaded/validated/confirmed through Settings, replaces live data, preserves local work/backups and invalidates sessions', async ({
   page,
   context,
@@ -46,31 +63,23 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
     ).status(),
   ).toBe(200);
   await page.goto('/settings');
+  // The private UI follows the saved language: zh-CN until it is reset below.
+  await openSettingsTab(page, '备份');
   const backups = page.getByTestId('backup-settings'),
     restores = page.getByTestId('restore-settings');
-  await backups
-    .getByRole('button', { name: 'Create full backup', exact: true })
-    .click();
-  const backupDialog = page.getByRole('dialog', {
-    name: 'Authorize backup action',
-  });
-  await backupDialog.getByLabel('Password for backup action').fill(password);
+  // Backup create/download ask for no password since 7bda440.
   const creating = page.waitForResponse(
     (r) =>
       r.url() === `${origin}/api/backups` && r.request().method() === 'POST',
   );
-  await backupDialog
-    .getByRole('button', { name: 'Confirm create backup' })
+  await backups
+    .getByRole('button', { name: '创建完整备份', exact: true })
     .click();
   const job = (await (await creating).json()).data;
   const row = backups.locator(`[data-backup-id="${job.id}"]`);
-  await expect(row).toContainText('complete', { timeout: 30000 });
-  await row.getByRole('button', { name: 'Download backup' }).click();
-  await backupDialog.getByLabel('Password for backup action').fill(password);
+  await expect(row).toContainText('已完成', { timeout: 30000 });
   const downloading = page.waitForEvent('download');
-  await backupDialog
-    .getByRole('button', { name: 'Confirm download backup' })
-    .click();
+  await row.getByRole('button', { name: '下载备份' }).click();
   const download = await downloading,
     archivePath = (await download.path())!;
   for (const popup of context.pages()) if (popup !== page) await popup.close();
@@ -105,6 +114,9 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
     },
   });
   expect(updated.status()).toBe(200);
+  // Back to English for the restore steps; the page renders the saved language.
+  await page.reload();
+  await openSettingsTab(page, 'Backups');
   await restores.getByLabel('PandaNote backup archive').setInputFiles({
     name: 'downloaded.pnb',
     mimeType: 'application/octet-stream',
@@ -135,6 +147,7 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
     ).data.bodyMarkdown,
   ).toBe('modified since archive #Roundtrip');
   await page.reload();
+  await openSettingsTab(page, 'Backups');
   await expect(restores.getByTestId('restore-summary')).toBeVisible();
   await restores.scrollIntoViewIfNeeded();
   await page.screenshot({ path: '.browser-spike/s17-restore-summary.png' });
@@ -179,18 +192,21 @@ test('downloaded full archive is uploaded/validated/confirmed through Settings, 
     revision: 1,
   });
   await page.goto('/settings');
-  await expect(row).toContainText('complete');
+  await openSettingsTab(page, '备份');
+  await expect(row).toContainText('已完成');
   expect(
     (await page.request.get('/api/restores', { headers: newHeaders })).status(),
   ).toBe(200);
   await expect(restores.getByTestId('restore-summary')).toHaveCount(0);
+  await openSettingsTab(page, '账号');
   await expect(page.locator('input[autocomplete="username"]')).toHaveValue(
     'fixture',
   );
   await expect(page.locator('input[autocomplete="email"]')).toHaveValue(
     'fixture@example.invalid',
   );
-  await expect(page.getByLabel('App timezone', { exact: true })).toHaveValue(
+  await openSettingsTab(page, '日历');
+  await expect(page.getByLabel('应用时区', { exact: true })).toHaveValue(
     'Asia/Hong_Kong',
   );
   await expect(page).toHaveTitle(/Archived 香港 notebook/);
@@ -255,6 +271,7 @@ test('invalid private upload leaves live app usable; CSRF/auth/fresh-scope check
   await anonymous.close();
   await page.setViewportSize({ width: 390, height: 600 });
   await page.goto('/settings');
+  await openSettingsTab(page, 'Backups');
   const section = page.getByTestId('restore-settings');
   await section.getByLabel('PandaNote backup archive').setInputFiles({
     name: 'invalid.pnb',

@@ -111,7 +111,9 @@
   }
 </script>
 
-<svelte:window onkeydown={onKeydown} onpointerdown={onPointerDown} />
+<!-- Capture phase: inside the mobile navigation drawer (a modal dialog) the drawer's own
+     Escape handler would otherwise close the whole drawer before the picker sees the key. -->
+<svelte:window onkeydowncapture={onKeydown} onpointerdown={onPointerDown} />
 
 <div
   bind:this={panel}

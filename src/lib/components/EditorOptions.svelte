@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import { RECORDER_ERROR_KEYS } from '#lib/client/recording/clips.ts';
+  import type { RecorderErrorCode } from '#lib/client/recording/recorder.ts';
   const i18n = useI18n();
   const t = i18n.t;
 
@@ -15,6 +18,14 @@
     onFiles: () => void;
   } = $props();
   let dateOpen = $state(false);
+  // Browser capability is only known on the client (secure context, MediaRecorder).
+  let unsupported = $state<RecorderErrorCode | null>(null);
+  onMount(() => {
+    unsupported = workspace?.recordingUnsupported ?? null;
+  });
+  const recordTitle = $derived(
+    unsupported ? t(RECORDER_ERROR_KEYS[unsupported]) : t('rec.startTitle'),
+  );
   const when = $derived(
     workspace?.active
       ? new Date(workspace.active.timelineAt).toLocaleString(i18n.locale, {
@@ -57,6 +68,20 @@
         cy="10"
         r="1.5"
       /><path d="m21 16-5-5-9 9" /></svg
+    >
+  </button>
+  <button
+    type="button"
+    data-record-button
+    disabled={locked || Boolean(unsupported) || workspace?.recording}
+    aria-label={t('rec.start')}
+    title={recordTitle}
+    onclick={() => void workspace?.startRecording()}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true"
+      ><rect x="9" y="3" width="6" height="11" rx="3" /><path
+        d="M5 11a7 7 0 0 0 14 0M12 18v3"
+      /></svg
     >
   </button>
   <button

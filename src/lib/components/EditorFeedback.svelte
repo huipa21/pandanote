@@ -21,6 +21,9 @@
       {/if}
     </div>
   {/if}
+  {#if workspace.notice}
+    <p class="editor-notice" role="status">{workspace.notice}</p>
+  {/if}
   {#if workspace.postError}
     <p class="editor-error" role="alert">
       {workspace.postError}
@@ -83,6 +86,10 @@
     flex: none;
     max-height: 8rem;
     overflow: auto;
+    font-size: 0.875rem;
+  }
+  .editor-notice {
+    margin-block: var(--space-1);
     font-size: 0.875rem;
   }
   .editor-error p {

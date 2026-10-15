@@ -25,6 +25,9 @@ export const MAX_NOTE_PHOTOS = 9;
 /** Voice clips: recording only, 10:00 each, up to twenty per note. */
 export const MAX_VOICE_CLIPS = 20;
 export const MAX_VOICE_SECONDS = 600;
+/** A user Stop before this much recorded time adds nothing: Chromium yields an empty or
+ * header-only blob (no audio frames) for a take stopped within ~100 ms. */
+export const MIN_VOICE_MS = 500;
 export const MEDIA_ACCEPT = 'image/*,video/*';
 
 export function isVideoMeta(file: { type?: string; name?: string }): boolean {

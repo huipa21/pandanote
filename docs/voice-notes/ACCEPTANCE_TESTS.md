@@ -6,6 +6,8 @@ Existing EDITOR, NOTE, attachment, backup and security cases must keep passing.
 
 - The mic button opens the recorder strip; the timer advances; Pause/Resume holds it;
   Stop adds a clip row; Cancel adds nothing. Two recordings give two clips in order.
+- Stop pressed less than 0.5 s of recorded time after Start (paused time excluded) adds no
+  clip and shows the localized "too short" message; the next normal take still works.
 - Post is disabled while recording or paused and enabled after Stop. Entering and
   leaving focus mode keeps recording. The 390 px full-screen editor has the same control.
 - Auto-stop at 10:00 (fake clock) keeps the clip and shows a notice.

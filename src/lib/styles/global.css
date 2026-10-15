@@ -29,6 +29,9 @@ button:hover:not(:disabled),
 }
 button:disabled {
   cursor: not-allowed;
+  /* Disabled controls must look disabled (e.g. Post while recording or empty). WCAG
+     1.4.3 exempts inactive controls from contrast; components may refine this. */
+  opacity: 0.55;
 }
 button.primary {
   background: var(--accent);

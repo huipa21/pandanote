@@ -34,5 +34,6 @@ export const RECORDER_ERROR_KEYS: Record<RecorderErrorCode, MessageKey> = {
   busy: 'rec.errBusy',
   ended: 'rec.errFailed',
   empty: 'rec.errEmpty',
+  short: 'rec.errShort',
   failed: 'rec.errFailed',
 };

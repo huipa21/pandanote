@@ -1,4 +1,4 @@
-import { MAX_VOICE_SECONDS } from '../uploads/file-kind.ts';
+import { MAX_VOICE_SECONDS, MIN_VOICE_MS } from '../uploads/file-kind.ts';
 
 /* Voice capture. Audio is held in memory only (never localStorage/IndexedDB) and
  * nothing leaves the browser until Post. Browser APIs come in through RecorderEnv so
@@ -68,6 +68,8 @@ export type RecorderErrorCode =
   /** The take was cancelled, or already ended on its own (limit/failure). */
   | 'ended'
   | 'empty'
+  /** User Stop before the minimum take length; nothing is added. */
+  | 'short'
   | 'failed';
 export class RecorderError extends Error {
   readonly code: RecorderErrorCode;
@@ -171,6 +173,8 @@ export interface RecorderEnv {
 }
 export interface RecorderOptions {
   maxSeconds?: number;
+  /** A user Stop with less recorded time than this rejects with `short`. */
+  minMs?: number;
   /** Safety cap on in-memory bytes (the per-file upload limit). */
   maxBytes: number;
   timesliceMs?: number;
@@ -183,6 +187,7 @@ export class VoiceRecorder {
   private readonly env: RecorderEnv;
   private readonly events: RecorderEvents;
   private readonly maxMs: number;
+  private readonly minMs: number;
   private readonly maxBytes: number;
   private readonly timeslice: number;
   private readonly progressMs: number;
@@ -214,6 +219,7 @@ export class VoiceRecorder {
     this.env = env;
     this.events = events;
     this.maxMs = (options.maxSeconds ?? MAX_VOICE_SECONDS) * 1000;
+    this.minMs = options.minMs ?? MIN_VOICE_MS;
     this.maxBytes = options.maxBytes;
     this.timeslice = options.timesliceMs ?? 1000;
     this.progressMs = options.progressMs ?? 100;
@@ -316,8 +322,9 @@ export class VoiceRecorder {
     this.setState('recording');
   }
 
-  /** User Stop: resolves with the clip. Rejects with `empty` if nothing was captured,
-   * or `ended` if the take already ended itself or was cancelled. */
+  /** User Stop: resolves with the clip. Rejects with `short` if less than the minimum
+   * was recorded, `empty` if nothing was captured, or `ended` if the take already ended
+   * itself or was cancelled. */
   async stop(): Promise<RecordedClip> {
     if (this.current !== 'recording' && this.current !== 'paused')
       throw new RecorderError('ended');
@@ -325,9 +332,11 @@ export class VoiceRecorder {
     const generation = this.generation;
     await this.endTake('user');
     if (generation !== this.generation) throw new RecorderError('ended');
-    const clip = this.buildClip();
+    const tooShort = this.accumulated < this.minMs;
+    const clip = tooShort ? null : this.buildClip();
     this.reset();
     this.setState('stopped');
+    if (tooShort) throw new RecorderError('short');
     if (!clip) throw new RecorderError('empty');
     return clip;
   }

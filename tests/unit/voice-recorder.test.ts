@@ -400,6 +400,7 @@ describe('VoiceRecorder', () => {
     const f = fakes();
     const r = new VoiceRecorder(f.env, opts);
     await r.start();
+    await f.advance(2_000);
     // The browser emits no chunk at all.
     f.recorder().stop = function (this: MediaRecorderLike) {
       queueMicrotask(() => this.onstop?.());
@@ -425,6 +426,7 @@ describe('VoiceRecorder', () => {
     // Reusable afterwards, and nothing of the old take leaks into the new one.
     await r.start();
     f.recorder().emit('data', 'next');
+    await f.advance(1_000);
     const clip = await r.stop();
     expect(await clip.blob.text()).toBe('nextfinal');
   });
@@ -536,10 +538,45 @@ describe('VoiceRecorder', () => {
     });
     await r.start();
     f.recorder().emit('data', 'x');
-    await f.advance(250);
+    await f.advance(600);
     expect(levels.every((l) => l === 0)).toBe(true);
     await expect(r.stop()).resolves.toBeTruthy();
     expect(f.log.trackStops).toBe(1);
+  });
+
+  it('a user stop before the minimum length rejects as short and keeps nothing', async () => {
+    const f = fakes();
+    const states: string[] = [];
+    const r = new VoiceRecorder(f.env, opts, {
+      onState: (s) => states.push(s),
+    });
+    await r.start();
+    // Chromium hands over a header-only blob for a take stopped this early.
+    f.recorder().emit('data', 'header');
+    await f.advance(499);
+    await expect(r.stop()).rejects.toMatchObject({ code: 'short' });
+    expect(states).toEqual(['starting', 'recording', 'stopped']);
+    expect(f.log.trackStops).toBe(1);
+    expect(f.log.meterClosed).toBe(1);
+    expect(f.timers()).toBe(0);
+    // Paused time does not count toward the minimum.
+    await r.start();
+    await f.advance(300);
+    r.pause();
+    await f.advance(5_000);
+    r.resume();
+    await f.advance(100);
+    f.recorder().emit('data', 'a');
+    await expect(r.stop()).rejects.toMatchObject({ code: 'short' });
+    // Exactly the minimum is enough; the limit is configurable.
+    await r.start();
+    f.recorder().emit('data', 'a');
+    await f.advance(500);
+    await expect(r.stop()).resolves.toMatchObject({ durationSeconds: 0.5 });
+    const quick = new VoiceRecorder(f.env, { ...opts, minMs: 0 });
+    await quick.start();
+    f.recorder().emit('data', 'a');
+    await expect(quick.stop()).resolves.toBeTruthy();
   });
 
   it('only one take at a time per recorder', async () => {

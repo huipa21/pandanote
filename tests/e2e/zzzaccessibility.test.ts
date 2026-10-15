@@ -150,10 +150,22 @@ test.describe('axe WCAG 2.x AA scans', () => {
         });
         await expect(picker).toBeVisible();
         await scan(page, `month picker ${mode} ${size.name}`);
-        await picker.getByRole('button', { name: /^Choose year,/ }).click();
-        await scan(page, `quick year selector ${mode} ${size.name}`);
-        await page.keyboard.press('Escape');
-        if (size.name === 'phone') await page.keyboard.press('Escape');
+        // Clicking the year switches to manual year entry (calendar UI change).
+        await picker.getByRole('button', { name: /^Enter year,/ }).click();
+        await expect(
+          picker.getByRole('textbox', { name: 'Year' }),
+        ).toBeFocused();
+        await scan(page, `year entry ${mode} ${size.name}`);
+        await page.keyboard.press('Escape'); // cancels the year edit only
+        await expect(
+          picker.getByRole('button', { name: /^Enter year,/ }),
+        ).toBeFocused();
+        await page.keyboard.press('Escape'); // closes the picker
+        await expect(picker).toHaveCount(0);
+        if (size.name === 'phone') {
+          await page.keyboard.press('Escape');
+          await expect(calendar).toBeHidden();
+        }
         await page.getByTestId('posted-note').first().locator('a.when').click();
         await expect(page.getByTestId('note-detail')).toBeVisible();
         await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -204,14 +216,27 @@ test.describe('axe WCAG 2.x AA scans', () => {
     await page.keyboard.press('Escape');
     await page.goto('/settings');
     await openSettingsTab(page, 'Backups');
-    await page
-      .getByTestId('backup-settings')
+    // Backup create/download no longer ask for a password (7bda440); the remaining
+    // sensitive backup dialog is the delete confirmation.
+    const backups = page.getByTestId('backup-settings');
+    const created = page.waitForResponse(
+      (response) =>
+        response.url() === `${origin}/api/backups` &&
+        response.request().method() === 'POST',
+    );
+    await backups
       .getByRole('button', { name: 'Create full backup', exact: true })
       .click();
-    await expect(
-      page.getByRole('dialog', { name: 'Authorize backup action' }),
-    ).toBeVisible();
-    await scan(page, 'backup authorization dialog');
+    const id = ((await (await created).json()) as { data: { id: string } }).data
+      .id;
+    const row = backups.locator(`[data-backup-id="${id}"]`);
+    await expect(row).toContainText('complete', { timeout: 30_000 });
+    await row.getByRole('button', { name: 'Delete backup' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Delete backup?' });
+    await expect(confirm).toBeVisible();
+    await scan(page, 'backup delete dialog');
+    await page.keyboard.press('Escape');
+    await expect(confirm).toHaveCount(0);
   });
 });
 

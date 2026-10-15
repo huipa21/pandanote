@@ -12,6 +12,12 @@
   **Cancel (discard this take)**. No modal dialog.
 - Stop adds one clip to the session. The strip closes; pressing the microphone again
   records another clip. Cancel discards only the current take and asks nothing.
+- **Minimum take (VN04 follow-up, default):** a user Stop with less than 0.5 s of recorded
+  time (paused time excluded) adds nothing and shows "The recording was too short, so no
+  clip was added." Reason: Chromium returns an empty blob for a take stopped within ~60 ms
+  and a header-only blob with no audio frames (~175 bytes) at ~90 ms; without the rule
+  the latter would be uploaded as a useless clip. Automatic ends (10:00, size, failure)
+  are unaffected. Constant: `MIN_VOICE_MS` in `uploads/file-kind.ts`.
 - Recording stops automatically at 10:00 and keeps what was recorded (the clip is added,
   with a short notice). Recording never starts automatically.
 - Only one recorder is active per tab. The focus-mode dialog and the compact editor share
@@ -57,8 +63,8 @@
 
 ### 1.4 Errors (localized en + zh-CN, shown in `EditorFeedback`)
 
-Permission denied; no microphone found; microphone in use; insecure context (not
-HTTPS/localhost); `MediaRecorder`/`getUserMedia` unsupported; recording failed mid-way
+Permission denied; no microphone found; microphone in use; take too short (§1.1);
+insecure context (not HTTPS/localhost); `MediaRecorder`/`getUserMedia` unsupported; recording failed mid-way
 (keep what was captured if possible); clip would exceed limits. Browsers without any
 supported recording MIME type disable the button with a reason.
 

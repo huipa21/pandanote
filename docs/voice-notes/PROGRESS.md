@@ -2,7 +2,8 @@
 
 ## Current state
 
-- **VN01 docs, VN02 (server), VN03 (client recorder core, no UI) done.** Next: VN04 (editor UI).
+- **VN01 docs, VN02 (server), VN03 (client recorder core), VN04 (editor UI) done**, plus a Session 5 follow-up
+  (minimum take length, disabled-button dimming, stale e2e specs fixed). Next: VN05 (display on cards and note page).
 
 ## History
 
@@ -111,3 +112,126 @@ A clip stopped while a concurrent `addFiles` runs waits up to 2 s for it, then r
 
 Next: VN04 — editor UI. Read SPEC §1.1–1.2, 1.4, `EditorOptions.svelte`, `AttachmentGrid.svelte`, `NoteEditor.svelte`,
 `workspace.svelte.ts` (recorder API above). Validation: `npm run check && npm run lint && npm run test:unit` + e2e.
+
+### Session 4 — VN04 editor UI (done)
+
+Implemented:
+
+- `EditorOptions.svelte`: microphone button after Photos/video (`data-record-button`); same lock rules plus disabled while a
+  take is open; when the browser cannot record (insecure context, no MediaRecorder/MIME) it is disabled with the reason as title
+  (capability is read in `onMount`, so SSR/hydration are unaffected).
+- New `VoiceRecorder.svelte`: recorder strip above the toolbar (state dot, `m:ss` timer, non-animated level `meter`, Pause/Resume,
+  Stop and add clip, Discard take). Reads only workspace state, so compact editor and focus-mode dialog show the same take. A
+  mounted sr-only `role=status` region announces started/paused/resumed/added/discarded. Focus goes to Stop when a take starts
+  and back to the microphone button when it closes.
+- New `AudioClipList.svelte`: clip rows below the photo grid (play/pause preview from `workspace.clipUrls` through one shared
+  `Audio`, name, recorder duration when known, remove X); drag and Alt+Arrow reorder. Moves are translated to indexes in the
+  full attachment order, so `attachmentIds` stays the single source of truth. Preview stops on remove, on a new take and on destroy.
+- `AttachmentGrid.svelte`: now photos/video only (audio filtered out; index translation for drag/Alt+Arrow).
+- `NoteEditor.svelte`: renders the list and strip; Post/Save button shows "Stop recording first" while recording
+  (`workspace.postBlockedReason`). `EditorFeedback.svelte`: shows `workspace.notice` (10:00 / size limit) as a status.
+- i18n en + zh-CN: `rec.start/startTitle/strip/waiting/recording/paused/level/pause/resume/stop/cancel/announce*/clips/clip/play/pausePlay`.
+- Unsaved guard / pagehide / dispose needed no change (VN03 workspace already treats a take as dirty and releases the microphone).
+- Tests: new `tests/e2e/voice-editor.test.ts` (7, Chromium fake device via per-spec `launchOptions`): record/pause/resume/stop, focus
+  mode continuity, focus return, second clip, Alt+Arrow reorder, remove; cancel; permission denied; navigation guard with Cancel
+  and Discard; clip-only note posts and clears; 390 px layout with 44 px targets; axe WCAG 2.x AA scan of strip + rows.
+  `editor.test.ts` toolbar count 3 → 4.
+
+Commands and real results (Windows host):
+
+- `npm run check` — 0 errors, 1 pre-existing warning (`AppShell.svelte`). `npm run lint` — clean.
+- `npm run test:unit` — 230 passed. `npm run build` — OK.
+- `npm run test:integration` — 265 passed, 7 skipped, 1 failed: `release-hygiene` doc-link check (pre-existing, see Session 2).
+- `npx playwright test voice-editor` — 7 passed. `editor editor-session uploads language smoke` and the other `shell` tests — passed.
+- Failing and **not caused by this step** (no editor involved; not run against a clean HEAD build): `shell.test.ts` screenshots
+  `settings-dark-compact` (Settings page layout drift) and `shell-light-390x844` (header area); `zzzaccessibility` authenticated
+  light/dark scans (4-minute timeouts) and the composer test failing at the final "Authorize backup action" dialog (the composer
+  scan before it passed).
+
+Not verified: real microphone (Chromium fake device only); Firefox/Safari/iOS; Linux image; screen-reader behavior beyond axe;
+a Stop pressed within the first moments of a take produced no clip in one test run (the second recording only landed after the
+timer left 0:00) — presumably the existing VN03 `empty` error, cause not inspected; consider a minimum-length note in VN06/VN07.
+Post disabled button has no dimmed style (existing global button style), so the label is the cue.
+
+Next: VN05 — display on cards and note page. Read SPEC §1.3, `NoteCard.svelte`, `NoteDetail.svelte`, `AttachmentGrid.svelte`,
+`AudioClipList.svelte`; build `AudioClip.svelte` with single-playback coordination. Validation: `npm run check && npm run lint &&
+npm run test:unit` + e2e.
+
+### Session 5 — VN04 follow-up: open items from Session 4 (done)
+
+Analysis of the Session 4 open items, verified on a clean-HEAD worktree (`1cbccac`, own build, junctioned
+`node_modules`, removed afterwards):
+
+- **Shell screenshots and axe failures were not caused by VN04.** All five (`settings-dark-compact`,
+  `shell-light-390x844`, axe light/dark, composer/backup dialog) fail identically on clean HEAD. Causes:
+  - axe light/dark: not slowness. The month picker's `Choose year, …` button became `Enter year, …` (manual year
+    entry), so the click waited the full 4-minute test timeout.
+  - composer axe test: the `Authorize backup action` dialog was removed in `7bda440` (backup create/download no
+    longer ask for a password). The test now scans the remaining sensitive backup dialog, `Delete backup?`.
+  - `settings-dark-compact`: baseline predates the Settings tab redesign and the sidebar redesign (last updated in
+    `8cb3dbd`; main PROGRESS had already asked the owner to regenerate it).
+  - `shell-light-390x844`: a cascade. The appearance test failed at its screenshot before its cleanup, leaving the
+    stored theme Dark, so the "light" matrix shot rendered dark. Its baseline was also stale (new header).
+- **Real app bug found while fixing the axe walk:** in the phone navigation drawer (a `Modal`), Escape in the month
+  picker (even while editing the year) closed the whole drawer, because the dialog's keydown handler ran before
+  the picker's window listener. `MonthPicker.svelte` now listens in the window capture phase. New phone
+  regression steps in `calendar.test.ts`.
+- **Quick Stop:** probed in Chromium with the fake device. A Stop within ~60 ms of `MediaRecorder.start()` yields a
+  0-byte blob (the existing `empty` → "Nothing was recorded."; correct, not a state-machine bug). At ~90 ms it yields
+  a 175-byte header-only webm with no audio frames, which **was added and would be uploaded as a useless clip**.
+  Fix: minimum take length `MIN_VOICE_MS = 500` (recorded time, pauses excluded) for a user Stop. New
+  `RecorderErrorCode` `short` → `rec.errShort` (en + zh-CN). Automatic ends are unchanged. Documented in SPEC §1.1/§1.4
+  and ACCEPTANCE_TESTS VN-REC.
+- **Disabled Post not dimmed:** `global.css` `button:disabled` now also sets `opacity: 0.55` (matches existing local
+  choices of 0.45–0.5; WCAG 1.4.3 exempts inactive controls). This affects every disabled button app-wide, on
+  purpose.
+
+Test changes:
+
+- `zzzaccessibility`: year-entry step (scan, Escape cancels the edit, Escape closes the picker, phone Escape closes
+  the drawer). The backup step now scans `Delete backup?`.
+- `shell`: the matrix test resets appearance itself (no theme inheritance). Screenshots mask the data-dependent
+  sidebar calendar/tags region (`.sidebar-sections`), pinned to `flex: 1 1 0` via CSSOM (`toHaveScreenshot({ style })`
+  is blocked by the page CSP). Three baselines regenerated and inspected (settings tabs, new header, mic button,
+  dimmed Post). Verified both alone and after `calendar`/`tags-page` data.
+- `calendar`: timezone test opens the Calendar tab. The delayed-image test uses the `Note images` thumbnail list (images
+  are no longer inside `.markdown`).
+- `zzrestore`: Settings tabs, password-free backup create/download, zh-CN labels for its zh-CN phase, and reload into
+  English before restore. Added an `afterEach` that resets language/title/timezone even on failure. Before this,
+  its failure left the shared instance in zh-CN, and every later spec failed, including the voice spec, which runs
+  last because its own `launchOptions` put it in a separate worker group.
+- `voice-editor`: new "Stop right after Start" case. Post-blocked button asserts `opacity: 0.55`.
+- Unit: `voice-clips` fake env has a controllable clock (`state.step`) and a new too-short test. `voice-recorder` has a
+  new `short` test (paused time excluded, exactly 500 ms ok, `minMs: 0` override). Three existing tests now record a
+  realistic length.
+- `docs/PROGRESS.md`: dead `nested-tags/PROGRESS.md` link (folder removed in `3b7d12a`) replaced by text, which fixes
+  the `release-hygiene` DOC-01–03 failure carried since Session 2.
+
+Touched: `src/lib/components/MonthPicker.svelte`, `src/lib/styles/global.css`, `src/lib/client/recording/{recorder,clips}.ts`,
+`src/lib/client/uploads/file-kind.ts`, `src/lib/shared/i18n/{en,zh-CN}.ts`,
+`tests/e2e/{zzzaccessibility,shell,calendar,zzrestore,voice-editor}.test.ts`, `tests/e2e/shell.test.ts-snapshots/*.png` (3),
+`tests/unit/voice-{recorder,clips}.test.ts`, docs (this file, SPEC, ACCEPTANCE_TESTS, main PROGRESS).
+
+Commands and real results (Windows host):
+
+- `npm run check`: 0 errors, 1 pre-existing warning (`AppShell.svelte`). `npm run lint`: clean.
+- `npm run test:unit`: 232 passed (35 files).
+- `npm run test:integration`: **266 passed, 7 skipped, 0 failed** (release-hygiene fixed).
+- `npm run build`: OK.
+- Clean-HEAD worktree: `npx playwright test shell zzzaccessibility -g …`: the 5 reported failures reproduce.
+- `npx playwright test` (full suite, current tree): **94 passed, 6 failed, 4.5 min** (before: 81 passed / 19 failed,
+  21 min). The 6 remaining failures are pre-existing stale tests, not caused by VN04, and not fixed here:
+  - `auth:448`: expects 401 for the removed `backup-download` fresh scope, gets 400 (`7bda440`).
+  - `detail:256` and `detail:273`: `detail:273` expects nested `#tag/1` (removed in `3b7d12a`). `detail:256`'s card
+    locator was not found and was not investigated further.
+  - `tag-management:8`: expects the composer to show "Saved on server.", which now renders only on the note page.
+  - `timeline:146`: the `Active filters` region no longer exists.
+  - `version:6`: `#about` is in a hidden Settings tab.
+
+  Session 4 already listed `auth:448`/`detail:273`, and main PROGRESS lists `timeline:146`.
+
+Not verified: real microphone (fake device only), Firefox/Safari/iOS minimum-length behavior, Linux image.
+
+Next: VN05 (display on cards and note page). Read SPEC §1.3, `NoteCard.svelte`, `NoteDetail.svelte`,
+`AttachmentGrid.svelte`, `AudioClipList.svelte`, then build `AudioClip.svelte` with single-playback coordination. Validation:
+`npm run check && npm run lint && npm run test:unit` + e2e. Optional owner task: update the 6 stale specs above.

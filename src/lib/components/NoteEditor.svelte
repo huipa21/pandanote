@@ -7,6 +7,8 @@
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import EditorFeedback from './EditorFeedback.svelte';
   import AttachmentGrid from './AttachmentGrid.svelte';
+  import AudioClipList from './AudioClipList.svelte';
+  import VoiceRecorder from './VoiceRecorder.svelte';
   import TagAutocomplete from './TagAutocomplete.svelte';
   import EditorOptions from './EditorOptions.svelte';
   import Modal from './Modal.svelte';
@@ -192,13 +194,15 @@
     disabled={!workspace?.canPost}
     onclick={() => workspace?.post()}
   >
-    {workspace?.posting
-      ? t('editor.saving')
-      : workspace?.frozen
-        ? t('editor.retrySave')
-        : workspace?.active?.kind === 'edit'
-          ? t('unsaved.saveChanges')
-          : t('unsaved.post')}
+    {workspace?.recording
+      ? workspace.postBlockedReason
+      : workspace?.posting
+        ? t('editor.saving')
+        : workspace?.frozen
+          ? t('editor.retrySave')
+          : workspace?.active?.kind === 'edit'
+            ? t('unsaved.saveChanges')
+            : t('unsaved.post')}
   </button>
 {/snippet}
 
@@ -259,9 +263,9 @@
           {workspace}
         />{/if}
     {/if}
-    {#if workspace}<AttachmentGrid {workspace} /><EditorFeedback
+    {#if workspace}<AttachmentGrid {workspace} /><AudioClipList
         {workspace}
-      />{/if}
+      /><EditorFeedback {workspace} />{/if}
     <p class="help" id={focus ? 'expanded-help' : 'composer-help'}>
       {#if workspace}<span role="status"
           >{workspace.active?.kind === 'edit'
@@ -292,6 +296,7 @@
         >
       </div>
     {/if}
+    {#if workspace}<VoiceRecorder {workspace} />{/if}
     <div class="editor-footer">
       <EditorOptions
         {workspace}

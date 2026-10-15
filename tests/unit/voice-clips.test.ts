@@ -207,6 +207,9 @@ function fakeEnv() {
     recorder: null as MediaRecorderLike | null,
     timers: new Map<number, () => void>(),
     next: 1,
+    /** Each now() reading advances this much, so a start→stop take spans `step` ms. */
+    clock: 0,
+    step: 1_000,
   };
   const env: RecorderEnv = {
     isSecureContext: true,
@@ -233,7 +236,7 @@ function fakeEnv() {
       state.recorder = rec;
       return rec;
     },
-    now: () => Date.now(),
+    now: () => (state.clock += state.step),
     wallClock: () => Date.UTC(2025, 2, 4, 5, 6, 7),
     setTimeout: (h, ms) => {
       const id = state.next++;
@@ -309,6 +312,27 @@ describe('EditorWorkspace voice clips', () => {
     expect(f.state.tracksStopped).toBe(1);
     expect(workspace.dirty).toBe(true);
     expect(workspace.clipUrls[clip!.id]).toMatch(/^blob:/);
+    dispose();
+  });
+
+  it('a take stopped before the minimum length adds nothing and says why', async () => {
+    const { workspace, f, dispose } = await setup();
+    f.state.step = 100; // Stop pressed ~100 ms after start
+    expect(await workspace.startRecording()).toBe(true);
+    expect(await workspace.stopRecording()).toBe(false);
+    expect(workspace.active!.attachments).toHaveLength(0);
+    expect(workspace.error).toBe(
+      'The recording was too short, so no clip was added.',
+    );
+    expect(workspace.recording).toBe(false);
+    expect(f.state.tracksStopped).toBe(1);
+    expect(created).toHaveLength(0);
+    // The next, long-enough take works and clears the message.
+    f.state.step = 1_000;
+    expect(await workspace.startRecording()).toBe(true);
+    expect(workspace.error).toBe('');
+    expect(await workspace.stopRecording()).toBe(true);
+    expect(workspace.active!.attachments).toHaveLength(1);
     dispose();
   });
 

@@ -33,7 +33,7 @@ Tests (integration): each container accepted; non-voice webm stays octet-stream;
 with wrong bytes rejected; full/partial/suffix/invalid ranges; download unchanged;
 unauthorized and cross-note access unchanged; retry safety with the flag in the digest.
 
-## VN03 — Client recorder core (no UI)
+## VN03 — Client recorder core (no UI) — done
 
 Files: `src/lib/client/recording/recorder.ts`, `uploads/file-kind.ts`
 (`MAX_VOICE_CLIPS = 20`, `MAX_VOICE_SECONDS = 600`), `editor/model.ts` (`kind: 'audio'`),
@@ -44,7 +44,7 @@ Tests (unit): MIME selection table, filename in app timezone, limit rules (video
 excludes clips, 21st clip, photos+clips mix), fingerprint/dirty/`hasSessionContent`
 with a clip-only note, upload items carry `voice`, blob cleanup.
 
-## VN04 — Editor UI
+## VN04 — Editor UI — done
 
 Files: `EditorOptions.svelte` (mic button), new `VoiceRecorder.svelte` strip, new
 `AudioClipList.svelte` (or extend `AttachmentGrid.svelte`), `NoteEditor.svelte` (Post

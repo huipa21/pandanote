@@ -9,7 +9,10 @@
   let dragId = $state<string | null>(null);
   let overId = $state<string | null>(null);
 
-  const items = $derived(workspace.active?.attachments ?? []);
+  // Voice clips have their own list (AudioClipList); the grid is photos/video only.
+  const items = $derived(
+    (workspace.active?.attachments ?? []).filter((a) => a.kind !== 'audio'),
+  );
   const locked = $derived(
     workspace.busy || workspace.conflict || workspace.frozen,
   );
@@ -29,7 +32,8 @@
   function drop(event: DragEvent, id: string) {
     if (!dragId) return;
     event.preventDefault();
-    const target = items.findIndex((item) => item.id === id);
+    const all = workspace.active?.attachments ?? [];
+    const target = all.findIndex((item) => item.id === id);
     const moving = dragId;
     end();
     if (target >= 0) void workspace.moveAttachment(moving, target);
@@ -48,7 +52,14 @@
           : 0;
     if (!delta) return;
     event.preventDefault();
-    await workspace.moveAttachment(id, index + delta);
+    // Moves are expressed against the full attachment order (clips included).
+    const neighbor = items[index + delta];
+    if (!neighbor) return;
+    const all = workspace.active?.attachments ?? [];
+    await workspace.moveAttachment(
+      id,
+      all.findIndex((item) => item.id === neighbor.id),
+    );
     await tick();
     list
       ?.querySelector<HTMLElement>(`[data-attachment="${id}"] .tile`)
