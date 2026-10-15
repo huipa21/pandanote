@@ -21,6 +21,7 @@ import { enqueueAttachmentCleanup } from '../maintenance/cleanup.ts';
 import { runAttachmentCleanup } from './cleanup.ts';
 import {
   initializeBatchSchema,
+  renameAttachmentSchema,
   isVoiceMime,
   VOICE_PENDING_MIME,
   type InitializeBatchResult,
@@ -41,6 +42,7 @@ import {
   fileCleanupJobs,
 } from '../db/schema.ts';
 import { findReceipt } from '../db/receipts.ts';
+import { refreshNoteSearch } from '../search/index.ts';
 import { readSettings } from '../settings/repository.ts';
 import { syncDirectory, rejectSymlinks } from '../storage/private-storage.ts';
 import { DiskBudget } from './resources.ts';
@@ -584,6 +586,51 @@ export class AttachmentService {
             .get(),
       )
       .map(attachmentDto);
+  }
+  /** Rename a saved voice clip. Only the display name changes; the note revision is
+   * untouched (content is the same) but the note's filename search is refreshed. */
+  rename(
+    identity: SessionIdentity,
+    id: string,
+    input: unknown,
+  ): ReadyAttachment {
+    validId(id);
+    const parsed = renameAttachmentSchema.safeParse(input);
+    if (!parsed.success)
+      throw new DomainError('validation', 'err.invalidClipName');
+    const filename = parsed.data.filename;
+    return this.p.write((tx) => {
+      assertUploadIdentity(tx, identity);
+      const row = tx
+        .select()
+        .from(attachments)
+        .where(eq(attachments.id, id))
+        .get();
+      const notes = tx
+        .select({ id: noteAttachments.noteId })
+        .from(noteAttachments)
+        .where(eq(noteAttachments.attachmentId, id))
+        .all();
+      if (
+        !row ||
+        row.readiness !== 'ready' ||
+        !notes.length ||
+        tx
+          .select()
+          .from(fileCleanupJobs)
+          .where(eq(fileCleanupJobs.attachmentId, id))
+          .get()
+      )
+        throw new DomainError('not-found', 'err.attachmentNotFound');
+      if (row.kind !== 'file' || !isVoiceMime(row.detectedMime))
+        throw new DomainError('validation', 'err.onlyVoiceClipsRenamed');
+      tx.update(attachments)
+        .set({ originalFilename: filename })
+        .where(eq(attachments.id, id))
+        .run();
+      for (const note of notes) refreshNoteSearch(tx, note.id);
+      return attachmentDto({ ...row, originalFilename: filename });
+    });
   }
   async download(
     identity: SessionIdentity,

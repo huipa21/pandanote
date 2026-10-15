@@ -11,7 +11,13 @@ import {
   voiceMime,
 } from '../../src/lib/server/attachments/images.ts';
 import { parseRange } from '../../src/lib/server/attachments/files.ts';
-import { sessions } from '../../src/lib/server/db/schema.ts';
+import { eq, sql } from 'drizzle-orm';
+import { seedNote, seedAttachment } from '../helpers/persistence.ts';
+import {
+  attachments,
+  noteAttachments,
+  sessions,
+} from '../../src/lib/server/db/schema.ts';
 import type { Persistence } from '../../src/lib/server/db/connection.ts';
 import type { SessionIdentity } from '../../src/lib/server/auth/service.ts';
 import type { InitializeBatch } from '../../src/lib/shared/attachments.ts';
@@ -361,5 +367,116 @@ describe('voice clip upload and inline serving, actual SQLite/filesystem', () =>
       expect(otherBatch.batch.attachments[0].mime).toBe(
         'application/octet-stream',
       );
+    }));
+});
+
+describe('renaming a saved voice clip, actual SQLite/filesystem', () => {
+  const link = (p: Persistence, noteId: string, attachmentId: string) =>
+    p.write((tx) =>
+      tx
+        .insert(noteAttachments)
+        .values({ noteId, attachmentId, ordinal: 0 })
+        .run(),
+    );
+  const stored = (p: Persistence, id: string) =>
+    p.db.select().from(attachments).where(eq(attachments.id, id)).get()!;
+
+  it('changes only the display name, keeps bytes/MIME/digest and refreshes the note search', () =>
+    withPersistence(async (p) => {
+      const { owner, service, ids } = await setup(p, [webm()], [true]);
+      const noteId = seedNote(p);
+      link(p, noteId, ids[0]);
+      const before = stored(p, ids[0]);
+      const renamed = service.rename(owner, ids[0], {
+        filename: 'Weekly sync.webm',
+      });
+      expect(renamed).toMatchObject({
+        id: ids[0],
+        filename: 'Weekly sync.webm',
+        mime: 'audio/webm',
+      });
+      const after = stored(p, ids[0]);
+      expect(after).toEqual({
+        ...before,
+        originalFilename: 'Weekly sync.webm',
+      });
+      const search = p.db.all<{ names: string }>(
+        sql`select filename_fields_json as names from note_search where note_id=${noteId}`,
+      );
+      expect(search[0]?.names).toContain('weekly sync.webm');
+      // Still plays, and the download name follows.
+      const response = await service.download(owner, ids[0], 'file', false);
+      expect(response.headers.get('content-disposition')).toContain(
+        'Weekly sync.webm',
+      );
+      expect(await bytes(response)).toEqual(webm());
+    }));
+
+  it('refuses unusable names, non-clips, unsaved and unknown attachments', () =>
+    withPersistence(async (p) => {
+      const { owner, service, ids } = await setup(p, [webm()], [true]);
+      const noteId = seedNote(p);
+      // Not linked to any note yet.
+      expect(() =>
+        service.rename(owner, ids[0], { filename: 'a.webm' }),
+      ).toThrow(/not found/i);
+      link(p, noteId, ids[0]);
+      for (const filename of [
+        '',
+        '   ',
+        'a/b.webm',
+        '..x',
+        'a\b',
+        'q?.webm',
+        ' pad',
+        'x'.repeat(256),
+        'bell',
+      ])
+        expect(() => service.rename(owner, ids[0], { filename })).toThrow(
+          /cannot be used/,
+        );
+      expect(() =>
+        service.rename(owner, ids[0], { filename: 'a.webm', extra: 1 }),
+      ).toThrow(/cannot be used/);
+      expect(() => service.rename(owner, ids[0], 'a.webm')).toThrow(
+        /cannot be used/,
+      );
+      expect(() =>
+        service.rename(owner, randomUUID().replaceAll('-', ''), {
+          filename: 'a.webm',
+        }),
+      ).toThrow();
+      // An ordinary file is not a clip.
+      const plain = seedAttachment(p);
+      link(p, seedNote(p), plain);
+      expect(() => service.rename(owner, plain, { filename: 'a.txt' })).toThrow(
+        /Only voice clips/,
+      );
+      expect(stored(p, ids[0]).originalFilename).toBe('voice-0.bin');
+    }));
+
+  it('every other column of a linked attachment stays immutable', () =>
+    withPersistence(async (p) => {
+      const { ids } = await setup(p, [webm()], [true]);
+      link(p, seedNote(p), ids[0]);
+      const attempt = (column: string, value: string | number) =>
+        p.write((tx) =>
+          tx.run(
+            sql.raw(
+              `update attachments set ${column}=${typeof value === 'string' ? `'${value}'` : value} where id='${ids[0]}'`,
+            ),
+          ),
+        );
+      expect(() => attempt('detected_mime', 'audio/ogg')).toThrow();
+      expect(() => attempt('file_digest', 'f'.repeat(64))).toThrow();
+      expect(() => attempt('incoming_bytes', 1)).toThrow();
+      expect(() => attempt('original_filename', 'ok.webm')).not.toThrow();
+      const row = stored(p, ids[0]);
+      expect(row).toMatchObject({
+        detectedMime: 'audio/webm',
+        incomingBytes: 600,
+        originalFilename: 'ok.webm',
+      });
+      expect(row.fileDigest).not.toBe('f'.repeat(64));
     }));
 });

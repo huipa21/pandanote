@@ -29,7 +29,9 @@ CREATE TRIGGER note_attachments_update_guard BEFORE UPDATE ON note_attachments B
     THEN RAISE(ABORT, 'attachment is not available') END;
 END;
 --> statement-breakpoint
-CREATE TRIGGER attachments_referenced_guard BEFORE UPDATE ON attachments
+-- Everything except original_filename stays immutable once linked; a voice clip's
+-- display name may be changed (AttachmentService.rename), bytes and digests never.
+CREATE TRIGGER attachments_referenced_guard BEFORE UPDATE OF id, kind, detected_mime, incoming_digest, incoming_bytes, readiness, batch_id, display_bytes, display_digest, width, height, thumbnail_bytes, thumbnail_digest, thumbnail_width, thumbnail_height, file_bytes, file_digest, created_at ON attachments
 WHEN EXISTS (SELECT 1 FROM note_attachments WHERE attachment_id = OLD.id) BEGIN
   SELECT RAISE(ABORT, 'referenced attachment metadata is immutable');
 END;

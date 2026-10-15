@@ -3,7 +3,7 @@ import {
   authenticatedHeaders,
   browserSession,
 } from '../helpers/browser-session.ts';
-import { axeViolationsIn } from '../helpers/voice.ts';
+import { acceptClipName, axeViolationsIn } from '../helpers/voice.ts';
 
 /* VN05: stored clips on timeline cards and the note page. */
 test.use({
@@ -26,6 +26,7 @@ async function postClips(page: Page, text: string, count: number) {
     const strip = composer.getByTestId('voice-recorder');
     await expect(strip.getByTestId('voice-timer')).not.toHaveText('0:00');
     await strip.getByRole('button', { name: 'Stop and add clip' }).click();
+    await acceptClipName(composer);
     await expect(
       composer.getByTestId('clip-list').getByRole('listitem'),
     ).toHaveCount(index + 1);
@@ -51,10 +52,14 @@ test('cards and the note page show clips; one plays at a time', async ({
     .first();
   const clips = card.getByTestId('voice-clip');
   await expect(clips).toHaveCount(2);
-  // Native audio with deferred loading, a filename and a download link; not a plain file row.
+  // A compact chip (play icon + filename + download link) over a control-less audio element
+  // with deferred loading; not a plain file row and no native player bar.
   const audios = card.locator('audio');
   await expect(audios.first()).toHaveAttribute('preload', 'none');
-  await expect(audios.first()).toHaveAttribute('controls', '');
+  await expect(audios.first()).not.toHaveAttribute('controls', /.*/);
+  await expect(
+    clips.first().getByRole('button', { name: /^Play voice-/ }),
+  ).toBeVisible();
   await expect(clips.first()).toContainText(
     /voice-\d{8}-\d{6}\.(webm|ogg|m4a)/,
   );
@@ -64,7 +69,13 @@ test('cards and the note page show clips; one plays at a time', async ({
   await expect(card.getByRole('list', { name: 'Attachments' })).toHaveCount(0);
 
   // Starting the second clip pauses the first.
-  await audios.first().evaluate((el: HTMLAudioElement) => el.play());
+  await clips
+    .first()
+    .getByRole('button', { name: /^Play voice-/ })
+    .click();
+  await expect(
+    clips.first().getByRole('button', { name: /^Pause voice-/ }),
+  ).toBeVisible();
   await expect
     .poll(() => audios.first().evaluate((el: HTMLAudioElement) => !el.paused))
     .toBe(true);
@@ -119,10 +130,14 @@ test('clips render in recorded order with deferred loading and are keyboard oper
       /^\/api\/attachments\/[^/]+\/file$/,
     );
   }
-  // Keyboard: focus the native control, Space plays, Space pauses.
+  // Keyboard: focus the play icon, Space plays, Space pauses.
   const first = audios.first();
-  await first.focus();
-  await expect(first).toBeFocused();
+  const playButton = card
+    .getByTestId('voice-clip')
+    .first()
+    .getByRole('button', { name: /^Play voice-/ });
+  await playButton.focus();
+  await expect(playButton).toBeFocused();
   await page.keyboard.press('Space');
   await expect
     .poll(() => first.evaluate((el: HTMLAudioElement) => !el.paused))

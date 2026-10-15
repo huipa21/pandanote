@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { browserSession } from '../helpers/browser-session.ts';
+import { acceptClipName } from '../helpers/voice.ts';
 
 /* VN04: the recorder strip and clip rows in the editor. Chromium's fake device
  * supplies a synthetic tone, so no real microphone is involved. */
@@ -59,8 +60,13 @@ test('record, pause, stop adds a clip row; Post is disabled while recording', as
   await dialog.getByRole('button', { name: 'Stop and add clip' }).click();
   const row = dialog.getByTestId('clip-list').getByRole('listitem');
   await expect(row).toHaveCount(1);
-  await expect(row).toContainText(/voice-\d{8}-\d{6}\.(webm|ogg|m4a)/);
   await expect(dialog.getByTestId('voice-recorder')).toHaveCount(0);
+  // The new clip opens its name field with the generated name selected and focused.
+  const nameInput = dialog.getByTestId('clip-name-input');
+  await expect(nameInput).toBeFocused();
+  await expect(nameInput).toHaveValue(/^voice-\d{8}-\d{6}$/);
+  await nameInput.press('Enter');
+  await expect(row).toContainText(/voice-\d{8}-\d{6}\.(webm|ogg|m4a)/);
   await expect(
     dialog.getByRole('button', { name: 'Record a voice clip' }),
   ).toBeFocused();
@@ -73,6 +79,7 @@ test('record, pause, stop adds a clip row; Post is disabled while recording', as
   );
   await expect(dialog.getByTestId('voice-timer')).not.toHaveText('0:00');
   await dialog.getByRole('button', { name: 'Stop and add clip' }).click();
+  await acceptClipName(dialog);
   const rows = dialog.getByTestId('clip-list').getByRole('listitem');
   await expect(rows).toHaveCount(2);
   const names = await rows.locator('.name').allTextContents();

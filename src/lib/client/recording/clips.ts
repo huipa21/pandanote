@@ -37,3 +37,35 @@ export const RECORDER_ERROR_KEYS: Record<RecorderErrorCode, MessageKey> = {
   short: 'rec.errShort',
   failed: 'rec.errFailed',
 };
+
+const FILE_EXTENSION = /\.[A-Za-z0-9]{1,5}$/;
+/** Split a clip filename into an editable base and its fixed extension (with dot). */
+export function splitClipName(filename: string): {
+  base: string;
+  extension: string;
+} {
+  const extension = FILE_EXTENSION.exec(filename)?.[0] ?? '';
+  return {
+    base: filename.slice(0, filename.length - extension.length),
+    extension,
+  };
+}
+/** The new stored filename for a rename, or null when the name is unusable (empty after
+ * cleanup). The container extension is fixed (the bytes do not change), path separators
+ * and other filesystem-hostile characters become `-`, control/format characters vanish. */
+export function renamedClipFilename(
+  current: string,
+  input: string,
+): string | null {
+  const { extension } = splitClipName(current);
+  let base = input
+    .replace(/[\p{Cc}\p{Cf}]/gu, '')
+    .replace(/[/\\:*?"<>|]/g, '-')
+    .trim();
+  // A typed extension is the same as the fixed one; do not double it.
+  if (extension && base.toLowerCase().endsWith(extension.toLowerCase()))
+    base = base.slice(0, base.length - extension.length).trim();
+  base = base.replace(/^\.+/, '');
+  if (!base) return null;
+  return `${base.slice(0, 255 - extension.length)}${extension}`;
+}

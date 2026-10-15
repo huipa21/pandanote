@@ -9,7 +9,12 @@ import {
   sessionFingerprint,
   type EditorAttachment,
 } from '../../src/lib/client/editor/model.ts';
-import { clipRejection, isClip } from '../../src/lib/client/recording/clips.ts';
+import {
+  clipRejection,
+  isClip,
+  renamedClipFilename,
+  splitClipName,
+} from '../../src/lib/client/recording/clips.ts';
 import type {
   MediaRecorderLike,
   RecorderEnv,
@@ -78,6 +83,41 @@ describe('clip limit rules', () => {
   it('isClip', () => {
     expect(isClip(att('audio'))).toBe(true);
     expect(isClip(att('image'))).toBe(false);
+  });
+});
+
+describe('clip names', () => {
+  it('splits the fixed extension off', () => {
+    expect(splitClipName('voice-1.webm')).toEqual({
+      base: 'voice-1',
+      extension: '.webm',
+    });
+    expect(splitClipName('plain').extension).toBe('');
+  });
+  it('keeps the extension and cleans the typed name', () => {
+    const old = 'voice-20250101-000000.webm';
+    expect(renamedClipFilename(old, 'Meeting notes')).toBe(
+      'Meeting notes.webm',
+    );
+    expect(renamedClipFilename(old, '  Meeting.WEBM ')).toBe('Meeting.webm');
+    expect(renamedClipFilename(old, 'a/b\\c:d')).toBe('a-b-c-d.webm');
+    expect(renamedClipFilename(old, '..hidden')).toBe('hidden.webm');
+    expect(renamedClipFilename(old, 'bell‮')).toBe('bell.webm');
+    expect(renamedClipFilename(old, '会议 记录')).toBe('会议 记录.webm');
+  });
+  it('rejects an empty name and stays within the 255 character limit', () => {
+    const old = 'voice-1.m4a';
+    expect(renamedClipFilename(old, '   ')).toBeNull();
+    expect(renamedClipFilename(old, '.webm')).toBe('webm.m4a');
+    expect(renamedClipFilename(old, 'x'.repeat(400))!).toHaveLength(255);
+    expect(
+      uploadItemSchema.safeParse({
+        id: crypto.randomUUID(),
+        filename: renamedClipFilename(old, 'x'.repeat(400)),
+        incomingBytes: 1,
+        incomingDigest: 'a'.repeat(64),
+      }).success,
+    ).toBe(true);
   });
 });
 
@@ -210,6 +250,9 @@ function fakeEnv() {
     /** Each now() reading advances this much, so a start→stop take spans `step` ms. */
     clock: 0,
     step: 1_000,
+    /** What the level meter reads. */
+    level: 0.5,
+    ticks: [] as (() => void)[],
   };
   const env: RecorderEnv = {
     isSecureContext: true,
@@ -236,6 +279,7 @@ function fakeEnv() {
       state.recorder = rec;
       return rec;
     },
+    createMeter: () => ({ read: () => state.level, close() {} }),
     now: () => (state.clock += state.step),
     wallClock: () => Date.UTC(2025, 2, 4, 5, 6, 7),
     setTimeout: (h, ms) => {
@@ -247,7 +291,7 @@ function fakeEnv() {
     clearTimeout: (id) => void state.timers.delete(id as number),
     setInterval: (h, ms) => {
       const id = state.next++;
-      state.timers.set(id, h);
+      state.ticks.push(h);
       void ms;
       return id;
     },
@@ -312,6 +356,55 @@ describe('EditorWorkspace voice clips', () => {
     expect(f.state.tracksStopped).toBe(1);
     expect(workspace.dirty).toBe(true);
     expect(workspace.clipUrls[clip!.id]).toMatch(/^blob:/);
+    dispose();
+  });
+
+  it('after Stop the new clip is offered for naming; renaming keeps the extension', async () => {
+    const { workspace, dispose } = await setup();
+    await workspace.startRecording();
+    await workspace.stopRecording();
+    const [clip] = workspace.active!.attachments;
+    expect(workspace.renamingId).toBe(clip!.id);
+    expect(workspace.renameClip(clip!.id, 'Standup')).toBe(true);
+    expect(workspace.active!.attachments[0]!.filename).toBe('Standup.webm');
+    // An unusable name changes nothing.
+    expect(workspace.renameClip(clip!.id, '  ')).toBe(false);
+    expect(workspace.active!.attachments[0]!.filename).toBe('Standup.webm');
+    // Only unsaved (local) clips can be renamed.
+    expect(workspace.renameClip('nope', 'x')).toBe(false);
+    // Removing the clip closes the naming field.
+    await workspace.removeAttachment(clip!.id);
+    expect(workspace.renamingId).toBeNull();
+    dispose();
+  });
+
+  it('warns when the microphone stays silent and flags a silent clip', async () => {
+    const { workspace, f, dispose } = await setup();
+    f.state.step = 1_000;
+    f.state.level = 0;
+    await workspace.startRecording();
+    const tick = f.state.ticks.at(-1)!;
+    tick();
+    expect(workspace.recorder.quiet).toBe(false); // not silent long enough yet
+    for (let i = 0; i < 4; i++) tick();
+    expect(workspace.recorder.quiet).toBe(true);
+    expect(workspace.recorder.level).toBe(0);
+    // Sound clears the warning.
+    f.state.level = 0.6;
+    tick();
+    expect(workspace.recorder.quiet).toBe(false);
+    expect(workspace.recorder.level).toBe(0.6);
+    f.state.level = 0;
+    expect(await workspace.stopRecording()).toBe(true);
+    // The take did contain sound at some point, so the clip is not flagged.
+    expect(workspace.active!.attachments[0]!.silent).toBeUndefined();
+
+    // A take that never heard anything is flagged on its row.
+    await workspace.startRecording();
+    const silentTick = f.state.ticks.at(-1)!;
+    for (let i = 0; i < 3; i++) silentTick();
+    expect(await workspace.stopRecording()).toBe(true);
+    expect(workspace.active!.attachments[1]!.silent).toBe(true);
     dispose();
   });
 

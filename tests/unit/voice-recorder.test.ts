@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyMediaError,
   formatClock,
+  levelFromRms,
   pickRecordingMime,
   RecorderError,
   recordingSupport,
@@ -59,6 +60,19 @@ describe('filename and clock', () => {
     expect(formatClock(65)).toBe('1:05');
     expect(formatClock(600)).toBe('10:00');
     expect(formatClock(-3)).toBe('0:00');
+  });
+});
+
+describe('meter scale', () => {
+  it('maps RMS to a dB scaled 0..1 position', () => {
+    expect(levelFromRms(0)).toBe(0);
+    expect(levelFromRms(Number.NaN)).toBe(0);
+    expect(levelFromRms(0.0001)).toBe(0); // -80 dB, below the floor
+    expect(levelFromRms(1)).toBe(1);
+    // Ordinary speech (about -30 dB) lands in the middle, not at the bottom.
+    expect(levelFromRms(0.03)).toBeGreaterThan(0.5);
+    expect(levelFromRms(0.03)).toBeLessThan(0.8);
+    expect(levelFromRms(0.01)).toBeLessThan(levelFromRms(0.1));
   });
 });
 
@@ -519,6 +533,37 @@ describe('VoiceRecorder', () => {
     await expect(r.start()).rejects.toBeInstanceOf(RecorderError);
     expect(f.log.trackStops).toBe(1);
     expect(r.state).toBe('idle');
+  });
+
+  it('records the loudest level so a silent take can be recognised', async () => {
+    const levels = [0.02, 0.6, 0.1];
+    let i = 0;
+    const f = fakes({
+      meter: () => ({ read: () => levels[i++ % levels.length]!, close() {} }),
+    });
+    const r = new VoiceRecorder(f.env, opts);
+    await r.start();
+    expect(r.hasMeter).toBe(true);
+    f.recorder().emit('data', 'x');
+    await f.advance(1_000);
+    expect((await r.stop()).peakLevel).toBe(0.6);
+
+    const silent = fakes({ meter: () => ({ read: () => 0, close() {} }) });
+    const q = new VoiceRecorder(silent.env, opts);
+    await q.start();
+    silent.recorder().emit('data', 'x');
+    await silent.advance(1_000);
+    expect((await q.stop()).peakLevel).toBe(0);
+  });
+
+  it('has no peak (and no meter) when the meter is unavailable', async () => {
+    const f = fakes({ meter: () => null as unknown as MeterLike });
+    const r = new VoiceRecorder(f.env, opts);
+    await r.start();
+    expect(r.hasMeter).toBe(false);
+    f.recorder().emit('data', 'x');
+    await f.advance(1_000);
+    expect('peakLevel' in (await r.stop())).toBe(false);
   });
 
   it('a failing level meter never fails the recording', async () => {

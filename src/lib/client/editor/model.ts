@@ -17,6 +17,8 @@ export interface EditorAttachment {
   size: number;
   /** Recorder's own duration in seconds; local clips only, display only. */
   durationSeconds?: number;
+  /** Local clips: the meter heard no sound during the take (probably no voice). */
+  silent?: boolean;
 }
 /** Server attachments are `image` or `file`; audio containers stored for a voice clip are `file`s. */
 export function editorKind(file: {

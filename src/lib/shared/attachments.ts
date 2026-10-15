@@ -1,18 +1,26 @@
 import { z } from 'zod';
 import { digestSchema, idSchema, mutationIdentitySchema } from './domain.ts';
 
+export const filenameSchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .refine(
+    (v) => new TextDecoder().decode(new TextEncoder().encode(v)) === v,
+    'Filename must be valid Unicode',
+  )
+  .refine((v) => !/[\p{Cc}\p{Cf}]/u.test(v), 'Invalid filename');
+/** Rename a saved voice clip. The bytes, digest and MIME never change. */
+export const renameAttachmentSchema = z.strictObject({
+  filename: filenameSchema.refine(
+    (v) => !/[/\\:*?"<>|]/.test(v) && v.trim() === v && !v.startsWith('.'),
+    'Invalid filename',
+  ),
+});
 // Frozen input identity, not client-supplied filesystem paths or trusted MIME.
 export const uploadItemSchema = z.strictObject({
   id: idSchema,
-  filename: z
-    .string()
-    .min(1)
-    .max(255)
-    .refine(
-      (v) => new TextDecoder().decode(new TextEncoder().encode(v)) === v,
-      'Filename must be valid Unicode',
-    )
-    .refine((v) => !/[\p{Cc}\p{Cf}]/u.test(v), 'Invalid filename'),
+  filename: filenameSchema,
   incomingBytes: z
     .number()
     .int()

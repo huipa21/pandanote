@@ -14,6 +14,7 @@ const lines = (text: string) => text.split(/\r?\n/);
 
 // Every shipped HTTP surface needs a conscious update to this security review.
 const EXPECTED_ROUTES = [
+  'api/attachments/[attachmentId]',
   'api/attachments/[attachmentId]/[variant]',
   'api/auth/fresh',
   'api/auth/login',

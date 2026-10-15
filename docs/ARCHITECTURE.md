@@ -650,6 +650,8 @@ incomingDigest}` items. Input SHA-256 and exact size are frozen before upload;
   removes upload staging and crash-installed output without a ready row, never a
   ready retry file. Dimensions/variant sizes/checksums are persisted. Missing/corrupt
   deployment files require operator inspection, not silently regenerated originals.
+- `PATCH /api/attachments/<id>` renames a ready, note-referenced **voice clip** (display name
+  only; see voice-notes/SPEC.md §1.5). The linked-attachment trigger guards every other column.
 - `GET/HEAD /api/attachments/<id>/{display,thumbnail,file}` require a current
   session plus a note reference or this account's pending batch. Wrong variants,
   unready or cleanup-queued IDs are unavailable. Images are only image/webp;

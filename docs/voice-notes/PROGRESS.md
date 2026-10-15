@@ -378,3 +378,47 @@ voice ACCEPTANCE_TESTS (VN-BACKUP coverage), PLAN (VN07 status).
 
 Next: a human runs VN-MANUAL on real devices and records results here; separately, fix or retire the six stale e2e specs.
 Then the voice change may be called release-complete. Validation: `npx playwright test voice`.
+
+### Session 7 — naming, compact chips, volume feedback (user request)
+
+User asked: audio files should be renameable; after recording a default name is generated that the user can edit or
+save; clips should be a smaller icon that plays on click; the volume must be visible because it is sometimes unclear
+whether voice was recorded. Spec: SPEC.md §1.5.
+
+Implemented: name field after Stop (Enter/Save/blur apply, Escape keeps) and a pencil for unsaved clips
+(`workspace.renamingId`, `renameClip`, `renamedClipFilename`/`splitClipName` in `recording/clips.ts`,
+`AudioClipList.svelte`); compact pill chips in the editor and on cards/note page (`AudioClip.svelte`, native controls removed,
+hidden `<audio preload="none">` kept); dB-scaled taller meter, `AudioContext.resume()`, "no sound detected" warning after
+3 s, `peakLevel` on the clip and a warning icon on a silent clip (`recorder.ts`, `VoiceRecorder.svelte`). New en/zh-CN keys
+`rec.quiet/silentClip/name/nameHint/nameSave/rename/renameTitle`. No server or schema change.
+
+Tests: unit +8 (names, meter scale, peak, workspace naming/quiet); new `tests/e2e/voice-naming.test.ts` (4); updated
+voice-display/editor/language specs and `recordClip` helper (accepts the name). Commands: `npm run check` 0 errors (1
+pre-existing warning); `npm run lint` clean; `npm run test:unit` 240 passed; `npm run build` OK; `npx playwright test voice`
+39 passed (3.4 min). NOT run: integration suite, Alpine image, full Playwright, real microphone (the fake device always
+beeps, so the "no sound" warning is only unit-tested).
+
+Deviation / open: renaming a **saved** clip is not implemented — referenced attachment rows are immutable by DB trigger, so
+it needs a migration (user decision). Next: decide on that; VN-MANUAL still pending. Validation: `npx playwright test voice`.
+
+### Session 8 — renaming saved clips (user request; new instance)
+
+User: treat as a new instance (the /data folder will be removed) and make clips renameable. Because the data folder is
+discarded, the `0001_guards_and_search.sql` baseline was edited in place (pre-release fresh-baseline policy) instead of adding
+`0002`: `attachments_referenced_guard` is now `BEFORE UPDATE OF <every column except original_filename>`. Remove any existing
+data folder first (the migration ledger hash changed). The backup sanitizer and restore tests still find and drop/reinstate the trigger by name.
+
+Implemented: `PATCH /api/attachments/<id>` (`src/routes/api/attachments/[attachmentId]/+server.ts`),
+`AttachmentService.rename`, `renameAttachmentSchema`/`filenameSchema` (shared), en/zh-CN `err.invalidClipName`,
+`err.onlyVoiceClipsRenamed`, `rec.renameCancel`, `rec.renameFailed`; client `recording/saved-names.svelte.ts`,
+`workspace.renameSavedClip`, pencil + inline field on every editor clip and on cards/note page (`AudioClip.svelte`).
+
+Tests: integration +3 (`voice-attachments`: rename keeps bytes/MIME/digest and refreshes search; refuses bad names,
+non-clips and unlinked/unknown files; every other column stays immutable); release-hygiene route list updated; e2e +2
+(`voice-naming`: rename from a card survives reload and is searchable; rename in an edit session keeps it clean). Commands:
+`npm run check` 0 errors (1 pre-existing warning); `npm run lint` clean; `npm run test:unit` 240 passed;
+`npm run test:integration` 270 passed after fixing the route list (1 failed before that), 7 skipped (platform skips);
+`npm run build` OK; `npx playwright test voice zzzaccessibility` 49 passed after one locator fix. NOT run: Alpine image,
+full Playwright, real microphone/devices.
+
+Known limits: renaming does not bump the note revision/updatedAt; another already-open tab keeps the old name until reload.

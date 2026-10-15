@@ -407,7 +407,8 @@
     padding: 0;
   }
   .clips {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-1);
     list-style: none;
     margin: var(--space-2) 0;

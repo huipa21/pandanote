@@ -745,6 +745,16 @@ export const en = {
   'rec.clips': 'Voice clips ({count})',
   'rec.clip':
     'Voice clip {index} of {total}. Press Alt plus an arrow key to move.',
+  'rec.quiet': 'No sound detected. Check that your microphone is not muted.',
+  'rec.silentClip':
+    'No sound was captured in this clip. Check your microphone.',
+  'rec.name': 'Clip name',
+  'rec.nameHint': 'Name this clip',
+  'rec.nameSave': 'Save name',
+  'rec.rename': 'Rename {name}',
+  'rec.renameTitle': 'Rename',
+  'rec.renameCancel': 'Cancel renaming',
+  'rec.renameFailed': 'The clip could not be renamed. Try again.',
   'rec.play': 'Play {name}',
   'rec.pausePlay': 'Pause {name}',
   'work.maxFiles': 'You can attach at most {count} files to one note.',
@@ -959,6 +969,8 @@ export const en = {
   'err.aSelectedAttemptIsActive':
     'A selected attempt is active, recently resumed, or referenced. Refresh storage before choosing again. Nothing from this selection was queued.',
   'err.attachmentNotFound': 'Attachment not found.',
+  'err.invalidClipName': 'That name cannot be used for a voice clip.',
+  'err.onlyVoiceClipsRenamed': 'Only voice clips can be renamed.',
   'err.attachmentVariantNotFound': 'Attachment variant not found.',
   'err.storedAttachmentIsUnavailable': 'Stored attachment is unavailable.',
   'err.useAnApplicationJsonRequest': 'Use an application/json request.',

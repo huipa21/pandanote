@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import { formatClock } from '#lib/client/recording/recorder.ts';
+  import { splitClipName } from '#lib/client/recording/clips.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
 
   /** Voice clips as rows below the photo grid, in attachment order. */
@@ -12,13 +13,94 @@
   let overId = $state<string | null>(null);
   let playingId = $state<string | null>(null);
   let player: HTMLAudioElement | null = null;
+  let nameInput = $state<HTMLInputElement>();
+  let draft = $state('');
+  let saving = $state(false);
+  /** The name field belongs to a take just recorded (not the pencil button). */
+  let wasNew = false;
+  let viaPencil = false;
+  const renamingId = $derived(workspace.renamingId);
 
   const all = $derived(workspace.active?.attachments ?? []);
   const clips = $derived(all.filter((a) => a.kind === 'audio'));
+  const extension = $derived(
+    splitClipName(clips.find((c) => c.id === renamingId)?.filename ?? '')
+      .extension,
+  );
   const hasPhotos = $derived(all.some((a) => a.kind !== 'audio'));
   const locked = $derived(
     workspace.busy || workspace.conflict || workspace.frozen,
   );
+
+  // Opening the name field (a fresh take, or the pencil) fills in the current name.
+  $effect(() => {
+    const id = renamingId;
+    if (!id) return;
+    untrack(() => {
+      const clip = clips.find((c) => c.id === id);
+      if (!clip) return;
+      draft = splitClipName(clip.filename).base;
+      wasNew = !viaPencil;
+      viaPencil = false;
+      void tick().then(() => {
+        nameInput?.focus();
+        nameInput?.select();
+        nameInput?.scrollIntoView?.({ block: 'nearest' });
+      });
+    });
+  });
+  /** Apply the typed name (an unusable one keeps the current name) and close the field. */
+  async function commit(refocus = false) {
+    const id = workspace.renamingId;
+    if (!id || saving) return;
+    if (clips.find((c) => c.id === id)?.source === 'server') {
+      // A saved clip is renamed on the server: wait, and keep the field open on failure.
+      saving = true;
+      const ok = await workspace.renameSavedClip(id, draft);
+      saving = false;
+      if (!ok && workspace.renamingId === id) {
+        nameInput?.focus();
+        return;
+      }
+    } else workspace.renameClip(id, draft);
+    if (workspace.renamingId === id) workspace.renamingId = null;
+    if (refocus) restoreFocus(id);
+  }
+  /** Leaving the field applies an unsaved clip's name; a saved clip needs Enter/Save. */
+  function leave() {
+    const id = workspace.renamingId;
+    if (!id || saving) return;
+    if (clips.find((c) => c.id === id)?.source === 'server')
+      workspace.renamingId = null;
+    else void commit();
+  }
+  function cancelRename() {
+    const id = workspace.renamingId;
+    workspace.renamingId = null;
+    if (id) restoreFocus(id);
+  }
+  /** Back to where the user was: the microphone button after a new take, else the clip. */
+  function restoreFocus(id: string) {
+    const container = list?.closest('.editor-container');
+    void tick().then(() => {
+      const mic = container?.querySelector<HTMLElement>('[data-record-button]');
+      (wasNew ? mic : null)?.focus();
+      if (!(wasNew && mic))
+        list?.querySelector<HTMLElement>(`[data-clip="${id}"] .play`)?.focus();
+      wasNew = false;
+    });
+  }
+  function nameKey(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void commit(true);
+    } else if (event.key === 'Escape') {
+      // Escape must not also close a surrounding dialog.
+      event.preventDefault();
+      event.stopPropagation();
+      cancelRename();
+    }
+  }
 
   function stopPlayback() {
     player?.pause();
@@ -110,7 +192,7 @@
           data-clip={clip.id}
           class:dragging={dragId === clip.id}
           class:target={overId === clip.id && dragId !== clip.id}
-          draggable={!locked}
+          draggable={!locked && renamingId !== clip.id}
           ondragstart={(event) => start(event, clip.id)}
           ondragover={(event) => over(event, clip.id)}
           ondrop={(event) => drop(event, clip.id)}
@@ -134,9 +216,66 @@
               {:else}<path d="M8 5v14l11-7z" />{/if}
             </svg>
           </button>
-          <span class="name" title={clip.filename}>{clip.filename}</span>
-          {#if clip.durationSeconds !== undefined}
-            <span class="duration">{formatClock(clip.durationSeconds)}</span>
+          {#if renamingId === clip.id}
+            <input
+              class="name-input"
+              type="text"
+              maxlength="200"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label={t('rec.name')}
+              placeholder={t('rec.nameHint')}
+              bind:this={nameInput}
+              bind:value={draft}
+              onkeydown={nameKey}
+              onblur={leave}
+              readonly={saving}
+              data-testid="clip-name-input"
+            />
+            <span class="ext" aria-hidden="true">{extension}</span>
+            <button
+              type="button"
+              class="save"
+              aria-label={t('rec.nameSave')}
+              title={t('rec.nameSave')}
+              disabled={saving}
+              onmousedown={(event) => event.preventDefault()}
+              onclick={() => void commit(true)}
+              ><svg viewBox="0 0 24 24" aria-hidden="true"
+                ><path d="m5 12 5 5 9-10" /></svg
+              ></button
+            >
+          {:else}
+            <span class="name" title={clip.filename}>{clip.filename}</span>
+            {#if clip.durationSeconds !== undefined}
+              <span class="duration">{formatClock(clip.durationSeconds)}</span>
+            {/if}
+            {#if clip.silent}
+              <span
+                class="silent"
+                role="img"
+                aria-label={t('rec.silentClip')}
+                title={t('rec.silentClip')}
+                data-testid="clip-silent"
+                ><svg viewBox="0 0 24 24" aria-hidden="true"
+                  ><path d="M12 4 3 20h18zM12 10v4M12 17.5v.01" /></svg
+                ></span
+              >
+            {/if}
+            <button
+              type="button"
+              class="rename"
+              aria-label={t('rec.rename', { name: clip.filename })}
+              title={t('rec.renameTitle')}
+              disabled={locked}
+              onclick={() => {
+                viaPencil = true;
+                workspace.renamingId = clip.id;
+              }}
+              ><svg viewBox="0 0 24 24" aria-hidden="true"
+                ><path d="m4 20 1-4L16 5l3 3L8 19zM14 7l3 3" /></svg
+              ></button
+            >
           {/if}
           <button
             type="button"
@@ -164,20 +303,22 @@
     padding: var(--space-1) var(--space-3);
   }
   ul {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-1);
     list-style: none;
     margin: 0;
     padding: 0;
   }
   li {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
-    min-height: var(--target);
+    gap: var(--space-1);
+    max-width: 100%;
+    min-height: 2.25rem;
     padding: 0 var(--space-1);
     border: 1px solid var(--border);
-    border-radius: calc(var(--radius) / 2);
+    border-radius: 1.125rem;
     background: var(--accent-soft);
     cursor: grab;
   }
@@ -192,16 +333,17 @@
     display: inline-grid;
     place-items: center;
     flex: none;
-    width: var(--target);
-    height: var(--target);
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
     padding: 0;
     border: 0;
     background: transparent;
     color: var(--text);
   }
   svg {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1rem;
+    height: 1rem;
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
@@ -212,8 +354,9 @@
     fill: currentColor;
   }
   .name {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: 14rem;
     font-size: 0.875rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -225,8 +368,35 @@
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
   }
-  .remove {
+  .remove,
+  .rename {
     color: var(--muted);
+  }
+  .save {
+    color: var(--accent);
+  }
+  .silent {
+    display: inline-grid;
+    color: var(--danger);
+  }
+  .name-input {
+    flex: 1 1 8rem;
+    min-width: 6rem;
+    width: 12rem;
+    max-width: 100%;
+    height: 1.75rem;
+    padding: 0 var(--space-2);
+    font: inherit;
+    font-size: 0.875rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--control-border);
+    border-radius: calc(var(--radius) / 2);
+  }
+  .ext {
+    flex: none;
+    color: var(--muted);
+    font-size: 0.875rem;
   }
   .missing {
     margin: var(--space-1) 0 0;

@@ -5491,3 +5491,16 @@ after the successful host build, Linux270 and final affected25 browser gate.
   121 passed, 6 pre-existing failures. Details and the intermittent Windows worker crash note in
   [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md) (Session 6).
 - Next: VN-MANUAL on real devices; fix/retire the six stale e2e specs.
+
+## Session — voice clips: naming, compact chips, volume feedback
+
+- Done: name field after recording (edit/save), rename of unsaved clips, compact play-icon chips, clearer level meter with
+  "no sound" warning. Check/lint/unit 240/build pass; `playwright test voice` 39 passed. Integration, Alpine and full e2e not re-run.
+- (Superseded by the next entry: saved clips can now be renamed.)
+  Details in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md) (Session 7).
+
+## Session — voice clips: renaming saved clips
+
+- Done: `PATCH /api/attachments/<id>`, rename pencil on every clip (editor, cards, note page). The `0001` baseline trigger was edited in place
+  (new instance, data folder to be removed — delete the old /data first). Check/lint/unit 240/integration 270 (+7 skips)/build pass;
+  `playwright test voice zzzaccessibility` 49 passed. Alpine image and full e2e not re-run. See [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md) (Session 8).

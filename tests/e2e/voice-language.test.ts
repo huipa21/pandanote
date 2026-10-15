@@ -76,7 +76,15 @@ test('recorder strip, status, clip rows and errors are Simplified Chinese', asyn
   await expect(list).toBeVisible();
   const row = clipRows(composer);
   await expect(row).toHaveCount(1);
+  // The new clip opens its name field (Simplified Chinese labels); Enter keeps the name.
+  const nameInput = row.getByRole('textbox', { name: '语音名称' });
+  await expect(nameInput).toHaveAttribute('placeholder', '为这段语音命名');
+  await expect(row.getByRole('button', { name: '保存名称' })).toBeVisible();
+  await nameInput.press('Enter');
   await expect(row).toContainText(/voice-\d{8}-\d{6}\.(webm|ogg|m4a)/);
+  await expect(
+    row.getByRole('button', { name: /^重命名 voice-/ }),
+  ).toBeVisible();
   await expect(row.getByRole('button', { name: /^播放 voice-/ })).toBeVisible();
   await expect(row.getByRole('button', { name: /^移除 voice-/ })).toBeVisible();
   // The reorder hint (read out for each row) is localized too.

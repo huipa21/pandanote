@@ -46,7 +46,8 @@
     const container = strip?.closest('.editor-container');
     const added = await workspace.stopRecording();
     if (added) announcement = t('rec.announceAdded');
-    await refocus(container);
+    // A freshly added clip opens its name field, which takes the focus instead.
+    if (!workspace.renamingId) await refocus(container);
   }
   async function cancel() {
     const container = strip?.closest('.editor-container');
@@ -80,6 +81,7 @@
     </span>
     <span
       class="meter"
+      class:quiet={workspace.recorder.quiet}
       role="meter"
       aria-label={t('rec.level')}
       aria-valuemin="0"
@@ -88,6 +90,11 @@
     >
       <span class="fill" style:width="{phase === 'paused' ? 0 : level}%"></span>
     </span>
+    {#if workspace.recorder.quiet}
+      <p class="quiet-note" role="status" data-testid="voice-quiet">
+        {t('rec.quiet')}
+      </p>
+    {/if}
     <span class="actions">
       {#if phase === 'paused'}
         <button type="button" onclick={() => workspace.resumeRecording()}
@@ -153,8 +160,8 @@
   .meter {
     flex: 1 1 6rem;
     min-width: 5rem;
-    height: 0.5rem;
-    border-radius: 0.25rem;
+    height: 0.875rem;
+    border-radius: 0.4375rem;
     overflow: hidden;
     border: 1px solid var(--control-border);
     background: var(--surface);
@@ -163,6 +170,21 @@
     display: block;
     height: 100%;
     background: var(--accent);
+    transition: width 80ms linear;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fill {
+      transition: none;
+    }
+  }
+  .meter.quiet {
+    border-color: var(--danger);
+  }
+  .quiet-note {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--danger);
   }
   .actions {
     display: flex;

@@ -32,6 +32,15 @@ export async function recordClip(
   await expect(strip.getByTestId('voice-timer')).not.toHaveText('0:00');
   await strip.getByRole('button', { name: label.stop }).click();
   await expect(strip).toHaveCount(0);
+  await acceptClipName(scope);
+}
+
+/** Keep the generated name: a freshly stopped take opens its name field; Enter accepts. */
+export async function acceptClipName(scope: Locator) {
+  const input = scope.getByTestId('clip-name-input');
+  await expect(input).toBeVisible();
+  await input.press('Enter');
+  await expect(input).toHaveCount(0);
 }
 
 export const clipRows = (scope: Locator) =>

@@ -115,7 +115,12 @@ export interface RecordedClip {
   durationSeconds: number;
   /** Epoch ms when recording started (used for the filename). */
   startedAt: number;
+  /** Loudest meter reading (0..1) during the take; undefined when no meter ran.
+   * Below `SOUND_LEVEL` the clip probably holds no voice. */
+  peakLevel?: number;
 }
+/** Meter level (0..1, dB scaled) from which something counts as sound. */
+export const SOUND_LEVEL = 0.25;
 export type RecorderState =
   'idle' | 'starting' | 'recording' | 'paused' | 'stopped';
 /** An unrequested end. `clip` is whatever was captured, if anything. */
@@ -200,6 +205,9 @@ export class VoiceRecorder {
   private meter: MeterLike | null = null;
   private chunks: Blob[] = [];
   private bytes = 0;
+  private peak = 0;
+  /** A meter ran for this take (the meter itself is closed before the clip is built). */
+  private metered = false;
   private overflow = false;
   private mime = 'audio/webm';
   private startedAt = 0;
@@ -234,6 +242,10 @@ export class VoiceRecorder {
       this.current === 'recording' ||
       this.current === 'paused'
     );
+  }
+  /** True when a level meter is running for this take. */
+  get hasMeter(): boolean {
+    return this.metered;
   }
   get elapsedMs(): number {
     return this.current === 'recording' && !this.ending
@@ -283,6 +295,7 @@ export class VoiceRecorder {
       } catch {
         this.meter = null;
       }
+      this.metered = this.meter !== null;
       recorder.start(this.timeslice);
     } catch (error) {
       this.release();
@@ -368,6 +381,8 @@ export class VoiceRecorder {
   private reset() {
     this.chunks = [];
     this.bytes = 0;
+    this.peak = 0;
+    this.metered = false;
     this.overflow = false;
     this.accumulated = 0;
     this.segmentStart = 0;
@@ -385,9 +400,11 @@ export class VoiceRecorder {
       void this.endAutomatically('limit');
     }, remaining);
     this.ticker = this.env.setInterval(() => {
+      const level = this.safeLevel();
+      if (level > this.peak) this.peak = level;
       this.events.onProgress?.({
         elapsedMs: Math.min(this.elapsedMs, this.maxMs),
-        level: this.safeLevel(),
+        level,
       });
     }, this.progressMs);
   }
@@ -483,6 +500,7 @@ export class VoiceRecorder {
       mime: this.mime,
       durationSeconds: Math.round(ms / 100) / 10,
       startedAt: this.startedAt,
+      ...(this.metered ? { peakLevel: this.peak } : {}),
     };
   }
 
@@ -500,10 +518,19 @@ export class VoiceRecorder {
   }
 }
 
+/** RMS (0..1) to a 0..1 meter position on a dB scale (-65 dB..-10 dB), so ordinary
+ * speech moves the bar visibly instead of sitting in its first few percent. */
+export function levelFromRms(rms: number): number {
+  if (!(rms > 0)) return 0;
+  return Math.min(1, Math.max(0, (20 * Math.log10(rms) + 65) / 55));
+}
+
 /** AudioContext-based level meter; closed with the take. Returns null if unavailable. */
 export function createAudioMeter(stream: MediaStream): MeterLike | null {
   if (typeof AudioContext === 'undefined') return null;
   const context = new AudioContext();
+  // A context created outside a user gesture starts suspended and reads silence.
+  void context.resume().catch(() => {});
   const source = context.createMediaStreamSource(stream);
   const analyser = context.createAnalyser();
   analyser.fftSize = 512;
@@ -517,7 +544,7 @@ export function createAudioMeter(stream: MediaStream): MeterLike | null {
         const centered = (value - 128) / 128;
         sum += centered * centered;
       }
-      return Math.min(1, Math.sqrt(sum / samples.length) * 2.5);
+      return levelFromRms(Math.sqrt(sum / samples.length));
     },
     close() {
       source.disconnect();

@@ -35,6 +35,7 @@ import {
   RecorderError,
   VoiceRecorder,
   voiceFilename,
+  SOUND_LEVEL,
   type RecordedClip,
   type RecorderEnd,
   type RecorderEnv,
@@ -43,9 +44,14 @@ import {
 } from '../recording/recorder.ts';
 import {
   clipRejection,
+  renamedClipFilename,
   isVideoAttachment,
   RECORDER_ERROR_KEYS,
 } from '../recording/clips.ts';
+import {
+  renameSavedClip,
+  savedClipNames,
+} from '../recording/saved-names.svelte.ts';
 import { extractTags } from '#lib/shared/markdown/tags.ts';
 import { rewriteTagKeys, type StaleTag } from '#lib/shared/tags.ts';
 
@@ -62,6 +68,10 @@ import {
   type EditorSession,
   type EditorAttachment,
 } from './model.ts';
+
+/** Without sound for this long while recording, the strip warns that the microphone
+ * may be muted. */
+const QUIET_AFTER_MS = 3000;
 
 /* In-memory editor; never writes note content or files to browser storage. */
 export const EDITOR_WORKSPACE = Symbol('editor workspace');
@@ -90,7 +100,11 @@ export class EditorWorkspace {
     state: 'idle' | 'starting' | 'recording' | 'paused';
     elapsedMs: number;
     level: number;
-  }>({ state: 'idle', elapsedMs: 0, level: 0 });
+    /** A meter is running and heard nothing for a while: the microphone may be muted. */
+    quiet: boolean;
+  }>({ state: 'idle', elapsedMs: 0, level: 0, quiet: false });
+  /** The clip whose name the user is choosing (just recorded, or being renamed). */
+  renamingId = $state<string | null>(null);
   /** Non-error recorder information (e.g. the 10:00 limit was reached). */
   notice = $state('');
   /** An active take is unsaved work, like clips and text. */
@@ -155,6 +169,9 @@ export class EditorWorkspace {
 
   private localBlobs = new SvelteMap<string, Blob>();
   private voice: VoiceRecorder | null = null;
+  /** Elapsed ms of the take at the last audible reading. */
+  private lastSoundMs = 0;
+  private lastAddedClipId: string | null = null;
   /** Browser bindings; replaceable so the recorder can be driven without a browser. */
   recorderEnv: () => RecorderEnv = browserRecorderEnv;
   private previewRequested = false;
@@ -353,17 +370,25 @@ export class EditorWorkspace {
           if (this.voice !== voice) return;
           this.recorder =
             state === 'stopped' || state === 'idle'
-              ? { state: 'idle', elapsedMs: 0, level: 0 }
+              ? { state: 'idle', elapsedMs: 0, level: 0, quiet: false }
               : { ...this.recorder, state };
         },
         onProgress: ({ elapsedMs, level }) => {
-          if (this.voice === voice && this.recording)
-            this.recorder = { ...this.recorder, elapsedMs, level };
+          if (this.voice !== voice || !this.recording) return;
+          if (level >= SOUND_LEVEL || elapsedMs < this.lastSoundMs)
+            this.lastSoundMs = elapsedMs;
+          // Only a running meter can tell silence from "cannot measure".
+          const quiet =
+            voice.hasMeter &&
+            this.recorder.state === 'recording' &&
+            elapsedMs - this.lastSoundMs >= QUIET_AFTER_MS;
+          this.recorder = { ...this.recorder, elapsedMs, level, quiet };
         },
         onEnd: (end) => void this.finishUnrequested(end),
       },
     );
     this.voice = voice;
+    this.lastSoundMs = 0;
     try {
       await voice.start();
       return true;
@@ -389,7 +414,10 @@ export class EditorWorkspace {
     const voice = this.voice;
     if (!voice?.active) return false;
     try {
-      return await this.addClip(await voice.stop());
+      const added = await this.addClip(await voice.stop());
+      // Offer the generated name for editing; Enter/Save keeps or changes it.
+      if (added && this.lastAddedClipId) this.renamingId = this.lastAddedClipId;
+      return added;
     } catch (error) {
       // `ended`: it already finished itself (limit/failure) or was cancelled.
       if (!(error instanceof RecorderError && error.code === 'ended'))
@@ -406,7 +434,7 @@ export class EditorWorkspace {
     this.voice = null;
     voice?.cancel();
     if (this.recorder.state !== 'idle')
-      this.recorder = { state: 'idle', elapsedMs: 0, level: 0 };
+      this.recorder = { state: 'idle', elapsedMs: 0, level: 0, quiet: false };
   }
 
   /** The 10:00 / size limit or a mid-take failure ended the take: keep what exists. */
@@ -463,6 +491,7 @@ export class EditorWorkspace {
     }
     const id = crypto.randomUUID();
     this.localBlobs.set(id, clip.blob);
+    this.lastAddedClipId = id;
     this.active = {
       ...session,
       attachments: [
@@ -475,11 +504,77 @@ export class EditorWorkspace {
           mime: clip.mime,
           size: clip.blob.size,
           durationSeconds: clip.durationSeconds,
+          ...(clip.peakLevel !== undefined && clip.peakLevel < SOUND_LEVEL
+            ? { silent: true }
+            : {}),
         },
       ],
     };
     this.error = '';
     await this.loadFiles();
+    return true;
+  }
+
+  /** Rename a clip that has not been saved yet. The extension stays; returns false when
+   * the name is empty or the attachment is a saved (server) file. */
+  renameClip(id: string, input: string): boolean {
+    const session = this.active;
+    const clip = session?.attachments.find((a) => a.id === id);
+    if (
+      !session ||
+      !clip ||
+      clip.kind !== 'audio' ||
+      clip.source !== 'local' ||
+      this.conflict ||
+      this.frozen ||
+      this.posting
+    )
+      return false;
+    const filename = renamedClipFilename(clip.filename, input);
+    if (!filename) return false;
+    if (filename !== clip.filename)
+      this.active = {
+        ...session,
+        attachments: session.attachments.map((a) =>
+          a.id === id ? { ...a, filename } : a,
+        ),
+      };
+    return true;
+  }
+
+  /** Rename a saved clip of the note being edited. The name is stored at once (it is
+   * not part of the draft), so a session that was clean stays clean. */
+  async renameSavedClip(id: string, input: string): Promise<boolean> {
+    const session = this.active;
+    const clip = session?.attachments.find((a) => a.id === id);
+    if (
+      !session ||
+      !clip ||
+      clip.kind !== 'audio' ||
+      clip.source !== 'server' ||
+      this.conflict ||
+      this.frozen ||
+      this.posting
+    )
+      return false;
+    const filename = renamedClipFilename(clip.filename, input);
+    if (!filename) return false;
+    if (filename === clip.filename) return true;
+    const result = await renameSavedClip(id, filename);
+    if (!result.ok) {
+      this.error = result.message;
+      return false;
+    }
+    const current = this.active;
+    if (!current || current.localId !== session.localId) return true;
+    const wasClean = this.cleanSnapshot === getSessionDigest(current);
+    this.active = {
+      ...current,
+      attachments: current.attachments.map((a) =>
+        a.id === id ? { ...a, filename: result.filename } : a,
+      ),
+    };
+    if (wasClean) this.cleanSnapshot = getSessionDigest(this.active);
     return true;
   }
 
@@ -493,6 +588,7 @@ export class EditorWorkspace {
     )
       return;
     this.localBlobs.delete(id);
+    if (this.renamingId === id) this.renamingId = null;
     const attachments = this.active.attachments.filter((a) => a.id !== id);
     const bodyMarkdown = removeImageReferences(this.active.bodyMarkdown, id);
     this.active = { ...this.active, attachments, bodyMarkdown };
@@ -779,6 +875,7 @@ export class EditorWorkspace {
     this.images = [];
     this.thumbs = {};
     this.clipUrls = {};
+    this.renamingId = null;
   }
 
   private blobUrl(id: string, blob: Blob): string {
@@ -886,7 +983,7 @@ export class EditorWorkspace {
         id: file.id,
         source: 'server',
         kind: editorKind(file),
-        filename: file.filename,
+        filename: savedClipNames.get(file.id) ?? file.filename,
         mime: file.mime,
         size: file.storedBytes,
       })),

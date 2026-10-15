@@ -68,6 +68,41 @@ insecure context (not HTTPS/localhost); `MediaRecorder`/`getUserMedia` unsupport
 (keep what was captured if possible); clip would exceed limits. Browsers without any
 supported recording MIME type disable the button with a reason.
 
+### 1.5 Naming, compact clips and level feedback (user request, post-VN07)
+
+- **Naming step.** After a user Stop the clip is added with the generated name
+  (`voice-YYYYMMDD-HHMMSS`) and its row opens a name field: base name selected and focused,
+  fixed extension shown beside it, a Save-name button. Enter or Save applies, Escape keeps
+  the current name, leaving the field (blur, e.g. pressing Post) applies what was typed. An
+  empty or unusable name keeps the current one. Typed names are cleaned: control/format
+  characters removed, `/  : * ? " < > |` become `-`, leading dots dropped, a typed copy of
+  the extension is not doubled, at most 255 characters. Focus then returns to the microphone
+  button. Automatic ends (10:00/size/failure) add the clip without opening the field.
+- **Rename later, saved clips too.** A pencil on every clip reopens the field: in the editor
+  (unsaved and saved clips) and on cards/note page (saved clips). Unsaved clips are renamed in
+  the draft. A saved clip is renamed at once on the server (it is not part of the draft, so a clean
+  edit session stays clean); Enter/Save applies, Escape or leaving the field cancels, a failure keeps
+  the field open with the message. Names are cleaned the same way and also validated server-side.
+- **Server contract.** `PATCH /api/attachments/<id>` with `{ "filename": "..." }` (JSON, same-origin,
+  signed in, body <= 4 KiB) renames a **ready voice clip that a note references**; anything else is
+  404/400. It changes `attachments.original_filename` only: bytes, digest, MIME and the note
+  revision are untouched, and the note's filename search is refreshed in the same transaction
+  (`AttachmentService.rename`). The name must be 1-255 characters without control/format characters,
+  `/  : * ? " < > |`, surrounding spaces or a leading dot. The schema guard
+  `attachments_referenced_guard` now fires on every column of a linked attachment **except**
+  `original_filename` (edited in the `0001` baseline: the user treats this as a new instance with an empty data
+  folder, per the pre-release fresh-baseline policy; an existing data folder from an earlier build
+  needs removing because the migration hash changed). A page keeps showing a renamed clip's new
+  name through `savedClipNames` until reload, and a note opened for editing picks it up.
+- **Compact chip.** Clips are small pill chips (play/pause icon, name, duration, rename,
+  remove) in a wrapping row, in the editor and on cards/note page (icon, name, download). The
+  display chip drives a control-less `<audio preload="none">`; one plays at a time.
+- **Volume feedback.** The meter is dB scaled (-65 dB..-10 dB), taller, and its
+  `AudioContext` is resumed. If a running meter hears nothing for 3 s of recording, the strip
+  shows "No sound detected. Check that your microphone is not muted." (`QUIET_AFTER_MS`,
+  `SOUND_LEVEL` = 0.25). A take whose loudest reading stayed below `SOUND_LEVEL` gets a warning
+  icon on its row. Without a meter nothing is claimed either way.
+
 ## 2. Technical contracts
 
 ### 2.1 Capture (client)
