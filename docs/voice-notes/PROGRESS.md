@@ -2,7 +2,7 @@
 
 ## Current state
 
-- **VN01 docs done; VN02 (server audio classification + inline Range serving) done.** Next: VN03.
+- **VN01 docs, VN02 (server), VN03 (client recorder core, no UI) done.** Next: VN04 (editor UI).
 
 ## History
 
@@ -68,3 +68,46 @@ through the service layer and the unchanged e2e suites — the route just forwar
 Next: VN03 — client recorder core (no UI). Read SPEC §2.1, `src/lib/client/uploads/{file-kind,
 protocol,attempt}.ts`, `editor/model.ts`, `workspace.svelte.ts`. Validation: `npm run test:unit`.
 Client must send `voice: true` in upload items and include it in the request digest.
+
+### Session 3 — VN03 client recorder core (done, no UI)
+
+Implemented:
+
+- `src/lib/client/recording/recorder.ts`: `VoiceRecorder` state machine behind an injectable `RecorderEnv`
+  (idle/starting/recording/paused/stopped). MIME choice `audio/webm;codecs=opus` → `audio/mp4` →
+  `audio/ogg;codecs=opus` (stored MIME has codec parameters stripped); 1000 ms timeslice, chunks in memory only;
+  own timer (paused time excluded, never `audio.duration`); 10:00 auto-stop and a byte cap (= `fileMaxBytes`) that keeps
+  the take and never keeps a chunk after an overflow (no hole); mid-take failure/unplugged device keeps captured audio;
+  cancel at any state (also while the permission prompt is open) releases tracks, meter and timers; `AudioContext` level
+  meter (failure never fails recording); error codes (insecure/unsupported/denied/no-device/busy/failed/empty/ended);
+  `voiceFilename()` = `voice-YYYYMMDD-HHMMSS.<webm|m4a|ogg>` in the app timezone; `recordingSupport()`.
+- `recording/clips.ts`: `clipRejection()` (video excludes clips, 20 clips, per-note cap; clips don't count as photos).
+- `uploads/file-kind.ts`: `MAX_VOICE_CLIPS = 20`, `MAX_VOICE_SECONDS = 600`.
+- `editor/model.ts`: `EditorAttachment.kind` gains `'audio'` + `durationSeconds`; `editorKind()` maps server `file` with an
+  audio MIME to `audio` (used by `editNote`).
+- `uploads/attempt.ts`: `uploadItemFor()` adds `voice: true` for clips; the frozen manifest keeps it across retries. The
+  client `requestDigest` covers the note command only (as before); the server compares the flag on replay (VN02).
+- `workspace.svelte.ts`: recorder state lives in the workspace (`recorder`, `notice`, `recording`, `postBlockedReason`,
+  `recordingUnsupported`, `recorderEnv` injectable); `startRecording/pauseRecording/resumeRecording/stopRecording/
+cancelRecording/addClip`; `dirty` includes an active take; `canPost` false while recording; `resetSession`, disposal and
+  `pagehide` cancel the take; `addFiles` reserves a slot for a take in progress (count and video); `clipUrls` object URLs
+  (local) / `/api/attachments/:id/file` (server) with revoke on remove/reset.
+- i18n en + zh-CN `rec.*` keys. `vitest.unit.config.ts` now loads the Svelte plugin so rune modules (`*.svelte.ts`) can be unit tested.
+- Tests: `tests/unit/voice-recorder.test.ts` (38), `tests/unit/voice-clips.test.ts` (25).
+
+Commands and real results (Windows host):
+
+- `npm run check` — 0 errors, 1 pre-existing warning (`AppShell.svelte`). `npm run lint` — clean.
+- `npm run test:unit` — 230 passed (35 files). `npm run build` — OK.
+- `npm run test:integration` — 265 passed, 7 skipped, 1 failed: `release-hygiene` doc-link check (pre-existing, see Session 2).
+- `playwright test uploads.test.ts editor.test.ts` — 5 passed.
+
+Not verified: any real browser recording (no UI yet; recorder driven only through fakes — real MediaRecorder/AudioContext
+bindings in `browserRecorderEnv`/`createAudioMeter` are untested until VN06); Linux image; Safari/iOS.
+
+Known stopgaps for VN04: the existing `AttachmentGrid` renders any non-image attachment (including `audio`) as a
+placeholder tile; clips need their own list. Exposed messages for Post-disabled state: `rec.stopFirst`.
+A clip stopped while a concurrent `addFiles` runs waits up to 2 s for it, then reports `work.addFailed`.
+
+Next: VN04 — editor UI. Read SPEC §1.1–1.2, 1.4, `EditorOptions.svelte`, `AttachmentGrid.svelte`, `NoteEditor.svelte`,
+`workspace.svelte.ts` (recorder API above). Validation: `npm run check && npm run lint && npm run test:unit` + e2e.

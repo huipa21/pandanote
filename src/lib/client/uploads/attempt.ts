@@ -5,7 +5,10 @@ import {
   digestSchema,
   mutationResultSchema,
 } from '#lib/shared/domain.ts';
-import { initializeBatchSchema } from '#lib/shared/attachments.ts';
+import {
+  initializeBatchSchema,
+  type UploadItem,
+} from '#lib/shared/attachments.ts';
 import {
   canonicalNoteMutation,
   noteMutationSchema,
@@ -50,3 +53,17 @@ export async function sha256(value: string | Blob): Promise<string> {
 }
 export const commandDigest = (command: NoteMutation) =>
   sha256(canonicalNoteMutation(command));
+/** Frozen manifest item for a local attachment. Voice clips carry `voice: true` so
+ * the server accepts their audio container (and replays compare the flag). */
+export async function uploadItemFor(
+  item: { id: string; filename: string; kind: 'image' | 'file' | 'audio' },
+  blob: Blob,
+): Promise<UploadItem> {
+  return {
+    id: item.id,
+    filename: item.filename,
+    incomingBytes: blob.size,
+    incomingDigest: await sha256(blob),
+    ...(item.kind === 'audio' ? { voice: true } : {}),
+  };
+}

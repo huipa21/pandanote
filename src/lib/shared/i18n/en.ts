@@ -706,6 +706,23 @@ export const en = {
   'search.filter': 'Search syntax help',
   'search.help':
     'Words must all match. Use OR, NOT (capitals) and ( ) to combine, and tag:name for an exact tag. Put text in double quotes to match it literally, such as "a OR b" or "f(x)".',
+  'rec.errInsecure': 'Recording needs a secure (HTTPS) connection.',
+  'rec.errUnsupported': 'This browser cannot record audio.',
+  'rec.errDenied':
+    'Microphone access was denied. Allow it in your browser settings and try again.',
+  'rec.errNoDevice': 'No microphone was found.',
+  'rec.errBusy': 'The microphone is in use by another app or tab.',
+  'rec.errFailed': 'Recording failed.',
+  'rec.errFailedKept':
+    'Recording stopped unexpectedly. What was captured has been kept.',
+  'rec.errEmpty': 'Nothing was recorded.',
+  'rec.limitReached': 'Recording stopped at {time}. The clip was added.',
+  'rec.sizeReached':
+    'Recording reached the file size limit. The clip was added.',
+  'rec.maxClips': 'You can add at most {count} voice clips to one note.',
+  'rec.videoClips': 'A note with a video cannot also have voice clips.',
+  'rec.tooLarge': 'The recording exceeds the {size} MiB size limit.',
+  'rec.stopFirst': 'Stop recording first',
   'work.maxFiles': 'You can attach at most {count} files to one note.',
   'work.onlyMedia': 'Only photos and videos can be added to a note.',
   'work.oneVideo': 'A note can have only one video.',

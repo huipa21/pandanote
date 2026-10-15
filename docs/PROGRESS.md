@@ -2,9 +2,9 @@
 
 ## Current state
 
-- **Voice clips (user request) — VN02 (server) done; VN03+ not started.** Spec, plan VN01–VN07 and
+- **Voice clips (user request) — VN02 (server) and VN03 (client recorder core) done; VN04+ not started.** Spec, plan VN01–VN07 and
   acceptance cases in [voice-notes/](voice-notes/README.md); status in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
-  Next: VN03 (client recorder core, no UI).
+  Next: VN04 (editor UI).
 
 - **Boolean search (AND / OR / NOT / parentheses / `tag:`) — implemented / host-verified; Linux image and full release gates not re-run.**
   Note, Trash and Tags-page search share one AST grammar (uppercase unquoted operators,
@@ -5473,3 +5473,8 @@ after the successful host build, Linux270 and final affected25 browser gate.
 
 - Step: VN02 done (server only; no UI). Details, commands and results in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
 - Next: VN03 — read `voice-notes/SPEC.md` §2.1; validate with `npm run test:unit`.
+
+## Session — voice clips VN03 (client recorder core)
+
+- Step: VN03 done (client logic only; no UI). Details, commands and results in [voice-notes/PROGRESS.md](voice-notes/PROGRESS.md).
+- Next: VN04 — read `voice-notes/SPEC.md` §1.1–1.2, §1.4; validate with `npm run check && npm run test:unit` + e2e.

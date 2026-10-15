@@ -22,6 +22,9 @@ export async function localImage(file: File): Promise<boolean> {
 
 /** WeChat-Moments style: up to nine photos, or a single video, per note. */
 export const MAX_NOTE_PHOTOS = 9;
+/** Voice clips: recording only, 10:00 each, up to twenty per note. */
+export const MAX_VOICE_CLIPS = 20;
+export const MAX_VOICE_SECONDS = 600;
 export const MEDIA_ACCEPT = 'image/*,video/*';
 
 export function isVideoMeta(file: { type?: string; name?: string }): boolean {

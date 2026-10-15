@@ -7,6 +7,7 @@ import {
   commandDigest,
   sha256,
   postingAttemptSchema,
+  uploadItemFor,
   type PostingAttempt,
 } from '../uploads/attempt.ts';
 import {
@@ -25,7 +26,26 @@ import {
   isVideoMeta,
   localImage,
   MAX_NOTE_PHOTOS,
+  MAX_VOICE_SECONDS,
 } from '../uploads/file-kind.ts';
+import {
+  browserRecorderEnv,
+  formatClock,
+  recordingSupport,
+  RecorderError,
+  VoiceRecorder,
+  voiceFilename,
+  type RecordedClip,
+  type RecorderEnd,
+  type RecorderEnv,
+  type RecorderErrorCode,
+  type RecorderState,
+} from '../recording/recorder.ts';
+import {
+  clipRejection,
+  isVideoAttachment,
+  RECORDER_ERROR_KEYS,
+} from '../recording/clips.ts';
 import { extractTags } from '#lib/shared/markdown/tags.ts';
 import { rewriteTagKeys, type StaleTag } from '#lib/shared/tags.ts';
 
@@ -36,6 +56,7 @@ import {
   hasSessionContent,
   commandForSession,
   assertEditableSnapshot,
+  editorKind,
   remapImageReferences,
   removeImageReferences,
   type EditorSession,
@@ -53,6 +74,8 @@ export class EditorWorkspace {
   editOrigin = $state<string | null>(null);
   images = $state<ImageReference[]>([]);
   thumbs = $state<Record<string, string>>({});
+  /** Playable URL per voice clip: an object URL (local) or the file route (server). */
+  clipUrls = $state<Record<string, string>>({});
   private blobUrls = new SvelteMap<string, { blob: Blob; url: string }>();
   missing = $state<string[]>([]);
   error = $state('');
@@ -61,7 +84,20 @@ export class EditorWorkspace {
   /** True once the user saved a timeline date in this composer session. */
   timelineSet = $state(false);
   busy = $state(false);
-  dirty = $derived(isSessionDirty(this.active, this.cleanSnapshot));
+  /** Voice take in progress. It lives here, not in a component, so focus mode and the
+   * compact editor share it and opening/closing either never stops a recording. */
+  recorder = $state<{
+    state: 'idle' | 'starting' | 'recording' | 'paused';
+    elapsedMs: number;
+    level: number;
+  }>({ state: 'idle', elapsedMs: 0, level: 0 });
+  /** Non-error recorder information (e.g. the 10:00 limit was reached). */
+  notice = $state('');
+  /** An active take is unsaved work, like clips and text. */
+  dirty = $derived(
+    isSessionDirty(this.active, this.cleanSnapshot) ||
+      this.recorder.state !== 'idle',
+  );
   conflict = $state(false);
   posting = $state(false);
   postError = $state('');
@@ -86,9 +122,24 @@ export class EditorWorkspace {
     return Boolean(this.active?.postingAttempt);
   }
 
+  get recording() {
+    return this.recorder.state !== 'idle';
+  }
+
+  /** Why Post/Save changes is disabled for a reason the user can fix, or ''. */
+  get postBlockedReason(): string {
+    return this.recording ? tr('rec.stopFirst') : '';
+  }
+
+  /** Why recording cannot start here (insecure context, no MediaRecorder), or null. */
+  get recordingUnsupported(): RecorderErrorCode | null {
+    return recordingSupport(this.recorderEnv());
+  }
+
   get canPost() {
     return (
       this.ready &&
+      !this.recording &&
       !this.busy &&
       !this.posting &&
       !this.conflict &&
@@ -103,6 +154,9 @@ export class EditorWorkspace {
   limits = $state<StorageLimits>(storageLimitsFrom(DEFAULT_SETTINGS));
 
   private localBlobs = new SvelteMap<string, Blob>();
+  private voice: VoiceRecorder | null = null;
+  /** Browser bindings; replaceable so the recorder can be driven without a browser. */
+  recorderEnv: () => RecorderEnv = browserRecorderEnv;
   private previewRequested = false;
   private disposed = false;
 
@@ -122,18 +176,24 @@ export class EditorWorkspace {
         event.returnValue = '';
       }
     };
+    // Release the microphone on page unload (and bfcache entry) as well.
+    const release = () => this.cancelRecording();
     window.addEventListener('beforeunload', unload);
+    window.addEventListener('pagehide', release);
 
     return () => {
       this.disposed = true;
+      this.cancelRecording();
       this.revokeUrls();
       this.localBlobs.clear();
       this.cancelConfirm();
       window.removeEventListener('beforeunload', unload);
+      window.removeEventListener('pagehide', release);
     };
   }
 
   resetSession() {
+    this.cancelRecording();
     this.revokeUrls();
     this.localBlobs.clear();
     this.active = newSession();
@@ -146,6 +206,7 @@ export class EditorWorkspace {
     this.postConflict = null;
     this.conflict = false;
     this.status = '';
+    this.notice = '';
     this.staleTagChoices = [];
   }
 
@@ -174,7 +235,9 @@ export class EditorWorkspace {
     )
       return;
 
-    const currentCount = this.active.attachments.length;
+    // A take in progress will become a clip: reserve its slot.
+    const reserved = this.recording ? 1 : 0;
+    const currentCount = this.active.attachments.length + reserved;
     if (currentCount + files.length > this.limits.maxAttachmentsPerNote) {
       this.error = tr('work.maxFiles', {
         count: this.limits.maxAttachmentsPerNote,
@@ -200,15 +263,13 @@ export class EditorWorkspace {
       const existingPhotos = session.attachments.filter(
         (a) => a.kind === 'image',
       ).length;
-      const existingVideos = session.attachments.filter(
-        (a) =>
-          a.kind === 'file' && isVideoMeta({ type: a.mime, name: a.filename }),
-      ).length;
+      const existingVideos =
+        session.attachments.filter(isVideoAttachment).length;
       if (videos > 1) {
         this.error = tr('work.oneVideo');
         return;
       }
-      if (videos && session.attachments.length) {
+      if (videos && (session.attachments.length || reserved)) {
         this.error = tr('work.videoMix');
         return;
       }
@@ -253,6 +314,173 @@ export class EditorWorkspace {
     } finally {
       this.busy = false;
     }
+  }
+
+  // --- voice recording -------------------------------------------------
+
+  private recorderText(code: RecorderErrorCode): string {
+    return tr(RECORDER_ERROR_KEYS[code]);
+  }
+
+  /** Request the microphone and start a take. Nothing starts automatically. */
+  async startRecording(): Promise<boolean> {
+    const session = this.active;
+    if (
+      !session ||
+      !this.ready ||
+      this.busy ||
+      this.conflict ||
+      this.frozen ||
+      this.posting ||
+      this.recording
+    )
+      return false;
+    this.error = '';
+    this.notice = '';
+    const rejection = clipRejection(
+      session.attachments,
+      this.limits.maxAttachmentsPerNote,
+    );
+    if (rejection) {
+      this.error = tr(rejection.key, rejection.params);
+      return false;
+    }
+    const voice: VoiceRecorder = new VoiceRecorder(
+      this.recorderEnv(),
+      { maxBytes: this.limits.fileMaxBytes },
+      {
+        onState: (state: RecorderState) => {
+          if (this.voice !== voice) return;
+          this.recorder =
+            state === 'stopped' || state === 'idle'
+              ? { state: 'idle', elapsedMs: 0, level: 0 }
+              : { ...this.recorder, state };
+        },
+        onProgress: ({ elapsedMs, level }) => {
+          if (this.voice === voice && this.recording)
+            this.recorder = { ...this.recorder, elapsedMs, level };
+        },
+        onEnd: (end) => void this.finishUnrequested(end),
+      },
+    );
+    this.voice = voice;
+    try {
+      await voice.start();
+      return true;
+    } catch (error) {
+      if (this.voice === voice) this.voice = null;
+      if (!(error instanceof RecorderError && error.code === 'ended'))
+        this.error = this.recorderText(
+          error instanceof RecorderError ? error.code : 'failed',
+        );
+      return false;
+    }
+  }
+
+  pauseRecording() {
+    this.voice?.pause();
+  }
+  resumeRecording() {
+    this.voice?.resume();
+  }
+
+  /** Stop and add the clip to the session. */
+  async stopRecording(): Promise<boolean> {
+    const voice = this.voice;
+    if (!voice?.active) return false;
+    try {
+      return await this.addClip(await voice.stop());
+    } catch (error) {
+      // `ended`: it already finished itself (limit/failure) or was cancelled.
+      if (!(error instanceof RecorderError && error.code === 'ended'))
+        this.error = this.recorderText(
+          error instanceof RecorderError ? error.code : 'failed',
+        );
+      return false;
+    }
+  }
+
+  /** Discard the current take; asks nothing and releases the microphone. */
+  cancelRecording() {
+    const voice = this.voice;
+    this.voice = null;
+    voice?.cancel();
+    if (this.recorder.state !== 'idle')
+      this.recorder = { state: 'idle', elapsedMs: 0, level: 0 };
+  }
+
+  /** The 10:00 / size limit or a mid-take failure ended the take: keep what exists. */
+  private async finishUnrequested(end: RecorderEnd) {
+    if (!end.clip) {
+      if (end.reason === 'error')
+        this.error = this.recorderText(end.error?.code ?? 'failed');
+      return;
+    }
+    if (!(await this.addClip(end.clip))) return;
+    if (end.reason === 'limit')
+      this.notice = tr('rec.limitReached', {
+        time: formatClock(MAX_VOICE_SECONDS),
+      });
+    else if (end.reason === 'size') this.notice = tr('rec.sizeReached');
+    else this.error = tr('rec.errFailedKept');
+  }
+
+  /** Add a recorded clip as a local attachment. Violations add nothing. */
+  async addClip(clip: RecordedClip): Promise<boolean> {
+    // A concurrent addFiles replaces `active` when it finishes; let it land first.
+    for (
+      let i = 0;
+      this.busy && !this.posting && !this.disposed && i < 100;
+      i++
+    )
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    const session = this.active;
+    if (
+      !session ||
+      this.disposed ||
+      !this.ready ||
+      this.busy ||
+      this.conflict ||
+      this.frozen ||
+      this.posting
+    ) {
+      this.error = tr('work.addFailed');
+      return false;
+    }
+    const rejection = clipRejection(
+      session.attachments,
+      this.limits.maxAttachmentsPerNote,
+    );
+    if (rejection) {
+      this.error = tr(rejection.key, rejection.params);
+      return false;
+    }
+    if (clip.blob.size > this.limits.fileMaxBytes) {
+      this.error = tr('rec.tooLarge', {
+        size: Math.round(this.limits.fileMaxBytes / (1024 * 1024)),
+      });
+      return false;
+    }
+    const id = crypto.randomUUID();
+    this.localBlobs.set(id, clip.blob);
+    this.active = {
+      ...session,
+      attachments: [
+        ...session.attachments,
+        {
+          id,
+          source: 'local',
+          kind: 'audio',
+          filename: voiceFilename(clip.startedAt, this.timezone, clip.mime),
+          mime: clip.mime,
+          size: clip.blob.size,
+          durationSeconds: clip.durationSeconds,
+        },
+      ],
+    };
+    this.error = '';
+    await this.loadFiles();
+    return true;
   }
 
   async removeAttachment(id: string) {
@@ -374,12 +602,7 @@ export class EditorWorkspace {
           if (!blob || blob.size !== item.size) {
             throw new Error(tr('work.fileMissing', { name: item.filename }));
           }
-          items.push({
-            id: item.id,
-            filename: item.filename,
-            incomingBytes: blob.size,
-            incomingDigest: await sha256(blob),
-          });
+          items.push(await uploadItemFor(item, blob));
         }
 
         const attempt = postingAttemptSchema.parse({
@@ -555,6 +778,7 @@ export class EditorWorkspace {
     this.blobUrls.clear();
     this.images = [];
     this.thumbs = {};
+    this.clipUrls = {};
   }
 
   private blobUrl(id: string, blob: Blob): string {
@@ -580,10 +804,23 @@ export class EditorWorkspace {
     }
     const images: ImageReference[] = [];
     const thumbs: Record<string, string> = {};
+    const clips: Record<string, string> = {};
     const live = new SvelteSet<string>();
     for (const item of this.active.attachments) {
       if (item.source === 'local' && !this.localBlobs.has(item.id))
         this.missing.push(item.id);
+      if (item.kind === 'audio') {
+        if (item.source === 'server')
+          clips[item.id] = `/api/attachments/${item.id}/file`;
+        else {
+          const blob = this.localBlobs.get(item.id);
+          if (blob) {
+            live.add(item.id);
+            clips[item.id] = this.blobUrl(item.id, blob);
+          }
+        }
+        continue;
+      }
       if (item.kind !== 'image') continue;
       let url: string | undefined;
       if (item.source === 'server') {
@@ -606,6 +843,7 @@ export class EditorWorkspace {
       }
     this.images = images;
     this.thumbs = thumbs;
+    this.clipUrls = clips;
   }
 
   private rememberMutation(result: MutationResult) {
@@ -647,7 +885,7 @@ export class EditorWorkspace {
       attachments: (note.attachments ?? []).map((file) => ({
         id: file.id,
         source: 'server',
-        kind: file.kind,
+        kind: editorKind(file),
         filename: file.filename,
         mime: file.mime,
         size: file.storedBytes,

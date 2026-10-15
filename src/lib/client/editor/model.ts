@@ -1,6 +1,7 @@
 import { tr } from '#lib/client/i18n-current.ts';
 import type { Nodes } from 'mdast';
 import type { NoteSnapshot } from '#lib/shared/domain.ts';
+import { isVoiceMime } from '#lib/shared/attachments.ts';
 import type { NoteContent, NoteMutation } from '#lib/shared/notes.ts';
 import type { TagAcknowledgement } from '#lib/shared/tags.ts';
 import type { PostingAttempt } from '../uploads/attempt.ts';
@@ -9,10 +10,20 @@ import { parseMarkdown } from '#lib/shared/markdown/parse.ts';
 export interface EditorAttachment {
   id: string;
   source: 'local' | 'server';
-  kind: 'image' | 'file';
+  /** `audio` is a voice clip (client-side classification of a server `file`). */
+  kind: 'image' | 'file' | 'audio';
   filename: string;
   mime: string;
   size: number;
+  /** Recorder's own duration in seconds; local clips only, display only. */
+  durationSeconds?: number;
+}
+/** Server attachments are `image` or `file`; audio containers stored for a voice clip are `file`s. */
+export function editorKind(file: {
+  kind: 'image' | 'file';
+  mime: string;
+}): EditorAttachment['kind'] {
+  return file.kind === 'file' && isVoiceMime(file.mime) ? 'audio' : file.kind;
 }
 export interface EditorSession {
   localId: string;
