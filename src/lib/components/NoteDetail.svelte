@@ -9,7 +9,7 @@
     type LifecycleState,
   } from '#lib/client/editor/lifecycle.svelte.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
-  import { isVoiceClip } from '#lib/shared/attachments.ts';
+  import { formatFileSize, isVoiceClip } from '#lib/shared/attachments.ts';
   import type { NoteSnapshot } from '#lib/shared/domain.ts';
   import type { RenderedMarkdown } from '#lib/shared/markdown/render.ts';
   import {
@@ -26,6 +26,7 @@
   import LabelChip from './LabelChip.svelte';
   import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import AudioClip from './AudioClip.svelte';
+  import FileTypeIcon from './FileTypeIcon.svelte';
   import { canReturnInApp } from '#lib/client/history.ts';
   import { countWords } from '#lib/shared/word-count.ts';
   import NoteEditor from './NoteEditor.svelte';
@@ -238,11 +239,14 @@
         </ul>
       {/if}
       <ul class="files" aria-label={t('note.attachments')}>
-        {#each plainFiles as file (file.id)}<li>
+        {#each plainFiles as file (file.id)}{@const size = formatFileSize(
+            file.storedBytes,
+          )}
+          <li>
             <a href={`/api/attachments/${file.id}/file`} download
-              >{file.filename}</a
+              ><FileTypeIcon filename={file.filename} />{file.filename}</a
             >
-            · {t('note.bytes', { count: file.storedBytes })}
+            · {t(size.key, size.params)}
           </li>{/each}
       </ul>
     </div>
@@ -410,6 +414,7 @@
   li a {
     display: inline-flex;
     align-items: center;
+    gap: var(--space-1);
     min-height: var(--target);
   }
   .files {

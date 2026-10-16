@@ -41,6 +41,126 @@ export const isVoiceMime = (mime: string): boolean =>
 /** A stored voice clip: a `file` attachment whose detected MIME is an audio container. */
 export const isVoiceClip = (file: { kind: string; mime: string }): boolean =>
   file.kind === 'file' && isVoiceMime(file.mime);
+
+/** Pictographic categories for a generic (non-image) file attachment's icon: a
+ * recognisable app-style glyph (Word/Excel/PowerPoint/PDF/archive colours, or
+ * a media/code/text pictogram) for common extensions; anything else falls
+ * back to a short uppercase extension label (or a bare document glyph). */
+export type FileIconKind =
+  | 'audio'
+  | 'video'
+  | 'code'
+  | 'text'
+  | 'image'
+  | 'word'
+  | 'excel'
+  | 'powerpoint'
+  | 'pdf'
+  | 'archive';
+const FILE_ICON_EXTENSIONS: Record<FileIconKind, readonly string[]> = {
+  audio: ['mp3', 'wav', 'm4a', 'flac', 'aac', 'ogg', 'oga', 'opus', 'wma'],
+  video: [
+    'mp4',
+    'm4v',
+    'mov',
+    'webm',
+    'mkv',
+    'avi',
+    '3gp',
+    'mpeg',
+    'mpg',
+    'ogv',
+    'wmv',
+    'flv',
+  ],
+  code: [
+    'js',
+    'mjs',
+    'cjs',
+    'ts',
+    'tsx',
+    'jsx',
+    'json',
+    'html',
+    'htm',
+    'css',
+    'py',
+    'java',
+    'c',
+    'h',
+    'cpp',
+    'rs',
+    'go',
+    'rb',
+    'php',
+    'sh',
+    'bash',
+    'yml',
+    'yaml',
+    'xml',
+    'svelte',
+    'vue',
+    'sql',
+  ],
+  text: ['txt', 'md', 'markdown', 'log', 'rtf'],
+  image: ['svg', 'heic', 'heif', 'tif', 'tiff'],
+  word: ['doc', 'docx', 'docm', 'dot', 'dotx', 'odt'],
+  excel: ['xls', 'xlsx', 'xlsm', 'xlsb', 'csv', 'ods'],
+  powerpoint: ['ppt', 'pptx', 'pptm', 'pps', 'ppsx', 'odp'],
+  pdf: ['pdf'],
+  archive: ['zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'bz2', 'xz'],
+};
+const EXT_TO_ICON_KIND = new Map<string, FileIconKind>(
+  Object.entries(FILE_ICON_EXTENSIONS).flatMap(([kind, extensions]) =>
+    extensions.map((extension) => [extension, kind as FileIconKind]),
+  ),
+);
+function fileExtension(filename: string): string {
+  const match = /\.([a-z0-9]+)$/i.exec(filename);
+  return match ? match[1].toLowerCase() : '';
+}
+/** Best-guess icon category from the filename alone (presentation only; the
+ * server never trusts this for processing/validation decisions). */
+export function fileIconKind(filename: string): FileIconKind | null {
+  const extension = fileExtension(filename);
+  return extension ? (EXT_TO_ICON_KIND.get(extension) ?? null) : null;
+}
+/** Short label shown on a generic document-style icon, e.g. "PDF", "ZIP", "DOCX". */
+export function fileExtensionLabel(filename: string): string {
+  return fileExtension(filename).slice(0, 4).toUpperCase();
+}
+/** Short mark shown inside the brand-coloured band of a Word/Excel/PowerPoint/
+ * PDF/archive style icon, echoing the real application's monogram. */
+const BRAND_MARKS: Partial<Record<FileIconKind, string>> = {
+  word: 'W',
+  excel: 'X',
+  powerpoint: 'P',
+  pdf: 'PDF',
+  archive: 'ZIP',
+};
+export function fileBrandMark(kind: FileIconKind): string | null {
+  return BRAND_MARKS[kind] ?? null;
+}
+
+/** Human-readable file size: bytes under 1 KiB, otherwise KB/MB with up to one
+ * decimal place (trailing ".0" dropped). Returns the i18n message key and
+ * params to pass straight to `t(...)`. */
+export function formatFileSize(bytes: number):
+  | { key: 'note.bytes'; params: { count: number } }
+  | {
+      key: 'note.kilobytes' | 'note.megabytes';
+      params: { value: string };
+    } {
+  if (bytes < 1024) return { key: 'note.bytes', params: { count: bytes } };
+  const kib = bytes / 1024;
+  if (kib < 1024) {
+    return { key: 'note.kilobytes', params: { value: oneDecimal(kib) } };
+  }
+  return { key: 'note.megabytes', params: { value: oneDecimal(kib / 1024) } };
+}
+function oneDecimal(value: number): string {
+  return (Math.round(value * 10) / 10).toFixed(1).replace(/\.0$/, '');
+}
 export const initializeBatchSchema = mutationIdentitySchema
   .extend({
     items: z.array(uploadItemSchema).max(100),

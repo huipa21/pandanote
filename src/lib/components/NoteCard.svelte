@@ -17,6 +17,7 @@
   import LabelChip from './LabelChip.svelte';
   import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import AudioClip from './AudioClip.svelte';
+  import FileTypeIcon from './FileTypeIcon.svelte';
   import NoteEditor from './NoteEditor.svelte';
   import ImageViewer from './ImageViewer.svelte';
   import {
@@ -37,7 +38,7 @@
     type TimelineCard,
     type TimelineFilters,
   } from '#lib/shared/timeline.ts';
-  import { isVoiceClip } from '#lib/shared/attachments.ts';
+  import { formatFileSize, isVoiceClip } from '#lib/shared/attachments.ts';
   import type {
     ApiResult,
     MutationResult,
@@ -380,12 +381,13 @@
       </p>{/if}
     {#if plainFiles.length}
       <ul class="files" aria-label={t('note.attachments')}>
-        {#each plainFiles as file (file.id)}<li>
+        {#each plainFiles as file (file.id)}{@const size = formatFileSize(
+            file.storedBytes,
+          )}
+          <li>
             <a href={`/api/attachments/${file.id}/file`} download
-              >{file.filename}</a
-            ><span class="help"
-              >{t('note.bytes', { count: file.storedBytes })}</span
-            >
+              ><FileTypeIcon filename={file.filename} />{file.filename}</a
+            ><span class="help">{t(size.key, size.params)}</span>
           </li>{/each}
       </ul>
     {/if}
@@ -593,6 +595,7 @@
     min-height: var(--target);
     display: flex;
     align-items: center;
+    gap: var(--space-1);
     overflow-wrap: anywhere;
     min-width: 0;
   }

@@ -2,6 +2,26 @@
 
 ## Current state
 
+- **Generic file attachments + extension icons (user request) — implemented, host-verified; Linux image gate not run.**
+  A separate **Attach file** icon (paperclip) next to Media opens an unrestricted file picker; any file that is not a
+  recognized image/video becomes a plain, unprocessed `kind: 'file'` attachment (reuses the existing `fileMaxBytes`/
+  `maxAttachmentsPerNote` limits, no new per-type count cap, mixable with photos/video). Server/storage/download paths
+  were already generic and needed no changes. New `FileAttachmentList.svelte` shows these as removable rows below the
+  photo/video grid and voice clips while editing; `AttachmentGrid.svelte` now excludes them (grid stays photos + the
+  single video). Both pre- and post-publish rows (`NoteDetail.svelte`, `NoteCard.svelte`) use a new
+  `FileTypeIcon.svelte`, driven by `shared/attachments.ts#fileIconKind`/`fileExtensionLabel`: a pictographic icon for
+  common audio/video/code/text/image extensions, otherwise the uppercase extension as a short label on a plain
+  document glyph — presentation only, never trusted for validation. Removed the now-impossible `work.onlyMedia`
+  rejection/string (en + zh-CN). Updated PRODUCT_SPEC §4.2/§10.3 to describe the icon and the extension-icon rule.
+  Commands/results: `npm run check` 0 errors (1 pre-existing AppShell warning); `npm run lint` clean; `npm run test:unit`
+  259 pass (new `fileIconKind`/`fileExtensionLabel` cases); `npm run test:integration` 289 pass + 7 platform skips;
+  `npm run build` pass; `playwright test editor.test.ts voice detail labels templates` 58/58 pass (updated the media-picker
+  test's dropped `work.onlyMedia` assertion and the options-button count 6→7; added a dedicated attach-file test);
+  full `npx playwright test` (140 tests): 136 pass, 4 failed only under full sequential load and pass standalone
+  (`detail:256`, `shell` 1440×900 screenshot, `voice-naming:161`, `zzrestore:24` — the same pre-existing Windows
+  flakiness class documented in earlier sessions, not a regression). No schema/migration change.
+  Next: Linux/Alpine image gate; consider a drag-reorder affordance for the file list if requested (not in scope here).
+
 - **Color or icon labels (user request) — L01–L07 implemented, host-verified; Linux image
   gate and a manual real-device/screen-reader pass NOT done.** One label per note;
   user-named labels with color (8 fixed swatches) + optional icon (12 fixed icons);
@@ -5536,3 +5556,87 @@ after the successful host build, Linux270 and final affected25 browser gate.
 
 - Done: T01–T06 on the host; see [templates/PROGRESS.md](templates/PROGRESS.md) for files, exact results, the restore-flake investigation and remaining work.
 - Next: Alpine image integration + deployment drill for schema 3; tampered-template restore test.
+
+## Session — generic file attachments + extension icons (user request)
+
+- Assessed first: the Media button/picker/`workspace.addFiles` deliberately restricted uploads to images/videos
+  (`MEDIA_ACCEPT`, `work.onlyMedia`, ARCHITECTURE/PRODUCT_SPEC §4.2 "WeChat-Moments style"), while the server/storage
+  layer (`AttachmentService`, `fileMaxBytes`, `maxAttachmentsPerNote`, safe download headers) was already fully generic
+  and tested for arbitrary bytes (PDF/HTML/SVG/empty — `tests/integration/attachments.test.ts`), and PRODUCT_SPEC §10.3/
+  ACCEPTANCE_TESTS already described/assumed generic downloadable file attachments. Confirmed with the user: use the
+  stated defaults (any file type; reuse existing limits with no new per-type cap; mixable with photos/video; shown as
+  a separate list below the photo/video grid) plus the new request for extension-based icons.
+- Implemented: `EditorOptions.svelte` new "Attach file" button/icon (own `onAttach` prop); `NoteEditor.svelte` second
+  unrestricted hidden file input (`editor.chooseAnyFile`); `workspace.svelte.ts#addFiles` no longer rejects non-media
+  files (removed the `work.onlyMedia` branch) — classification/limits for photos and the single video are unchanged,
+  anything else becomes a generic `kind: 'file'` attachment with no extra count limit; `AttachmentGrid.svelte` now
+  filters to `kind === 'image' || isVideoAttachment(a)` (generic files no longer show as grid tiles); new
+  `FileAttachmentList.svelte` (removable rows, missing-file repair, reuses `attach.remove`/`attach.repair` i18n) renders
+  them below `AudioClipList`; new `FileTypeIcon.svelte` + `shared/attachments.ts#fileIconKind`/`fileExtensionLabel`
+  (pictographic icon for audio/video/code/text/image-ish extensions — e.g. `.svg` — else the uppercase extension as a
+  label on a plain document glyph) used by both the editor list and the published download rows in `NoteDetail.svelte`/
+  `NoteCard.svelte`. i18n: added `editor.addFile`, `editor.fileTitle`, `editor.chooseAnyFile`, `attach.fileList`;
+  removed `work.onlyMedia` (en + zh-CN). Docs: PRODUCT_SPEC §4.2/§10.3 updated to describe the icon, mixing and the
+  extension-icon rule. No schema/migration, no server/API change.
+- Tests: `tests/unit/attachments.test.ts` new case for `fileIconKind`/`fileExtensionLabel`; `tests/e2e/editor.test.ts`
+  updated the media-picker test (`notes.txt` now becomes a file attachment instead of an error; options-button count
+  6→7) and added a dedicated attach-file-picker test (no `accept` attribute, mixed `.pdf`/`.txt` upload, per-item
+  `data-file-icon` assertions, remove).
+- Commands/results (Windows host): `npm run check` 0 errors (1 pre-existing AppShell warning); `npm run lint` clean;
+  `npm run test:unit` 259 pass; `npm run build` (needed before Playwright — the e2e server runs the production build,
+  not dev/HMR; a first run against a stale build silently showed only the old single input); `npm run test:integration`
+  289 pass + 7 platform skips; `playwright test editor.test.ts voice detail labels templates` 58/58 pass; full
+  `npx playwright test` (140 tests): 136 pass, 4 failed only under full sequential load and pass standalone
+  (`detail:256`, `shell` 1440×900 screenshot, `voice-naming:161`, `zzrestore:24` — matches the pre-existing Windows
+  flakiness class recorded in the Labels session, not a regression; re-verified `detail:256`/`voice-naming:161` pass
+  alone).
+- Not run: Linux/Alpine image gate, manual/real-device pass. Open/deferred: no drag-reorder for the generic-file list
+  (not requested); a file picked via Attach-file that the server content-sniffs as a real raster image still becomes
+  an `image` attachment server-side (kind is server-decided by content, not by which button was used) — unchanged
+  pre-existing behavior, not special-cased.
+- Next: Linux/Alpine image gate at the next milestone; otherwise this request is complete.
+
+## Session — file size display: KB/MB instead of raw bytes (user request)
+
+- Assessed first: extension-based icons were already implemented (`FileTypeIcon.svelte` + `shared/attachments.ts#fileIconKind`,
+  prior session); the only remaining complaint was size always rendered in raw bytes (`note.bytes`, `{count} bytes`) for
+  generic file attachments in the editor (`FileAttachmentList.svelte`) and on published notes (`NoteCard.svelte`,
+  `NoteDetail.svelte`).
+- Implemented: `shared/attachments.ts#formatFileSize(bytes)` — bytes under 1024, otherwise KiB/MiB with up to one decimal
+  (trailing `.0` dropped), returning `{ key, params }` for direct use with `t(...)`. New i18n keys `note.kilobytes`
+  (`{value} KB`) and `note.megabytes` (`{value} MB`) in en + zh-CN; `note.bytes` unchanged/still used for the <1 KB case.
+  Wired into the three size displays (editor file list, note card attachment rows, note detail attachment rows) via
+  `{@const size = formatFileSize(...)}` placed as the immediate child of each `{#each}` (Svelte requires that placement,
+  not inside the `<li>`).
+- Tests: `tests/unit/attachments.test.ts` new case for `formatFileSize` (0 bytes, 1023 bytes boundary, 1 KB, 1.5 KB,
+  1024 KB boundary just under 1 MiB, 1 MB, 5.5 MB).
+- Commands/results (Windows host): `npm run check` 0 errors (same pre-existing AppShell CSS warning); `npm run lint`
+  clean; `npm run test:unit` 260 pass; `npm run build` succeeds (same pre-existing large-chunk warning, unrelated).
+  Integration/e2e/Alpine not re-run (no server/API/schema change, no new UI surface — only the i18n string resolved
+  for existing text nodes).
+- Next: none outstanding for this request; re-run integration/e2e at the next milestone gate as usual.
+
+## Session — file icons: brand-style Word/Excel/PowerPoint/PDF/archive icons (user request)
+
+- User wanted file-type icons that look like the real app icons (Excel/Word/etc.), not the plain pictographic marks from
+  the prior session.
+- Implemented: `shared/attachments.ts#FileIconKind` extended with `word`/`excel`/`powerpoint`/`pdf`/`archive` (extension
+  lists: doc(x/m)/dot(x)/odt, xls(x/m/b)/csv/ods, ppt(x/m)/pps(x)/odp, pdf, zip/rar/7z/tar/gz/tgz/bz2/xz), each ranked
+  before the fallback label as a top-level category — `fileIconKind('report.pdf')` is now `'pdf'`, not `null`. New
+  `fileBrandMark(kind)` returns the monogram shown on the icon (`W`/`X`/`P`/`PDF`/`ZIP`). `FileTypeIcon.svelte` rewritten:
+  the document glyph is now filled (white/surface) with a coloured bottom band carrying the white monogram for the five
+  brand kinds (Word #2B579A, Excel #217346, PowerPoint #D24726, PDF #E5342A, archive #767676 — via
+  `[data-file-icon="..."] .band` CSS), while audio/video/code/text/image keep their existing pictographic strokes and
+  anything unmatched still falls back to the plain document + uppercase extension label. `data-file-icon` attribute
+  values changed accordingly (`pdf`/`word`/`excel`/`powerpoint`/`archive` now possible, not just `label`/`plain`/the
+  prior five kinds).
+- Docs: PRODUCT_SPEC §4.2/§10.3 updated to describe the brand-coloured monogram icons.
+- Tests: `tests/unit/attachments.test.ts` extended (`fileIconKind` for pdf/docx/xlsx/pptx/zip, `fileExtensionLabel` for
+  an unmatched extension, new `fileBrandMark` cases including a non-brand kind returning `null`);
+  `tests/e2e/editor.test.ts` attach-file-picker test updated (`report.pdf` now asserts `data-file-icon="pdf"` instead
+  of `"label"`).
+- Commands/results (Windows host): `npm run check` 0 errors (same pre-existing AppShell CSS warning); `npm run lint`
+  clean; `npm run test:unit` 260 pass; `npm run build` succeeds (same pre-existing large-chunk warning);
+  `playwright test editor.test.ts voice detail labels templates` 58/58 pass. Integration/full e2e/Alpine not re-run
+  (no server/API/schema change — presentation only).
+- Next: none outstanding for this request; re-run integration/full e2e/Alpine at the next milestone gate as usual.

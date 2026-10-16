@@ -17,12 +17,14 @@
     onTemplate,
     onLabel,
     onFiles,
+    onAttach,
   }: {
     workspace: EditorWorkspace | undefined;
     onTag: () => void;
     onTemplate: () => void;
     onLabel: () => void;
     onFiles: () => void;
+    onAttach: () => void;
   } = $props();
   let dateOpen = $state(false);
   const currentLabel = $derived(
@@ -91,6 +93,19 @@
         cy="10"
         r="1.5"
       /><path d="m21 16-5-5-9 9" /></svg
+    >
+  </button>
+  <button
+    type="button"
+    disabled={locked}
+    aria-label={t('editor.addFile')}
+    title={t('editor.fileTitle')}
+    onclick={onAttach}
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true"
+      ><path
+        d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+      /></svg
     >
   </button>
   <button

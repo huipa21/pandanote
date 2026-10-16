@@ -8,6 +8,7 @@
   import EditorFeedback from './EditorFeedback.svelte';
   import AttachmentGrid from './AttachmentGrid.svelte';
   import AudioClipList from './AudioClipList.svelte';
+  import FileAttachmentList from './FileAttachmentList.svelte';
   import VoiceRecorder from './VoiceRecorder.svelte';
   import TagAutocomplete from './TagAutocomplete.svelte';
   import EditorOptions from './EditorOptions.svelte';
@@ -51,6 +52,7 @@
     workspace ? (workspace.active?.bodyMarkdown ?? '') : localText,
   );
   let fileInput = $state<HTMLInputElement>(null!);
+  let attachInput = $state<HTMLInputElement>(null!);
   let cursor = { start: 0, end: 0 };
   let textarea = $state<HTMLTextAreaElement>();
   let expandedTextarea = $state<HTMLTextAreaElement>();
@@ -310,7 +312,7 @@
     {/if}
     {#if workspace}<AttachmentGrid {workspace} /><AudioClipList
         {workspace}
-      /><EditorFeedback {workspace} />{/if}
+      /><FileAttachmentList {workspace} /><EditorFeedback {workspace} />{/if}
     <p class="help" id={focus ? 'expanded-help' : 'composer-help'}>
       {#if workspace}<span role="status"
           >{workspace.active?.kind === 'edit'
@@ -349,6 +351,7 @@
         onTemplate={() => (templatePickerOpen = true)}
         onLabel={() => (labelPickerOpen = true)}
         onFiles={() => fileInput.click()}
+        onAttach={() => attachInput.click()}
       />
       <button
         class="preview-switch"
@@ -405,6 +408,19 @@
     multiple
     disabled={!workspace.ready || workspace.busy || workspace.frozen}
     bind:this={fileInput}
+    onchange={(event) => {
+      addFiles(Array.from(event.currentTarget.files ?? []));
+      event.currentTarget.value = '';
+    }}
+  />
+  <input
+    class="sr-only"
+    tabindex="-1"
+    aria-label={t('editor.chooseAnyFile')}
+    type="file"
+    multiple
+    disabled={!workspace.ready || workspace.busy || workspace.frozen}
+    bind:this={attachInput}
     onchange={(event) => {
       addFiles(Array.from(event.currentTarget.files ?? []));
       event.currentTarget.value = '';

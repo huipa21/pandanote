@@ -99,7 +99,11 @@ test('media picker accepts only photos or one video and limits a note to nine ph
     mimeType: 'text/plain',
     buffer: Buffer.from('text'),
   });
-  await expect(alert).toContainText('Only photos and videos');
+  await expect(composer.getByRole('list', { name: 'Files (1)' })).toBeVisible();
+  await expect(alert).toHaveCount(0);
+  await composer
+    .getByRole('button', { name: 'Remove notes.txt', exact: true })
+    .click();
 
   await input.setInputFiles(
     Array.from({ length: 9 }, (_, i) => photo(`p${i}.png`)),
@@ -127,6 +131,43 @@ test('media picker accepts only photos or one video and limits a note to nine ph
   await expect(alert).toContainText('cannot also have photos');
   await input.setInputFiles(video('second.mp4'));
   await expect(alert).toContainText('cannot be combined with photos');
+});
+
+test('attach-file picker accepts any file type and shows an extension icon', async ({
+  page,
+}) => {
+  await browserSession(page);
+  await page.goto('/');
+  const composer = page.getByTestId('composer');
+  const input = page.getByLabel('Choose any file');
+  await expect(input).not.toHaveAttribute('accept');
+  await composer.getByRole('button', { name: 'Attach file' }).click();
+
+  await input.setInputFiles([
+    {
+      name: 'report.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4'),
+    },
+    { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') },
+  ]);
+  const list = composer.getByRole('list', { name: 'Files (2)' });
+  await expect(list).toBeVisible();
+  const items = list.getByRole('listitem');
+  await expect(items).toHaveCount(2);
+  await expect(
+    items
+      .filter({ hasText: 'report.pdf' })
+      .locator('svg[data-file-icon="pdf"]'),
+  ).toHaveCount(1);
+  await expect(
+    items
+      .filter({ hasText: 'notes.txt' })
+      .locator('svg[data-file-icon="text"]'),
+  ).toHaveCount(1);
+
+  await composer.getByRole('button', { name: 'Remove notes.txt' }).click();
+  await expect(composer.getByRole('list', { name: 'Files (1)' })).toBeVisible();
 });
 
 test('photos show as a 3-column thumbnail grid, reorder by drag, remove with X and upload only on Post', async ({
@@ -223,12 +264,13 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   ).toBeVisible();
   const options = composer.getByRole('group', { name: 'Note options' });
   await expect(options).toBeVisible();
-  await expect(options.getByRole('button')).toHaveCount(6);
+  await expect(options.getByRole('button')).toHaveCount(7);
   for (const name of [
     'Add tag',
     'Insert template',
     'Choose a label',
     'Add photos or video',
+    'Attach file',
     'Record a voice clip',
     'Set date',
   ])

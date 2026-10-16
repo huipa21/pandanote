@@ -281,10 +281,8 @@ export class EditorWorkspace {
         (file, i) => !kinds[i] && isVideoMeta(file),
       ).length;
       const photos = kinds.filter(Boolean).length;
-      if (videos + photos < files.length) {
-        this.error = tr('work.onlyMedia');
-        return;
-      }
+      // Anything else (documents, archives, plain audio files, etc.) becomes a
+      // plain downloadable attachment and does not count toward photo/video limits.
       const existingPhotos = session.attachments.filter(
         (a) => a.kind === 'image',
       ).length;

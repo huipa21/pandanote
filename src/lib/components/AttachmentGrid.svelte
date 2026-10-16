@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
+  import { isVideoAttachment } from '#lib/client/recording/clips.ts';
 
   let { workspace }: { workspace: EditorWorkspace } = $props();
   const t = useI18n().t;
@@ -9,9 +10,12 @@
   let dragId = $state<string | null>(null);
   let overId = $state<string | null>(null);
 
-  // Voice clips have their own list (AudioClipList); the grid is photos/video only.
+  // The grid is photos and the single video only; voice clips and generic
+  // (non-video) files have their own lists.
   const items = $derived(
-    (workspace.active?.attachments ?? []).filter((a) => a.kind !== 'audio'),
+    (workspace.active?.attachments ?? []).filter(
+      (a) => a.kind === 'image' || isVideoAttachment(a),
+    ),
   );
   const locked = $derived(
     workspace.busy || workspace.conflict || workspace.frozen,

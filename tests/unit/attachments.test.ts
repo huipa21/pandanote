@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { initializeBatchSchema } from '../../src/lib/shared/attachments.ts';
+import {
+  initializeBatchSchema,
+  fileIconKind,
+  fileExtensionLabel,
+  fileBrandMark,
+  formatFileSize,
+} from '../../src/lib/shared/attachments.ts';
 import {
   DiskBudget,
   ImageQueue,
@@ -92,5 +98,59 @@ describe('attachment bounds and contracts', () => {
     expect(await work).toBe('committed');
     expect(await exclusive).toBe('snapshot');
     expect(() => captured.write(() => {})).toThrow(/expired/);
+  });
+  it('derives a presentation-only file icon category and extension label', () => {
+    expect(fileIconKind('clip.mp4')).toBe('video');
+    expect(fileIconKind('song.MP3')).toBe('audio');
+    expect(fileIconKind('diagram.svg')).toBe('image');
+    expect(fileIconKind('index.ts')).toBe('code');
+    expect(fileIconKind('notes.txt')).toBe('text');
+    expect(fileIconKind('report.PDF')).toBe('pdf');
+    expect(fileIconKind('memo.docx')).toBe('word');
+    expect(fileIconKind('budget.XLSX')).toBe('excel');
+    expect(fileIconKind('deck.pptx')).toBe('powerpoint');
+    expect(fileIconKind('backup.zip')).toBe('archive');
+    expect(fileIconKind('install.exe')).toBeNull();
+    expect(fileIconKind('no-extension')).toBeNull();
+    expect(fileExtensionLabel('install.exe')).toBe('EXE');
+    expect(fileExtensionLabel('archive.tar')).toBe('TAR');
+    expect(fileExtensionLabel('香港.EXE')).toBe('EXE');
+    expect(fileExtensionLabel('no-extension')).toBe('');
+    expect(fileBrandMark('word')).toBe('W');
+    expect(fileBrandMark('excel')).toBe('X');
+    expect(fileBrandMark('powerpoint')).toBe('P');
+    expect(fileBrandMark('pdf')).toBe('PDF');
+    expect(fileBrandMark('archive')).toBe('ZIP');
+    expect(fileBrandMark('text')).toBeNull();
+  });
+  it('formats a file size as bytes, KB or MB', () => {
+    expect(formatFileSize(0)).toEqual({
+      key: 'note.bytes',
+      params: { count: 0 },
+    });
+    expect(formatFileSize(1023)).toEqual({
+      key: 'note.bytes',
+      params: { count: 1023 },
+    });
+    expect(formatFileSize(1024)).toEqual({
+      key: 'note.kilobytes',
+      params: { value: '1' },
+    });
+    expect(formatFileSize(1536)).toEqual({
+      key: 'note.kilobytes',
+      params: { value: '1.5' },
+    });
+    expect(formatFileSize(1024 * 1024 - 1)).toEqual({
+      key: 'note.kilobytes',
+      params: { value: '1024' },
+    });
+    expect(formatFileSize(1024 * 1024)).toEqual({
+      key: 'note.megabytes',
+      params: { value: '1' },
+    });
+    expect(formatFileSize(5 * 1024 * 1024 + 512 * 1024)).toEqual({
+      key: 'note.megabytes',
+      params: { value: '5.5' },
+    });
   });
 });

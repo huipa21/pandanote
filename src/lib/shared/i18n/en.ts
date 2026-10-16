@@ -523,6 +523,8 @@ export const en = {
   'editor.tags': 'Tags',
   'editor.addMedia': 'Add photos or video',
   'editor.mediaTitle': 'Photos or video',
+  'editor.addFile': 'Attach file',
+  'editor.fileTitle': 'Attach file',
   'editor.setDate': 'Set date',
   'editor.dateTitle': 'Date',
   'unsaved.title': 'Unsaved changes',
@@ -570,6 +572,7 @@ export const en = {
   'feedback.keepEditing':
     'Your current text is retained. Resolve the conflict or keep editing.',
   'attach.list': 'Attachments ({count})',
+  'attach.fileList': 'Files ({count})',
   'attach.tile':
     '{name}, {index} of {total}. Press Alt plus an arrow key to move.',
   'attach.remove': 'Remove {name}',
@@ -633,6 +636,8 @@ export const en = {
   'note.voiceClips': 'Voice clips',
   'note.downloadClip': 'Download {name}',
   'note.bytes': '{count} bytes',
+  'note.kilobytes': '{value} KB',
+  'note.megabytes': '{value} MB',
   'note.savedOnServer': 'Saved on server.',
   'note.detail': 'Note detail',
   'editor.editNote': 'Edit note',
@@ -646,6 +651,7 @@ export const en = {
   'editor.editingStatus': 'Editing note · save with Save changes.',
   'editor.notSaved': 'Not saved yet. Keep a copy before leaving.',
   'editor.chooseFiles': 'Choose local files',
+  'editor.chooseAnyFile': 'Choose any file',
   'editor.preview': 'Preview',
   'editor.showRaw': 'Show raw text',
   'editor.previewMarkdown': 'Preview Markdown',
@@ -759,7 +765,6 @@ export const en = {
   'rec.play': 'Play {name}',
   'rec.pausePlay': 'Pause {name}',
   'work.maxFiles': 'You can attach at most {count} files to one note.',
-  'work.onlyMedia': 'Only photos and videos can be added to a note.',
   'work.oneVideo': 'A note can have only one video.',
   'work.videoMix':
     'A video cannot be combined with photos or other files. Remove them first.',
