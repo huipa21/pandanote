@@ -119,11 +119,6 @@
       onclick={onNavigate}>{t('shell.templates')}</a
     >
     <a
-      href="/labels"
-      aria-current={active === '/labels' ? 'page' : undefined}
-      onclick={onNavigate}>{t('shell.labels')}</a
-    >
-    <a
       href="/trash"
       aria-current={active === '/trash' ? 'page' : undefined}
       onclick={onNavigate}>{t('shell.trash')}</a

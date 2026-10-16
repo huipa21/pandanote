@@ -138,6 +138,7 @@ describe('template command schema', () => {
         mutationId: id,
         name: 'A',
         bodyMarkdown: 'b',
+        labelId: null,
       }).success,
     ).toBe(true);
     expect(
@@ -163,7 +164,37 @@ describe('template command schema', () => {
         mutationId: id,
         name: 'A',
         bodyMarkdown: 'b',
+        labelId: null,
         extra: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      templateCommandSchema.safeParse({
+        action: 'create',
+        mutationId: id,
+        name: 'A',
+        bodyMarkdown: 'b',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts a nullable labelId but rejects a malformed one', () => {
+    expect(
+      templateCommandSchema.safeParse({
+        action: 'create',
+        mutationId: id,
+        name: 'A',
+        bodyMarkdown: 'b',
+        labelId: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      templateCommandSchema.safeParse({
+        action: 'create',
+        mutationId: id,
+        name: 'A',
+        bodyMarkdown: 'b',
+        labelId: 'not-a-uuid',
       }).success,
     ).toBe(false);
   });

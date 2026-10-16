@@ -119,10 +119,13 @@ CREATE TABLE `labels` (
 	`name_key` text NOT NULL,
 	`color` text NOT NULL,
 	`icon` text,
+	`header_color` text,
+	`background` text,
+	`font` text,
 	`revision` integer DEFAULT 1 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
-	CONSTRAINT "label_check" CHECK(length("labels"."name") BETWEEN 1 AND 40 AND length("labels"."name_key") BETWEEN 1 AND 160 AND "labels"."color" IN ('red','orange','amber','green','teal','blue','purple','gray') AND ("labels"."icon" IS NULL OR "labels"."icon" IN ('star','heart','flag','bookmark','folder','briefcase','book','home','warning','info','check-circle','camera')) AND "labels"."revision" BETWEEN 1 AND 9007199254740991 AND "labels"."created_at" BETWEEN 0 AND 8640000000000000 AND "labels"."updated_at" BETWEEN "labels"."created_at" AND 8640000000000000)
+	CONSTRAINT "label_check" CHECK(length("labels"."name") BETWEEN 1 AND 40 AND length("labels"."name_key") BETWEEN 1 AND 160 AND "labels"."color" IN ('red','orange','amber','green','teal','blue','purple','gray') AND ("labels"."icon" IS NULL OR "labels"."icon" IN ('star','heart','flag','bookmark','folder','briefcase','book','home','warning','info','check-circle','camera','lightbulb','rocket','target','clock','calendar','mail','phone','chat','code','lock','key','chart','trophy','coffee','price-tag','car','plane','leaf','music','gift','cart','umbrella','compass','paw')) AND ("labels"."header_color" IS NULL OR "labels"."header_color" IN ('red','orange','amber','green','teal','blue','purple','gray')) AND ("labels"."background" IS NULL OR "labels"."background" IN ('red','orange','amber','green','teal','blue','purple','gray')) AND ("labels"."font" IS NULL OR "labels"."font" IN ('serif','mono','rounded')) AND "labels"."revision" BETWEEN 1 AND 9007199254740991 AND "labels"."created_at" BETWEEN 0 AND 8640000000000000 AND "labels"."updated_at" BETWEEN "labels"."created_at" AND 8640000000000000)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `labels_name_key` ON `labels` (`name_key`);--> statement-breakpoint

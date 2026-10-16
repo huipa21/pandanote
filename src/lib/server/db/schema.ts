@@ -177,6 +177,12 @@ export const labels = sqliteTable(
     nameKey: text('name_key').notNull(),
     color: text('color').notNull(),
     icon: text('icon'),
+    // Optional per-label visual overrides for the note card/detail: a header
+    // tint, a whole-card background tint (same 8-key palette as `color`) and a
+    // body font. All three are independently nullable; null means "not set".
+    headerColor: text('header_color'),
+    background: text('background'),
+    font: text('font'),
     revision: integer('revision').notNull().default(1),
     createdAt: created(),
     updatedAt: integer('updated_at').notNull(),
@@ -185,7 +191,7 @@ export const labels = sqliteTable(
     uniqueIndex('labels_name_key').on(t.nameKey),
     check(
       'label_check',
-      sql`length(${t.name}) BETWEEN 1 AND 40 AND length(${t.nameKey}) BETWEEN 1 AND 160 AND ${t.color} IN ('red','orange','amber','green','teal','blue','purple','gray') AND (${t.icon} IS NULL OR ${t.icon} IN ('star','heart','flag','bookmark','folder','briefcase','book','home','warning','info','check-circle','camera')) AND ${t.revision} BETWEEN 1 AND 9007199254740991 AND ${t.createdAt} BETWEEN 0 AND 8640000000000000 AND ${t.updatedAt} BETWEEN ${t.createdAt} AND 8640000000000000`,
+      sql`length(${t.name}) BETWEEN 1 AND 40 AND length(${t.nameKey}) BETWEEN 1 AND 160 AND ${t.color} IN ('red','orange','amber','green','teal','blue','purple','gray') AND (${t.icon} IS NULL OR ${t.icon} IN ('star','heart','flag','bookmark','folder','briefcase','book','home','warning','info','check-circle','camera','lightbulb','rocket','target','clock','calendar','mail','phone','chat','code','lock','key','chart','trophy','coffee','price-tag','car','plane','leaf','music','gift','cart','umbrella','compass','paw')) AND (${t.headerColor} IS NULL OR ${t.headerColor} IN ('red','orange','amber','green','teal','blue','purple','gray')) AND (${t.background} IS NULL OR ${t.background} IN ('red','orange','amber','green','teal','blue','purple','gray')) AND (${t.font} IS NULL OR ${t.font} IN ('serif','mono','rounded')) AND ${t.revision} BETWEEN 1 AND 9007199254740991 AND ${t.createdAt} BETWEEN 0 AND 8640000000000000 AND ${t.updatedAt} BETWEEN ${t.createdAt} AND 8640000000000000`,
     ),
   ],
 );
@@ -356,7 +362,9 @@ export const mutationReceipts = sqliteTable(
   ],
 );
 // Private reusable Markdown starting texts. Notes copy the text when created from
-// a template, so there is no foreign key to notes and no Trash lifecycle.
+// a template, so there is no foreign key to notes and no Trash lifecycle. A template
+// may carry a default label, applied to the note when the template is inserted;
+// deleting that label just clears the reference.
 export const noteTemplates = sqliteTable(
   'note_templates',
   {
@@ -364,6 +372,9 @@ export const noteTemplates = sqliteTable(
     name: text('name').notNull(),
     nameKey: text('name_key').notNull(),
     bodyMarkdown: text('body_markdown').notNull(),
+    labelId: text('label_id').references(() => labels.id, {
+      onDelete: 'set null',
+    }),
     revision: integer('revision').notNull().default(1),
     createdAt: created(),
     updatedAt: integer('updated_at').notNull(),

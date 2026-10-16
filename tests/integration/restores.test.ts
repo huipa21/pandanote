@@ -952,6 +952,9 @@ it('restores labels and notes.label_id; a tampered color/icon/dangling reference
         name: 'Urgent',
         color: 'red',
         icon: 'flag',
+        headerColor: null,
+        background: null,
+        font: null,
       });
       const noteSvc = new NoteService(p);
       const note = noteSvc.mutate(f.identity, {
@@ -993,6 +996,71 @@ it('restores labels and notes.label_id; a tampered color/icon/dangling reference
         db.exec(
           `INSERT INTO labels (id, name, name_key, color, icon, revision, created_at, updated_at) VALUES ('${randomUUID()}','Weird Name','not-the-real-key',${"'blue'"},NULL,1,0,0)`,
         );
+      });
+      const s = restore(p, f);
+      await expect(upload(s, f, tampered)).rejects.toThrow();
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it("restores a template's default label; a dangling template label_id is refused", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), 'pandanote-template-label-restore-'),
+  );
+  try {
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      const labelSvc = new LabelService(p);
+      const created = labelSvc.mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        name: 'Routine',
+        color: 'teal',
+        icon: null,
+        headerColor: null,
+        background: null,
+        font: null,
+      });
+      const templates = new TemplateService(p);
+      const made = templates.mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        name: 'Weekly',
+        bodyMarkdown: 'Body',
+        labelId: created.labelId,
+      });
+      const archive = await backup(p, f);
+      const s = restore(p, f);
+      const summary = await upload(s, f, archive);
+      await s.confirm(f.identity, {
+        id: summary.id,
+        confirmed: true,
+        grant: await f.grant('restore'),
+      });
+      expect(
+        p.native
+          .prepare('SELECT label_id FROM note_templates WHERE id=?')
+          .get(made.templateId),
+      ).toEqual({ label_id: created.labelId });
+    });
+    await withPersistence(async (p) => {
+      const f = await fixture(p);
+      const templates = new TemplateService(p);
+      templates.mutate(f.identity, {
+        action: 'create',
+        mutationId: randomUUID(),
+        name: 'Weekly',
+        bodyMarkdown: 'Body',
+      });
+      const archive = await backup(p, f);
+      const tampered = await alteredArchive(archive, root, (db) => {
+        // SQLite's own foreign key enforcement already refuses a dangling
+        // note_templates.label_id at the storage layer when FKs are on;
+        // disable them here to exercise the JS-level guard directly.
+        db.pragma('foreign_keys=off');
+        db.exec(`UPDATE note_templates SET label_id='${randomUUID()}'`);
       });
       const s = restore(p, f);
       await expect(upload(s, f, tampered)).rejects.toThrow();

@@ -1,37 +1,27 @@
 <script lang="ts">
-  import { getContext, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
-  import Icon, { type IconName } from './Icon.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { RECORDER_ERROR_KEYS } from '#lib/client/recording/clips.ts';
   import type { RecorderErrorCode } from '#lib/client/recording/recorder.ts';
-  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   const i18n = useI18n();
   const t = i18n.t;
-  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
 
   let {
     workspace,
     onTag,
     onTemplate,
-    onLabel,
     onFiles,
     onAttach,
   }: {
     workspace: EditorWorkspace | undefined;
     onTag: () => void;
     onTemplate: () => void;
-    onLabel: () => void;
     onFiles: () => void;
     onAttach: () => void;
   } = $props();
   let dateOpen = $state(false);
-  const currentLabel = $derived(
-    workspace?.active?.labelId
-      ? labelsMap?.get(workspace.active.labelId)
-      : undefined,
-  );
   // Browser capability is only known on the client (secure context, MediaRecorder).
   let unsupported = $state<RecorderErrorCode | null>(null);
   onMount(() => {
@@ -107,25 +97,6 @@
         d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
       /></svg
     >
-  </button>
-  <button
-    type="button"
-    disabled={locked}
-    aria-label={currentLabel
-      ? t('labels.pick') + ': ' + currentLabel.name
-      : t('editor.addLabel')}
-    title={t('editor.labelTitle')}
-    style:color={currentLabel
-      ? `var(--label-${currentLabel.color}-fg)`
-      : undefined}
-    onclick={onLabel}
-  >
-    {#if currentLabel?.icon}<Icon name={currentLabel.icon as IconName} />
-    {:else}<svg viewBox="0 0 24 24" aria-hidden="true"
-        ><path
-          d="M11 3h6a2 2 0 0 1 2 2v6l-8.3 8.3a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8Z"
-        /><circle cx="15.5" cy="8.5" r="1.2" /></svg
-      >{/if}
   </button>
   <button
     type="button"

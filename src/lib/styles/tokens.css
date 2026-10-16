@@ -20,6 +20,13 @@
     'Noto Sans CJK SC', 'Noto Sans CJK JP', 'Microsoft YaHei', 'Yu Gothic',
     sans-serif;
   --font-code: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  /* Optional per-label body fonts (labels.font); --font-code doubles as "mono". */
+  --font-serif:
+    Georgia, Cambria, 'Noto Serif CJK SC', 'Noto Serif CJK JP',
+    'Times New Roman', serif;
+  --font-rounded:
+    ui-rounded, 'SF Pro Rounded', 'Varela Round', 'Segoe UI', system-ui,
+    sans-serif;
   --text-size: 1rem;
   --line-height: 1.6;
   --space-1: 0.25rem;

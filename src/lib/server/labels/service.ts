@@ -33,6 +33,9 @@ type Canonical =
       nameKey: string;
       color: string;
       icon: string | null;
+      headerColor: string | null;
+      background: string | null;
+      font: string | null;
     }
   | {
       action: 'update';
@@ -42,6 +45,9 @@ type Canonical =
       nameKey: string;
       color: string;
       icon: string | null;
+      headerColor: string | null;
+      background: string | null;
+      font: string | null;
     }
   | { action: 'delete'; labelId: string; expectedRevision: number };
 
@@ -54,6 +60,9 @@ function dto(row: LabelRow): NoteLabel {
     name: row.name,
     color: row.color as NoteLabel['color'],
     icon: row.icon as NoteLabel['icon'],
+    headerColor: row.headerColor as NoteLabel['headerColor'],
+    background: row.background as NoteLabel['background'],
+    font: row.font as NoteLabel['font'],
     revision: row.revision,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -123,6 +132,9 @@ export class LabelService {
             nameKey: canonical.nameKey,
             color: canonical.color,
             icon: canonical.icon,
+            headerColor: canonical.headerColor,
+            background: canonical.background,
+            font: canonical.font,
             revision: 1,
             createdAt: now,
             updatedAt: now,
@@ -146,6 +158,9 @@ export class LabelService {
               nameKey: canonical.nameKey,
               color: canonical.color,
               icon: canonical.icon,
+              headerColor: canonical.headerColor,
+              background: canonical.background,
+              font: canonical.font,
               revision: row.revision + 1,
               updatedAt: Math.max(now, row.updatedAt),
             })
@@ -197,6 +212,9 @@ export class LabelService {
       nameKey: labelNameKey(name),
       color: command.color,
       icon: command.icon,
+      headerColor: command.headerColor,
+      background: command.background,
+      font: command.font,
     };
     return command.action === 'create'
       ? { action: 'create', ...content }

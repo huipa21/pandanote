@@ -39,7 +39,21 @@ const createCommand = (
   color: string = 'blue',
   icon: string | null = null,
   mutationId = randomUUID(),
-) => ({ action: 'create' as const, mutationId, name, color, icon });
+  extra: {
+    headerColor?: string | null;
+    background?: string | null;
+    font?: string | null;
+  } = {},
+) => ({
+  action: 'create' as const,
+  mutationId,
+  name,
+  color,
+  icon,
+  headerColor: extra.headerColor ?? null,
+  background: extra.background ?? null,
+  font: extra.font ?? null,
+});
 
 const noteContent = (labelId: string | null = null): NoteContent => ({
   bodyMarkdown: 'hello',
@@ -89,9 +103,21 @@ describe('Label CRUD, caps, receipts', () => {
         name: 'Business',
         color: 'green',
         icon: null,
+        headerColor: 'red',
+        background: 'amber',
+        font: 'mono',
       };
       const updated = service.mutate(owner, update);
       expect(updated.revision).toBe(2);
+      // The new format fields (header/background color, font) persisted.
+      const afterUpdate = service
+        .list(owner)
+        .items.find((l) => l.id === updated.labelId);
+      expect(afterUpdate).toMatchObject({
+        headerColor: 'red',
+        background: 'amber',
+        font: 'mono',
+      });
       // Replay of the same update returns the original result even after no
       // further change was made.
       expect(service.mutate(owner, update)).toEqual(updated);

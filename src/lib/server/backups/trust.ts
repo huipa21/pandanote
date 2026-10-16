@@ -24,6 +24,7 @@ import {
 import {
   isLabelColor,
   isLabelIcon,
+  isLabelFont,
   labelNameKey,
   normalizeLabelName,
 } from '../../shared/labels.ts';
@@ -358,6 +359,12 @@ export async function trustSnapshot(
       if (!isLabelColor(String(row.color))) throw new Error('Label color');
       if (row.icon !== null && !isLabelIcon(String(row.icon)))
         throw new Error('Label icon');
+      if (row.header_color !== null && !isLabelColor(String(row.header_color)))
+        throw new Error('Label header color');
+      if (row.background !== null && !isLabelColor(String(row.background)))
+        throw new Error('Label background');
+      if (row.font !== null && !isLabelFont(String(row.font)))
+        throw new Error('Label font');
       z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).parse(row.revision);
       instantSchema.parse(row.created_at);
       instantSchema.parse(row.updated_at);
@@ -383,6 +390,8 @@ export async function trustSnapshot(
           .parse(row.revision);
         instantSchema.parse(row.created_at);
         instantSchema.parse(row.updated_at);
+        if (row.label_id !== null && !labelIds.has(String(row.label_id)))
+          throw new Error('Dangling label reference');
       }
     let count = 0,
       published = 0,

@@ -1,7 +1,9 @@
 # Color or icon labels — technical specification
 
-**Status: implemented** (L01–L07; see [PROGRESS.md](PROGRESS.md) for exact commands/
-results and remaining gaps — Linux/Alpine image gate and full visual/manual review).
+**Status: implemented** (L01–L07, plus a 2026-10 follow-up round: expanded icon set,
+optional header-color/background/font formatting, masonry management page, redundant
+nav-link removal — see [PROGRESS.md](PROGRESS.md) for exact commands/results and
+remaining gaps — Linux/Alpine image gate and full visual/manual review).
 
 Read [README.md](README.md) first for the goal and user decisions; this file is the
 authoritative contract for implementation.
@@ -10,16 +12,19 @@ authoritative contract for implementation.
 
 ### 1.1 `labels` table
 
-| Column       | Type                                       | Notes                                                               |
-| ------------ | ------------------------------------------ | ------------------------------------------------------------------- |
-| `id`         | text primary key                           | same `id()` helper as other tables                                  |
-| `name`       | text, 1–40 code points                     | display text as typed (NFC, trimmed, internal whitespace collapsed) |
-| `name_key`   | text, unique index                         | NFKC + case-fold of `name`, for case-insensitive uniqueness         |
-| `color`      | text enum                                  | one of the fixed palette keys (§2.1); CHECK constrains the set      |
-| `icon`       | text enum, nullable                        | one of the fixed icon keys (§2.2) or `NULL` for color-only; CHECK   |
-| `revision`   | integer, default 1                         | +1 per update, optimistic concurrency like templates                |
-| `created_at` | integer (UTC ms)                           |                                                                     |
-| `updated_at` | integer (UTC ms), monotonic ≥ `created_at` |                                                                     |
+| Column         | Type                                       | Notes                                                               |
+| -------------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| `id`           | text primary key                           | same `id()` helper as other tables                                  |
+| `name`         | text, 1–40 code points                     | display text as typed (NFC, trimmed, internal whitespace collapsed) |
+| `name_key`     | text, unique index                         | NFKC + case-fold of `name`, for case-insensitive uniqueness         |
+| `color`        | text enum                                  | one of the fixed palette keys (§2.1); CHECK constrains the set      |
+| `icon`         | text enum, nullable                        | one of the fixed icon keys (§2.2) or `NULL` for color-only; CHECK   |
+| `header_color` | text enum, nullable                        | note card/detail header tint override (§2.3); `NULL` = unstyled     |
+| `background`   | text enum, nullable                        | note card/detail surface tint override (§2.3); `NULL` = default     |
+| `font`         | text enum, nullable                        | note body font override (§2.3); `NULL` = default `--font-body`      |
+| `revision`     | integer, default 1                         | +1 per update, optimistic concurrency like templates                |
+| `created_at`   | integer (UTC ms)                           |                                                                     |
+| `updated_at`   | integer (UTC ms), monotonic ≥ `created_at` |                                                                     |
 
 Cap: at most 40 rows (checked in the service before insert, same style as the templates
 100-cap and tags' 100-unique-per-workspace cap — the error is `err.labelLimitReached`).
@@ -66,12 +71,41 @@ color) chosen for ≥ 4.5:1 text contrast against its own tint in both themes, c
 with the existing "lighter/darker accent tints" rule for calendar heat (PRODUCT_SPEC
 §3.1). Values live beside the other theme tokens (global stylesheet), not per-component.
 
-### 2.2 Icon keys (12), rendered by `Icon.svelte`
+### 2.2 Icon keys (36), rendered by `Icon.svelte`
 
 `star`, `heart`, `flag`, `bookmark`, `folder`, `briefcase`, `book`, `home`, `warning`,
-`info`, `check-circle`, `camera`. Same 24px stroke style as the existing action icon set.
-A label with `icon: null` shows no icon glyph, only the color tint and the name text (see
-§4.3 — text is never omitted, so color-only labels remain accessible).
+`info`, `check-circle`, `camera`, `lightbulb`, `rocket`, `target`, `clock`, `calendar`,
+`mail`, `phone`, `chat`, `code`, `lock`, `key`, `chart`, `trophy`, `coffee`, `price-tag`,
+`car`, `plane`, `leaf`, `music`, `gift`, `cart`, `umbrella`, `compass`, `paw`. Same 24px
+stroke style as the existing action icon set. A label with `icon: null` shows no icon
+glyph, only the color tint and the name text (see §4.3 — text is never omitted, so
+color-only labels remain accessible). **(2026-10 follow-up: expanded from the original
+12 to 36 per user request — "more abundant icons". No change to the mechanism, only the
+fixed set size.)**
+
+### 2.3 Optional per-label formatting: header color, background, font (2026-10 follow-up)
+
+User feedback: tags and labels read as near-duplicate features in the same sidebar area
+with no visual distinction. In response, labels gained three independent, optional
+visual overrides applied to every note carrying that label, on top of the identity chip
+(`color`+`icon`+`name`, unchanged, §2.1/§2.2):
+
+- `headerColor: LabelColor | null` — tints the note card/detail header row (date, pin,
+  actions) with that color's background+foreground pair. `null` (default) leaves the
+  header unstyled, as before this change.
+- `background: LabelColor | null` — tints the whole card/detail surface background.
+  `null` (default) keeps the normal `--surface` background.
+- `font: LabelFont | null` where `LabelFont` is `'serif' | 'mono' | 'rounded'` — sets the
+  note body's font-family (card content / detail body only, not UI chrome). `null`
+  (default) keeps `--font-body`. New tokens `--font-serif`/`--font-rounded` added beside
+  the existing `--font-body`/`--font-code` (the `mono` choice reuses `--font-code`).
+
+All three are nullable columns on `labels` (§1.1), nullable fields on the create/update
+command (§3.1/§3.3), edited from the same `LabelEditor` dialog as color/icon with their
+own radio groups and a live card-shaped preview (chip + header tint + background tint +
+sample body text in the chosen font). They do not affect the chip itself (`LabelChip`,
+`LabelList`, `LabelPicker`): those keep using only `color`/`icon`/`name`, unchanged.
+Trash/restore/pin carry them unchanged, same as every other label field (§5).
 
 ## 3. Server contracts
 
@@ -131,30 +165,45 @@ and its own `label_mutation_receipts` table, as planned.
 
 ### 4.1 `/labels` management page
 
-- Sidebar link **Labels**, placed near Templates/Tags in the utilities group (desktop and
-  mobile drawer).
-- Layout: title "Labels", a **New label** button, then a plain list (no search — the list
-  is capped at 40 and the page is lightweight, unlike `/templates`). Each row: color swatch
-  - optional icon + name + note count, with an `ActionMenu` (Edit, Delete).
+- Sidebar entry point: the "Labels" section header in the sidebar (§4.4) links to
+  `/labels`; **(2026-10 follow-up)** the duplicate link that used to also sit in the
+  bottom utilities nav (next to Templates/Trash/Settings) was removed as redundant —
+  Tags never had one either, and having both made Tags and Labels look like the same
+  feature at a glance (user feedback). `/labels` is still reachable from the sidebar
+  section heading, same as `/tags`.
+- Layout: title "Labels", a **New label** button, then a **masonry grid** of label tiles
+  (CSS multi-column flow, `columns: 16rem`, `break-inside: avoid` — no JS layout library;
+  **(2026-10 follow-up, replaces the original plain list)** per user request. Each tile
+  previews the label as it will actually render on a note: a header strip (header color
+  tint + the identity chip + an `ActionMenu` for Edit/Delete) and a body strip (background
+  tint + a sample sentence in the chosen font) plus the note count.
 - New/Edit dialog: name field, a row of 8 color swatches (radio-group semantics, one
-  selectable), a row of 12 icon buttons plus a "no icon" option (radio-group semantics),
-  live chip preview, Save/Cancel. Unsaved-changes guard on Cancel/Escape/Close, same pattern
-  as `TemplateEditor`.
+  selectable), a row of 36 icon buttons plus a "no icon" option (radio-group semantics),
+  **(2026-10 follow-up)** a row of 8 header-color swatches plus "no header color", a row
+  of 8 background swatches plus "no background", and a row of 4 font choices (default +
+  serif/mono/rounded), live card-shaped preview (chip + header tint + background tint +
+  sample body text in the chosen font), Save/Cancel. Unsaved-changes guard on
+  Cancel/Escape/Close, same pattern as `TemplateEditor`.
 - Delete: existing confirm dialog, text "Delete label? Notes keep their text but lose this
   label." Stale revision/not-found show the standard conflict/removed messages and reload
   the list.
 
 ### 4.2 Assigning a label in the editor
 
-- A label icon button in the editor toolbar (composer, focus mode, mobile full-screen
-  editor, in-place edit) after the existing Tags/Template buttons, showing the current
-  swatch+icon when one is set, a neutral outline when none is set.
+- **Header, not the toolbar (revised).** The label is a centered control in the editor's
+  header row (above the text, never in the tags/options row): the label chip when one is
+  set, a dashed "Choose a label" placeholder otherwise. It is shown in the composer, focus
+  mode, mobile full-screen editor and in-place edit. Disabled while the editor is locked
+  (busy, frozen, conflict). On short viewports (max-height 480px) the row is compacted so
+  the footer stays reachable.
 - Opens a small picker: "No label" plus the up-to-40 labels (swatch + icon + name, no
-  search field — the list is small). Choosing one sets `label_id` locally in the editor
-  session; nothing is written to the server until Post/Save, exactly like tags and
-  templates are plain text changes until the note mutation is sent. Button disabled while
-  the editor is locked (busy, frozen, conflict, recording), same rule as the template
-  button.
+  search field). Choosing one sets `label_id` locally in the editor session; nothing is
+  written to the server until Post/Save.
+- **Create on the spot (revised).** The picker has a name field and a Create button. It
+  creates a label (default color rotating through the palette, no icon/overrides — refine
+  later on /labels) through the normal label API and selects it immediately; it is also added
+  to the in-memory label cache so its chip renders without reload. Names follow the usual
+  rules (1–40 chars, unique ignoring case); errors show in the picker.
 - A "Manage labels" footer link in the picker opens `/labels` in a new tab/route without
   discarding the current draft.
 
@@ -173,6 +222,12 @@ and its own `label_mutation_receipts` table, as planned.
 - Clicking the chip on the card does nothing special (no quick-filter from the card) unless
   decided otherwise during implementation; the authoritative filter entry point is the
   sidebar list (§4.4). (Record the final decision in PROGRESS.md if this is revisited.)
+- **(2026-10 follow-up)** `headerColor`/`background`/`font` (§2.3) are rendered by
+  `NoteCard.svelte`/`NoteDetail.svelte` directly on the card's `<article>` (background)
+  and `<header>` (header tint) and on the body/content container (font-family) — not by
+  `LabelChip` itself, which keeps rendering only `color`+`icon`+`name` as before. A note
+  with no label, or a label with all three overrides left at `null`, renders exactly as it
+  did before this follow-up.
 
 ### 4.4 Sidebar filter
 

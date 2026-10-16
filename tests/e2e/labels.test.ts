@@ -50,10 +50,7 @@ test('Labels page: sidebar entry, create, edit, delete', async ({ page }) => {
   const name = unique('Garden');
   await page.goto('/');
   const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
-  await sidebar
-    .getByRole('navigation', { name: 'Utilities' })
-    .getByRole('link', { name: 'Labels' })
-    .click();
+  await sidebar.getByRole('link', { name: 'Labels', exact: true }).click();
   await expect(page).toHaveURL(/\/labels$/);
   await createLabel(page, name);
 
@@ -90,7 +87,10 @@ test('New label dialog: swatch/icon radio groups and preview have no axe WCAG 2.
   await page.getByRole('button', { name: 'New label' }).click();
   const dialog = page.getByRole('dialog', { name: 'New label' });
   await dialog.getByLabel('Name').fill(unique('Accessible'));
-  await dialog.getByRole('radio', { name: 'Green' }).click();
+  await dialog
+    .getByRole('radiogroup', { name: 'Color', exact: true })
+    .getByRole('radio', { name: 'Green' })
+    .click();
   await dialog.getByRole('radio', { name: 'Star' }).click();
   expect(await axeViolations(page)).toEqual([]);
 });

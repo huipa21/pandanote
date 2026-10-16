@@ -1,7 +1,10 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { untrack, getContext } from 'svelte';
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
+  import LabelPicker from './LabelPicker.svelte';
+  import LabelChip from './LabelChip.svelte';
+  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { sendTemplateCommand } from '#lib/client/templates/api.ts';
   import type {
@@ -26,11 +29,15 @@
   const formId = $props.id();
   const nameId = `${formId}-name`;
   const bodyId = `${formId}-body`;
+  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
 
   let name = $state('');
   let body = $state('');
+  let labelId = $state<string | null>(null);
   let initialName = '';
   let initialBody = '';
+  let initialLabelId: string | null = null;
+  let labelPickerOpen = $state(false);
   let preview = $state(false);
   let busy = $state(false);
   let error = $state('');
@@ -41,7 +48,10 @@
   let mutationId: string | null = null;
   let identityKey = '';
 
-  const dirty = $derived(name !== initialName || body !== initialBody);
+  const dirty = $derived(
+    name !== initialName || body !== initialBody || labelId !== initialLabelId,
+  );
+  const currentLabel = $derived(labelId ? labelsMap?.get(labelId) : undefined);
 
   // Each real opening starts from the chosen template (or a blank create form). A
   // reopen to show the discard prompt must keep the typed text.
@@ -53,8 +63,10 @@
       if (isOpen && !wasOpen) {
         initialName = source?.name ?? '';
         initialBody = source?.bodyMarkdown ?? '';
+        initialLabelId = source?.labelId ?? null;
         name = initialName;
         body = initialBody;
+        labelId = initialLabelId;
         preview = false;
         error = '';
         conflict = false;
@@ -83,7 +95,13 @@
 
   async function save() {
     if (busy) return;
-    const key = JSON.stringify([template?.id, template?.revision, name, body]);
+    const key = JSON.stringify([
+      template?.id,
+      template?.revision,
+      name,
+      body,
+      labelId,
+    ]);
     if (!mutationId || key !== identityKey) {
       mutationId = crypto.randomUUID();
       identityKey = key;
@@ -96,8 +114,9 @@
           expectedRevision: template.revision,
           name,
           bodyMarkdown: body,
+          labelId,
         }
-      : { action: 'create', mutationId, name, bodyMarkdown: body };
+      : { action: 'create', mutationId, name, bodyMarkdown: body, labelId };
     busy = true;
     error = '';
     conflict = false;
@@ -110,6 +129,7 @@
       }
       initialName = name;
       initialBody = body;
+      initialLabelId = labelId;
       open = false;
       onSaved(result.data);
     } catch {
@@ -152,6 +172,21 @@
         disabled={busy}
         onclick={() => (preview = !preview)}>{t('editor.preview')}</button
       >
+    </div>
+    <div class="label-row">
+      <span class="field-label">{t('templates.label')}</span>
+      <button
+        type="button"
+        class="label-trigger"
+        disabled={busy}
+        aria-label={currentLabel
+          ? `${t('labels.pick')}: ${currentLabel.name}`
+          : t('editor.addLabel')}
+        onclick={() => (labelPickerOpen = true)}
+      >
+        {#if currentLabel}<LabelChip label={currentLabel} />
+        {:else}<span class="no-label">{t('editor.addLabel')}</span>{/if}
+      </button>
     </div>
     {#if preview}
       <div class="preview" aria-label={t('templates.body')}>
@@ -198,6 +233,11 @@
     </div>
   </form>
 </Modal>
+<LabelPicker
+  bind:open={labelPickerOpen}
+  current={labelId}
+  onPick={(picked) => (labelId = picked)}
+/>
 
 <style>
   .template-form {
@@ -226,6 +266,28 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
+  }
+  .label-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .field-label {
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .label-trigger {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+  }
+  .no-label {
+    color: var(--muted);
+    font-size: 0.875rem;
+    text-decoration: underline;
   }
   .preview-toggle {
     min-height: var(--target);

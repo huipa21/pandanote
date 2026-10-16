@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { untrack, getContext } from 'svelte';
   import Modal from './Modal.svelte';
   import SearchBox from './SearchBox.svelte';
+  import LabelChip from './LabelChip.svelte';
+  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { loadTemplates } from '#lib/client/templates/api.ts';
   import {
@@ -22,6 +24,7 @@
   const i18n = useI18n();
   const t = i18n.t;
   const id = $props.id();
+  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
 
   let items = $state<NoteTemplate[]>([]);
   let query = $state('');
@@ -81,6 +84,10 @@
           <li>
             <button type="button" class="choice" onclick={() => choose(item)}>
               <span class="name">{item.name}</span>
+              {#if item.labelId}
+                {@const picked = labelsMap?.get(item.labelId)}
+                {#if picked}<LabelChip label={picked} />{/if}
+              {/if}
               <span class="excerpt">{templateExcerpt(item.bodyMarkdown)}</span>
             </button>
           </li>

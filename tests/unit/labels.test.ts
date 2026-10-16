@@ -2,8 +2,10 @@ import { expect, it } from 'vitest';
 import {
   LABEL_COLORS,
   LABEL_ICONS,
+  LABEL_FONTS,
   MAX_LABELS,
   isLabelColor,
+  isLabelFont,
   isLabelIcon,
   labelCommandSchema,
   labelNameKey,
@@ -30,11 +32,15 @@ it('case/width-insensitive identity key', () => {
 
 it('fixed palettes are exactly the documented sizes and recognized by the guards', () => {
   expect(LABEL_COLORS).toHaveLength(8);
-  expect(LABEL_ICONS).toHaveLength(12);
+  expect(LABEL_ICONS).toHaveLength(36);
+  expect(LABEL_FONTS).toHaveLength(3);
   expect(isLabelColor('red')).toBe(true);
   expect(isLabelColor('scarlet')).toBe(false);
   expect(isLabelIcon('star')).toBe(true);
-  expect(isLabelIcon('rocket')).toBe(false);
+  expect(isLabelIcon('rocket')).toBe(true);
+  expect(isLabelIcon('spaceship')).toBe(false);
+  expect(isLabelFont('serif')).toBe(true);
+  expect(isLabelFont('comic-sans')).toBe(false);
   expect(MAX_LABELS).toBe(40);
 });
 
@@ -47,6 +53,9 @@ it('validates wire commands: known color/icon, confirmed delete, rejects unknown
       name: 'Work',
       color: 'blue',
       icon: null,
+      headerColor: null,
+      background: null,
+      font: null,
     }).success,
   ).toBe(true);
   expect(
@@ -56,6 +65,9 @@ it('validates wire commands: known color/icon, confirmed delete, rejects unknown
       name: 'Work',
       color: 'blue',
       icon: 'star',
+      headerColor: 'amber',
+      background: 'gray',
+      font: 'serif',
     }).success,
   ).toBe(true);
   expect(
@@ -65,6 +77,9 @@ it('validates wire commands: known color/icon, confirmed delete, rejects unknown
       name: 'Work',
       color: 'neon',
       icon: null,
+      headerColor: null,
+      background: null,
+      font: null,
     }).success,
   ).toBe(false);
   expect(
@@ -73,7 +88,22 @@ it('validates wire commands: known color/icon, confirmed delete, rejects unknown
       mutationId,
       name: 'Work',
       color: 'blue',
-      icon: 'rocket',
+      icon: 'spaceship',
+      headerColor: null,
+      background: null,
+      font: null,
+    }).success,
+  ).toBe(false);
+  expect(
+    labelCommandSchema.safeParse({
+      action: 'create',
+      mutationId,
+      name: 'Work',
+      color: 'blue',
+      icon: null,
+      headerColor: null,
+      background: null,
+      font: 'cursive',
     }).success,
   ).toBe(false);
   expect(

@@ -249,10 +249,21 @@
   data-testid="posted-note"
   data-note-id={note.id}
   data-revision={note.revision}
+  style:background={label?.background
+    ? `var(--label-${label.background}-bg)`
+    : undefined}
 >
   {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
   <div class="card-view" hidden={editing} inert={editing}>
-    <header class:has-tags={note.tags.length > 0 || Boolean(label)}>
+    <header
+      class:has-tags={note.tags.length > 0 || Boolean(label)}
+      style:background={label?.headerColor
+        ? `var(--label-${label.headerColor}-bg)`
+        : undefined}
+      style:color={label?.headerColor
+        ? `var(--label-${label.headerColor}-fg)`
+        : undefined}
+    >
       <span class="when-wrap">
         <a
           class="when"
@@ -324,7 +335,15 @@
         {/each}
       </section>
     {/if}
-    <div id={contentId} class="card-content" class:expanded bind:this={content}>
+    <div
+      id={contentId}
+      class="card-content"
+      class:expanded
+      bind:this={content}
+      style:font-family={label?.font
+        ? `var(--font-${label.font === 'mono' ? 'code' : label.font})`
+        : undefined}
+    >
       <Markdown
         source={source.bodyMarkdown}
         images={cardImages(source)}

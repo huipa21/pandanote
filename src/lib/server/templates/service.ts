@@ -17,6 +17,7 @@ import { assertSessionIdentity } from '../auth/identity.ts';
 import type { SessionIdentity } from '../auth/service.ts';
 import type { DomainTransaction, Persistence } from '../db/connection.ts';
 import { noteTemplates, templateMutationReceipts } from '../db/schema.ts';
+import { assertLabelExists } from '../labels/service.ts';
 import { readSettings } from '../settings/repository.ts';
 
 type TemplateRow = typeof noteTemplates.$inferSelect;
@@ -30,7 +31,13 @@ export class TemplateConflictError extends DomainError {
 
 /** Canonical content of a request. The mutation ID is the receipt key, not content. */
 type Canonical =
-  | { action: 'create'; name: string; nameKey: string; body: string }
+  | {
+      action: 'create';
+      name: string;
+      nameKey: string;
+      body: string;
+      labelId: string | null;
+    }
   | {
       action: 'update';
       templateId: string;
@@ -38,6 +45,7 @@ type Canonical =
       name: string;
       nameKey: string;
       body: string;
+      labelId: string | null;
     }
   | { action: 'delete'; templateId: string; expectedRevision: number };
 
@@ -49,6 +57,7 @@ function dto(row: TemplateRow): NoteTemplate {
     id: row.id,
     name: row.name,
     bodyMarkdown: row.bodyMarkdown,
+    labelId: row.labelId,
     revision: row.revision,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -94,6 +103,8 @@ export class TemplateService {
       let result: TemplateMutationResult;
       if (canonical.action === 'create') {
         this.assertNameFree(tx, canonical.nameKey, null);
+        if (canonical.labelId !== null)
+          assertLabelExists(tx, canonical.labelId);
         const id = randomUUID();
         tx.insert(noteTemplates)
           .values({
@@ -101,6 +112,7 @@ export class TemplateService {
             name: canonical.name,
             nameKey: canonical.nameKey,
             bodyMarkdown: canonical.body,
+            labelId: canonical.labelId,
             revision: 1,
             createdAt: now,
             updatedAt: now,
@@ -117,12 +129,15 @@ export class TemplateService {
         );
         if (canonical.action === 'update') {
           this.assertNameFree(tx, canonical.nameKey, row.id);
+          if (canonical.labelId !== null)
+            assertLabelExists(tx, canonical.labelId);
           const changed = tx
             .update(noteTemplates)
             .set({
               name: canonical.name,
               nameKey: canonical.nameKey,
               bodyMarkdown: canonical.body,
+              labelId: canonical.labelId,
               revision: row.revision + 1,
               updatedAt: Math.max(now, row.updatedAt),
             })
@@ -177,13 +192,15 @@ export class TemplateService {
     if (referencesAttachment(body))
       throw new DomainError('validation', 'err.templateAttachmentReference');
     const content = { name, nameKey: templateNameKey(name), body };
+    const labelId = command.labelId ?? null;
     return command.action === 'create'
-      ? { action: 'create', ...content }
+      ? { action: 'create', ...content, labelId }
       : {
           action: 'update',
           templateId: command.templateId,
           expectedRevision: command.expectedRevision,
           ...content,
+          labelId,
         };
   }
 

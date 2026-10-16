@@ -7,8 +7,10 @@
   import {
     LABEL_COLORS,
     LABEL_ICONS,
+    LABEL_FONTS,
     type LabelColor,
     type LabelCommand,
+    type LabelFont,
     type LabelIcon,
     type LabelMutationResult,
     type NoteLabel,
@@ -34,9 +36,15 @@
   let name = $state('');
   let color = $state<LabelColor>('blue');
   let icon = $state<LabelIcon | null>(null);
+  let headerColor = $state<LabelColor | null>(null);
+  let background = $state<LabelColor | null>(null);
+  let font = $state<LabelFont | null>(null);
   let initialName = '';
   let initialColor: LabelColor = 'blue';
   let initialIcon: LabelIcon | null = null;
+  let initialHeaderColor: LabelColor | null = null;
+  let initialBackground: LabelColor | null = null;
+  let initialFont: LabelFont | null = null;
   let busy = $state(false);
   let error = $state('');
   let conflict = $state(false);
@@ -45,7 +53,12 @@
   let identityKey = '';
 
   const dirty = $derived(
-    name !== initialName || color !== initialColor || icon !== initialIcon,
+    name !== initialName ||
+      color !== initialColor ||
+      icon !== initialIcon ||
+      headerColor !== initialHeaderColor ||
+      background !== initialBackground ||
+      font !== initialFont,
   );
 
   let wasOpen = false;
@@ -57,9 +70,15 @@
         initialName = source?.name ?? '';
         initialColor = source?.color ?? 'blue';
         initialIcon = source?.icon ?? null;
+        initialHeaderColor = source?.headerColor ?? null;
+        initialBackground = source?.background ?? null;
+        initialFont = source?.font ?? null;
         name = initialName;
         color = initialColor;
         icon = initialIcon;
+        headerColor = initialHeaderColor;
+        background = initialBackground;
+        font = initialFont;
         error = '';
         conflict = false;
         confirmDiscard = false;
@@ -87,7 +106,16 @@
 
   async function save() {
     if (busy) return;
-    const key = JSON.stringify([label?.id, label?.revision, name, color, icon]);
+    const key = JSON.stringify([
+      label?.id,
+      label?.revision,
+      name,
+      color,
+      icon,
+      headerColor,
+      background,
+      font,
+    ]);
     if (!mutationId || key !== identityKey) {
       mutationId = crypto.randomUUID();
       identityKey = key;
@@ -101,8 +129,20 @@
           name,
           color,
           icon,
+          headerColor,
+          background,
+          font,
         }
-      : { action: 'create', mutationId, name, color, icon };
+      : {
+          action: 'create',
+          mutationId,
+          name,
+          color,
+          icon,
+          headerColor,
+          background,
+          font,
+        };
     busy = true;
     error = '';
     conflict = false;
@@ -116,6 +156,9 @@
       initialName = name;
       initialColor = color;
       initialIcon = icon;
+      initialHeaderColor = headerColor;
+      initialBackground = background;
+      initialFont = font;
       open = false;
       onSaved(result.data);
     } catch {
@@ -196,15 +239,122 @@
         >
       {/each}
     </div>
+    <span id={`${formId}-header-label`}>{t('labels.headerColor')}</span>
+    <div
+      class="swatches"
+      role="radiogroup"
+      aria-labelledby={`${formId}-header-label`}
+    >
+      <button
+        type="button"
+        class="swatch none"
+        role="radio"
+        aria-checked={headerColor === null}
+        aria-label={t('labels.noHeaderColor')}
+        disabled={busy}
+        onclick={() => (headerColor = null)}>—</button
+      >
+      {#each LABEL_COLORS as key (key)}
+        <button
+          type="button"
+          class="swatch"
+          style:--label-bg={`var(--label-${key}-bg)`}
+          style:--label-fg={`var(--label-${key}-fg)`}
+          role="radio"
+          aria-checked={headerColor === key}
+          aria-label={t(`labels.color.${key}` as MessageKey)}
+          disabled={busy}
+          onclick={() => (headerColor = key)}
+        ></button>
+      {/each}
+    </div>
+    <span id={`${formId}-background-label`}>{t('labels.background')}</span>
+    <div
+      class="swatches"
+      role="radiogroup"
+      aria-labelledby={`${formId}-background-label`}
+    >
+      <button
+        type="button"
+        class="swatch none"
+        role="radio"
+        aria-checked={background === null}
+        aria-label={t('labels.noBackground')}
+        disabled={busy}
+        onclick={() => (background = null)}>—</button
+      >
+      {#each LABEL_COLORS as key (key)}
+        <button
+          type="button"
+          class="swatch"
+          style:--label-bg={`var(--label-${key}-bg)`}
+          style:--label-fg={`var(--label-${key}-fg)`}
+          role="radio"
+          aria-checked={background === key}
+          aria-label={t(`labels.color.${key}` as MessageKey)}
+          disabled={busy}
+          onclick={() => (background = key)}
+        ></button>
+      {/each}
+    </div>
+    <span id={`${formId}-font-label`}>{t('labels.font')}</span>
+    <div
+      class="fonts"
+      role="radiogroup"
+      aria-labelledby={`${formId}-font-label`}
+    >
+      <button
+        type="button"
+        class="font-choice"
+        role="radio"
+        aria-checked={font === null}
+        disabled={busy}
+        onclick={() => (font = null)}>{t('labels.font.default')}</button
+      >
+      {#each LABEL_FONTS as key (key)}
+        <button
+          type="button"
+          class="font-choice"
+          style:font-family={`var(--font-${key === 'mono' ? 'code' : key})`}
+          role="radio"
+          aria-checked={font === key}
+          disabled={busy}
+          onclick={() => (font = key)}
+          >{t(`labels.font.${key}` as MessageKey)}</button
+        >
+      {/each}
+    </div>
     <span>{t('labels.pick')}</span>
-    <span
-      class="preview"
+    <div
+      class="preview-card"
       style:--label-bg={`var(--label-${color}-bg)`}
       style:--label-fg={`var(--label-${color}-fg)`}
-      >{#if icon}<Icon name={icon as IconName} />{/if}<span
-        >{name || t('labels.name')}</span
-      ></span
+      style:background={background
+        ? `var(--label-${background}-bg)`
+        : 'var(--surface)'}
     >
+      <div
+        class="preview-header"
+        style:background={headerColor
+          ? `var(--label-${headerColor}-bg)`
+          : 'transparent'}
+        style:color={headerColor ? `var(--label-${headerColor}-fg)` : 'inherit'}
+      >
+        <span class="preview-chip"
+          >{#if icon}<Icon name={icon as IconName} />{/if}<span
+            >{name || t('labels.name')}</span
+          ></span
+        >
+      </div>
+      <p
+        class="preview-body"
+        style:font-family={font
+          ? `var(--font-${font === 'mono' ? 'code' : font})`
+          : 'var(--font-body)'}
+      >
+        {t('labels.previewBody')}
+      </p>
+    </div>
     {#if error}<p role="alert">{error}</p>{/if}
     {#if conflict}<p class="help">{t('labels.reloadHint')}</p>{/if}
     {#if confirmDiscard}
@@ -252,7 +402,8 @@
     color: inherit;
   }
   .swatches,
-  .icons {
+  .icons,
+  .fonts {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
@@ -265,8 +416,21 @@
     background: var(--label-bg);
     padding: 0;
   }
+  .swatch.none {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--muted);
+  }
   .swatch[aria-checked='true'] {
     border-color: var(--label-fg);
+  }
+  .swatch.none[aria-checked='true'] {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
   .icon-choice {
     display: inline-flex;
@@ -282,8 +446,31 @@
     outline: 2px solid var(--accent);
     outline-offset: -2px;
   }
-  .preview {
+  .font-choice {
+    padding: var(--space-1) var(--space-3);
+    min-height: var(--target);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: inherit;
+  }
+  .font-choice[aria-checked='true'] {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .preview-card {
     justify-self: start;
+    display: grid;
+    width: 100%;
+    max-width: 20rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .preview-header {
+    padding: var(--space-2) var(--space-3);
+  }
+  .preview-chip {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
@@ -292,6 +479,10 @@
     background: var(--label-bg);
     color: var(--label-fg);
     font-weight: 600;
+  }
+  .preview-body {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
   }
   .confirm,
   .actions {

@@ -27,7 +27,31 @@
     | 'warning'
     | 'info'
     | 'check-circle'
-    | 'camera';
+    | 'camera'
+    | 'lightbulb'
+    | 'rocket'
+    | 'target'
+    | 'clock'
+    | 'calendar'
+    | 'mail'
+    | 'phone'
+    | 'chat'
+    | 'code'
+    | 'lock'
+    | 'key'
+    | 'chart'
+    | 'trophy'
+    | 'coffee'
+    | 'price-tag'
+    | 'car'
+    | 'plane'
+    | 'leaf'
+    | 'music'
+    | 'gift'
+    | 'cart'
+    | 'umbrella'
+    | 'compass'
+    | 'paw';
 </script>
 
 <script lang="ts">
@@ -113,6 +137,96 @@
       <circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 4.5-5" />
     {:else if name === 'camera'}
       <path d="M4 8h3l2-2h6l2 2h3v11H4Z" /><circle cx="12" cy="13" r="3.2" />
+    {:else if name === 'lightbulb'}
+      <path
+        d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3 11.2c.6.4 1 1.1 1 1.8h4c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3Z"
+      />
+    {:else if name === 'rocket'}
+      <path
+        d="M12 2c3 2 5 6 5 10 0 1.8-.4 3.3-1 4.5L12 22l-4-5.5C7.4 15.3 7 13.8 7 12c0-4 2-8 5-10Z"
+      /><circle cx="12" cy="10" r="1.6" /><path d="M8 17l-3 3M16 17l3 3" />
+    {:else if name === 'target'}
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle
+        cx="12"
+        cy="12"
+        r="1.2"
+      />
+    {:else if name === 'clock'}
+      <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" />
+    {:else if name === 'calendar'}
+      <rect x="3" y="5" width="18" height="16" rx="2" /><path
+        d="M3 10h18M8 3v4M16 3v4"
+      />
+    {:else if name === 'mail'}
+      <rect x="3" y="5" width="18" height="14" rx="2" /><path
+        d="m4 6 8 7 8-7"
+      />
+    {:else if name === 'phone'}
+      <path
+        d="M6 3h3l1.5 4-2 2a12 12 0 0 0 6.5 6.5l2-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4 6.2 2 2 0 0 1 6 3Z"
+      />
+    {:else if name === 'chat'}
+      <path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1Z" />
+    {:else if name === 'code'}
+      <path d="m9 8-5 4 5 4M15 8l5 4-5 4" />
+    {:else if name === 'lock'}
+      <rect x="4" y="11" width="16" height="9" rx="2" /><path
+        d="M8 11V7a4 4 0 0 1 8 0v4"
+      />
+    {:else if name === 'key'}
+      <circle cx="7.5" cy="12" r="3.5" /><path
+        d="M10.8 12H20M16 12v3M19 12v3"
+      />
+    {:else if name === 'chart'}
+      <path d="M4 20V11M10 20V4M16 20v-6" /><path d="M3 20h18" />
+    {:else if name === 'trophy'}
+      <path d="M7 4h10v4a5 5 0 0 1-10 0Z" /><path
+        d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3M10 16v2h4v-2M9 21h6"
+      />
+    {:else if name === 'coffee'}
+      <path d="M5 9h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Z" /><path
+        d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 3c-.5 1 .5 1.5 0 2.5M12 3c-.5 1 .5 1.5 0 2.5"
+      />
+    {:else if name === 'price-tag'}
+      <path d="M3 3h8l10 10-8 8L3 11Z" /><circle cx="7.5" cy="7.5" r="1.2" />
+    {:else if name === 'car'}
+      <path d="M4 16V12l2-5h12l2 5v4" /><path
+        d="M4 16h16M7 16v2M17 16v2"
+      /><circle cx="7.5" cy="16" r="1.3" /><circle cx="16.5" cy="16" r="1.3" />
+    {:else if name === 'plane'}
+      <path d="M3 11 21 3l-6 18-4-7Z" /><path d="M11 14 21 3" />
+    {:else if name === 'leaf'}
+      <path d="M20 4C10 4 4 10 4 20c10 0 16-6 16-16Z" /><path
+        d="M6 18C10 14 14 10 19 5"
+      />
+    {:else if name === 'music'}
+      <path d="M9 18V5l10-2v13" /><circle cx="7" cy="18" r="2.2" /><circle
+        cx="17"
+        cy="16"
+        r="2.2"
+      />
+    {:else if name === 'gift'}
+      <rect x="4" y="9" width="16" height="11" rx="1" /><path
+        d="M4 9h16M12 9v11M12 9c-2-4-6-4-6-1s4 1 6 1Zm0 0c2-4 6-4 6-1s-4 1-6 1Z"
+      />
+    {:else if name === 'cart'}
+      <path
+        d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.6L20 8H6"
+      /><circle cx="9" cy="20" r="1.3" /><circle cx="17" cy="20" r="1.3" />
+    {:else if name === 'umbrella'}
+      <path d="M12 2v2M12 12v7a2 2 0 0 1-2 2" /><path
+        d="M12 4a9 9 0 0 1 9 8H3a9 9 0 0 1 9-8Z"
+      />
+    {:else if name === 'compass'}
+      <circle cx="12" cy="12" r="9" /><path d="m15 9-2 5-5 2 2-5Z" />
+    {:else if name === 'paw'}
+      <circle cx="7" cy="9" r="1.6" /><circle cx="11" cy="6.5" r="1.6" /><circle
+        cx="15"
+        cy="6.5"
+        r="1.6"
+      /><circle cx="18" cy="9" r="1.6" /><path
+        d="M12 12c-3.5 0-6 2-6 4.5S8 20 12 20s6-1 6-3.5S15.5 12 12 12Z"
+      />
     {:else}
       <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
     {/if}

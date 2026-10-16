@@ -8,16 +8,21 @@ The user approved reusable note templates: a **Templates** page (sidebar link, l
 
 The user approved a second, lighter classifier separate from hashtags: at most one
 user-named **label** per note, each with a color from a fixed 8-color palette and an
-optional icon from a fixed 12-icon set, managed on a `/labels` page (create, rename,
-recolor, re-icon, delete; cap 40). Picked from an editor toolbar button; shown as a chip
-(icon/color + name text, never color alone) on the card and note detail page; filters the
-timeline from a sidebar list like Tags, but is not part of free-text search. Carried through
-pin, Trash and restore unchanged; deleting a label clears it from notes without deleting
-them. The schema change is folded directly into the baseline ("treat as new setup", no new
+optional icon from a fixed 36-icon set, managed on a `/labels` page shown as a masonry
+tile grid (create, rename, recolor, re-icon, delete; cap 40). A label can also optionally
+override the note card/detail **header color**, whole-surface **background** and **body
+font** (each from the same fixed palette / a small fixed font set, independently
+optional). Picked from an editor toolbar button; shown as a chip (icon/color + name text,
+never color alone) on the card and note detail page; filters the timeline from a sidebar
+list like Tags, but is not part of free-text search. Carried through pin, Trash and
+restore unchanged; deleting a label clears it from notes without deleting them. The
+schema change is folded directly into the baseline ("treat as new setup", no new
 migration file, no schema-version bump — pre-existing local `data/` must be recreated).
 Implemented and host-verified (Linux/Alpine image gate and a manual real-device/
-screen-reader pass are not yet done). Details: [labels/README.md](labels/README.md),
-[labels/SPEC.md](labels/SPEC.md), [labels/PROGRESS.md](labels/PROGRESS.md).
+screen-reader pass are not yet done). The sidebar's duplicate "Labels" entry under the
+bottom Utilities nav was removed as redundant (only the section-header link remains).
+Details: [labels/README.md](labels/README.md), [labels/SPEC.md](labels/SPEC.md),
+[labels/PROGRESS.md](labels/PROGRESS.md).
 
 ## Approved change — voice clips
 

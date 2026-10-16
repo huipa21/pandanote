@@ -5640,3 +5640,36 @@ after the successful host build, Linux270 and final affected25 browser gate.
   `playwright test editor.test.ts voice detail labels templates` 58/58 pass. Integration/full e2e/Alpine not re-run
   (no server/API/schema change — presentation only).
 - Next: none outstanding for this request; re-run integration/full e2e/Alpine at the next milestone gate as usual.
+
+## Session — labels follow-up: abundant icons, format (header/background/font), masonry page, redundant nav removed
+
+- User feedback: tags and labels read as near-duplicate features sitting in the same sidebar
+  area. Addressed the four concrete asks (icons, formatting, masonry layout, redundant menu
+  item); the remaining visual-adjacency point (Tags/Labels sections back-to-back) was left open
+  pending an explicit follow-up request. Full details, decisions and exact commands/results in
+  [labels/PROGRESS.md](labels/PROGRESS.md) (Session 3).
+- Summary: `LABEL_ICONS` 12→36; new nullable `headerColor`/`background`/`font` label fields
+  (header tint, card background tint, body font override), edited into the baseline schema/
+  migrations in place (no new migration, SCHEMA_VERSION unchanged, `db:generate` confirms no
+  drift); `LabelEditor` gained the matching controls and a live card-shaped preview; `NoteCard`/
+  `NoteDetail` apply the three overrides; `/labels` is now a CSS-masonry tile grid instead of a
+  plain list; the duplicate "Labels" link in the sidebar's bottom Utilities nav was removed
+  (only the section-header link remains, matching how Tags already worked).
+- Commands/results (Windows host): `npm run check` 0 errors (1 pre-existing AppShell warning);
+  `npm run lint` clean; `npm run test:unit` 260 pass; `npm run test:integration` 288 pass + 7
+  platform skips + 1 pre-existing Windows-only `pre-upgrade` EPERM flake (unrelated); `npm run build`
+  pass; full `npx playwright test` (140 tests) 137 pass / 3 failed-under-load, all 3 confirmed
+  passing standalone (same pre-existing flakiness class documented in earlier sessions above).
+  Two shell screenshot baselines regenerated for the shorter Utilities nav.
+- Not run: Linux/Alpine image gate, manual screen-reader/visual-design pass.
+- Next: user review of the masonry page and format controls; Linux/Alpine gate before any
+  release-complete claim; optionally address the remaining sidebar Tags/Labels visual-adjacency
+  feedback if the user asks for it.
+
+## Session — label in note header, create-on-the-spot, template default label (user request)
+
+- Request: label picker should allow creating a label and using it; the label must not sit in the tags/options row but in the note header, centered; templates should support a label (and tags).
+- Implemented: label control moved out of `EditorOptions.svelte` into a centered header row in `NoteEditor.svelte` (chip or dashed placeholder; compacted at max-height 480px). `LabelPicker.svelte` gained a name field + Create (rotating palette color, selects immediately, pushes into the `LABELS` context map; no `$app/navigation` import so the shell fixture still builds). Templates: `note_templates.label_id` (FK ON DELETE SET NULL) folded into migration 0002 + snapshot + schema.ts (no new migration, `db:generate` shows no drift); `labelId` optional on create/update commands, validated with `assertLabelExists`; `TemplateEditor` has a label control; list/picker show chip; inserting a template sets the note label only when none is set; restore (`trust.ts`) rejects a dangling template `label_id`. Tags in templates: existing `#hashtag` text already becomes tags on post — no new field. New i18n keys (en + zh-CN). Docs: labels/SPEC §4.2, templates/SPEC §3.3.
+- Tests: unit templates schema cases; integration templates (label attach/unknown/ON DELETE SET NULL/omitted) and restores (template label round-trip + dangling refusal); e2e templates (default label fill vs no-override; create-in-picker), editor options count 7→6; shell 1440×900 baseline regenerated (extra header row).
+- Commands/results (Windows host): check 0 errors (1 pre-existing warning); lint clean; test:unit 261 pass; test:integration 292 pass + 7 skips; build pass; full `npx playwright test` 141 pass, 1 fail (`detail:256`, known load flake, passes standalone).
+- Not run: Linux/Alpine image gate. Next: Linux/Alpine gate at the next milestone.

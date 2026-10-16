@@ -2,6 +2,139 @@
 
 Spec: [SPEC.md](SPEC.md). Plan: [PLAN.md](PLAN.md). Decisions: [README.md](README.md).
 
+## Session 3 (2026-10, host) — user feedback follow-up: icons, formatting, masonry, nav cleanup
+
+**State: implemented and host-verified. Linux/Alpine image gate not run this session
+(no native/schema-engine-specific surface changed beyond the already-folded baseline
+edit, which `npm run db:generate` confirms has zero drift).**
+
+User feedback (verbatim intent): "tags and labels are quite functional similar, they
+stay in the same tags area" → "label should have more abundant icons. The label should
+be able to set the format, like note card header color, note background, font and etc.
+The labels should be shown as masonry in labels page. Since we have labels on the
+sidebar, we don't [need] the one under templates, it is redundant item in the menu."
+
+Implemented, in order:
+
+1. **Icon set expanded 12 → 36** (`LABEL_ICONS` in `shared/labels.ts`): added
+   `lightbulb`, `rocket`, `target`, `clock`, `calendar`, `mail`, `phone`, `chat`, `code`,
+   `lock`, `key`, `chart`, `trophy`, `coffee`, `price-tag`, `car`, `plane`, `leaf`,
+   `music`, `gift`, `cart`, `umbrella`, `compass`, `paw`. New stroke-style SVGs added to
+   `Icon.svelte` (`IconName` union extended), i18n `labels.icon.*` keys added to en/zh-CN
+   (placeholder-identical, verified by the existing i18n unit test).
+2. **Per-label formatting** (SPEC.md §2.3): three new independently-nullable fields —
+   `headerColor`, `background` (both `LabelColor | null`, same 8-key palette as the
+   identity `color`) and `font` (`LabelFont | null`, new `LABEL_FONTS = ['serif','mono',
+'rounded']`). Applied by `NoteCard.svelte`/`NoteDetail.svelte` to the card/detail
+   `<article>` (background), `<header>` (header tint) and body content (font-family) via
+   inline `style:` bindings reading `label.headerColor`/`label.background`/`label.font`;
+   `LabelChip`/`LabelList`/`LabelPicker` are unchanged (still identity-only). New CSS
+   tokens `--font-serif`/`--font-rounded` beside the existing `--font-body`/`--font-code`
+   (the `mono` choice reuses `--font-code`). `LabelEditor.svelte` gained two more swatch
+   radio-groups (header color, background, each with a "none" option) and a font
+   radio-group, plus a card-shaped live preview (header strip + background + sample body
+   text in the chosen font) replacing the old flat chip-only preview.
+3. **Schema** ("treat as new setup" precedent, same as the original labels baseline
+   fold): `labels` gained nullable `header_color`, `background`, `font` text columns and
+   an extended `label_check` CHECK, edited directly into `schema.ts`,
+   `migrations/0000_baseline.sql` and all three `migrations/meta/*_snapshot.json` files
+   (no new numbered migration; `SCHEMA_VERSION` unchanged at 3). Verified with
+   `npm run db:generate` → "No schema changes, nothing to migrate" both immediately after
+   the edit and again after the final `prettier --write` pass. `LabelService` (create/
+   update/dto), `backups/trust.ts` (restore validates the three new nullable enums with
+   `isLabelColor`/`isLabelFont`) and `labelCommandSchema` (now requires
+   `headerColor`/`background`/`font`, each nullable, on create/update) updated to match.
+   As with the original labels baseline fold, a pre-existing local `data/` directory from
+   before this change fails the trusted-migration check and must be deleted/moved aside;
+   none existed in this session's environment.
+4. **Masonry `/labels` page**: rewrote `src/routes/(app)/labels/+page.svelte` from a
+   plain row list to a CSS multi-column masonry grid (`columns: 16rem; column-gap;`,
+   `break-inside: avoid` tiles — no JS layout library, consistent with the "no large UI
+   kit" project rule). Each tile now previews the label as it will render on a real note
+   (header tint + chip + ActionMenu, background tint + sample sentence in the chosen
+   font, note count) instead of a single flat row.
+5. **Removed the redundant sidebar nav entry**: `Sidebar.svelte`'s bottom "Utilities" nav
+   (Templates/Labels/Trash/Settings) dropped its "Labels" link. `/labels` remains
+   reachable from the "Labels" section header link already in the sidebar's
+   calendar/tags/labels region, exactly like `/tags` only ever had the one section-header
+   link (no separate bottom-nav entry) — the two features are now symmetric in this
+   respect, which was part of the user's "same tags area" complaint.
+
+Not changed in this session (out of the stated scope, left for a future explicit
+request): the sidebar's Tags and Labels sections still sit back-to-back and
+`LabelList.svelte` still reuses the `.tag-list` CSS class from `TagList.svelte` — the
+visual-adjacency part of the "same tags area" feedback. Multi-label notes, nested/
+grouped labels, a free color picker/icon upload, and calendar/search integration remain
+out of scope per README.md §"Not in this change".
+
+### Tests touched
+
+- `tests/unit/labels.test.ts`: `LABEL_ICONS` length 12 → 36, new `isLabelFont`/
+  `LABEL_FONTS` assertions, wire-command test extended with
+  `headerColor`/`background`/`font` (valid and invalid cases); `'rocket'` is now a valid
+  icon so the "unknown icon" negative case uses a nonexistent name instead.
+- `tests/integration/labels.test.ts`: `createCommand` helper and the inline update
+  command extended with the three new fields; added an explicit assertion that
+  `headerColor`/`background`/`font` persist and round-trip through `service.list()`.
+- `tests/integration/restores.test.ts`: the label-restore fixture's `create` command
+  extended with the three new (nullable) fields; the raw-SQL tamper-insert case is
+  unaffected (the new columns are nullable, so omitting them in a raw `INSERT` still
+  produces a valid row — only the pre-existing name/name_key mismatch is exercised there).
+- `tests/e2e/labels.test.ts`: sidebar-entry test now clicks the single remaining
+  "Labels" link (section header) instead of the removed Utilities-nav one; the axe test's
+  color-swatch click is now scoped to the "Color" radiogroup specifically (`exact: true`)
+  because "Header color"/"Background" radiogroups now also contain a same-named "Green"
+  radio.
+- `tests/e2e/shell.test.ts-snapshots/{settings-dark-compact,shell-light-1440x900}-chromium-win32.png`:
+  regenerated (`--update-snapshots`) — the shorter Utilities nav changes the sidebar
+  layout baseline, same precedent as every earlier sidebar-link addition/removal in this
+  project's history.
+
+### Commands and actual results (host, Windows, Node 24)
+
+- `npm run db:generate`: "No schema changes, nothing to migrate" (confirms the manual
+  baseline/snapshot edit matches `schema.ts` with zero drift), both right after the edit
+  and again after the final `prettier --write` pass.
+- `npm run check`: 0 errors, 1 pre-existing `AppShell.svelte` CSS warning (unrelated).
+- `npm run lint`: ESLint clean; `prettier --check .` clean after `prettier --write` on
+  every touched file (including the three migration snapshot JSON files and the journal —
+  diffs confirmed minimal/targeted with `git diff --stat migrations/`, not a wholesale
+  reformat).
+- `npm run test:unit`: **260 passed**.
+- `npm run test:integration`: **288 passed, 7 platform-only skips, 1 failed** — the
+  failure is `pre-upgrade.test.ts`'s Windows-only `EPERM` rename case, the same
+  pre-existing Windows flake class already documented earlier in `docs/PROGRESS.md`
+  ("1 Windows pre-upgrade EPERM rename FAIL"), not related to labels.
+- `npm run build`: PASS.
+- `npx playwright test tests/e2e/labels.test.ts tests/e2e/shell.test.ts
+tests/e2e/editor.test.ts`: **16/16 passed** after regenerating the two shell screenshot
+  baselines and fixing the two labels-test selector ambiguities above.
+- `npx playwright test tests/e2e/shell.test.ts tests/e2e/zzzaccessibility.test.ts
+tests/e2e/tags-page.test.ts tests/e2e/tag-management.test.ts`: **20/20 passed**
+  (includes the generic authenticated-screens axe scan, which covers `/labels`).
+- Full `npx playwright test` (140 tests): **137 passed, 3 failed**
+  (`detail.test.ts:256`, `voice-naming.test.ts:161`, `zzrestore.test.ts:24`) — all three
+  are the same pre-existing full-sequential-load flakiness class already documented in
+  the "generic file attachments" session entry above; re-ran each **standalone and all 3
+  passed**, confirming no regression.
+
+### Not run / explicitly open
+
+- Linux/Alpine image gate (native migration/CHECK-constraint/restore tests in that
+  environment, per AGENTS.md).
+- Manual screen-reader/visual-design pass of the new header-color/background/font radio
+  groups and the masonry page at very small/very large viewports beyond the automated
+  axe scans already run.
+- The remaining "same tags area" visual-adjacency feedback (Tags/Labels sidebar sections
+  sitting back-to-back, shared `.tag-list` CSS class) — not requested this round, flagged
+  above as a deliberate no-op pending an explicit ask.
+
+### Next step
+
+User review. If the remaining sidebar visual-adjacency point needs addressing, that is a
+separate small follow-up (e.g. distinct section styling/ordering). Otherwise: Linux/
+Alpine image gate before calling this release-complete, per AGENTS.md.
+
 ## Current state (session 2, implementation)
 
 **Status: L01–L07 implemented and host-verified. Linux/Alpine image gate, a manual

@@ -16,6 +16,8 @@
   import Markdown from './Markdown.svelte';
   import TemplatePicker from './TemplatePicker.svelte';
   import LabelPicker from './LabelPicker.svelte';
+  import LabelChip from './LabelChip.svelte';
+  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import { tr } from '#lib/client/i18n-current.ts';
   import {
     insertTemplateText,
@@ -47,6 +49,7 @@
 
   const { t } = useI18n();
   const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
+  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
   let preview = $state(false);
   let text = $derived(
     workspace ? (workspace.active?.bodyMarkdown ?? '') : localText,
@@ -60,6 +63,18 @@
   let confirmCancel = $state(false);
   let templatePickerOpen = $state(false);
   let labelPickerOpen = $state(false);
+  const currentLabel = $derived(
+    workspace?.active?.labelId
+      ? labelsMap?.get(workspace.active.labelId)
+      : undefined,
+  );
+  const labelLocked = $derived(
+    !workspace ||
+      !workspace.ready ||
+      workspace.busy ||
+      workspace.frozen ||
+      workspace.conflict,
+  );
   const dialogTitle = $derived(
     variant === 'inline' ? t('editor.editNote') : t('editor.writeNote'),
   );
@@ -147,6 +162,10 @@
     workspace.change(next.text);
     preview = false;
     cursor = { start: next.caret, end: next.caret };
+    // Only fills in a label when the note does not already carry one, so a
+    // template never overrides a label the user already picked for this note.
+    if (template.labelId !== null && !workspace.active.labelId)
+      workspace.updateLabel(template.labelId);
     await tick();
     const input = focusOpen ? expandedTextarea : textarea;
     input?.setSelectionRange(next.caret, next.caret);
@@ -255,6 +274,30 @@
 
 {#snippet editor(focus: boolean)}
   <div class="editor-container" class:focus-editor={focus}>
+    {#if workspace}
+      <div class="note-header">
+        <button
+          type="button"
+          class="label-trigger"
+          disabled={labelLocked}
+          aria-label={currentLabel
+            ? `${t('labels.pick')}: ${currentLabel.name}`
+            : t('editor.addLabel')}
+          title={t('editor.labelTitle')}
+          onclick={() => (labelPickerOpen = true)}
+        >
+          {#if currentLabel}<LabelChip label={currentLabel} />
+          {:else}
+            <span class="label-placeholder"
+              ><svg viewBox="0 0 24 24" aria-hidden="true"
+                ><path
+                  d="M11 3h6a2 2 0 0 1 2 2v6l-8.3 8.3a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8Z"
+                /><circle cx="15.5" cy="8.5" r="1.2" /></svg
+              ><span>{t('editor.addLabel')}</span></span
+            >{/if}
+        </button>
+      </div>
+    {/if}
     {#if preview}
       <div
         class="preview-pane"
@@ -349,7 +392,6 @@
         {workspace}
         onTag={addTag}
         onTemplate={() => (templatePickerOpen = true)}
-        onLabel={() => (labelPickerOpen = true)}
         onFiles={() => fileInput.click()}
         onAttach={() => attachInput.click()}
       />
@@ -490,6 +532,50 @@
   }
   .focus-editor {
     flex: 1;
+  }
+  .note-header {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3) 0;
+  }
+  .label-trigger {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+  }
+  .label-placeholder {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: var(--target);
+    padding-inline: var(--space-3);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+  .label-placeholder svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  @media (pointer: fine), (max-height: 480px) {
+    .label-placeholder,
+    .label-trigger :global(.label-chip) {
+      min-height: 1.75rem;
+    }
+  }
+  @media (max-height: 480px) {
+    .note-header {
+      padding-top: 0;
+    }
   }
   .focus-control {
     width: var(--target);
