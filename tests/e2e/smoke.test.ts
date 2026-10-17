@@ -1,5 +1,44 @@
 import { expect, test } from '@playwright/test';
 
+test('panda favicons are linked and publicly served without redirects', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/login');
+  await expect(page.locator('link[rel="icon"]')).toHaveCount(2);
+  await expect(
+    page.locator('link[rel="icon"][type="image/svg+xml"]'),
+  ).toHaveAttribute('href', new URL('/favicon.svg', page.url()).href);
+  await expect(page.locator('link[rel="icon"][sizes="32x32"]')).toHaveAttribute(
+    'href',
+    new URL('/favicon.ico', page.url()).href,
+  );
+  for (const [path, type] of [
+    ['/favicon.svg', 'image/svg+xml'],
+    ['/favicon.ico', 'image/x-icon'],
+  ]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain(type);
+    const body = await response.body();
+    if (path.endsWith('.ico')) {
+      expect([...body.subarray(0, 6)]).toEqual([0, 0, 1, 0, 1, 0]);
+      expect([...body.subarray(6, 8)]).toEqual([32, 32]);
+    }
+    const head = await request.head(path, { maxRedirects: 0 });
+    expect(head.status()).toBe(200);
+    expect(await head.body()).toHaveLength(0);
+    expect(
+      await page.evaluate(async (src) => {
+        const image = new Image();
+        image.src = src;
+        await image.decode();
+        return image.naturalWidth > 0 && image.naturalHeight > 0;
+      }, path),
+    ).toBe(true);
+  }
+});
+
 test('adapter-node login gate and minimal health response work', async ({
   page,
   request,

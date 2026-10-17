@@ -6,6 +6,13 @@ Schema is now **3 / 20 domain tables**: migration `0002_note_templates` adds `no
 
 ## Current override — color or icon labels
 
+2026-10-17 UI override: the label picker is an icon in `EditorOptions`, saved label
+chips are centered in card/detail headers, and date hover/tooltips inherit the effective
+header background. Labels management/sidebar/filter headings match Tags. Shared
+`selectTag`/`selectLabel` URL helpers toggle a selected filter off while retaining the
+other filters. `LabelActions` shares revision-checked, receipt-first Edit/Delete UI
+between the management list and filtered heading. No server/schema changes.
+
 Adds a `labels` table and a nullable `notes.label_id` (`ON DELETE SET NULL`) directly into
 the baseline migration/schema in place (22 tables total per `drizzle-kit generate`'s
 accounting, two more than the templates note above) — not a new numbered migration, no

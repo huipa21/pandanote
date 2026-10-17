@@ -2,6 +2,23 @@
 
 ## Current state
 
+- **2026-10-17 favicon: implemented and host-verified.** Original panda SVG plus
+  32px ICO fallback, shared HTML icon links and container-context inclusion.
+  Browser regression confirms public GET/HEAD, MIME types and decoding of both
+  formats. No authentication, dependencies or private data changed. See the final
+  handoff entry for commands and validation limits.
+
+- **2026-10-17 label/tag UI refinement: implemented; host-verified.** Label
+  picker moved to the editor icon toolbar; saved chips centered in card/detail headers;
+  date hover/tooltips inherit header tint. User confirmed Labels management, sidebar and
+  filtered notes view should all match Tags. Management is now a searchable chip list;
+  filtered headings share reusable Edit/Delete controls and omit duplicate chips.
+  Selected tags/labels toggle off on a second click. Focused unit 10/10, check/build,
+  labels browser 3/3 and affected editor/detail/templates/tag-management/timeline browser
+  21/21 pass. Final lint/check/build pass, all 261 unit and 292 integration tests pass
+  (7 existing platform skips); final Labels browser rerun 3/3. Desktop/mobile screenshots
+  reviewed. No Linux/full-browser/release gate rerun or baseline regeneration.
+
 - **Generic file attachments + extension icons (user request) — implemented, host-verified; Linux image gate not run.**
   A separate **Attach file** icon (paperclip) next to Media opens an unrestricted file picker; any file that is not a
   recognized image/video becomes a plain, unprocessed `kind: 'file'` attachment (reuses the existing `fileMaxBytes`/
@@ -5673,3 +5690,61 @@ after the successful host build, Linux270 and final affected25 browser gate.
 - Tests: unit templates schema cases; integration templates (label attach/unknown/ON DELETE SET NULL/omitted) and restores (template label round-trip + dangling refusal); e2e templates (default label fill vs no-override; create-in-picker), editor options count 7→6; shell 1440×900 baseline regenerated (extra header row).
 - Commands/results (Windows host): check 0 errors (1 pre-existing warning); lint clean; test:unit 261 pass; test:integration 292 pass + 7 skips; build pass; full `npx playwright test` 141 pass, 1 fail (`detail:256`, known load flake, passes standalone).
 - Not run: Linux/Alpine image gate. Next: Linux/Alpine gate at the next milestone.
+
+## Session 2026-10-17 - label toolbar, centered headers and tag-style label views
+
+State: done for the requested UI; host-verified, not a release gate.
+
+- User confirmed the matching Tags layout applies to Labels management, sidebar and
+  filtered notes view. Supersedes masonry management and the editor header picker.
+- Touched: EditorOptions/NoteEditor, NoteCard/NoteDetail/LabelChip, TagList/LabelList,
+  AppShell, shared timeline helpers, labels and timeline pages; new shared LabelActions
+  retains expected revisions and receipt-first retry IDs. Updated unit timeline and
+  browser labels/editor tests and the relevant specifications. No data/schema change.
+- Checks: focused timeline unit 10 pass after correcting a missing normalizer import;
+  check 0 errors/1 existing AppShell warning; build pass; labels browser 3 pass;
+  editor/detail/templates/tag-management/timeline browser 21 pass. No assertions removed
+  or screenshot baselines regenerated.
+- Final commands/results: `npm run lint` clean; `npm run test:unit` 261 pass;
+  `npm run test:integration` 292 pass + 7 existing platform skips; `npm run check`
+  0 errors + 1 pre-existing AppShell CSS warning; `npm run build` pass. After the final
+  build, `playwright test tests/e2e/labels.test.ts` 3/3 pass. Earlier affected
+  editor/detail/templates/tag-management/timeline browser run 21/21 pass. Desktop card,
+  mobile detail and Labels management screenshots opened/reviewed, no overlap/overflow.
+- Local preview: `node --env-file-if-exists=.env node_modules/vite/bin/vite.js dev
+--host 127.0.0.1 --port 5176 --strictPort`, with `ORIGIN=http://localhost:5176`;
+  left running for review. No existing servers replaced, no data deleted or user commit.
+- Remaining: Linux/Alpine, full browser and physical-device/screen-reader/exact-release
+  gates were not rerun for this UI request. Next: user visual review, then independent
+  release gates at the next milestone. First recheck: `npm run check`.
+
+### Session 2026-10-17 - panda favicon
+
+State: implemented / host-verified; no release or Linux-image claim.
+
+- Added an original green-backed panda in `static/favicon.svg` and a generated
+  32px PNG-backed `static/favicon.ico` fallback. Shared `src/app.html` links both
+  using Kit's assets placeholder. `.dockerignore` includes the public static tree
+  so adapter-node's built client assets also ship in container builds.
+- Added a browser regression in `tests/e2e/smoke.test.ts`: both links, anonymous
+  GET without redirect, MIME types, ICO dimensions/header, HEAD without body and
+  actual browser image decoding. No public route/auth exemption was necessary.
+- Preserved all pre-existing label/tag UI edits and this file's earlier history.
+  No dependencies, schema, runtime data or commits changed.
+- Commands: `npm run check` passes (0 errors, 1 existing AppShell CSS warning);
+  `npm run build` passes; `npm run lint` passes; `npm run test:unit` 261 pass;
+  `npm run test:integration -- release-hygiene` 7 pass.
+- Initial Playwright invocation with a backslash path selector found no tests;
+  basename selector works. Standalone smoke run: 1 pass / 2 fail (new test expected
+  a relative href, but Kit emits an absolute same-origin asset URL; existing login
+  test needs the auth suite's account fixture and sees setup when run alone).
+  Corrected the new test to compare resolved URLs, not application behavior.
+  `playwright test smoke.test.ts --grep "panda favicons"` then passes 1/1.
+- Full integration/browser and Linux/Alpine gates not run for this static-asset
+  change; no native/server behavior changed. Next verification: read `src/app.html`,
+  `static/favicon.svg` and the smoke spec, then run
+  `playwright test auth.test.ts smoke.test.ts` after `npm run build`.
+- Final `playwright test auth.test.ts smoke.test.ts`: 9/9 pass, including the
+  existing login/health smoke with its real account fixture. Targeted Prettier
+  and `git diff --check` pass. No favicon follow-up remains; independent release
+  gates stay open.

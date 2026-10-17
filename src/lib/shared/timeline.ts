@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { tagKey } from './markdown/tags.ts';
 import {
   DomainError,
   idSchema,
@@ -212,7 +213,7 @@ export function filterHref(filters: TimelineFilters): string {
 export function selectTag(filters: TimelineFilters, tag: string): string {
   return filterHref(
     canonicalFilters(
-      tag,
+      filters.tag === tagKey(tag) ? undefined : tag,
       filters.query,
       filters.day,
       filters.date,
@@ -230,7 +231,7 @@ export function selectLabel(filters: TimelineFilters, label: string): string {
       filters.day,
       filters.date,
       undefined,
-      label,
+      filters.label === label ? undefined : label,
     ),
   );
 }

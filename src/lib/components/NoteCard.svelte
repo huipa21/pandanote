@@ -256,7 +256,12 @@
   {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
   <div class="card-view" hidden={editing} inert={editing}>
     <header
-      class:has-tags={note.tags.length > 0 || Boolean(label)}
+      class:has-tags={note.tags.length > 0}
+      style:--header-background={label?.headerColor
+        ? `var(--label-${label.headerColor}-bg)`
+        : label?.background
+          ? `var(--label-${label.background}-bg)`
+          : undefined}
       style:background={label?.headerColor
         ? `var(--label-${label.headerColor}-bg)`
         : undefined}
@@ -286,6 +291,7 @@
           ></span
         >
       </span>
+      {#if label}<div class="header-label"><LabelChip {label} /></div>{/if}
       <div class="header-actions">
         {#if pinned}<button
             type="button"
@@ -305,11 +311,7 @@
         />
       </div>
     </header>
-    {#if note.tags.length || label}<ul
-        class="card-tags"
-        aria-label={t('note.tags')}
-      >
-        {#if label}<li><LabelChip {label} /></li>{/if}
+    {#if note.tags.length}<ul class="card-tags" aria-label={t('note.tags')}>
         {#each note.tags as tag (tag)}<li>
             <a
               href={selectTag(filters, tag)}
@@ -436,7 +438,8 @@
   }
   /* Date row and tags row read as one compact header block. */
   header {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-2);
     align-items: center;
     color: var(--muted);
@@ -447,9 +450,30 @@
     margin-bottom: 0;
   }
   .header-actions {
-    margin-left: auto;
+    grid-column: 3;
+    justify-self: end;
     display: flex;
     align-items: center;
+  }
+  .header-label {
+    grid-column: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+  @media (max-width: 600px) {
+    header {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .header-actions {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .header-label {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      justify-self: center;
+    }
   }
   /* Actions use the same pill as the date and tag chips, not a circle. */
   .header-actions :global(.icon-button) {
@@ -507,7 +531,7 @@
     white-space: nowrap;
     font-size: 0.8125rem;
     color: var(--text);
-    background: var(--surface);
+    background: var(--header-background, var(--surface));
     border: 1px solid var(--border);
     border-radius: var(--radius);
     pointer-events: none;
@@ -533,7 +557,7 @@
   }
   .when:hover,
   .when:focus-visible {
-    background: var(--accent-soft);
+    background: var(--header-background, var(--accent-soft));
   }
   .search-snippets {
     overflow-wrap: anywhere;

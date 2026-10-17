@@ -23,6 +23,8 @@
 <style>
   .label-chip {
     display: inline-flex;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     align-items: center;
     gap: var(--space-1);
     min-height: var(--target);
@@ -39,6 +41,7 @@
     }
   }
   .label-chip :global(.icon) {
+    flex-shrink: 0;
     width: 1rem;
     height: 1rem;
   }

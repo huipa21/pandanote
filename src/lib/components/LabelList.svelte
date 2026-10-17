@@ -17,12 +17,7 @@
 <ul class="label-flow">
   {#each labels as label (label.id)}
     <li>
-      <span
-        class="chip"
-        class:active={filters.label === label.id}
-        style:--label-bg={`var(--label-${label.color}-bg)`}
-        style:--label-fg={`var(--label-${label.color}-fg)`}
-      >
+      <span class="chip" class:active={filters.label === label.id}>
         <a
           href={selectLabel(filters, label.id)}
           aria-current={filters.label === label.id ? 'true' : undefined}
@@ -51,14 +46,16 @@
     align-items: center;
     max-width: 100%;
     min-height: var(--row-target);
-    padding-inline: var(--space-3);
-    border-radius: var(--radius);
-    background: var(--label-bg);
-    color: var(--label-fg);
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
   .chip.active {
-    outline: 2px solid var(--label-fg);
-    outline-offset: -2px;
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .chip.active .count {
+    color: var(--on-accent);
   }
   a {
     display: inline-flex;
@@ -68,16 +65,18 @@
     text-decoration: none;
     overflow-wrap: anywhere;
     min-width: 0;
+    min-height: var(--row-target);
+    padding-inline: var(--space-3);
   }
   a:hover {
     text-decoration: underline;
   }
   .name {
-    font-weight: 600;
+    font-weight: inherit;
   }
   .count {
     font-size: 0.8125rem;
-    opacity: 0.8;
+    color: var(--muted);
   }
   :global(.chip .icon) {
     width: 1rem;

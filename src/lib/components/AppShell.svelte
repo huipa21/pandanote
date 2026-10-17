@@ -53,12 +53,7 @@
   );
   // A tag view is announced by its own header (with a way back to all notes),
   // so the chip strip appears only for the search, label and day filters.
-  const showStrip = $derived(
-    Boolean(filters.query || filters.day || filters.label !== undefined),
-  );
-  const selectedLabel = $derived(
-    filters.label ? labels.find((l) => l.id === filters.label) : undefined,
-  );
+  const showStrip = $derived(Boolean(filters.query || filters.day));
   const i18n = useI18n();
   const t = i18n.t;
   // Isolated shell fixtures get the same controls without a root route layout.
@@ -204,12 +199,6 @@
                     })}
                     aria-label={t('shell.removeDay')}
                     >{filters.date ?? t('shell.selectedDay')} ×</a
-                  >{/if}
-                {#if selectedLabel}<a
-                    class="filter-chip"
-                    href={filterHref({ ...filters, label: undefined })}
-                    aria-label={t('shell.removeLabel')}
-                    >{selectedLabel.name} ×</a
                   >{/if}
               </div>
               <a href="/">{t('shell.clearAll')}</a>

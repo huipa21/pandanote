@@ -19,6 +19,8 @@
   import PageTitle from '#lib/components/PageTitle.svelte';
   import NoteCard from '#lib/components/NoteCard.svelte';
   import TagHeader from '#lib/components/TagHeader.svelte';
+  import LabelActions from '#lib/components/LabelActions.svelte';
+  import { goto } from '$app/navigation';
   import {
     READING,
     type ReadingState,
@@ -504,7 +506,9 @@
 </script>
 
 <PageTitle
-  title={data.tagSummary ? `#${data.tagSummary.display}` : t('shell.allNotes')}
+  title={data.tagSummary
+    ? `#${data.tagSummary.display}`
+    : (data.labelSummary?.name ?? t('shell.allNotes'))}
 />
 <svelte:head
   ><meta name="description" content={t('timeline.description')} /></svelte:head
@@ -513,14 +517,28 @@
   {#if data.tagSummary}{#key data.tagSummary.key}<TagHeader
         summary={data.tagSummary}
         leaveHref={filterHref({ ...filters, tag: undefined })}
-      />{/key}{:else}<h1 class="sr-only">{t('shell.allNotes')}</h1>{/if}
+      />{/key}{:else if !data.labelSummary}<h1 class="sr-only">
+      {t('shell.allNotes')}
+    </h1>{/if}
   {#if data.labelSummary}
-    <p class="label-strip">
-      {t('labels.pick')}: <strong>{data.labelSummary.name}</strong>
-      <a href={filterHref({ ...filters, label: undefined })}
-        >{t('shell.removeLabel')}</a
+    <header class="label-header">
+      <div class="label-summary">
+        <h1>{data.labelSummary.name}</h1>
+        <p class="label-meta">
+          {t(
+            data.labelSummary.noteCount === 1 ? 'tag.noteOne' : 'tag.noteMany',
+            { count: data.labelSummary.noteCount },
+          )}
+        </p>
+      </div>
+      <a class="label-leave" href={filterHref({ ...filters, label: undefined })}
+        >{t('shell.allNotes')}</a
       >
-    </p>
+      {#key data.labelSummary.id}<LabelActions
+          label={data.labelSummary}
+          onDeleted={() => goto(filterHref({ ...filters, label: undefined }))}
+        />{/key}
+    </header>
   {/if}
   <span class="sr-only">{t('timeline.signedIn')}</span>
   {#if workspace.status === 'saved' && savedOutsideRange}<p class="help">
@@ -619,16 +637,30 @@
 </div>
 
 <style>
-  .label-strip {
+  .label-header {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-block: var(--space-2);
+  }
+  .label-summary {
+    flex: 1;
+    min-width: 0;
+  }
+  .label-summary h1 {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .label-meta {
+    margin: var(--space-1) 0 0;
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+  .label-leave {
+    flex: none;
     font-size: 0.875rem;
     color: var(--muted);
-  }
-  .label-strip a {
-    color: var(--accent);
   }
   .timeline-status:empty {
     display: none;

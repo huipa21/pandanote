@@ -110,7 +110,12 @@
       : undefined}
   >
     <header
-      class:has-tags={note.tags.length > 0 || Boolean(label)}
+      class:has-tags={note.tags.length > 0}
+      style:--header-background={label?.headerColor
+        ? `var(--label-${label.headerColor}-bg)`
+        : label?.background
+          ? `var(--label-${label.background}-bg)`
+          : undefined}
       style:background={label?.headerColor
         ? `var(--label-${label.headerColor}-bg)`
         : undefined}
@@ -118,29 +123,34 @@
         ? `var(--label-${label.headerColor}-fg)`
         : undefined}
     >
-      <span class="when-wrap">
-        <a
-          class="when"
-          href={`/notes/${note.id}`}
-          aria-describedby={`when-info-${note.id}`}
-          ><time datetime={when.toISOString()}
-            >{shortDate(
-              note.timelineAt,
-              timezone,
-              undefined,
-              i18n.locale,
-            )}</time
-          ></a
-        >
-        <span class="when-info" id={`when-info-${note.id}`} role="tooltip"
-          ><span
-            >{t('note.created')} {stampDateTime(note.createdAt, timezone)}</span
-          ><span
-            >{t('note.updated')} {stampDateTime(note.updatedAt, timezone)}</span
-          ></span
-        >
-      </span>
-      <span class="word-count">{t('note.words', { count: wordCount })}</span>
+      <div class="header-date">
+        <span class="when-wrap">
+          <a
+            class="when"
+            href={`/notes/${note.id}`}
+            aria-describedby={`when-info-${note.id}`}
+            ><time datetime={when.toISOString()}
+              >{shortDate(
+                note.timelineAt,
+                timezone,
+                undefined,
+                i18n.locale,
+              )}</time
+            ></a
+          >
+          <span class="when-info" id={`when-info-${note.id}`} role="tooltip"
+            ><span
+              >{t('note.created')}
+              {stampDateTime(note.createdAt, timezone)}</span
+            ><span
+              >{t('note.updated')}
+              {stampDateTime(note.updatedAt, timezone)}</span
+            ></span
+          >
+        </span>
+        <span class="word-count">{t('note.words', { count: wordCount })}</span>
+      </div>
+      {#if label}<div class="header-label"><LabelChip {label} /></div>{/if}
       {#if trashed}<div class="header-actions">
           <button
             type="button"
@@ -207,11 +217,7 @@
           >
         </div>{/if}
     </header>
-    {#if note.tags.length || label}<ul
-        class="note-tags"
-        aria-label={t('note.tags')}
-      >
-        {#if label}<li><LabelChip {label} /></li>{/if}
+    {#if note.tags.length}<ul class="note-tags" aria-label={t('note.tags')}>
         {#each note.tags as tag (tag)}<li>
             <a href={selectTag({}, tag)}>#{tag}</a>
           </li>{/each}
@@ -281,7 +287,8 @@
 <style>
   /* Date row and tags row read as one compact header block, as on timeline cards. */
   header {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-2);
     align-items: center;
     color: var(--muted);
@@ -292,9 +299,36 @@
     margin-bottom: 0;
   }
   .header-actions {
-    margin-left: auto;
+    grid-column: 3;
+    justify-self: end;
     display: flex;
     align-items: center;
+  }
+  .header-label {
+    grid-column: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+  .header-date {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  @media (max-width: 900px) {
+    header {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .header-actions {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .header-label {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      justify-self: center;
+    }
   }
   /* Same pill geometry as the timeline card date and tag chips. */
   .header-actions :global(.icon-button) {
@@ -339,7 +373,7 @@
     white-space: nowrap;
     font-size: 0.8125rem;
     color: var(--text);
-    background: var(--surface);
+    background: var(--header-background, var(--surface));
     border: 1px solid var(--border);
     border-radius: var(--radius);
     pointer-events: none;
@@ -359,7 +393,7 @@
   }
   .when:hover,
   .when:focus-visible {
-    background: var(--accent-soft);
+    background: var(--header-background, var(--accent-soft));
   }
   .pin-toggle .when-rest {
     display: inline-grid;

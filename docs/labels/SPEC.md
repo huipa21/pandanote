@@ -1,7 +1,7 @@
 # Color or icon labels — technical specification
 
 **Status: implemented** (L01–L07, plus a 2026-10 follow-up round: expanded icon set,
-optional header-color/background/font formatting, masonry management page, redundant
+optional header-color/background/font formatting, tag-style management list, redundant
 nav-link removal — see [PROGRESS.md](PROGRESS.md) for exact commands/results and
 remaining gaps — Linux/Alpine image gate and full visual/manual review).
 
@@ -171,12 +171,11 @@ and its own `label_mutation_receipts` table, as planned.
   Tags never had one either, and having both made Tags and Labels look like the same
   feature at a glance (user feedback). `/labels` is still reachable from the sidebar
   section heading, same as `/tags`.
-- Layout: title "Labels", a **New label** button, then a **masonry grid** of label tiles
-  (CSS multi-column flow, `columns: 16rem`, `break-inside: avoid` — no JS layout library;
-  **(2026-10 follow-up, replaces the original plain list)** per user request. Each tile
-  previews the label as it will actually render on a note: a header strip (header color
-  tint + the identity chip + an `ActionMenu` for Edit/Delete) and a body strip (background
-  tint + a sample sentence in the chosen font) plus the note count.
+- Layout (2026-10-17 override): title "Labels", a **New label** button, search directly
+  below (Enter applies the same boolean name-search grammar as Tags), then a flowing
+  list of count-bearing soft chips matching Tags. A chip opens its filtered notes view;
+  its adjacent three-dot menu offers Edit/Delete. This replaces the masonry previews;
+  formatting previews remain in the New/Edit dialog.
 - New/Edit dialog: name field, a row of 8 color swatches (radio-group semantics, one
   selectable), a row of 36 icon buttons plus a "no icon" option (radio-group semantics),
   **(2026-10 follow-up)** a row of 8 header-color swatches plus "no header color", a row
@@ -190,12 +189,10 @@ and its own `label_mutation_receipts` table, as planned.
 
 ### 4.2 Assigning a label in the editor
 
-- **Header, not the toolbar (revised).** The label is a centered control in the editor's
-  header row (above the text, never in the tags/options row): the label chip when one is
-  set, a dashed "Choose a label" placeholder otherwise. It is shown in the composer, focus
-  mode, mobile full-screen editor and in-place edit. Disabled while the editor is locked
-  (busy, frozen, conflict). On short viewports (max-height 480px) the row is compacted so
-  the footer stays reachable.
+- **Icon in the bottom toolbar (2026-10-17 override).** No separate header control or
+  placeholder. The label icon sits beside Tags in the composer, focus mode, mobile
+  full-screen editor and in-place edit. Its pressed state and tooltip/accessibility
+  label identify the selected label. Disabled while busy, frozen or conflicted.
 - Opens a small picker: "No label" plus the up-to-40 labels (swatch + icon + name, no
   search field). Choosing one sets `label_id` locally in the editor session; nothing is
   written to the server until Post/Save.
@@ -215,10 +212,10 @@ and its own `label_mutation_receipts` table, as planned.
   always visible text, so color-blind or no-color (forced-colors/high-contrast) users
   still identify the label from the text, and screen readers read the name directly
   (no `aria-label`-only color swatch).
-- Position: same row as tag chips, visually distinguished (e.g. leading position, slightly
-  different chip shape) so it is not confused with a hashtag chip. Exact placement decided
-  during L05 with a screenshot review, consistent with PRODUCT_SPEC §3's visual-language
-  rules (no resting underline on non-interactive metadata, AA contrast).
+- Position (2026-10-17 override): centered in the card/detail date-and-actions header,
+  never in the tags row. On narrow screens it takes a centered second header row to
+  avoid collisions with the date/actions. Both date hover/focus and timestamp tooltip
+  backgrounds use the effective header tint rather than the default green hover tint.
 - Clicking the chip on the card does nothing special (no quick-filter from the card) unless
   decided otherwise during implementation; the authoritative filter entry point is the
   sidebar list (§4.4). (Record the final decision in PROGRESS.md if this is revisited.)
@@ -233,8 +230,11 @@ and its own `label_mutation_receipts` table, as planned.
 
 - A "Labels" section in the sidebar, structured like `TagList.svelte` (chips ordered by
   note count then `name_key`, a "+N" overflow link to `/labels`), each chip showing
-  swatch+icon+name+count.
-- Clicking a chip sets a `label=<id>` URL query filter alongside the existing `tag`/`day`/
+  icon+name+count, using the same geometry and active styling as Tags.
+- Clicking a chip sets a `label=<id>` URL query filter; clicking the selected chip again
+  clears only that filter. The label view has a name/count heading, All notes link and
+  Edit/Delete menu matching the tag-view structure, without a duplicate filter chip.
+  The label filter exists alongside the existing `tag`/`day`/
   `month`/`q` filters; combinable with all of them (AND semantics, consistent with how
   `tag` already combines with `q`); not part of the `shared/search.ts` grammar — `label:`
   is **not** a recognized search term (distinct from `tag:name`, README decision — labels

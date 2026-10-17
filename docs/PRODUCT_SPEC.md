@@ -8,12 +8,13 @@ The user approved reusable note templates: a **Templates** page (sidebar link, l
 
 The user approved a second, lighter classifier separate from hashtags: at most one
 user-named **label** per note, each with a color from a fixed 8-color palette and an
-optional icon from a fixed 36-icon set, managed on a `/labels` page shown as a masonry
-tile grid (create, rename, recolor, re-icon, delete; cap 40). A label can also optionally
+optional icon from a fixed 36-icon set, managed on a searchable `/labels` chip list
+matching Tags (create, rename, recolor, re-icon, delete; cap 40). A label can also optionally
 override the note card/detail **header color**, whole-surface **background** and **body
 font** (each from the same fixed palette / a small fixed font set, independently
-optional). Picked from an editor toolbar button; shown as a chip (icon/color + name text,
-never color alone) on the card and note detail page; filters the timeline from a sidebar
+optional). Picked from an icon-only editor toolbar button; shown centered in the card
+and note detail header as a chip (icon/color + name text, never color alone). Date hover
+and timestamp tooltip backgrounds match the labeled header. Filters the timeline from a sidebar
 list like Tags, but is not part of free-text search. Carried through pin, Trash and
 restore unchanged; deleting a label clears it from notes without deleting them. The
 schema change is folded directly into the baseline ("treat as new setup", no new
@@ -318,7 +319,7 @@ Trash:
 - Ignore code blocks, inline code, raw HTML, URLs/link destinations, and escaped hashtag markers when extracting tags.
 - Markdown heading markers are not tags.
 - Deduplicate tags per note.
-- Tag selection is single: clicking a tag opens that tag's view (search/day filters are kept) and replaces any other tag. A tag view shows the tag's summary (notes, Trash) with a three-dot menu: Rename Tag, Merge Tag, Remove Tag. The tag is named by the view's header (no filter chip repeats it), which has an "All notes" link that leaves the tag view and keeps search/day filters; the filter strip shows only search/day chips. A URL or API call with more than one `tag` value is refused with "Select only one tag."
+- Tag selection is single: clicking a tag opens that tag's view (search/day/label filters are kept) and replaces any other tag; clicking the selected tag again clears only that tag filter. Labels use the same toggle behavior, sidebar chip geometry, searchable management list and filtered-view heading pattern, with label Edit/Delete actions. A tag view shows the tag's summary (notes, Trash) with a three-dot menu: Rename Tag, Merge Tag, Remove Tag. The tag is named by the view's header (no filter chip repeats it), which has an "All notes" link that leaves the tag view and keeps search/day filters; the filter strip shows only search/day chips. A URL or API call with more than one `tag` value is refused with "Select only one tag."
 - A card's tag is clickable; filter state is visible/removable above the timeline.
 
 Tag management (from the tag view menu) includes:

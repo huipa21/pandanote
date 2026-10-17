@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
+  import Icon from './Icon.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { RECORDER_ERROR_KEYS } from '#lib/client/recording/clips.ts';
   import type { RecorderErrorCode } from '#lib/client/recording/recorder.ts';
@@ -11,12 +12,16 @@
   let {
     workspace,
     onTag,
+    onLabel,
+    labelName,
     onTemplate,
     onFiles,
     onAttach,
   }: {
     workspace: EditorWorkspace | undefined;
     onTag: () => void;
+    onLabel: () => void;
+    labelName?: string;
     onTemplate: () => void;
     onFiles: () => void;
     onAttach: () => void;
@@ -59,6 +64,16 @@
       ><path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" /></svg
     >
   </button>
+  <button
+    type="button"
+    disabled={locked}
+    aria-label={labelName
+      ? `${t('labels.pick')}: ${labelName}`
+      : t('editor.addLabel')}
+    aria-pressed={Boolean(labelName)}
+    title={labelName ?? t('editor.labelTitle')}
+    onclick={onLabel}><Icon name="price-tag" /></button
+  >
   <button
     type="button"
     disabled={locked}
@@ -158,6 +173,10 @@
     color: var(--muted);
     font-size: 0.875rem;
     white-space: nowrap;
+  }
+  .note-options button[aria-pressed='true'] {
+    color: var(--accent);
+    background: var(--accent-soft);
   }
   svg {
     width: 1.25rem;

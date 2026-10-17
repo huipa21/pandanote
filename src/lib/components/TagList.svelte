@@ -43,7 +43,6 @@
     align-items: center;
     max-width: 100%;
     min-height: var(--row-target);
-    padding-inline: var(--space-3);
     border-radius: 999px;
     background: var(--accent-soft);
   }
@@ -55,6 +54,11 @@
     color: var(--on-accent);
   }
   a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: var(--row-target);
+    padding-inline: var(--space-3);
     color: var(--accent);
     text-decoration: none;
     overflow-wrap: anywhere;
