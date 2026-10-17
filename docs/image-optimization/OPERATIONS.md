@@ -2,15 +2,16 @@
 
 The canonical operator guide is [ops/DEPLOYMENT.md](../../ops/DEPLOYMENT.md):
 
-- §1–2: clean-source build, Docker/Podman save, gzip6/checksum transfer, actual Docker
-  compressed load and explicit Podman localhost retag. Raw transfer remains supported.
+- §1–2: clean-source build, Docker/Podman save, gzip6/checksum transfer and actual
+  Docker compressed load. Both engines export `localhost/pandanote:latest`; raw
+  transfer remains supported.
 - §5–6: retain the prior image/downloaded full backup, upgrade and immediate DB-copy
   rollback limits. Image compression is not application backup or encryption.
 - §14: dedicated runtime manifest/lock regeneration, reviewed drift/override/transitive
   checks, native/worker/CLI validation and streaming size reporting.
 
-Normal deployment still needs only root Compose, ORIGIN and existing Caddy; no
-new configuration/service/startup installer. Do not use test topology as installation.
+Normal deployment needs root Compose with ORIGIN configured and existing Caddy; no
+`.env`, extra service or startup installer. Do not use test topology as installation.
 For actual full-state recovery use [RESTORE_RUNBOOK.md](../../ops/RESTORE_RUNBOOK.md).
 
 Repeatable Alpine common/native/fallback, supported browser, external production

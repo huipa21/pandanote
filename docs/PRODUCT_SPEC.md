@@ -522,9 +522,10 @@ Concurrent edit handling:
   requirement without approval; [change progress](simplify-setup/PROGRESS.md).
 - Newer/unknown/modified/pre-release schemas refuse startup; pre-release archives
   are refused, not retrofitted. Full details: [simplify-setup SPEC](simplify-setup/SPEC.md).
-- Existing-Caddy deployment uses only root `docker-compose.yml` and `.env.example`:
-  one app service on external `proxynet`, ORIGIN required; configurable image,
-  host bind (default `./data`) and PUID/PGID (1000:1000). No ports/bundled proxy/
+- Existing-Caddy deployment uses only root `docker-compose.yml`:
+  one app service on external `proxynet`, canonical ORIGIN set directly in Compose,
+  fixed `localhost/pandanote:latest` image, host bind (default `./data`) and
+  PUID/PGID (1000:1000). No `.env` file is required. No ports/bundled proxy/
   static IPs/resource or hardening overrides/ops services. Image HEALTHCHECK remains.
   Root briefly prepares private data then permanently drops privileges before DB/server.
   PID 1 Node has no capabilities; default idle SIGTERM exits 0 within 10 seconds.

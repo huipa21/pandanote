@@ -1,11 +1,13 @@
 services:
   pandanote:
-    image: ${PANDANOTE_IMAGE:-pandanote:latest}
+    image: localhost/pandanote:latest
     container_name: pandanote
     restart: unless-stopped
-    env_file: .env
+    environment:
+      ORIGIN: https://notes.example.com
+      # TRUSTED_PROXIES: 172.18.0.2
     volumes:
-      - ${DATA_PATH:-./data}:/data
+      - ./data:/data
     networks:
       - proxynet
 

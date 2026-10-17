@@ -32,7 +32,7 @@ reference/space failures leave current application data unchanged.
 ## Fresh replacement VPS / different domain
 
 Follow [DEPLOYMENT.md](DEPLOYMENT.md): load the compatible image, copy root
-`docker-compose.yml`/`.env.example`, set destination ORIGIN and join the existing
+`docker-compose.yml`, set destination ORIGIN and join the existing
 Caddy network. DATA_PATH defaults to `./data`; container DATA_DIR is always `/data`.
 Run docker compose up -d; startup initializes/migrates before HTTP.
 Complete two-step browser setup within 60 minutes with a temporary account/preferences

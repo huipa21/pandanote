@@ -222,7 +222,7 @@ full Alpine common/native gate without unreported skips.
 2. Verify two-step setup/login/MFA, note post/edit/search/private images/files, Mermaid
    lazy loading and sanitization, server/browser syntax highlighting and i18n/timezones.
    Include a language not yet loaded to expose missing deferred grammar assets.
-3. Run copied-root deployment gates with real root Compose and ORIGIN-only env:
+3. Run copied-root deployment gates with real root Compose and inline ORIGIN:
    default/non-default UID/GID, private modes/PID1/capabilities, spoofed XFF,
    restart/recreation, default idle SIGTERM and interrupted backup.
 4. Exercise reset-password under a real PTY while the server runs: no echo, session

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -107,6 +107,18 @@ function copy(text: string, destination: string) {
   writeFileSync(file, text);
   cli(['cp', file, `${helper}:/probe/${destination}`]);
 }
+function configureCompose(ids?: { puid: number; pgid: number }) {
+  const source = readFileSync(resolve('docker-compose.yml'), 'utf8');
+  const originLine = '      ORIGIN: https://notes.example.com\n';
+  expect(source).toContain(originLine);
+  const identities = ids
+    ? `      PUID: "${ids.puid}"\n      PGID: "${ids.pgid}"\n`
+    : '';
+  copy(
+    source.replace(originLine, `      ORIGIN: ${origin}\n${identities}`),
+    'docker-compose.yml',
+  );
+}
 function inspect(script: string): unknown {
   return JSON.parse(
     cli([
@@ -156,11 +168,11 @@ test.beforeAll(() => {
       'Refusing deployment gate: pandanote/proxynet already exists. Use an isolated test engine.',
     );
   const old = spawnEngine(
-    ['image', 'inspect', 'pandanote:latest', '--format', '{{.Id}}'],
+    ['image', 'inspect', 'localhost/pandanote:latest', '--format', '{{.Id}}'],
     { encoding: 'utf8' },
   );
   if (old.status === 0) original = old.stdout.trim();
-  cli(['tag', image, 'pandanote:latest']);
+  cli(['tag', image, 'localhost/pandanote:latest']);
   cli(['network', 'create', 'proxynet']);
   owned = true;
   shell(`mkdir -m 700 ${q(root)}`);
@@ -180,16 +192,11 @@ test.beforeAll(() => {
     image,
     'infinity',
   ]);
-  cli([
-    'cp',
-    resolve('docker-compose.yml'),
-    `${helper}:/probe/docker-compose.yml`,
-  ]);
+  configureCompose();
   cli(['cp', resolve(binary), `${helper}:/probe/compose`]);
   cli(['exec', helper, 'chmod', '755', '/probe/compose']);
-  copy(`ORIGIN=${origin}\n`, '.env');
-  // Config uses ONLY the required ORIGIN; ./data does not exist yet.
-  expect(compose('config')).toContain('pandanote:latest');
+  // No .env is present; deployment configuration comes directly from Compose.
+  expect(compose('config')).toContain('localhost/pandanote:latest');
   compose('up -d');
   cli([
     'create',
@@ -213,9 +220,10 @@ test.afterAll(() => {
       timeout: 60_000,
     });
     spawnEngine(['network', 'rm', 'proxynet'], { timeout: 60_000 });
-    if (original) spawnEngine(['tag', original, 'pandanote:latest']);
-    else if (dockerContainer) spawnEngine(['image', 'rm', 'pandanote:latest']);
-    else spawnEngine(['untag', image!, 'pandanote:latest']);
+    if (original) spawnEngine(['tag', original, 'localhost/pandanote:latest']);
+    else if (dockerContainer)
+      spawnEngine(['image', 'rm', 'localhost/pandanote:latest']);
+    else spawnEngine(['untag', image!, 'localhost/pandanote:latest']);
     shell(`rm -rf ${q(root)}`);
   }
   rmSync(temporary, { recursive: true, force: true });
@@ -325,7 +333,7 @@ test('DEP-03,04,06: restart/recreation preserve data, idle default shutdown, non
   expect(cli(['inspect', 'pandanote', '--format', '{{.State.ExitCode}}'])).toBe(
     '0',
   );
-  copy(`ORIGIN=${origin}\nPUID=12345\nPGID=12346\n`, '.env');
+  configureCompose({ puid: 12345, pgid: 12346 });
   compose('up -d');
   await ready();
   const s = cli([
@@ -343,7 +351,7 @@ test('DEP-03,04,06: restart/recreation preserve data, idle default shutdown, non
   expect(s).toMatch(/CapPrm:\s+0000000000000000/);
   cli(['run', '--rm', '-e', `ORIGIN=${origin}`, '-e', 'PUID=0', image!], 1);
   compose('down');
-  copy(`ORIGIN=${origin}\n`, '.env');
+  configureCompose();
   compose('up -d');
   await ready();
 });
@@ -408,7 +416,7 @@ test('DEP-06: default stop interrupts an active backup; restart fails it without
 
 test('DEP-07: synthetic SQL/data upgrade captures old DB; documented image + copy rollback preserves notes', async () => {
   compose('down');
-  cli(['tag', upgrade!, 'pandanote:latest']);
+  cli(['tag', upgrade!, 'localhost/pandanote:latest']);
   compose('up -d');
   await ready();
   expect(
@@ -426,7 +434,7 @@ test('DEP-07: synthetic SQL/data upgrade captures old DB; documented image + cop
   shell(
     `cd ${q(root)} && mv data/db data/db.after-upgrade && mkdir data/db && cp data/pre-upgrade/pandanote.sqlite data/db/pandanote.sqlite`,
   );
-  cli(['tag', image!, 'pandanote:latest']);
+  cli(['tag', image!, 'localhost/pandanote:latest']);
   compose('up -d');
   await ready();
   expect(

@@ -51,7 +51,7 @@ The date rule is UTC even though the original Git timestamps use `+08:00`.
 4. Require complete validated release metadata in the production Dockerfile;
    direct Docker builds without metadata fail, never publish Development as release.
    Add OCI labels without Git history/runtime overrides.
-5. Root `docker-compose.yml` only loads `${PANDANOTE_IMAGE:-pandanote:latest}`;
+5. Root `docker-compose.yml` only loads `localhost/pandanote:latest`;
    no build arguments/build service. Recommend the clean-source wrapper and
    save/load flow, then docker compose up -d. Test-only release Compose selects
    already-built images. Low-level Docker arguments cannot prove source identity.
@@ -67,8 +67,9 @@ The date rule is UTC even though the original Git timestamps use `+08:00`.
 
 1. Update PRODUCT_SPEC, ARCHITECTURE, IMPLEMENTATION_PLAN, ACCEPTANCE_TESTS, deployment guide, README and PROGRESS. Preserve handoff history.
 2. Document build/save/scp/load/inspect, one app on existing Caddy network,
-   automatic startup migrations/pre-upgrade copy and image pinning. Podman exports
-   localhost/pandanote:latest and Docker retags it after load. No fixed proxy IP.
+   automatic startup migrations/pre-upgrade copy and rollback. Docker exports are
+   tagged `localhost/pandanote:latest`; Podman already uses that explicit namespace,
+   so either archive loads directly for Compose. No fixed proxy IP.
    Retain old image plus manually downloaded full backup before upgrade/rollback.
 3. Run `npm run check`, `npm run lint`, `npm run test:unit`, `npm run test:integration`, `npm run build`, affected Playwright and full browser regressions where feasible.
 4. Validate native Sharp/SQLite and embedded metadata in the Linux production image. Since this enhancement is uncommitted during development, do not bypass dirty-source rejection or create a user-repository commit without approval. Use an explicitly synthetic, isolated **clean Git snapshot** containing the implementation for container verification; record that it is not a final release commit.

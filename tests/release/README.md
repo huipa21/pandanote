@@ -2,8 +2,8 @@
 
 These stacks and credentials are **synthetic**. Nothing here is an installation
 example or shipped in the runtime image. Use a disposable Linux engine; never
-point these commands at a production host/data folder. Production needs only the
-root `docker-compose.yml` and `.env.example`, plus an existing Caddy network.
+point these commands at a production host/data folder. Production needs only root `docker-compose.yml` with its ORIGIN configured, plus
+an existing Caddy network.
 
 ## Two-domain drill and benchmark
 
@@ -116,13 +116,14 @@ Verify on a disposable Docker server with both engine builds available:
 
 ```sh
 # Docker-built image:
-docker image save -o docker-image.tar pandanote:latest
+docker image tag pandanote:latest localhost/pandanote:latest
+docker image save -o docker-image.tar localhost/pandanote:latest
 gzip -6 -c docker-image.tar > docker-image.tar.gz
 gzip -t docker-image.tar.gz
 sha256sum docker-image.tar.gz > docker-image.tar.gz.sha256
 sha256sum -c docker-image.tar.gz.sha256
 docker image load -i docker-image.tar.gz
-docker image inspect pandanote:latest
+docker image inspect localhost/pandanote:latest
 
 # Podman-built image (namespace is intentionally explicit):
 podman save --format docker-archive -o podman-image.tar localhost/pandanote:latest
@@ -132,8 +133,7 @@ gzip -t podman-image.tar.gz
 sha256sum podman-image.tar.gz > podman-image.tar.gz.sha256
 sha256sum -c podman-image.tar.gz.sha256
 docker image load -i podman-image.tar.gz
-docker tag localhost/pandanote:latest pandanote:latest
-docker image inspect pandanote:latest
+docker image inspect localhost/pandanote:latest
 ```
 
 Check immutable version/revision/created labels and native modules in each loaded

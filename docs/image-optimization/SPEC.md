@@ -196,7 +196,7 @@ Use the same gzip level (6) and architecture for comparisons; note any runtime o
 source differences. Gzip only improves transfer/storage, not the loaded image.
 
 Publish reproducible Docker/Podman export, gzip, checksum, transfer and Docker-load
-instructions, including the Podman localhost namespace/retag. Preserve uncompressed
+instructions using `localhost/pandanote:latest` for both engines. Preserve uncompressed
 export commands as supported alternatives. No app backup encryption/format change.
 
 ## 8. Size targets and completion rules

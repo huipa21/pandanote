@@ -6,6 +6,14 @@
   banners); canonical ops/DEPLOYMENT.md covers the minimal existing-Caddy install,
   two-step setup, startup migrations/copy, rollback and live-safe interactive reset.
   DOC guard and Sign out hydration regression added.
+- **2026-10-17 deployment configuration follow-up:** root Compose now sets ORIGIN
+  directly, fixes the local image reference to `localhost/pandanote:latest`, and
+  requires no `.env`. Deployment/test guidance and the Linux deployment fixture were
+  updated. Focused hygiene tests and lint/check passed; actual Docker Compose/Linux
+  image validation is blocked here because Docker is not installed.
+- **Plan state:** SS07 remains done; SS01 remains in progress and the overall change
+  is not complete. Updated root Compose/README, product and architecture specs,
+  deployment/restore guides, release and acceptance docs, plus deployment tests.
 - **Validation:** final post-fix host check/lint/build + 130 unit / 206 integration
   - 7 explicit Linux skips PASS; rebuilt fresh Linux common/native/PTY/Git gates
     130 unit / all 213 integration (zero skips/exclusions) PASS. Full host Chromium
@@ -16,8 +24,9 @@
   SS02–SS07 implemented and locally verified; SS07 done. Overall
   change is **not done** until SS01 is resolved; S18 public-VPS/device/AT/Linux
   visual/exact-release-commit gates also remain open.
-- **Session baseline:** clean HEAD `44cde28` (SS06 committed). No user-repository
-  commit, dependency/lockfile change or real application-data deletion.
+- **Earlier session baseline:** clean HEAD `44cde28` (SS06 committed). This
+  configuration follow-up has uncommitted changes; no user-repository commit,
+  dependency/lockfile change or real application-data deletion.
 
 ## Next session: exact task
 
@@ -53,9 +62,10 @@
   Kit 3's environment module is `$app/env`; build analysis must skip initialization.
 - AuthService live reset is verified in SS05: DB-backed credential/revision state,
   immediate session rejection, journal/replacement checks, atomic rollback; preserve it.
-- Podman archive namespace is explicit: export `localhost/pandanote:latest`,
-  Docker load, then `docker tag localhost/pandanote:latest pandanote:latest`.
-  Both engine builds/load paths are verified; do not omit the retag in SS07 docs.
+- Both Docker and Podman deployment archives use
+  `localhost/pandanote:latest`; Docker build exports add the explicit local tag,
+  while Podman already uses it. Compose consumes that tag directly without a
+  post-load alias step.
 - Caddy 2.11.6 defaults are verified for XFF replacement and >1 GiB TLS restore;
   no header/body/timeout override is required. Default idle shutdown and interrupted
   backup cleanup are verified on the production image, not just host tests.
@@ -923,3 +933,31 @@ Final close (documentation-only after these source gates):
   release-hygiene; git diff --check all **PASS** (0 diagnostics, 7 hygiene cases).
   .e2e-data/NUL absence and unchanged package/lock/Compose/env **PASS**. Only this
   result note is appended afterwards; no source/test behavior changed.
+
+### 2026-10-17 — Compose-only production configuration follow-up
+
+User requested that production settings live in `docker-compose.yml` and that
+Compose always use `localhost/pandanote:latest`. Updated the root service to set
+ORIGIN directly, use the fixed local image reference and bind `./data` without
+loading `.env`. Aligned product/architecture/spec, release/deployment/restore and
+acceptance documentation; updated release-hygiene and copied-root Linux deployment
+tests to exercise inline ORIGIN and the new image reference. The `.env.example`
+remains for optional local tooling; deployment no longer transfers or requires it.
+Implementation-plan status remains SS07 done, SS01 in progress; overall project
+completion is still blocked by SS01 and S18 acceptance.
+
+Validation:
+
+- `npm run check` — PASS, 0 errors; 1 existing unused CSS selector warning in
+  `src/lib/components/AppShell.svelte`.
+- `npm run lint` — PASS.
+- `npm run test:integration -- release-hygiene` — PASS, 7/7 (initial run exposed
+  one stale assertion for the previous proxy setting example; assertion updated,
+  rerun passed).
+- Prettier write/check and `git diff --check` — PASS.
+- `docker compose config` and Linux image deployment test — NOT RUN: Docker CLI is
+  unavailable in this Windows environment. The attempted config command failed
+  with `docker` not recognized; no runtime/engine validation is claimed.
+
+Next task remains resolving SS01 with the user; read SPEC §8, ARCHITECTURE §4.3,
+pre-upgrade implementation and copy tests before changing its atomicity behavior.

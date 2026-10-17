@@ -21,14 +21,19 @@ or Podman (Docker Desktop in Linux-container mode on Windows):
 npm run version:release
 npm run image:build -- --platform linux/amd64     # or linux/arm64
 # Docker build machine:
-docker image save -o pandanote-image.tar pandanote:latest
+docker image tag pandanote:latest localhost/pandanote:latest
+docker image save -o pandanote-image.tar localhost/pandanote:latest
 # OR Podman build machine (explicit archive namespace):
 # podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest
 gzip -6 -c pandanote-image.tar > pandanote-image.tar.gz
 gzip -t pandanote-image.tar.gz
 sha256sum pandanote-image.tar.gz > pandanote-image.tar.gz.sha256
-scp pandanote-image.tar.gz pandanote-image.tar.gz.sha256 docker-compose.yml .env.example user@server:~/pandanote/
+scp pandanote-image.tar.gz pandanote-image.tar.gz.sha256 docker-compose.yml user@server:~/pandanote/
 ```
+
+Before transfer, edit `ORIGIN` in `docker-compose.yml` to the destination's
+canonical HTTPS origin. The Compose file uses `localhost/pandanote:latest` and
+mounts `./data`; no `.env` file is required.
 
 Create `~/pandanote/` on the server first if missing. No host `npm ci` is needed to
 build: the wrapper uses Node built-ins and installs native dependencies inside Linux.
@@ -60,12 +65,7 @@ cd ~/pandanote
 sha256sum -c pandanote-image.tar.gz.sha256
 gzip -t pandanote-image.tar.gz
 docker image load -i pandanote-image.tar.gz
-# ONLY for a Podman-built archive (loaded as localhost/pandanote:latest):
-# docker tag localhost/pandanote:latest pandanote:latest
-docker image inspect pandanote:latest --format '{{json .Config.Labels}}'
-cp .env.example .env
-chmod 600 .env
-nano .env                      # set ORIGIN=https://notes.example.com
+docker image inspect localhost/pandanote:latest --format '{{json .Config.Labels}}'
 docker compose up -d
 docker compose ps              # wait for healthy
 ```
@@ -113,7 +113,6 @@ Recommended next: enable TOTP in Settings and download a full backup.
 | Path                 | Contents                                                                       |
 | -------------------- | ------------------------------------------------------------------------------ |
 | `docker-compose.yml` | One PandaNote service on the existing Caddy network.                           |
-| `.env`               | Required `ORIGIN`, optional values below. Keep private.                        |
 | `./data/`            | Database, files, keys, staging, manual backups and latest pre-upgrade DB copy. |
 
 Startup automatically recovers restores, initializes keys/database/default settings,
@@ -122,22 +121,21 @@ operator command. Linux data directories are owner-only `0700`, files `0600`.
 Never copy a live SQLite main file without WAL, regenerate lost keys or manually
 remove referenced attachment bytes.
 
-### Settings in `.env`
+### Compose configuration
 
-| Variable             | Required | Default                  | Meaning                                                                                                                                                                                   |
-| -------------------- | -------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ORIGIN`             | yes      | —                        | Canonical HTTPS origin, no trailing slash; HTTP only for loopback.                                                                                                                        |
-| `DATA_PATH`          | no       | `./data`                 | Private local folder on this server for all app data.                                                                                                                                     |
-| `PUID` / `PGID`      | no       | `1000` / `1000`          | Non-root positive numeric owner IDs.                                                                                                                                                      |
-| `PANDANOTE_IMAGE`    | no       | `pandanote:latest`       | Set to a retained version/tag for pinning or rollback.                                                                                                                                    |
-| `DISK_RESERVE_BYTES` | no       | max(5 GiB, 10% capacity) | Free-space floor protecting the shared filesystem.                                                                                                                                        |
-| `BODY_SIZE_LIMIT`    | no       | `64G` in image           | Transport ceiling; domain image/file/archive limits still apply.                                                                                                                          |
-| `PORT`               | no       | `3000`                   | Internal listener; changing it also requires changing Caddy's upstream.                                                                                                                   |
-| `TRUSTED_PROXIES`    | no       | private peers            | `none` ignores XFF; otherwise up to 32 comma-separated IPv4/IPv6 addresses or CIDRs. Only listed TCP peers may supply XFF. Unset/blank retains private-network/loopback/link-local trust. |
+| Setting              | Location                 | Default                  | Meaning                                                                                                                                                                                   |
+| -------------------- | ------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORIGIN`             | `environment`            | Edit the example value   | Canonical HTTPS origin, no trailing slash; HTTP only for loopback.                                                                                                                        |
+| Host data folder     | `volumes`                | `./data`                 | Private local folder on this server for all app data, mounted at `/data`.                                                                                                                 |
+| `PUID` / `PGID`      | `environment` (optional) | `1000` / `1000`          | Non-root positive numeric owner IDs.                                                                                                                                                      |
+| `DISK_RESERVE_BYTES` | `environment` (optional) | max(5 GiB, 10% capacity) | Free-space floor protecting the shared filesystem.                                                                                                                                        |
+| `BODY_SIZE_LIMIT`    | `environment` (optional) | `64G` in image           | Transport ceiling; domain image/file/archive limits still apply.                                                                                                                          |
+| `PORT`               | `environment` (optional) | `3000`                   | Internal listener; changing it also requires changing Caddy's upstream.                                                                                                                   |
+| `TRUSTED_PROXIES`    | `environment` (optional) | private peers            | `none` ignores XFF; otherwise up to 32 comma-separated IPv4/IPv6 addresses or CIDRs. Only listed TCP peers may supply XFF. Unset/blank retains private-network/loopback/link-local trust. |
 
-The only env template is root `.env.example`, with just ORIGIN required.
-Container `DATA_DIR` is always `/data`; DATA_PATH controls the host bind. Use the
-configured path, not literal `data`, in disk/recovery examples if you changed it.
+Edit these values directly in `docker-compose.yml`. Container `DATA_DIR` is always
+`/data`; the host side of the volume controls where data is stored. Use the configured
+path, not literal `data`, in disk/recovery examples if you changed it.
 The 60 GB disk is shared with OS/images/staging/backups; do not consume the reserve.
 
 ## 3. Everyday commands
@@ -171,10 +169,9 @@ are device-only and excluded from both.
 ## 5. Upgrade
 
 1. Create/download a fresh full backup in Settings; retain it off-server.
-2. Keep the current image: `docker tag pandanote:latest pandanote:previous` (if
-   pinned to another tag, retain the actual running image instead).
-3. Load the new archive as in section 2, retag Podman imports, and update
-   `PANDANOTE_IMAGE` if pinned. Run `docker compose up -d`, then inspect health/logs
+2. Keep the current image: `docker tag localhost/pandanote:latest localhost/pandanote:previous`.
+3. Load the new archive as in section 2. It replaces `localhost/pandanote:latest`.
+   Run `docker compose up -d`, then inspect health/logs
    and spot-check login, notes, Drafts/Trash, Settings and a file download.
 
 Loading an image alone does not update an already-running container. A new schema
@@ -198,19 +195,20 @@ use a stale copy for it. Current migrations are database-only; keys/files are no
 restored by this procedure. After subsequent edits/deletions/cleanup/restore, use a
 full downloaded backup and a compatible instance instead.
 
-With default DATA_PATH (adjust paths if customized), and after confirming the old
-image is `pandanote:previous`:
+With the default `./data` bind (adjust paths if customized), and after confirming the
+old image is `localhost/pandanote:previous`:
 
 ```sh
 docker compose down
+docker image tag localhost/pandanote:latest localhost/pandanote:failed
+docker image tag localhost/pandanote:previous localhost/pandanote:latest
 sudo mv data/db data/db.after-upgrade
 sudo mkdir data/db
 sudo cp data/pre-upgrade/pandanote.sqlite data/db/pandanote.sqlite
-nano .env                       # set/replace PANDANOTE_IMAGE=pandanote:previous
 docker compose up -d
 ```
 
-Do not append duplicate env keys. The container fixes ownership on startup. Verify
+The container fixes ownership on startup. Verify
 health/login/content before deleting `data/db.after-upgrade`; preserve it if recovery
 fails. See [RESTORE_RUNBOOK.md](RESTORE_RUNBOOK.md) for full-state recovery. An older
 image refuses newer schemas; deploy a compatible version before uploaded restore.
@@ -226,19 +224,19 @@ twice without echo (8–128 characters), atomically changes password, disables M
 recovery codes, revokes sessions/challenges and clears all sign-in rate limits.
 Notes/files/settings stay intact.
 Works with the app running, invalidating old sessions on their next request without
-restart. Maintenance verifies DATA_PATH ownership against PUID/PGID without walking
+restart. Maintenance verifies the `/data` mount ownership against PUID/PGID without walking
 or re-owning live files; mismatched ownership refuses. Pending recovery journals or
 no account also refuse. Enroll TOTP again after login. No public reset endpoint.
 
 ## 8. Someone else completed setup / start over
 
 With server access, preserve the old directory privately first if you need anything
-from it. **This deletes ALL server data, archives and keys**; use the actual configured
-DATA_PATH, never an OS/shared folder:
+from it. **This deletes ALL server data, archives and keys**; use the actual host folder
+mounted at `/data`, never an OS/shared folder:
 
 ```sh
 docker compose down
-sudo rm -rf data                # default DATA_PATH only; irreversible
+sudo rm -rf data                # default ./data bind only; irreversible
 docker compose up -d
 ```
 
@@ -270,7 +268,7 @@ Argument-free, stopped-app-only; changes derived search, not notes/revisions/fil
 
 | Log message / symptom                            | Fix                                                                                                                                                                                                          |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ORIGIN must be set` / `must be https`           | Set canonical HTTPS ORIGIN in `.env`, then `docker compose up -d`.                                                                                                                                           |
+| `ORIGIN must be set` / `must be https`           | Set canonical HTTPS ORIGIN in `docker-compose.yml`, then `docker compose up -d`.                                                                                                                             |
 | Network `proxynet` not found                     | Use Caddy's existing network; change both network references.                                                                                                                                                |
 | `Database upgrade failed at migration N`         | DB transaction rolled back; use the compatible previous image and report only safe logs.                                                                                                                     |
 | `Not enough free space for the pre-upgrade copy` | Free disk space (needed size is logged), restart.                                                                                                                                                            |
@@ -284,7 +282,7 @@ Argument-free, stopped-app-only; changes derived search, not notes/revisions/fil
 
 ## 12. Notes for advanced users
 
-- Container briefly starts as root to prepare only DATA_PATH, rejects links/special
+- Container briefly starts as root to prepare only the `/data` mount, rejects links/special
   files/nested filesystems/external hardlinks, then drops supplementary groups and
   UID/GID permanently. Server PID 1 Node has zero effective/permitted capabilities.
   Do not add `user:` to this automatic-root-owned-bind workflow.
@@ -323,10 +321,13 @@ networks:
 ```
 
 Recreate Caddy with its normal deployment procedure, inspect the network again,
-and set PandaNote's `.env` to the actual fixed peer address:
+and set `TRUSTED_PROXIES` in PandaNote's `docker-compose.yml` to the actual fixed peer address:
 
-```dotenv
-TRUSTED_PROXIES=172.18.0.2
+```yaml
+services:
+  pandanote:
+    environment:
+      TRUSTED_PROXIES: 172.18.0.2
 ```
 
 Then apply the new environment with `docker compose up -d --force-recreate`

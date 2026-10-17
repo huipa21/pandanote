@@ -2,6 +2,14 @@
 
 ## Current state
 
+- **2026-10-17 production Compose configuration follow-up:** user requested
+  production settings directly in `docker-compose.yml` and the fixed
+  `localhost/pandanote:latest` image. Compose now supplies ORIGIN, mounts `./data`
+  and requires no `.env`; deployment/tests/docs were aligned. Focused hygiene tests,
+  check and lint passed. Docker Compose/Linux image validation remains blocked
+  because Docker is unavailable in this Windows environment; see the appended
+  handoff for exact results.
+
 - **2026-10-17 favicon: implemented and host-verified.** Original panda SVG plus
   32px ICO fallback, shared HTML icon links and container-context inclusion.
   Browser regression confirms public GET/HEAD, MIME types and decoding of both
@@ -5748,3 +5756,38 @@ State: implemented / host-verified; no release or Linux-image claim.
   existing login/health smoke with its real account fixture. Targeted Prettier
   and `git diff --check` pass. No favicon follow-up remains; independent release
   gates stay open.
+
+## 2026-10-17 — Production Compose configuration follow-up
+
+User requested that production settings be written directly in
+`docker-compose.yml` and that the service always use `localhost/pandanote:latest`.
+The Compose file now sets ORIGIN inline, uses that fixed image reference, mounts
+`./data:/data`, and no longer reads `.env`. Aligned product/architecture/spec,
+deployment/restore/acceptance documentation, the deployment hygiene test and the
+copied-root Linux deployment fixture. `.env.example` remains available for local
+development tooling but is no longer needed or transferred for production.
+
+Implementation-plan status: SS07 remains done; SS01 remains in progress and the
+overall project is not complete. Files changed: `docker-compose.yml`, README,
+`ops/DEPLOYMENT.md`, `ops/RESTORE_RUNBOOK.md`, product/architecture/versioning/
+acceptance and image-optimization/simplify-setup docs, plus the deployment release
+test fixture and integration hygiene test.
+
+Validation:
+
+- `npm run check` — PASS; 0 errors and 1 pre-existing unused CSS selector warning
+  in `src/lib/components/AppShell.svelte`.
+- `npm run lint` — PASS.
+- `npm run test:integration -- release-hygiene` — PASS, 7/7. The first run caught
+  an outdated assertion expecting the former dotenv proxy example; that assertion
+  was updated and the rerun passed.
+- Prettier write/check and `git diff --check` — PASS.
+- `docker compose config` and the Linux production-image deployment test were not
+  runnable: the Docker CLI is not installed (`docker` was not recognized). No
+  container-engine validation is claimed; full unit/build suites were not run
+  because application runtime code and dependencies were unchanged.
+
+Next task remains the SS01 atomicity clarification: read SPEC §8, ARCHITECTURE
+§4.3, pre-upgrade implementation and copy tests, then ask the user to choose the
+approved crash-safe journaled rotation or a separately designed Linux atomic
+exchange. Keep the project marked incomplete until its acceptance gates pass.

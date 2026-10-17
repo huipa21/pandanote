@@ -366,8 +366,9 @@ Development builds and rejection of missing/invalid production metadata.
 
 ## Startup and minimal deployment
 
-- Root docker-compose.yml + one-line required ORIGIN env, loaded image and existing
-  Caddy network start a fresh private bind with only docker compose up. No manual
+- Root docker-compose.yml with the canonical ORIGIN set, loaded
+  `localhost/pandanote:latest` image and existing Caddy network start a fresh private
+  bind with only docker compose up. No manual
   initialization. Recovery before key/DB reads, trusted SQL + registered data steps,
   default settings before listening; repeated current startup is a no-op.
 - Existing pending migrations first make a private online WAL-consistent DB copy
@@ -387,7 +388,7 @@ Development builds and rejection of missing/invalid production metadata.
   Private TCP peers use one XFF/absent peer fallback; malformed/chained 400, public
   spoof ignored; default Caddy replaces untrusted XFF and supports >1 GiB restore.
 - Actual Docker and Podman build/export/Docker load/default reference must work;
-  Podman localhost namespace explicitly retags to pandanote:latest after loading.
+  both archives load as `localhost/pandanote:latest` without post-load retagging.
 - Interactive no-echo reset-password must revoke live sessions/MFA without restart
   or content changes, refuse pipes/args/no account/pending recovery. Reindex stopped.
   Latest DB-copy rollback is not full disaster protection: download manual backups.

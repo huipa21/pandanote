@@ -64,7 +64,7 @@ production credential is committed.
   default/non-default IDs/private modes/zero capabilities/readiness/shutdown/XFF,
   SQL/data migration/copy/rollback, interruption, two-domain archived auth/private
   files and >1 GiB TLS restore under unchanged root Compose/minimal Caddy.
-- Actual two-engine build/save/gzip/fresh-Docker-load/namespace retag/native/default
+- Actual two-engine build/save/gzip/fresh-Docker-load/local-reference/native/default
   Compose/corrupt safety is required in addition to unit tests. Matched sizes and
   exact commands/results/remaining manual/ARM64/release limits:
   [image progress](../docs/image-optimization/PROGRESS.md). Runbook and external-image
@@ -668,13 +668,13 @@ stability. Non-virtualized long-session DOM growth remains a documented limitati
   DOC-03 pins canonical operations/reset/reindex/copy rollback, one Compose/env,
   reviewed routes, private runtime and native install tools. Intentional legacy
   scrub/refusal code and negative test assertions are not deployment configuration.
-- `release/deployment.test.ts`: copied real root Compose + ORIGIN-only env in a
+- `release/deployment.test.ts`: copied real root Compose + inline ORIGIN in a
   fresh Linux folder, real minimal TLS Caddy/setup, private modes, default/non-default
   UID/capabilities/PID1, real-client rate buckets, restart/recreate/default idle stop,
   interrupted backup, >1 GiB streamed archive restore, synthetic SQL/data upgrade
   and copy rollback (DEP-01–08). SS07 reruns the copied-folder install for DOC-02;
   complete DEP/cross-engine evidence is recorded in SS06, not falsely rerun here.
-- DEP-09 requires actual Docker and Podman image build/save/load/retag/labels/native
+- DEP-09 requires actual Docker and Podman image build/save/load/reference/labels/native
   probes; an injected engine is not a transfer pass. See
   [release harness](release/README.md) and change PROGRESS for real engine outcomes.
 - `e2e/auth.test.ts`: SS07 delayed entry modules prove Sign out is disabled before

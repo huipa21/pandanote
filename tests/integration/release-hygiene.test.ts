@@ -151,10 +151,10 @@ describe('current documentation contracts (DOC-01–03)', () => {
     const guide = read('ops/DEPLOYMENT.md');
     for (const command of [
       'npm run image:build -- --platform linux/amd64',
-      'docker image save -o pandanote-image.tar pandanote:latest',
+      'docker image tag pandanote:latest localhost/pandanote:latest',
+      'docker image save -o pandanote-image.tar localhost/pandanote:latest',
       'podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest',
-      'docker tag localhost/pandanote:latest pandanote:latest',
-      'cp .env.example .env',
+      'docker image inspect localhost/pandanote:latest',
       'docker compose up -d',
       'reverse_proxy pandanote:3000',
       'docker compose run --rm pandanote reset-password',
@@ -165,12 +165,12 @@ describe('current documentation contracts (DOC-01–03)', () => {
     expect(guide).toContain('docker compose logs pandanote | grep "setup"');
     expect(guide).toContain('Setup code');
     // SEC-XFF-8: the optional restriction must be usable from shipped guidance,
-    // while the root Compose remains minimal and requires only ORIGIN.
+    // while root Compose remains minimal and sets ORIGIN directly.
     for (const guidance of [
       'TRUSTED_PROXIES',
       'docker network inspect proxynet',
       'ipv4_address:',
-      'TRUSTED_PROXIES=172.18.0.2',
+      'TRUSTED_PROXIES: 172.18.0.2',
       'TRUSTED_PROXIES=none',
       'trusted_proxies',
       '{client_ip}',
@@ -263,15 +263,17 @@ describe('deployment artifacts', () => {
     expect(lines(read('.gitignore'))).toContain('/data/');
   });
 
-  it('ships exactly one minimal Compose and one env template with only ORIGIN required', () => {
+  it('ships one minimal Compose with inline ORIGIN and an optional local env template', () => {
     expect(compose.trim()).toBe(`services:
   pandanote:
-    image: \${PANDANOTE_IMAGE:-pandanote:latest}
+    image: localhost/pandanote:latest
     container_name: pandanote
     restart: unless-stopped
-    env_file: .env
+    environment:
+      ORIGIN: https://notes.example.com
+      # TRUSTED_PROXIES: 172.18.0.2
     volumes:
-      - \${DATA_PATH:-./data}:/data
+      - ./data:/data
     networks:
       - proxynet
 
@@ -281,6 +283,7 @@ networks:
     expect(compose).not.toMatch(
       /read_only|tmpfs|cap_drop|cap_add|security_opt|init:|stop_grace_period|healthcheck|logging|ipv4_address|ports:|profiles:|build:/,
     );
+    expect(compose).not.toContain('env_file:');
     const root = readdirSync('.');
     expect(root.filter((p) => /compose.*\.ya?ml$/.test(p))).toEqual([
       'docker-compose.yml',

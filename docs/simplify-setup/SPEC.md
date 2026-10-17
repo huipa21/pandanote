@@ -8,8 +8,8 @@ Actual status: [PROGRESS.md](PROGRESS.md). Decisions and rationale: [DECISIONS.m
 
 ## 1. Principles
 
-- Deploying PandaNote needs: the image, `docker-compose.yml`, a `.env` with one
-  required value (`ORIGIN`), and `docker compose up -d`. Nothing else.
+- Deploying PandaNote needs: the image, `docker-compose.yml` with the canonical
+  `ORIGIN` set directly, and `docker compose up -d`. No `.env` file is required.
 - Everything else is done in the browser: account first, then basic preferences.
 - Database creation, schema upgrades and data migrations run automatically at startup,
   before the server accepts requests. No operator command is ever required for them.
@@ -170,12 +170,13 @@ Migrations:
 ```yaml
 services:
   pandanote:
-    image: ${PANDANOTE_IMAGE:-pandanote:latest}
+    image: localhost/pandanote:latest
     container_name: pandanote
     restart: unless-stopped
-    env_file: .env
+    environment:
+      ORIGIN: https://notes.example.com
     volumes:
-      - ${DATA_PATH:-./data}:/data
+      - ./data:/data
     networks:
       - proxynet
 
@@ -188,7 +189,10 @@ No `read_only`, `tmpfs`, `cap_drop`, `cap_add`, `security_opt`, `init`,
 `stop_grace_period`, `healthcheck` (the image has one), logging options, static IPs,
 published ports or one-off "ops" services.
 
-### 9.2 `.env.example` (project root; the only env template)
+### 9.2 Optional local `.env.example`
+
+Production Compose does not load this file; set deployment values in the Compose
+service. The template remains available for local scripts and development tools.
 
 ```dotenv
 # The web address of your notes site: https, no trailing slash.
@@ -200,8 +204,10 @@ ORIGIN=https://notes.example.com
 # PGID=1000
 ```
 
-Still supported but not in the example: `PANDANOTE_IMAGE`, `BODY_SIZE_LIMIT`
-(image default 64G), `DISK_RESERVE_BYTES`, `PORT`. Legacy setup-secret and
+Optional runtime settings include `PUID`, `PGID`, `TRUSTED_PROXIES`,
+`BODY_SIZE_LIMIT` (image default 64G), `DISK_RESERVE_BYTES` and `PORT`; set them
+under Compose `environment` when needed. The production image reference stays fixed.
+Legacy setup-secret and
 exact-proxy-IP environment values are scrubbed/ignored with one safe startup notice,
 never accepted as configuration or logged with their values. Other former bundled
 proxy/static-network/hardening variables are not deployment inputs. Test-only Caddy

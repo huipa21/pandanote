@@ -258,9 +258,9 @@ private DB-only rollback paths are excluded from archives and restore swaps.
 
 Names are generated IDs, never user paths. Retain original filenames in metadata, not storage paths. Database, WAL/SHM, files, keys, and backups need persistent volumes. Do not deploy SQLite on ephemeral serverless storage or across multiple app writers/network filesystems.
 
-Production Compose requires only `ORIGIN`; optional host DATA_PATH, PUID/PGID,
-image/reserve/transport settings are in `ops/DEPLOYMENT.md`. Container DATA_DIR is
-forced to `/data`. Non-production uses `./data` and local origins (dev 5173, built
+Production Compose sets `ORIGIN` directly; optional host bind, PUID/PGID,
+image/reserve/transport settings are documented in `ops/DEPLOYMENT.md`.
+Container DATA_DIR is forced to `/data`. Non-production uses `./data` and local origins (dev 5173, built
 start 3000); production requires canonical HTTPS outside loopback and an absolute
 private data path. Never hardcode the domain. All stored attachment links are ID-based relative app routes, not absolute URLs.
 
@@ -1837,9 +1837,9 @@ Performance figures in ACCEPTANCE_TESTS are initial budgets to measure, not guar
 ## 16. Deployment, readiness and release-verification contracts
 
 **Topology.** Only root `docker-compose.yml`: one pandanote service, image
-`${PANDANOTE_IMAGE:-pandanote:latest}`, env_file `.env`, bind `${DATA_PATH:-./data}:/data`,
-external proxynet. No bundled proxy, ports/static IPs/ops services/resource limits/
-hardening or stop-timeout overrides. Root `.env.example` requires only ORIGIN.
+`localhost/pandanote:latest`, ORIGIN configured directly in Compose, bind
+`./data:/data`, external proxynet. No `.env` file is required. No bundled proxy,
+ports/static IPs/ops services/resource limits/hardening or stop-timeout overrides.
 Existing Caddy needs only `reverse_proxy pandanote:3000`; default XFF replacement,
 streaming and no body ceiling support large archives without custom options.
 Private peer trust is defined in sections 4/12; forwarding overrides remain forbidden.
@@ -1883,16 +1883,17 @@ rotation's literal atomic exchange requirement remains open (section 4.3).
 503 unavailable for unready/pending recovery. No paths/counts/account/version/error
 text. Kit/adapter init completes before listen; initialization failure exits safely.
 
-**Validation.** Hygiene pins routes, minimal Compose/env/image privacy, reviewed env
+**Validation.** Hygiene pins routes, minimal Compose/configuration/image privacy, reviewed env
 access and documentation/links. `tests/release/compose.drill.yaml` + Caddyfile are
 synthetic test-only dynamic networks/local CA. Release scripts explicitly choose
 that file; normal installation does not deploy it. Copied-root-Compose Linux gates
 verify default bind/private modes, UID/capabilities/PID1, spoofed XFF/restarts,
 
 > 1 GiB TLS restore, interrupted backup, synthetic SQL/data upgrade/copy rollback.
-> Cross-engine transfer: Docker save/gzip/checksum/load uses pandanote:latest; Podman
-> exports localhost/pandanote:latest as docker-archive, Docker loads gzip and explicitly
-> retags. Raw alternative remains. Actual corrupt gzip/load safety preserves prior
+> Cross-engine transfer: Docker images are tagged `localhost/pandanote:latest` before
+> save; Podman exports that same explicit reference as docker-archive. Docker loads
+> either archive directly for root Compose. Raw alternative remains. Actual corrupt
+> gzip/load safety preserves prior
 > running image/data. Docker containerd stored compressed blobs are not uncompressed
 > layer tar; the streaming reporter separates both, engine size and cumulative payload.
 

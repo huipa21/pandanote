@@ -22,13 +22,14 @@ From a clean, committed, full-history checkout with Node **24.21.0** and Docker 
 ```sh
 npm run image:build -- --platform linux/amd64
 # Docker build machine:
-docker image save -o pandanote-image.tar pandanote:latest
+docker image tag pandanote:latest localhost/pandanote:latest
+docker image save -o pandanote-image.tar localhost/pandanote:latest
 # OR Podman build machine:
 # podman save --format docker-archive -o pandanote-image.tar localhost/pandanote:latest
 gzip -6 -c pandanote-image.tar > pandanote-image.tar.gz
 gzip -t pandanote-image.tar.gz
 sha256sum pandanote-image.tar.gz > pandanote-image.tar.gz.sha256
-scp pandanote-image.tar.gz pandanote-image.tar.gz.sha256 docker-compose.yml .env.example user@server:~/pandanote/
+scp pandanote-image.tar.gz pandanote-image.tar.gz.sha256 docker-compose.yml user@server:~/pandanote/
 ```
 
 On the Docker server:
@@ -38,13 +39,12 @@ cd ~/pandanote
 sha256sum -c pandanote-image.tar.gz.sha256
 gzip -t pandanote-image.tar.gz
 docker image load -i pandanote-image.tar.gz
-# Only for a Podman-built archive:
-# docker tag localhost/pandanote:latest pandanote:latest
-cp .env.example .env
-chmod 600 .env
-nano .env                       # set ORIGIN=https://notes.example.com
 docker compose up -d
 ```
+
+Before transferring, edit `ORIGIN` in `docker-compose.yml` to your HTTPS domain.
+The compose file uses `localhost/pandanote:latest` and mounts `./data`; no `.env`
+file is required.
 
 These filenames must be unused; retain prior archives/images. Compression preserves
 the raw tar. Raw transfer remains supported: copy `pandanote-image.tar` and load with
@@ -109,7 +109,7 @@ docker image inspect pandanote:latest --format '{{json .Config.Labels}}'
 OCI labels match sidebar/mobile drawer and Settings → About. Runtime environment,
 domain, timezone, restarts and restores cannot change the embedded identity.
 Ordinary local builds say **Development**. Keep the old image before replacing
-latest; set `PANDANOTE_IMAGE=pandanote:<version>` in `.env` to pin it.
+latest; production Compose always uses `localhost/pandanote:latest`.
 Details: [VERSIONING_PLAN.md](docs/VERSIONING_PLAN.md).
 
 ### Runtime lock and size reporting
@@ -189,11 +189,12 @@ npm run dev -- --host 127.0.0.1
 
 Use a different name if `data-current` already contains data. This leaves `./data`
 untouched and starts browser setup again. Keep the same `DATA_DIR` on subsequent
-starts (or save it in your private `.env`); otherwise startup selects the old folder.
-For Compose, stop the service, set `DATA_PATH` in `.env` to a new unused private host
-folder, then recreate the service with `docker compose up -d`. An existing production
-folder needing migration requires a separate compatibility plan, not this fresh-start
-workaround. Recovery reference: [migrations/README.md](migrations/README.md).
+starts (or otherwise set the same `DATA_DIR`); otherwise startup selects the old folder.
+For Compose, stop the service, change the host folder in the `volumes` entry in
+`docker-compose.yml` to a new unused private path, then recreate the service with
+`docker compose up -d`. An existing production folder needing migration requires a
+separate compatibility plan, not this fresh-start workaround. Recovery reference:
+[migrations/README.md](migrations/README.md).
 
 ## Authentication and Settings
 
