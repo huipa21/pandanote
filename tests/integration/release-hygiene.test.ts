@@ -271,7 +271,6 @@ describe('deployment artifacts', () => {
     restart: unless-stopped
     environment:
       ORIGIN: https://notes.example.com
-      # TRUSTED_PROXIES: 172.18.0.2
     volumes:
       - ./data:/data
     networks:

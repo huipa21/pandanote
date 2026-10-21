@@ -137,6 +137,11 @@ Edit these values directly in `docker-compose.yml`. Container `DATA_DIR` is alwa
 `/data`; the host side of the volume controls where data is stored. Use the configured
 path, not literal `data`, in disk/recovery examples if you changed it.
 The 60 GB disk is shared with OS/images/staging/backups; do not consume the reserve.
+The production Compose file sets `ORIGIN` directly and needs no `.env` file.
+`TRUSTED_PROXIES` is intentionally omitted unless Caddy has a stable peer address:
+in that case, add the exact address (or narrow CIDR) to `environment`. Leaving it
+unset preserves compatibility for private peers, but any container able to reach
+PandaNote over that private network is then trusted to provide X-Forwarded-For.
 
 ## 3. Everyday commands
 

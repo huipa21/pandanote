@@ -5959,3 +5959,20 @@ note-actions editor`: 40 pass / 1 fail (`voice-naming` "renamed from its card",
   - Integration suite, full e2e suite and Linux image not run (no server change).
 - Next: user confirmation. If adjusting, read NoteCard and workspace `commitEdit`,
   then run `npx playwright test tests/e2e/note-edit.test.ts` after `npx vite build`.
+
+### Session 2026-10-21 — Compose environment review (deployment docs only)
+
+- State: done. Reviewed root `docker-compose.yml` against the old hardened file.
+  It already matches simplify-setup SPEC §9.1: ORIGIN inline, no `env_file`/`.env`.
+  `DATA_DIR=/data`, `NODE_ENV`, `HOST`, `PORT`, `PUID`/`PGID`, `BODY_SIZE_LIMIT` and
+  HEALTHCHECK are baked into `ops/Dockerfile`; the entrypoint forces `DATA_DIR=/data`
+  and execs Node as PID 1 without capabilities, so `init`, `cap_*`, healthcheck and
+  stop-grace overrides are not needed. The commented `TRUSTED_PROXIES` line was removed;
+  unset keeps private-peer trust (works with Caddy on `proxynet`). Pinning Caddy's
+  fixed IP remains optional hardening documented in `ops/DEPLOYMENT.md` §2 and §12.
+- Touched: `docker-compose.yml`, `ops/DEPLOYMENT.md`,
+  `tests/integration/release-hygiene.test.ts`, `docs/PROGRESS.md`.
+- Commands/results: `npx vitest run --config vitest.integration.config.ts
+tests/integration/release-hygiene.test.ts`: 7/7 pass. `npx prettier --check` on the
+  touched files: pass. Linux image not rebuilt (no image change).
+- Next: none for this change; continue the active plan step.

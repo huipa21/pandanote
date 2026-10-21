@@ -5,7 +5,8 @@ services:
     restart: unless-stopped
     environment:
       ORIGIN: https://notes.example.com
-      # TRUSTED_PROXIES: 172.18.0.2
+    expose:
+      - '3000'
     volumes:
       - ./data:/data
     networks:
