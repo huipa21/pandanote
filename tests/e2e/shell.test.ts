@@ -201,6 +201,118 @@ test('composer appears only on the unfiltered main timeline', async ({
   }
 });
 
+test('mobile icon rail expands, focuses tools, navigates and stays compact on short screens', async ({
+  page,
+  context,
+}, testInfo) => {
+  await signIn(page, context);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const rail = page.getByRole('navigation', { name: 'Sidebar', exact: true });
+  const expand = rail.getByRole('button', { name: 'Expand sidebar' });
+  const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
+  await expect(rail).toBeVisible();
+  await expect(page.locator('.mobile-header')).toBeVisible();
+  await expect(
+    page.locator('.mobile-header').getByRole('button', { name: /mode$/ }),
+  ).toBeVisible();
+  expect((await rail.boundingBox())!.width).toBe(52);
+  await expect(rail.locator('a, button')).toHaveCount(9);
+  const names = [
+    'Expand sidebar',
+    'PandaNote home',
+    'Search notes',
+    'Month activity',
+    'Tags',
+    'Labels',
+    'Templates',
+    'Trash',
+    'Settings',
+  ];
+  for (const [index, name] of names.entries())
+    await expect(rail.locator('a, button').nth(index)).toHaveAccessibleName(
+      name,
+    );
+  const targets = await rail.locator('a, button').evaluateAll((elements) =>
+    elements.map((el) => {
+      const { width, height } = el.getBoundingClientRect();
+      return width >= 44 && height >= 44;
+    }),
+  );
+  expect(targets.every(Boolean)).toBe(true);
+  await noOverflow(page);
+  await expand.click();
+  await expect(drawer).toBeVisible();
+  await expect(
+    drawer.getByRole('button', { name: 'Collapse sidebar' }),
+  ).toBeFocused();
+  const drawerLeftEdges = await drawer
+    .locator('.identity, h2 a, .sidebar-bottom > a')
+    .evaluateAll((elements) =>
+      elements.map((el) => el.getBoundingClientRect().left),
+    );
+  expect(new Set(drawerLeftEdges).size).toBe(1);
+  await testInfo.attach('mobile-expanded-sidebar', {
+    body: await page.screenshot({
+      path: testInfo.outputPath('mobile-expanded-sidebar.png'),
+    }),
+    contentType: 'image/png',
+  });
+  await drawer.getByRole('button', { name: 'Collapse sidebar' }).click();
+  await expect(drawer).not.toBeVisible();
+  await expect(expand).toBeFocused();
+  await rail.getByRole('button', { name: 'Search notes' }).click();
+  await expect(
+    drawer.getByRole('searchbox', { name: 'Search notes' }),
+  ).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(
+    rail.getByRole('button', { name: 'Search notes' }),
+  ).toBeFocused();
+  await rail.getByRole('button', { name: 'Month activity' }).click();
+  await expect(drawer.locator('[data-month-heading]')).toBeFocused();
+  await page.keyboard.press('Escape');
+  for (const [name, path] of [
+    ['Tags', '/tags'],
+    ['Labels', '/labels'],
+    ['Templates', '/templates'],
+    ['Trash', '/trash'],
+    ['Settings', '/settings'],
+  ]) {
+    await rail.getByRole('link', { name, exact: true }).click();
+    await expect(page).toHaveURL(`${origin}${path}`);
+    await expect(rail.getByRole('link', { name, exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(drawer).not.toBeVisible();
+  }
+  await rail.getByRole('link', { name: 'PandaNote home' }).click();
+  await expect(page).toHaveURL(`${origin}/`);
+  await testInfo.attach('mobile-sidebar-rail', {
+    body: await page.screenshot({
+      path: testInfo.outputPath('mobile-sidebar-rail.png'),
+    }),
+    contentType: 'image/png',
+  });
+  await page.setViewportSize({ width: 360, height: 320 });
+  await rail
+    .getByRole('link', { name: 'Settings', exact: true })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    rail.getByRole('link', { name: 'Settings', exact: true }),
+  ).toBeInViewport();
+  await noOverflow(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(rail).not.toBeVisible();
+  const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+  const links = sidebar.locator('.identity, h2 a, .sidebar-bottom > a');
+  const leftEdges = await links.evaluateAll((elements) =>
+    elements.map((el) => el.getBoundingClientRect().left),
+  );
+  expect(new Set(leftEdges).size).toBe(1);
+});
+
 test('real private shell viewport/screenshot matrix, mobile drawer focus, navigation and editor shrinking', async ({
   page,
   context,
@@ -269,7 +381,7 @@ test('real private shell viewport/screenshot matrix, mobile drawer focus, naviga
     });
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  const menu = page.getByRole('button', { name: 'Menu & search' });
+  const menu = page.getByRole('button', { name: 'Expand sidebar' });
   await menu.click();
   const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
   await expect(drawer).toBeVisible();
@@ -377,7 +489,7 @@ test('actual shell independently scrolls synthetic notes; many tags stay reachab
   // Equivalent layout width at 200% browser zoom on a 1440px display.
   await page.setViewportSize({ width: 720, height: 450 });
   await noOverflow(page);
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
   await expect(
     drawer.getByRole('link', { name: 'Settings', exact: true }),
@@ -418,6 +530,8 @@ test('sidebar edge supports captured dragging, bounds, keyboard resizing and mob
   await page.mouse.move(1200, 200);
   await page.mouse.up();
   await expect(edge).toHaveAttribute('aria-valuenow', '480');
+  await page.reload();
+  await expect(edge).toHaveAttribute('aria-valuenow', '480');
   await page.mouse.move(100, 200);
   await expect(edge).toHaveAttribute('aria-valuenow', '480');
   await edge.focus();
@@ -432,7 +546,7 @@ test('sidebar edge supports captured dragging, bounds, keyboard resizing and mob
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(edge).not.toBeVisible();
   await noOverflow(page);
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   await expect(
     page.getByRole('dialog', { name: 'Notebook navigation' }),
   ).toBeVisible();
@@ -441,6 +555,63 @@ test('sidebar edge supports captured dragging, bounds, keyboard resizing and mob
   await expect(
     page.getByRole('dialog', { name: 'Notebook navigation' }),
   ).not.toBeVisible();
+});
+
+test('sidebar width survives navigation and refresh, but not a fresh tab or sign-out', async ({
+  page,
+  context,
+}) => {
+  await signIn(page, context);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const edge = page.getByRole('separator', { name: 'Resize sidebar' });
+  await edge.focus();
+  await page.keyboard.press('End');
+  await expect(edge).toHaveAttribute('aria-valuenow', '480');
+  await page.goto('/settings');
+  await expect(edge).toHaveAttribute('aria-valuenow', '480');
+  await page.reload();
+  await expect(edge).toHaveAttribute('aria-valuenow', '480');
+  const fresh = await context.newPage();
+  try {
+    await fresh.setViewportSize({ width: 1440, height: 900 });
+    await fresh.goto('/');
+    await expect(fresh.getByRole('separator')).toHaveAttribute(
+      'aria-valuenow',
+      '272',
+    );
+  } finally {
+    await fresh.close();
+  }
+  await page.getByRole('tab', { name: 'Account', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page).toHaveURL('/login');
+  await expect
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem('pandanote:sidebar-width')),
+    )
+    .toBeNull();
+  await signIn(page, context);
+  await page.goto('/');
+  await expect(edge).toHaveAttribute('aria-valuenow', '272');
+});
+
+test('sidebar storage failures are visible without disabling resizing', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Storage.prototype.setItem = () => {
+      throw new DOMException('Storage disabled', 'SecurityError');
+    };
+  });
+  await page.goto('http://127.0.0.1:4174/shell.html');
+  await expect(page.getByRole('alert')).toHaveText(
+    'Browser session storage is unavailable. The sidebar width may reset on refresh.',
+  );
+  const edge = page.getByRole('separator');
+  await edge.focus();
+  await page.keyboard.press('Home');
+  await expect(edge).toHaveAttribute('aria-valuenow', '240');
 });
 
 test('desktop composer shows the editor directly without publishing and reduced motion uses the token policy', async ({
@@ -533,7 +704,7 @@ test('native Chromium 200% browser zoom keeps shell, drawer and editor reachable
       )
       .toEqual({ width: 720, height: 450, dpr: 2, pinchScale: 1 });
     await noOverflow(page);
-    await page.getByRole('button', { name: 'Menu & search' }).click();
+    await page.getByRole('button', { name: 'Expand sidebar' }).click();
     const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
     await expect(
       drawer.getByRole('link', { name: 'Settings', exact: true }),
@@ -605,7 +776,7 @@ test('touch-only private navigation and safe-area/keyboard-shrink scenarios expo
       ['Trash', '/trash'],
       ['Settings', '/settings'],
     ]) {
-      await page.getByRole('button', { name: 'Menu & search' }).tap();
+      await page.getByRole('button', { name: 'Expand sidebar' }).tap();
       const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
       await drawer.getByRole('link', { name: label, exact: true }).tap();
       await expect(page).toHaveURL(`${origin}${path}`);

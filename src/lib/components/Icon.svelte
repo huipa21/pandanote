@@ -16,6 +16,10 @@
     | 'merge'
     | 'dots'
     | 'back'
+    | 'forward'
+    | 'search'
+    | 'settings'
+    | 'template'
     | 'star'
     | 'heart'
     | 'flag'
@@ -87,6 +91,18 @@
       <path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4" />
     {:else if name === 'back'}
       <path d="M19 12H5M11 6l-6 6 6 6" />
+    {:else if name === 'forward'}
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    {:else if name === 'search'}
+      <circle cx="10" cy="10" r="6" /><path d="m15 15 5 5" />
+    {:else if name === 'settings'}
+      <path
+        d="m10 3-.5 3-2 1-2.8-1L2.8 9l2.3 2v2l-2.3 2 1.9 3 2.8-1 2 1 .5 3h4l.5-3 2-1 2.8 1 1.9-3-2.3-2v-2l2.3-2-1.9-3-2.8 1-2-1L14 3Z"
+      />
+      <circle cx="12" cy="12" r="3" />
+    {:else if name === 'template'}
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M4 8h16M9 8v13M12 12h5M12 16h5" />
     {:else if name === 'restore'}
       <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8M3 3v5h5" />
     {:else if name === 'select-none'}

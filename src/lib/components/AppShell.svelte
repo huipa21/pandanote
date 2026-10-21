@@ -6,6 +6,7 @@
     titlePreferences,
   } from '#lib/client/title-preferences.svelte.ts';
   import TitleControls from './TitleControls.svelte';
+  import Icon from './Icon.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import Sidebar from './Sidebar.svelte';
   import Modal from './Modal.svelte';
@@ -14,6 +15,7 @@
   import {
     DEFAULT_SIDEBAR_WIDTH,
     MIN_SIDEBAR_WIDTH,
+    SIDEBAR_WIDTH_KEY,
     clampSidebarWidth,
     sidebarMaximum,
   } from '#lib/client/sidebar-size.ts';
@@ -61,9 +63,20 @@
     titlePreferences() ?? new TitlePreferences('system', i18n, async () => {});
   setContext(TITLE_PREFERENCES, preferences);
   let drawerOpen = $state(false);
+  let drawerFocus = $state<string | undefined>();
+  function expandSidebar(target?: 'search' | 'calendar') {
+    drawerFocus =
+      target === 'search'
+        ? 'input[type="search"]'
+        : target === 'calendar'
+          ? '[data-month-heading]'
+          : undefined;
+    drawerOpen = true;
+  }
   let ready = $state(false);
   let scroller: HTMLElement;
   let sidebarWidth = $state(DEFAULT_SIDEBAR_WIDTH);
+  let widthStorageError = $state(false);
   let maximumWidth = $state(sidebarMaximum(1440));
   let dragging = $state(false);
   let drag: { id: number; x: number; width: number } | undefined;
@@ -96,7 +109,31 @@
     event.preventDefault();
     sidebarWidth = clampSidebarWidth(widths[event.key], window.innerWidth);
   }
+  $effect(() => {
+    if (!ready) return;
+    try {
+      sessionStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+    } catch {
+      widthStorageError = true;
+    }
+  });
   onMount(() => {
+    try {
+      const stored = sessionStorage.getItem(SIDEBAR_WIDTH_KEY);
+      if (stored !== null) {
+        const width = Number(stored);
+        if (!stored.trim() || !Number.isFinite(width)) {
+          sessionStorage.removeItem(SIDEBAR_WIDTH_KEY);
+          throw new Error('Invalid stored sidebar width');
+        }
+        sidebarWidth = clampSidebarWidth(
+          width,
+          window.innerWidth >= 900 ? window.innerWidth : 1440,
+        );
+      }
+    } catch {
+      widthStorageError = true;
+    }
     ready = true;
     const unmountPreferences = preferences.mount();
     const desktop = window.matchMedia('(min-width: 900px)');
@@ -157,21 +194,59 @@
       onkeydown={resizeKey}
     ></div>
   </aside>
-  <div class="main-column">
-    <header class="mobile-header">
-      <button
-        aria-haspopup="dialog"
-        aria-expanded={drawerOpen}
-        onclick={() => {
-          drawerOpen = true;
-        }}>{t('shell.menu')}</button
-      >
+  <nav class="mobile-rail" aria-label={t('shell.sidebar')}>
+    <button
+      type="button"
+      aria-label={t('shell.expandSidebar')}
+      title={t('shell.expandSidebar')}
+      aria-haspopup="dialog"
+      aria-controls="mobile-sidebar"
+      aria-expanded={drawerOpen}
+      disabled={!ready}
+      onclick={() => expandSidebar()}><Icon name="forward" /></button
+    >
+    <a
+      href="/"
+      aria-label={t('brand.home', { title: i18n.siteTitle })}
+      title={i18n.siteTitle}
+    >
+      <img src="/favicon.svg" alt="" width="28" height="28" />
+    </a>
+    <button
+      type="button"
+      aria-label={t('search.label')}
+      title={t('search.label')}
+      aria-haspopup="dialog"
+      aria-controls="mobile-sidebar"
+      disabled={!ready}
+      onclick={() => expandSidebar('search')}><Icon name="search" /></button
+    >
+    <button
+      type="button"
+      aria-label={t('shell.monthActivity')}
+      title={t('shell.monthActivity')}
+      aria-haspopup="dialog"
+      aria-controls="mobile-sidebar"
+      disabled={!ready}
+      onclick={() => expandSidebar('calendar')}><Icon name="calendar" /></button
+    >
+    {#each [{ href: '/tags', label: t('shell.tags'), icon: 'price-tag' }, { href: '/labels', label: t('shell.labels'), icon: 'bookmark' }, { href: '/templates', label: t('shell.templates'), icon: 'template' }, { href: '/trash', label: t('shell.trash'), icon: 'trash' }, { href: '/settings', label: t('shell.settings'), icon: 'settings' }] as const as item (item.href)}
       <a
-        href="/"
-        class="brand"
-        aria-label={t('brand.home', { title: i18n.siteTitle })}
-        ><span class="site-title" title={i18n.siteTitle}>{i18n.siteTitle}</span
-        ></a
+        href={item.href}
+        aria-label={item.label}
+        title={item.label}
+        aria-current={active === item.href ? 'page' : undefined}
+        ><Icon name={item.icon} /></a
+      >
+    {/each}
+  </nav>
+  <div class="main-column">
+    {#if widthStorageError}<p role="alert">
+        {t('shell.widthStorageUnavailable')}
+      </p>{/if}
+    <header class="mobile-header">
+      <span class="brand site-title" title={i18n.siteTitle}
+        >{i18n.siteTitle}</span
       >
       <TitleControls />
     </header>
@@ -230,19 +305,34 @@
     </main>
   </div>
 </div>
-<Modal bind:open={drawerOpen} title={t('shell.drawer')} kind="drawer">
-  <Sidebar
-    {calendar}
-    {active}
-    {tags}
-    {labels}
-    {filters}
-    {searchQuery}
-    {onSearch}
-    onNavigate={() => {
-      drawerOpen = false;
-    }}
-  />
+<Modal
+  bind:open={drawerOpen}
+  title={t('shell.drawer')}
+  kind="drawer"
+  customHeader
+  initialFocus={drawerFocus}
+>
+  <div class="expanded-sidebar" id="mobile-sidebar">
+    <button
+      type="button"
+      class="collapse-sidebar"
+      aria-label={t('shell.collapseSidebar')}
+      title={t('shell.collapseSidebar')}
+      onclick={() => (drawerOpen = false)}><Icon name="back" /></button
+    >
+    <Sidebar
+      {calendar}
+      {active}
+      {tags}
+      {labels}
+      {filters}
+      {searchQuery}
+      {onSearch}
+      onNavigate={() => {
+        drawerOpen = false;
+      }}
+    />
+  </div>
 </Modal>
 
 <style>
@@ -344,14 +434,68 @@
   .mobile-header {
     display: none;
   }
+  .mobile-rail {
+    display: none;
+  }
+  .expanded-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+  }
+  .collapse-sidebar {
+    flex: none;
+    align-self: flex-start;
+    margin: var(--space-1) var(--space-4) 0;
+    min-width: var(--target);
+    min-height: var(--target);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+  }
   @media (max-width: 899px) {
     .app-shell {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: 3.25rem minmax(0, 1fr);
       padding: env(safe-area-inset-top) env(safe-area-inset-right) 0
         env(safe-area-inset-left);
     }
     .desktop-sidebar {
       display: none;
+    }
+    .mobile-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-1);
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding-block: var(--space-1)
+        max(var(--space-1), env(safe-area-inset-bottom));
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+    }
+    .mobile-rail :is(a, button) {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: var(--target);
+      min-height: var(--target);
+      padding: 0;
+      border: 0;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .mobile-rail :is(a, button):hover,
+    .mobile-rail a[aria-current='page'],
+    .collapse-sidebar:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
     }
     .mobile-header {
       display: flex;

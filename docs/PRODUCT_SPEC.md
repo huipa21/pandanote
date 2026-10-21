@@ -219,18 +219,32 @@ Main area:
 - Visible active filters and Clear all.
 - Single-column chronological cards. Not masonry, despite the conversational use of “waterfall.” Reading order must be unambiguous.
 - Sidebar, calendar, and search do not scroll away with notes. Drag the sidebar's right edge to adjust its desktop width; keyboard resizing is also available.
+  The width is kept in browser `sessionStorage` across navigation and refresh in
+  the same tab. Sign-out (arrival at sign-in) clears only this width preference;
+  closing the tab ends its browser storage session. Other tabs are independent.
 
 The sidebar lists the most-used tags as borderless flowing chips a "+N" link and the heading open the Tags page for the rest. All search fields share one slim look: magnifier first, a help icon last that toggles a short syntax note (AND/OR/NOT, parentheses, `tag:`), and no placeholder. On unusually short screens, an independently scrollable sidebar section is permitted for accessibility; do not clip controls to preserve the fixed-shell appearance.
 
 ### 3.4 Mobile shell
 
-- Compact fixed header with sidebar/search access.
+- A persistent 52px icon rail replaces the Menu & search header button. From top
+  to bottom: rightward expand arrow, panda favicon linking home, Search, Calendar,
+  Tags, Labels, Templates, Trash and Settings. Icon controls have accessible names,
+  keyboard focus and 44px touch targets; the rail scrolls independently on short screens.
+- The arrow opens the full sidebar with a leftward collapse arrow instead of a
+  text Close button. Search and Calendar open the same sidebar and focus their
+  corresponding control. Escape collapses it and returns focus to its opener;
+  page navigation also collapses it. Desktop resizing remains unchanged.
+- Compact fixed header retains the site title and theme/language controls.
 - One note column with small outer margins; no horizontal page overflow.
 - Sidebar becomes a drawer containing calendar/tags/navigation.
 - A prominent compose button opens a full-screen editor.
 - Note detail and image viewer use the available screen.
 - Respect safe-area insets, dynamic viewport height, virtual keyboard, and touch targets.
 - Do not rely on hover for any essential action.
+
+Expanded and desktop sidebar text shares one left edge: title, Tags, Labels,
+Templates, Trash and Settings (no extra inset for the bottom utilities).
 
 ## 4. Note content and composer
 
@@ -370,7 +384,11 @@ Short Chinese/Japanese queries must work. Trigram acceleration applies only wher
 - Zero-count days neutral; today marker distinct from selected-day outline.
 - Counts use editable timeline date in the configured timezone.
 - Counts include all published notes, regardless of current tags/search.
-- Three-letter weekday labels (Mon, Tue, Wed, Thu, Fri, Sat, Sun).
+- Three-letter weekday labels (Mon, Tue, Wed, Thu, Fri, Sat, Sun) in English.
+  When the calendar itself is at most 280 CSS px wide, Simplified Chinese weekday
+  labels use only their numeral character, regardless of density or viewport.
+  Wider calendars show full Chinese weekday names. Labels never wrap; full
+  weekday names remain available as abbreviation titles.
 - Bold month/year heading on the left with no obvious border; previous/next month arrows grouped on the right.
 - Clicking the heading opens an inline year/month picker over the calendar (see the approved-change note at the top): 12 month names in **4 columns × 3 rows** under a year header with previous/next-year arrows; clicking the year allows typing a year. Clicking a month jumps immediately and clears the selected day while retaining search/tags.
 - Browsing the picker alone never changes timeline filters.

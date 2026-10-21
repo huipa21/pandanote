@@ -1060,7 +1060,7 @@ Backdating defaults to local app time. User-entered DST-ambiguous/nonexistent ti
   range, never prepending newer/backdated notes outside that view.
 - Calendar numerals pass AA at all five neutral/green levels in both themes.
   Today dot and selected outline are independent, with readable count/date labels,
-  three-letter weekday headers (full names in abbreviation titles), a borderless
+  three-letter English weekday headers (full names in abbreviation titles), a borderless
   bold left-aligned month/year picker heading and right-grouped navigation arrows.
   Compact square backgrounds surround the date numerals, separately from the
   full day-link targets. `MonthPicker.svelte` reuses the native modal with a
@@ -1110,13 +1110,26 @@ Appearance/General-selector descriptions below are superseded by this override.
 
 ### 11.1 S03 shell and appearance contracts
 
+- Mobile navigation uses a persistent 52px scrollable icon rail; its panda home
+  link uses the shared favicon. The full sidebar retains the native modal drawer
+  (background inertness, focus trap/return and Escape), with a custom left-arrow
+  header. Search/Calendar rail buttons supply an initial-focus selector to the
+  shared Modal rather than introducing a second navigation or calendar state.
+  Desktop sidebar sizing is unchanged. Utility links share the title/section
+  headings' left inset.
+
 - `styles/tokens.css` centralizes both palettes, control/focus contrast, system/CJK
   fonts, spacing, density, safe-area layout sizes and reduced-motion policy.
   Desktop sidebar starts at 272 px, content maximum 760 px, breakpoint 900 CSS px.
   Its right-edge ARIA splitter uses Pointer Events/capture for mouse/pen/touch and
-  Left/Right (20 px), Home/End keyboard resizing. Width is session-local in the
-  mounted shell, clamped to 240–480 px and at least 480 px reserved for the main
-  column; viewport shrink reclamps it. No new persisted preference/schema.
+  Left/Right (20 px), Home/End keyboard resizing. Width is kept in tab-scoped
+  `sessionStorage` under `pandanote:sidebar-width` across refresh/navigation,
+  clamped to 240–480 px and at least 480 px reserved for the main column; viewport
+  shrink reclamps it. Sign-in clears this key after logout/session expiry; tab
+  closure ends its storage session. Storage errors show a localized alert.
+  No server preference/schema. Calendar inline-size container queries switch
+  Chinese headers to single characters at widths <= 280 px, independent of
+  density and viewport, with no wrapping and full-name abbreviation titles.
   On the homepage, composer/filter controls live inside the notes scroller and
   scroll with cards; a bottom Back to Top control resets only that scroller and
   focuses it without altering filters/history. Other pages retain their existing

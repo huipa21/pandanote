@@ -182,7 +182,7 @@ test('General has three densities; title toggles persist and never overwrite uns
       .getByRole('button', { name: 'Switch language to 简体中文' })
       .click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
-    await page.getByRole('button', { name: '菜单与搜索' }).click();
+    await page.getByRole('button', { name: '展开侧边栏' }).click();
     const drawer = page.getByRole('dialog', { name: '笔记本导航' });
     await expect(
       drawer.getByRole('button', { name: '切换到浅色模式' }),

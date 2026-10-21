@@ -127,7 +127,14 @@
     <thead
       ><tr
         >{#each weekdays as day (day)}<th scope="col"
-            ><abbr title={day}>{day.slice(0, 3)}</abbr></th
+            ><abbr title={day}
+              ><span class="weekday-full">{day.slice(0, 3)}</span><span
+                class="weekday-compact"
+                >{i18n.language === 'zh-CN'
+                  ? day.slice(-1)
+                  : day.slice(0, 3)}</span
+              ></abbr
+            ></th
           >{/each}</tr
       ></thead
     >
@@ -166,6 +173,7 @@
 <style>
   .calendar {
     position: relative;
+    container-type: inline-size;
   }
   .calendar-heading {
     display: flex;
@@ -206,6 +214,18 @@
   }
   abbr {
     text-decoration: none;
+    white-space: nowrap;
+  }
+  .weekday-compact {
+    display: none;
+  }
+  @container (max-width: 280px) {
+    .weekday-full {
+      display: none;
+    }
+    .weekday-compact {
+      display: inline;
+    }
   }
   td {
     padding: 0;

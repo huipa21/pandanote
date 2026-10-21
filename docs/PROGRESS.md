@@ -2,6 +2,19 @@
 
 ## Current state
 
+- **2026-10-21 narrow calendar correction + sidebar width session: implemented,
+  host-verified.** The earlier density-only fix misunderstood the request.
+  Chinese weekdays now shorten according to the calendar container's width,
+  independent of density, with no wrapping. Sidebar width survives refresh and
+  navigation using tab session storage, cleared at sign-in after logout.
+  Calendar/shell browser tests pass 19/19; see the appended correction handoff.
+
+- **2026-10-21 mobile sidebar rail: implemented; host-verified.**
+  Persistent 52px icon stripe with expand/collapse arrows, panda Home, Search,
+  Calendar and direct management links. Expanded/desktop utility text shares the
+  title/Tags/Labels left edge. Native drawer accessibility and desktop resizing
+  are retained. See the appended session entry for validation and release limits.
+
 - **2026-10-17 production Compose configuration follow-up:** user requested
   production settings directly in `docker-compose.yml` and the fixed
   `localhost/pandanote:latest` image. Compose now supplies ORIGIN, mounts `./data`
@@ -5791,3 +5804,120 @@ Next task remains the SS01 atomicity clarification: read SPEC §8, ARCHITECTURE
 §4.3, pre-upgrade implementation and copy tests, then ask the user to choose the
 approved crash-safe journaled rotation or a separately designed Linux atomic
 exchange. Keep the project marked incomplete until its acceptance gates pass.
+
+### Session 2026-10-21 - mobile sidebar icon rail
+
+State: requested UI implemented and host-verified. This is a
+user-requested shell refinement, not completion of SS01 or the overall project.
+
+- AppShell replaces the mobile menu button with a scrollable 52px rail, in order:
+  right arrow, panda favicon/Home, Search, Calendar, Tags, Labels, Templates, Trash,
+  Settings. Search/Calendar open the existing native modal drawer and focus their
+  corresponding control; the left arrow collapses it. Escape, focus return,
+  background inertness and desktop sidebar resizing are preserved.
+- Sidebar utility links and version footer lose the extra left inset. Shared
+  Modal accepts an optional initial-focus selector; Icon adds the required stroke
+  glyphs. English/Chinese labels, product/architecture/UI-02 contracts and affected
+  browser/release selectors were updated. No dependency, schema or server change.
+- New shell regression checks order, 52px width, 44px targets, tool focus,
+  arrow/Escape focus return, direct navigation/current-page state, short-screen
+  scrolling, desktop reflow and desktop/drawer text alignment.
+- Initial checks: `npm run check` passes (0 errors, 1 pre-existing AppShell unused
+  selector warning); `npm run test:unit` passes, 37 files / 261 tests;
+  `npm run build` passes (existing large lazy-chunk warning); `npm run lint`
+  passes. Editor test discovery could not find the supplied unit files; the
+  existing CLI unit script was used instead. Dedicated rail browser test: 1/1.
+- Initial affected browser command:
+  `playwright test shell.test.ts calendar.test.ts version.test.ts title-preferences.test.ts zsearch.test.ts zzzaccessibility.test.ts --update-snapshots`
+  returned 26 pass / 3 fail. Visual baseline review caught a hidden mobile header;
+  restored its flex display and added explicit visibility assertions. Search
+  expected an already selected tag to remain selected, contrary to the existing
+  toggle contract; corrected that expectation so the mobile flow is exercised.
+  Its following boolean test then saw duplicate worker-restart seed data.
+  Three shell baselines reflect the rail and utility alignment.
+- Final commands/results: `npm run test:integration` passes, 45 files / 292 tests
+  with 7 existing platform skips; `npm run check` passes, 0 errors / 1 existing CSS
+  warning; `npm run build` passes. Corrected mobile snapshot regenerated with
+  `playwright test shell.test.ts --grep "viewport/screenshot matrix" --update-snapshots`
+  (1/1 pass), then normal comparison/regression command
+  `playwright test shell.test.ts calendar.test.ts version.test.ts title-preferences.test.ts zsearch.test.ts zzzaccessibility.test.ts language.test.ts`
+  passes 36/36 (the language selector also matches voice-language tests).
+  Final `npm run lint` and `git diff --check` pass. Desktop/light, desktop/dark,
+  collapsed mobile and expanded mobile screenshots opened/reviewed.
+- Validation used cached Node 24.21.0 (system Node 24.15.0 is below the supported
+  minimum) and Git's OpenSSL for HTTPS fixtures. No dependencies installed, user
+  data deleted, existing services replaced, commit made or deployment performed.
+- Linux image, physical-device/screen-reader, full browser and exact-release gates
+  were not run for this presentation change. Existing SS01 atomicity clarification
+  remains open; this does not constitute a project/release completion claim.
+- Next task: user visual review; independent SS01/release work remains as described
+  above. For further shell changes, read AppShell, Sidebar, Modal and the shell,
+  search and title browser specs. First validation command: `npm run check`.
+
+### Session 2026-10-21 - compact Chinese calendar weekdays
+
+State: requested calendar refinement implemented and host-verified.
+
+- In compact density, Simplified Chinese calendar weekday headers display the
+  single numeral character (`一` through `六`, `日`). Other locales retain their
+  three-letter header. The full localized weekday remains in the abbreviation
+  title. Updated the calendar behavior in PRODUCT_SPEC and CAL-01.
+- Changed files: `src/lib/components/Calendar.svelte`,
+  `tests/e2e/calendar.test.ts`, `docs/PRODUCT_SPEC.md`,
+  `docs/ACCEPTANCE_TESTS.md`, and this progress handoff.
+- Validation: `npm run check` passes (0 errors; 1 pre-existing AppShell CSS
+  warning); `npm run build` passes (existing large-chunk warning); targeted
+  Prettier and ESLint pass; `git diff --check` passes; calendar browser suite
+  passes 8/8. Unit and integration suites were not run because this presentation
+  change has no domain or persistence behavior. The browser run required
+  prepending Git's bundled OpenSSL to PATH on Windows.
+- Earlier browser attempts exposed environment/test setup issues: without Git
+  OpenSSL, the E2E TLS server could not start; the first run then used the old
+  production build; after rebuilding, the regression check was scoped to the
+  first calendar because the responsive shell renders a second calendar too.
+  The final full calendar suite passes.
+- No schema, dependency, server, or user-data changes. Linux image and full
+  release gates were not run. Next: user visual review; no further task is
+  required for this weekday-label request.
+
+### Session 2026-10-21 - narrow weekday correction and sidebar session storage
+
+State: implemented and host-verified; supersedes the density-only interpretation
+in the previous weekday-label session, which did not solve narrow sidebar labels.
+
+- Calendar uses an inline-size container query at <= 280 CSS px to display the
+  single Chinese weekday character; wider calendars retain full Chinese names.
+  English remains three letters. Labels cannot wrap and titles retain full names.
+  Verified actual visible text and label/cell geometry at a 240px sidebar for
+  comfortable, compact and spacious densities, and full names at 480px.
+  Opened the generated narrow-calendar screenshot and confirmed the result.
+- AppShell restores and saves width in `sessionStorage` using the shared
+  `pandanote:sidebar-width` key. Refresh/navigation retain it; viewport clamping
+  and existing pointer/keyboard behavior remain. Mobile reload preserves the
+  desktop width rather than clamping it to the mobile viewport. Browser tab
+  closure ends session storage; login clears only this key after sign-out or
+  session expiry. Blocked/invalid storage is surfaced as a localized alert.
+- Touched: `Calendar.svelte`, `AppShell.svelte`, `client/sidebar-size.ts`,
+  `routes/login/+page.svelte`, English/Chinese dictionaries, calendar/shell E2E
+  tests, PRODUCT_SPEC, ARCHITECTURE, ACCEPTANCE_TESTS, and this handoff.
+  No schema, dependency, backend settings or unrelated browser-data changes.
+- Commands/results:
+  - `npm run check`: pass, 0 errors / 1 existing AppShell unused CSS warning.
+  - `npm run build`: pass, existing lazy-chunk size warning.
+  - `npm run lint` and `git diff --check`: pass.
+  - Focused Playwright selector `narrow Chinese|sidebar edge supports|sidebar width survives|sidebar storage failures`:
+    4/4 pass, using Git OpenSSL in PATH.
+  - `npm exec playwright -- test calendar.test.ts shell.test.ts`: 19/19 pass,
+    including existing screenshots, mobile reflow, native zoom, storage failure,
+    refresh/navigation retention, new-tab isolation, sign-out reset and login.
+  - Editor unit-test discovery found no tests for the selected absolute file;
+    used the existing CLI instead:
+    `npm run test:unit -- tests\unit\sidebar-size.test.ts`: 2/2 pass.
+  - `npm run test:integration -- tests\integration\appearance.test.ts tests\integration\general-settings.test.ts`:
+    5/5 pass.
+- Existing staged work was preserved. Validation used installed Node 24.15.0,
+  below the manifest's supported 24.21.0 minimum; no dependencies installed.
+  Full project/release/Linux-image gates were not run, and SS01 remains open.
+- Next: user visual confirmation on refresh. If further changes are needed, read
+  Calendar, AppShell, sidebar-size, login and calendar/shell tests, then first run
+  `npm run check`. This entry does not claim project/release completion.

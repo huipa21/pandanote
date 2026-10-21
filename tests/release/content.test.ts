@@ -41,7 +41,7 @@ test('IMG-UI: built Alpine SSR/preview deferred grammar, lazy Mermaid and hostil
         page.locator('time').filter({ hasText: committedAt }),
       ).toHaveAttribute('datetime', committedAt);
       await page.setViewportSize({ width: 360, height: 800 });
-      await page.getByRole('button', { name: 'Menu & search' }).click();
+      await page.getByRole('button', { name: 'Expand sidebar' }).click();
       await expect(
         page.getByRole('dialog').locator('[data-app-version]'),
       ).toHaveText(`Version ${version}`);

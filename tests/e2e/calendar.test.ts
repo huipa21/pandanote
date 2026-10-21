@@ -87,7 +87,7 @@ test('month/year/day controls keep global counts, lock day pagination, retain fi
   browser,
 }, testInfo) => {
   const { side } = await start(page);
-  const weekdayLabels = await side.locator('th abbr').allTextContents();
+  const weekdayLabels = await side.locator('th abbr').allInnerTexts();
   expect(weekdayLabels).toEqual([
     'Mon',
     'Tue',
@@ -180,7 +180,7 @@ test('month/year/day controls keep global counts, lock day pagination, retain fi
     page.getByRole('region', { name: 'Active filters' }),
   ).toContainText('香港');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
   await drawer
     .getByRole('link', { name: 'Previous month', exact: true })
@@ -331,7 +331,7 @@ test('heatmap date tiles and 4-by-3 month picker support quick years, bounds, ke
   await page.mouse.click(5, 5); // outside click closes
   await expect(picker).toHaveCount(0);
   await page.setViewportSize({ width: 360, height: 800 });
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   const drawer = page.getByRole('dialog', { name: 'Notebook navigation' });
   await drawer.getByRole('button', { name: 'January 2025' }).click();
   await picker.getByRole('button', { name: 'Previous year' }).click();
@@ -696,7 +696,7 @@ test('posting from the composer invalidates calendar counts and a delayed image 
     '2024-12',
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   await testInfo.attach('calendar-mobile', {
     body: await page.screenshot({
       path: testInfo.outputPath('calendar-mobile.png'),
@@ -705,7 +705,7 @@ test('posting from the composer invalidates calendar counts and a delayed image 
   });
   await page
     .getByRole('dialog', { name: 'Notebook navigation' })
-    .getByRole('button', { name: 'Close Notebook navigation', exact: true })
+    .getByRole('button', { name: 'Collapse sidebar', exact: true })
     .click();
   expect(
     (
@@ -733,7 +733,7 @@ test('posting from the composer invalidates calendar counts and a delayed image 
   ).toBe(200);
   await page.goto('/?tag=s11epoch&date=1969-12-31');
   await expect(page.getByTestId('posted-note')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   const epochDrawer = page.getByRole('dialog', { name: 'Notebook navigation' });
   await expect(epochDrawer.locator('[data-calendar-month]')).toHaveAttribute(
     'data-calendar-month',
@@ -751,4 +751,115 @@ test('posting from the composer invalidates calendar counts and a delayed image 
       })
     ).status(),
   ).toBe(200);
+});
+
+test('narrow Chinese calendar shows single-line numerals at every density, independent of viewport width', async ({
+  page,
+}, testInfo) => {
+  const { headers } = await start(page);
+  const calendar = page.locator('[data-calendar-month]').first();
+  try {
+    expect(
+      (
+        await page.request.patch('/api/settings/general', {
+          headers,
+          data: { language: 'zh-CN' },
+        })
+      ).status(),
+    ).toBe(200);
+    expect(
+      (
+        await page.request.patch('/api/settings/appearance', {
+          headers,
+          data: {
+            theme: 'light',
+            density: 'comfortable',
+            collapseLongNotes: true,
+          },
+        })
+      ).status(),
+    ).toBe(200);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    for (const density of ['comfortable', 'compact', 'spacious']) {
+      expect(
+        (
+          await page.request.patch('/api/settings/general', {
+            headers,
+            data: { density },
+          })
+        ).status(),
+      ).toBe(200);
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+      const edge = page.getByRole('separator');
+      await edge.focus();
+      await page.keyboard.press('Home');
+      await expect(edge).toHaveAttribute('aria-valuenow', '240');
+      await expect(calendar.locator('.weekday-compact').first()).toBeVisible();
+      expect(await calendar.locator('th abbr').allInnerTexts()).toEqual([
+        '一',
+        '二',
+        '三',
+        '四',
+        '五',
+        '六',
+        '日',
+      ]);
+      await expect(calendar.locator('.weekday-full').first()).toBeHidden();
+      await expect(calendar.locator('th abbr').first()).toHaveAttribute(
+        'title',
+        '星期一',
+      );
+      const sizes = await calendar.locator('th abbr').evaluateAll((labels) =>
+        labels.map((label) => ({
+          width: label.getBoundingClientRect().width,
+          height: label.getBoundingClientRect().height,
+          cellWidth: label.parentElement!.getBoundingClientRect().width,
+        })),
+      );
+      expect(
+        sizes.every(
+          ({ width, height, cellWidth }) => width <= cellWidth && height < 24,
+        ),
+      ).toBe(true);
+      if (density === 'comfortable') {
+        await calendar.screenshot({
+          path: testInfo.outputPath('narrow-chinese-calendar.png'),
+        });
+      }
+      await page.keyboard.press('End');
+      await expect(calendar.locator('.weekday-full').first()).toBeVisible();
+      expect(await calendar.locator('th abbr').allInnerTexts()).toEqual([
+        '星期一',
+        '星期二',
+        '星期三',
+        '星期四',
+        '星期五',
+        '星期六',
+        '星期日',
+      ]);
+      await expect(calendar.locator('.weekday-compact').first()).toBeHidden();
+    }
+  } finally {
+    expect(
+      (
+        await page.request.patch('/api/settings/general', {
+          headers,
+          data: { language: 'en' },
+        })
+      ).status(),
+    ).toBe(200);
+    expect(
+      (
+        await page.request.patch('/api/settings/appearance', {
+          headers,
+          data: {
+            theme: 'light',
+            density: 'comfortable',
+            collapseLongNotes: true,
+          },
+        })
+      ).status(),
+    ).toBe(200);
+  }
 });

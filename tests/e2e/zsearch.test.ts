@@ -161,22 +161,23 @@ test('superseded search/paging responses cannot replace newer results; AND tags,
     .first()
     .getByRole('link', { name: '#s10search', exact: true })
     .click();
-  await expect(page).toHaveURL('/?tag=s10search&q=%22latestneedle%22'); // card tag opens its tag view and retains search
+  // Clicking the already selected tag clears it and retains the search.
+  await expect(page).toHaveURL('/?q=%22latestneedle%22');
   await page
     .getByRole('link', { name: 'Settings', exact: true })
     .first()
     .click();
   await expect(page).toHaveURL('/settings');
   await page.goBack();
-  await expect(page).toHaveURL('/?tag=s10search&q=%22latestneedle%22');
+  await expect(page).toHaveURL('/?q=%22latestneedle%22');
   await expect(page.getByTestId('posted-note')).toHaveCount(1);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   const dialog = page.getByRole('dialog', { name: 'Notebook navigation' });
   await dialog.getByRole('searchbox', { name: 'Search notes' }).fill('数据库');
   await expect(dialog).not.toBeVisible();
   await expect(page.getByTestId('posted-note')).toHaveCount(30);
-  await page.getByRole('button', { name: 'Menu & search' }).click();
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
   const navigation = page.getByRole('dialog', { name: 'Notebook navigation' });
   // A tag click selects that single tag; the search stays.
   await navigation

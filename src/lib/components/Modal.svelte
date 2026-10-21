@@ -11,6 +11,7 @@
     onKey = () => {},
     customHeader = false,
     lightDismiss = false,
+    initialFocus,
     children,
   }: {
     open?: boolean;
@@ -23,6 +24,7 @@
     customHeader?: boolean;
     /** Clicking the backdrop (outside the content) dismisses the dialog. */
     lightDismiss?: boolean;
+    initialFocus?: string;
     children: Snippet;
   } = $props();
   const titleId = $props.id();
@@ -62,7 +64,7 @@
           return;
         const initial =
           dialog.querySelector<HTMLElement>(
-            '[data-initial-focus]:not(:disabled)',
+            initialFocus ?? '[data-initial-focus]:not(:disabled)',
           ) ??
           dialog.querySelector<HTMLElement>(
             'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled)',

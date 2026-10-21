@@ -10,6 +10,8 @@ export const zhCN: Partial<Catalog> = {
   'shell.sidebar': '侧边栏',
   'shell.menu': '菜单与搜索',
   'shell.drawer': '笔记本导航',
+  'shell.expandSidebar': '展开侧边栏',
+  'shell.collapseSidebar': '收起侧边栏',
   'shell.utilities': '工具',
   'shell.trash': '回收站',
   'shell.settings': '设置',
@@ -615,6 +617,8 @@ export const zhCN: Partial<Catalog> = {
   'shell.resize': '调整侧边栏宽度',
   'shell.resizeTitle': '拖动以调整侧边栏宽度；获得焦点后可使用方向键',
   'shell.pixels': '{width} 像素',
+  'shell.widthStorageUnavailable':
+    '浏览器会话存储不可用，刷新后侧边栏宽度可能会重置。',
   'shell.removeSearch': '移除搜索筛选',
   'shell.removeDay': '移除日期筛选',
   'shell.removeLabel': '移除标签筛选',

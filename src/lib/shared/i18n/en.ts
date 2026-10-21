@@ -6,6 +6,8 @@ export const en = {
   'shell.skip': 'Skip to notes',
   'shell.sidebar': 'Sidebar',
   'shell.menu': 'Menu & search',
+  'shell.expandSidebar': 'Expand sidebar',
+  'shell.collapseSidebar': 'Collapse sidebar',
   'shell.drawer': 'Notebook navigation',
   'shell.utilities': 'Utilities',
   'shell.trash': 'Trash',
@@ -661,6 +663,8 @@ export const en = {
   'shell.resize': 'Resize sidebar',
   'shell.resizeTitle': 'Drag to resize sidebar; use arrow keys when focused',
   'shell.pixels': '{width} pixels',
+  'shell.widthStorageUnavailable':
+    'Browser session storage is unavailable. The sidebar width may reset on refresh.',
   'shell.removeSearch': 'Remove search filter',
   'shell.removeDay': 'Remove day filter',
   'shell.removeLabel': 'Remove label filter',

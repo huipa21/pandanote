@@ -178,7 +178,7 @@
     display: flex;
     align-items: center;
     min-height: var(--row-target);
-    padding: var(--space-1) var(--space-3);
+    padding: var(--space-1) 0;
     text-decoration: none;
     border-radius: var(--radius);
     color: var(--text);
@@ -232,7 +232,6 @@
   }
   .version {
     margin: 0;
-    padding-inline: var(--space-3);
     font-size: 0.75rem;
   }
   .tag-list {

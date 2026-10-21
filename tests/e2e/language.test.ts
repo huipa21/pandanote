@@ -157,7 +157,7 @@ test('language and site title: header toggle, zh-CN screens, title in tab/header
 
     // Mobile drawer uses the same translated identity.
     await page.setViewportSize({ width: 390, height: 800 });
-    await page.getByRole('button', { name: '菜单与搜索' }).click();
+    await page.getByRole('button', { name: '展开侧边栏' }).click();
     const drawer = page.getByRole('dialog', { name: '笔记本导航' });
     await expect(
       drawer.getByRole('link', { name: '设置', exact: true }),

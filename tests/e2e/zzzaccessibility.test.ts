@@ -139,7 +139,7 @@ test.describe('axe WCAG 2.x AA scans', () => {
         }
         await page.goto('/');
         if (size.name === 'phone')
-          await page.getByRole('button', { name: 'Menu & search' }).click();
+          await page.getByRole('button', { name: 'Expand sidebar' }).click();
         const calendar =
           size.name === 'phone'
             ? page.getByRole('dialog', { name: 'Notebook navigation' })

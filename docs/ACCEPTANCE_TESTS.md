@@ -227,7 +227,13 @@ Matches visibly highlighted, snippets escaped and safe. Unicode normalization ca
 
 ### CAL-01 — Month UI/navigation
 
-Correct weekday/day count/leap years, optional week-start setting. Weekdays use three-letter abbreviations with full-name titles. Bold borderless month/year heading is left-aligned; previous/next arrows are grouped on the right. Compact square backgrounds behind date numerals form a monthly heatmap; heat shades correspond to note counts, with zero/today/selection distinguishable and accessible. Heading opens 12 month links in 4 columns × 3 rows; clicking the year enables direct text entry, and arrows on either side move years. The picker is inline, not a modal, and has no quick-year list or year-activity fetch. Browsing does not change filters; month selection clears day but retains search/tags. Verify 1969/9998 bounds, keyboard focus/Escape/return, four-column mobile targets and light/dark contrast. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
+Correction to the earlier compact-density implementation: narrow means calendar
+container width <= 280 CSS px, not the density setting. At 240px sidebar width,
+Chinese headers must show only `一 二 三 四 五 六 日` on one line at every density.
+At 480px sidebar width, full Chinese names return. Check visible text and actual
+label geometry, not merely the existence of hidden short-label markup.
+
+Correct weekday/day count/leap years, optional week-start setting. Weekdays use three-letter English abbreviations with full-name titles; in narrow calendars, Simplified Chinese labels show only their numeral character while retaining the full-name title. Bold borderless month/year heading is left-aligned; previous/next arrows are grouped on the right. Compact square backgrounds behind date numerals form a monthly heatmap; heat shades correspond to note counts, with zero/today/selection distinguishable and accessible. Heading opens 12 month links in 4 columns × 3 rows; clicking the year enables direct text entry, and arrows on either side move years. The picker is inline, not a modal, and has no quick-year list or year-activity fetch. Browsing does not change filters; month selection clears day but retains search/tags. Verify 1969/9998 bounds, keyboard focus/Escape/return, four-column mobile targets and light/dark contrast. Arrows, quick month/year picker, Today work across years. Counts always all published notes, independent of search/tags.
 
 ### CAL-02 — Continuous scrolling
 
@@ -279,6 +285,18 @@ right of the ellipsized title without overflow on desktop, mobile header or draw
 No separate note title fields or masonry.
 
 ### UI-02 — Responsive/keyboard
+
+Sidebar width survives same-tab refresh/navigation through `sessionStorage`,
+reclamps to viewport bounds, and resets after sign-out or in a new tab opened
+without an opener. Do not clear it on refresh or clear unrelated browser data.
+Blocked session storage must show a localized warning while resizing still works.
+
+Mobile keeps a narrow icon rail (expand arrow, panda Home, Search, Calendar, Tags,
+Labels, Templates, Trash, Settings). Expand/collapse arrows and Escape preserve
+focus; Search/Calendar focus the corresponding expanded-sidebar control. Direct
+links navigate through the existing unsaved-editor guard. Rail controls remain
+reachable on short screens; 44px targets, no horizontal overflow. Expanded/desktop
+title, Tags, Labels and utility text share the same left edge.
 
 At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No clipped essential action/horizontal overflow. Desktop sidebar right edge supports pointer-captured mouse/pen/touch dragging and keyboard Left/Right/Home/End, with visible focus and width bounds preserving the main column. It disappears in mobile drawer mode. Drawer/detail/image/editor keyboard focus and return, Escape safety, screen-reader labels, reduced motion, 200% zoom and AA contrast reviewed. Mobile keyboard does not hide Post or destroy draft. Touch-only workflow works.
 

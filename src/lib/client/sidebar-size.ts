@@ -2,6 +2,7 @@
 export const DEFAULT_SIDEBAR_WIDTH = 272;
 export const MIN_SIDEBAR_WIDTH = 240;
 export const MAX_SIDEBAR_WIDTH = 480;
+export const SIDEBAR_WIDTH_KEY = 'pandanote:sidebar-width';
 const MIN_MAIN_WIDTH = 480;
 
 export function sidebarMaximum(viewportWidth: number): number {
