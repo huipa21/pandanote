@@ -1019,6 +1019,28 @@ export class EditorWorkspace {
       this.resetSession();
   }
 
+  /** Save started by `commitEdit` (a click outside an inline edit), until it settles. */
+  autosave: Promise<boolean> | null = null;
+
+  /** Finish an inline edit without asking: save a changed edit, close an unchanged
+   * one. Resolves false (the editor stays open) when it cannot be saved now, e.g.
+   * while recording, with an empty body, missing files or a save error. */
+  commitEdit(): Promise<boolean> {
+    if (this.autosave) return this.autosave;
+    if (this.editOrigin === null || this.busy || this.posting)
+      return Promise.resolve(false);
+    if (!this.dirty && !this.frozen) {
+      this.resetSession();
+      return Promise.resolve(true);
+    }
+    if (!this.canPost) return Promise.resolve(false);
+    const run = this.post().finally(() => {
+      this.autosave = null;
+    });
+    this.autosave = run;
+    return run;
+  }
+
   /** Make the one session a fresh new-note session. An edit of a note that is open
    * elsewhere goes through the unsaved-changes guard first. */
   async startNew(): Promise<boolean> {

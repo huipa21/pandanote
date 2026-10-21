@@ -42,26 +42,36 @@
   );
   setContext(EDITOR_WORKSPACE, workspace);
   let resumingNavigation = false;
+  async function resumeNavigation(target: URL) {
+    resumingNavigation = true;
+    try {
+      await goto(target, { reset: false });
+    } finally {
+      resumingNavigation = false;
+    }
+  }
   beforeNavigate((navigation) => {
-    if (
-      resumingNavigation ||
-      navigation.willUnload ||
-      !navigation.to?.url ||
-      (!workspace.dirty && !workspace.busy && !workspace.frozen)
-    )
+    if (resumingNavigation || navigation.willUnload || !navigation.to?.url)
       return;
+    // A click outside an inline edit already saves it without asking; follow the
+    // clicked link once that save succeeds (a failed save keeps the editor open).
+    const autosave = workspace.autosave;
+    if (autosave) {
+      navigation.cancel();
+      const target = navigation.to.url;
+      void autosave.then((saved) => {
+        if (saved && !workspace.dirty && !workspace.frozen)
+          void resumeNavigation(target);
+      });
+      return;
+    }
+    if (!workspace.dirty && !workspace.busy && !workspace.frozen) return;
     navigation.cancel();
     // Repeated navigation clicks cannot queue competing destinations on one dialog.
     if (workspace.confirmModalOpen) return;
     const target = navigation.to.url;
     void workspace.promptUnsavedChanges().then(async (proceed) => {
-      if (!proceed) return;
-      resumingNavigation = true;
-      try {
-        await goto(target, { reset: false });
-      } finally {
-        resumingNavigation = false;
-      }
+      if (proceed) await resumeNavigation(target);
     });
   });
   const lifecycle = new LifecycleState(workspace.accountId, (result) =>

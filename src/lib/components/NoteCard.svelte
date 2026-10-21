@@ -60,6 +60,7 @@
     onMutation?: (result: MutationResult) => void;
   } = $props();
   let content: HTMLDivElement;
+  let article: HTMLElement;
   let overflow = $state(false);
   let ready = $state(false);
   let collapsePreference = $state(true);
@@ -128,8 +129,10 @@
     observer.observe(content);
     observer.observe(content.firstElementChild!);
     preference();
+    content.addEventListener('dblclick', editFromText);
     return () => {
       disposed = true;
+      content.removeEventListener('dblclick', editFromText);
       observer.disconnect();
       changes.disconnect();
       appearance.disconnect();
@@ -216,6 +219,8 @@
   ]);
   async function startEdit() {
     error = '';
+    // A click outside another inline edit may still be saving it.
+    if (workspace.autosave && !(await workspace.autosave)) return;
     let snapshot: NoteSnapshot = note;
     if (note.bodyTruncated) {
       await loadFull();
@@ -231,20 +236,66 @@
     await tick();
     await editor?.focusText();
   }
-  // Leaving edit mode (save or cancel) returns focus to this card's trigger.
+  /** Double-clicking the note text edits it in place; links, images and controls
+   * inside the text keep their own behavior. */
+  function editFromText(event: MouseEvent) {
+    const target = event.target as Element | null;
+    if (
+      editing ||
+      !ready ||
+      target?.closest('a, button, img, input, audio, video, label, summary')
+    )
+      return;
+    window.getSelection()?.removeAllRanges();
+    void startEdit();
+  }
+  /** Pointer down on a scroll container's own scrollbar is scrolling, not a click. */
+  function onScrollbar(event: PointerEvent, target: Element) {
+    return (
+      (target.clientWidth > 0 && event.offsetX > target.clientWidth) ||
+      (target.clientHeight > 0 && event.offsetY > target.clientHeight)
+    );
+  }
+  // Clicking anywhere outside the card saves a changed edit (or closes an unchanged
+  // one) without asking. Dialogs (focus mode, pickers, conflicts) are not "outside".
+  let closedOutside = false;
+  $effect(() => {
+    if (!editing) return;
+    const outside = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        event.button !== 0 ||
+        !(target instanceof Element) ||
+        article.contains(target) ||
+        target.closest('dialog') ||
+        onScrollbar(event, target)
+      )
+        return;
+      closedOutside = true;
+      void workspace.commitEdit().then((done) => {
+        if (!done) closedOutside = false;
+      });
+    };
+    document.addEventListener('pointerdown', outside, true);
+    return () => document.removeEventListener('pointerdown', outside, true);
+  });
+  // Leaving edit mode (save or cancel) returns focus to this card's trigger, unless
+  // the user left by clicking elsewhere: focus then stays where they clicked.
   let wasEditing = false;
   $effect(() => {
     const now = editing;
     untrack(() => {
       const ended = wasEditing && !now;
       wasEditing = now;
-      if (ended) void tick().then(() => menuTrigger?.focus());
+      if (ended && !closedOutside) void tick().then(() => menuTrigger?.focus());
+      if (ended || now) closedOutside = false;
     });
   });
   onDestroy(() => workspace.releaseEdit(note.id));
 </script>
 
 <article
+  bind:this={article}
   class="surface note-card"
   data-testid="posted-note"
   data-note-id={note.id}

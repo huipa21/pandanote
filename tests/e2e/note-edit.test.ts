@@ -47,7 +47,7 @@ test('NA-EDIT: card Edit opens an in-place editor; Save changes keeps position; 
   expect(await index()).toBe(before);
 });
 
-test('NA-EDIT: edits in a tag view, and a dirty session guards switching to another card', async ({
+test('NA-EDIT: edits in a tag view; clicking another card saves the dirty edit without asking', async ({
   page,
 }) => {
   const tag = `sw${Date.now().toString(36)}`;
@@ -60,14 +60,55 @@ test('NA-EDIT: edits in a tag view, and a dirty session guards switching to anot
   await text.fill(`Switch A edited #${tag}`);
   await openMenu(page, b);
   await pick(page, 'Edit');
-  const dialog = page.getByRole('dialog', { name: 'Unsaved changes' });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Cancel' }).click();
-  await expect(card(page, b).getByTestId('inline-editor')).toHaveCount(0);
-  await expect(text).toHaveValue(`Switch A edited #${tag}`);
-  await card(page, a).getByRole('button', { name: 'Save changes' }).click();
+  await expect(card(page, b).getByTestId('inline-editor')).toBeVisible();
+  await expect(
+    page.getByRole('dialog', { name: 'Unsaved changes' }),
+  ).toHaveCount(0);
   await expect(card(page, a)).toContainText('Switch A edited');
+  await expect(card(page, a)).toHaveAttribute('data-revision', '2');
   await expect(card(page, a).getByTestId('inline-editor')).toHaveCount(0);
+});
+
+test('NA-EDIT: double-click edits the card text; clicking outside saves or closes without asking', async ({
+  page,
+}) => {
+  const tag = `dc${Date.now().toString(36)}`;
+  const a = await create(page, `Double A #${tag}`);
+  const b = await create(page, `Double B #${tag}`);
+  await page.goto(`/?tag=${tag}`);
+  const c = card(page, a);
+  const editor = c.getByTestId('inline-editor');
+  const text = editor.getByRole('textbox', { name: 'Note text' });
+  // Unchanged: an outside click just closes the editor.
+  await c.locator('.card-content').dblclick();
+  await expect(text).toBeFocused();
+  await expect(text).toHaveValue(`Double A #${tag}`);
+  await page.locator('h1').first().click();
+  await expect(editor).toHaveCount(0);
+  await expect(c).toHaveAttribute('data-revision', '1');
+  // Changed: an outside click saves in place, no dialog.
+  await c.locator('.card-content').dblclick();
+  await text.fill(`Double A saved #${tag}`);
+  await page.locator('h1').first().click();
+  await expect(editor).toHaveCount(0);
+  await expect(c).toContainText('Double A saved');
+  await expect(c).toHaveAttribute('data-revision', '2');
+  // A body that cannot be saved (empty) keeps the editor open.
+  await c.locator('.card-content').dblclick();
+  await text.fill('');
+  await page.locator('h1').first().click();
+  await expect(text).toBeVisible();
+  await text.fill(`Double A linked #${tag}`);
+  // Clicking a link outside saves first, then follows the link without asking.
+  await card(page, b)
+    .getByRole('link', { name: `#${tag}` })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole('dialog', { name: 'Unsaved changes' }),
+  ).toHaveCount(0);
+  await expect(card(page, a)).toContainText('Double A linked');
+  await expect(card(page, a)).toHaveAttribute('data-revision', '3');
 });
 
 test('NA-EDIT: typed composer text prompts before a card edit opens', async ({

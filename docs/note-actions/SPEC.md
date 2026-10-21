@@ -162,6 +162,15 @@ page use it for edits. No duplicated editor logic.
 - Focus button opens the full-screen editor modal for the same session; its X
   returns to the inline card editor. Mobile uses inline editing too.
 - Editing works in tag/search/day views even though the top composer is hidden there.
+- **Double-click / click outside (2026-10-21 user request):** double-clicking a card's
+  text opens the same inline edit (links, images and controls inside the text keep
+  their own behavior). While a card edit is open, a primary-button press anywhere
+  outside that card — not inside a dialog and not on a scrollbar — commits it with no
+  prompt: a changed edit is saved (Save changes), an unchanged one just closes, and
+  focus stays where the user clicked. If the edit cannot be saved (recording, empty
+  body, missing file, conflict, failure, retired-tag choice) the editor stays open with
+  the usual feedback. A link clicked outside navigates only after that save succeeds;
+  editing another card waits for it. The note page (5.3) is unchanged.
 
 ### 5.3 Note page
 

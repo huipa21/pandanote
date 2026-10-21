@@ -2,6 +2,11 @@
 
 ## Current state
 
+- **2026-10-21 card double-click edit / click-outside save: implemented,
+  host-verified.** Double-clicking a card's text on timeline/tag/label views opens the
+  inline editor; a click outside the card saves (or closes an unchanged edit) with no
+  prompt. Note-edit browser tests 6/6 pass; see the appended handoff entry.
+
 - **2026-10-21 narrow calendar correction + sidebar width session: implemented,
   host-verified.** The earlier density-only fix misunderstood the request.
   Chinese weekdays now shorten according to the calendar container's width,
@@ -5921,3 +5926,36 @@ in the previous weekday-label session, which did not solve narrow sidebar labels
 - Next: user visual confirmation on refresh. If further changes are needed, read
   Calendar, AppShell, sidebar-size, login and calendar/shell tests, then first run
   `npm run check`. This entry does not claim project/release completion.
+
+## 2026-10-21 — card double-click edit and click-outside save
+
+- State: **done (host-verified)**. User request: notes on the timeline, tag and label
+  views edit their text on double-click; clicking anywhere other than the card saves
+  the change with no confirmation. This explicitly supersedes the earlier "replacing
+  an editor prompts" rule for this case; PRODUCT_SPEC and note-actions SPEC §5.2 updated.
+- Behavior: `NoteCard` listens for `dblclick` on `.card-content` (skips links, images,
+  buttons, inputs, media) and runs the existing `startEdit`. While editing, a capture
+  `pointerdown` on `document` outside the card (ignoring `dialog` contents, scrollbars
+  and non-primary buttons) calls the new `EditorWorkspace.commitEdit()`: unchanged →
+  `resetSession`; changed and `canPost` → `post()`; otherwise the editor stays with its
+  feedback (empty body, recording, missing files, conflict, stale tags, failure). Focus
+  is not moved back to the card's `•••` trigger after an outside click. The in-flight
+  save is exposed as `workspace.autosave`; the layout `beforeNavigate` waits for it and
+  then follows the clicked link without the Unsaved-changes dialog (failure: stays),
+  and `startEdit` on another card waits for it too. The note page is unchanged.
+- Touched: `src/lib/components/NoteCard.svelte`,
+  `src/lib/client/editor/workspace.svelte.ts`, `src/routes/(app)/+layout.svelte`,
+  `tests/e2e/note-edit.test.ts` (card-switch test now expects silent save; new
+  double-click/outside-click test), `docs/PRODUCT_SPEC.md`, `docs/note-actions/SPEC.md`.
+- Commands/results:
+  - `npm run check`: pass (0 errors, existing AppShell unused-CSS warning).
+  - `npm run lint`: pass (after prettier on NoteCard).
+  - `npm run test:unit`: 261/261 pass. `npm run build`: pass.
+  - `npx playwright test tests/e2e/note-edit.test.ts` (Git OpenSSL on PATH): 6/6 pass.
+  - `npx playwright test detail voice-post voice-naming voice-language labels
+note-actions editor`: 40 pass / 1 fail (`voice-naming` "renamed from its card",
+    card rename, no editor). It passed on a clean stash and 3/3 with
+    `--repeat-each 3` on this change: load flake, not a regression.
+  - Integration suite, full e2e suite and Linux image not run (no server change).
+- Next: user confirmation. If adjusting, read NoteCard and workspace `commitEdit`,
+  then run `npx playwright test tests/e2e/note-edit.test.ts` after `npx vite build`.

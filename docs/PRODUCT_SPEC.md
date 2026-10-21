@@ -69,6 +69,10 @@ Card dates have no resting underline or Edited label; dates, tags and header act
 use consistent pill geometry/soft hover backgrounds (tags underline on hover).
 Trashing unpins. Edit
 happens in place (in the card, or on the note page) instead of in the top composer.
+On timeline, tag and label views, double-clicking a card's text also edits it, and
+clicking anywhere outside the card saves the change (or closes an unchanged edit)
+without a confirmation (2026-10-21 user request; supersedes the prompt below for
+this case — see note-actions SPEC §5.2).
 Delete moves to Trash immediately without confirmation, status text or Undo; from
 the note page it returns to the timeline. Restore and permanent delete happen only
 on the Trash page (permanent delete still confirms). Copy Markdown is removed; Archive, Share and Copy Link were considered and
