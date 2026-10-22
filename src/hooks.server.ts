@@ -6,6 +6,7 @@ import { apiError } from '#lib/shared/domain.ts';
 import { DEFAULT_SETTINGS } from '#lib/shared/settings.ts';
 import { matchAcceptLanguage } from '#lib/shared/i18n/registry.ts';
 import { readSettings } from '#lib/server/settings/repository.ts';
+import { vaultState } from '#lib/server/auth/vault.ts';
 import { getRuntime, initializeRuntime } from '#lib/server/runtime.ts';
 import { ApplicationInitializationError } from '#lib/server/initialize.ts';
 import {
@@ -60,6 +61,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.identity = null;
   const path = event.url.pathname;
   const method = event.request.method;
+  let readVaultVersion: number | undefined;
   // Readiness is public, read-only and contains no private/account metadata.
   if (path === '/health' && ['GET', 'HEAD'].includes(method))
     return protect(await resolve(event));
@@ -91,6 +93,11 @@ export const handle: Handle = async ({ event, resolve }) => {
     );
     const cookie = event.cookies.get(SESSION_COOKIE);
     event.locals.identity = runtime.auth.authenticate(cookie);
+    if (event.locals.identity && ['GET', 'HEAD'].includes(method))
+      readVaultVersion = vaultState(
+        runtime.persistence.db,
+        event.locals.identity,
+      ).version;
     if (cookie && !event.locals.identity)
       clearSessionCookie(event.cookies, runtime.policy.production);
     const setupState = runtime.auth.setupState();
@@ -157,15 +164,30 @@ export const handle: Handle = async ({ event, resolve }) => {
   } catch (error) {
     return protect(authErrorResponse(error));
   }
-  return protect(
-    await resolve(event, {
-      // Language codes come only from the code registry; safe for the attribute.
-      transformPageChunk: ({ html }) =>
-        appearanceHtml(
-          html,
-          event.locals.appearance!,
-          event.locals.i18n?.language,
-        ),
-    }),
-  );
+  const response = await resolve(event, {
+    // Language codes come only from the code registry; safe for the attribute.
+    transformPageChunk: ({ html }) =>
+      appearanceHtml(
+        html,
+        event.locals.appearance!,
+        event.locals.i18n?.language,
+      ),
+  });
+  if (readVaultVersion !== undefined) {
+    try {
+      if (
+        vaultState(event.locals.runtime!.persistence.db, event.locals.identity!)
+          .version !== readVaultVersion
+      )
+        return protect(
+          Response.json(
+            { ok: false, error: apiError('busy', 'vault.changed') },
+            { status: 409 },
+          ),
+        );
+    } catch (error) {
+      return protect(authErrorResponse(error));
+    }
+  }
+  return protect(response);
 };

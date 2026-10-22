@@ -48,6 +48,8 @@ export class NoteConflictError extends DomainError {
     this.snapshot = snapshot;
   }
 }
+import { assertNoteVisible, visibleAttachment } from '../auth/vault.ts';
+
 type NoteRow = typeof notes.$inferSelect;
 type AttachmentRow = typeof attachments.$inferSelect;
 type Reader = Persistence['db'] | DomainTransaction;
@@ -69,6 +71,7 @@ function snapshot(db: Reader, row: NoteRow): NoteSnapshot {
   return {
     id: row.id,
     bodyMarkdown: row.bodyMarkdown,
+    isPrivate: row.isPrivate,
     status: row.status,
     priorStatus: row.priorStatus,
     timelineAt: row.timelineAt,
@@ -109,7 +112,9 @@ export class NoteService {
     // another connection writes between reads. It makes no content mutations.
     return this.p.db.transaction((tx) => {
       assertSessionIdentity(tx, identity);
-      return snapshot(tx, rowFor(tx, id));
+      const row = rowFor(tx, id);
+      assertNoteVisible(tx, identity, row);
+      return snapshot(tx, row);
     });
   }
   mutate(identity: SessionIdentity, input: unknown): MutationResult {
@@ -130,6 +135,7 @@ export class NoteService {
       );
       if (receipt) return receipt;
       const old = value.action === 'create' ? null : rowFor(tx, value.noteId);
+      if (old) assertNoteVisible(tx, identity, old);
       if (
         old &&
         value.action !== 'create' &&
@@ -213,6 +219,7 @@ export class NoteService {
             JSON.stringify(previousIds) !==
               JSON.stringify(content.attachmentIds));
         const fields = {
+          isPrivate: content.isPrivate ?? old?.isPrivate ?? false,
           bodyMarkdown: content.bodyMarkdown,
           timelineAt,
           updatedAt: now,
@@ -381,6 +388,7 @@ export class NoteService {
       if (
         !row ||
         row.readiness !== 'ready' ||
+        (referenced && !visibleAttachment(tx, identity, id)) ||
         (!referenced && (!batchId || row.batchId !== batchId)) ||
         tx
           .select()

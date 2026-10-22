@@ -217,7 +217,7 @@ test('mobile icon rail expands, focuses tools, navigates and stays compact on sh
     page.locator('.mobile-header').getByRole('button', { name: /mode$/ }),
   ).toBeVisible();
   expect((await rail.boundingBox())!.width).toBe(52);
-  await expect(rail.locator('a, button')).toHaveCount(8);
+  await expect(rail.locator('a, button')).toHaveCount(9);
   const names = [
     'Expand sidebar',
     'PandaNote home',
@@ -225,6 +225,7 @@ test('mobile icon rail expands, focuses tools, navigates and stays compact on sh
     'Month activity',
     'Tags',
     'Templates',
+    'Vault',
     'Trash',
     'Settings',
   ];

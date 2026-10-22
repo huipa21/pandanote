@@ -1,5 +1,40 @@
 # PandaNote — Product specification
 
+## Approved change — Vault
+
+- Ordinary notes default to **public** within this authenticated single-user app;
+  this is not internet sharing. A lock icon in every note editor toggles
+  **Private note**. Editing, conflict copies and retries preserve that choice.
+- **Vault** sits between Templates and Trash in the desktop sidebar, mobile drawer
+  and mobile icon rail. It opens an accessible password dialog. The account
+  password alone unlocks it, even when MFA is enabled; attempts are rate-limited.
+- Unlock is shared by tabs using the same sign-in session and survives refresh.
+  It first opens a private-notes-only timeline. Clicking the app title/Home opens
+  All notes, now including private notes. Tags, search and calendar then include
+  private notes too. Other sign-in sessions remain locked.
+- The menu becomes **Close Vault**. Closing restores server-enforced hiding of
+  private notes, including pinned notes, Trash, direct note/file URLs, private-only
+  tags/autocomplete, search and calendar counts. Shared tag changes affecting
+  hidden notes require unlock rather than silently rewriting them.
+  While closed, tag inventories/suggestions require a visible note reference:
+  registry-only tags are available only after unlock, since orphaned tags may
+  otherwise disclose a private note's former tags.
+- Posting a private note does not require unlock; it disappears from locked views
+  after confirmed save. Trash/restore preserve privacy. A file explicitly reused
+  by a public note remains readable through that public reference.
+- Closing in the current tab respects the unsaved-work dialog. Other tabs hide
+  stale views, refresh authoritative state, and clear private editors/conflicts;
+  unsaved public editors are retained. A private editor also includes a private
+  base being edited into a public note. Network failures keep stale views hidden
+  until retry. Private history snapshots and Vault-open tag-action retry payloads
+  are not written to browser storage; those tag retries remain in memory only.
+- Full manual backups still include private notes/files regardless of Vault state.
+  Restoring does not restore sessions or unlock state; the next sign-in is locked.
+  Vault is password-gated visibility, not separate at-rest encryption.
+- User-confirmed fresh-install policy: update the existing baseline and metadata
+  without migrating or deleting development data. Incompatible older databases/
+  archives remain untouched and fail trusted-history validation.
+
 ## Approved change — note templates
 
 The user approved reusable note templates: a **Templates** page (sidebar link, laid out like Tags) with search, select-all, multi-select delete, a New template button and click-to-edit, with no limit on the count; and a template icon in the editor toolbar that opens a searchable picker and inserts the chosen text at the caret. Templates are private copies of text only (no attachments, no placeholders); notes made from them are independent. Adds schema version 3. Details: [templates/SPEC.md](templates/SPEC.md) and [PROGRESS](templates/PROGRESS.md).
@@ -226,7 +261,7 @@ The sidebar lists the most-used tags as borderless flowing chips a "+N" link and
 
 - A persistent 52px icon rail replaces the Menu & search header button. From top
   to bottom: rightward expand arrow, panda favicon linking home, Search, Calendar,
-  Tags, Templates, Trash and Settings. Icon controls have accessible names,
+  Tags, Templates, Vault, Trash and Settings. Icon controls have accessible names,
   keyboard focus and 44px touch targets; the rail scrolls independently on short screens.
 - The arrow opens the full sidebar with a leftward collapse arrow instead of a
   text Close button. Search and Calendar open the same sidebar and focus their
@@ -241,7 +276,7 @@ The sidebar lists the most-used tags as borderless flowing chips a "+N" link and
 - Do not rely on hover for any essential action.
 
 Expanded and desktop sidebar text shares one left edge: title, Tags,
-Templates, Trash and Settings (no extra inset for the bottom utilities).
+Templates, Vault, Trash and Settings (no extra inset for the bottom utilities).
 
 ## 4. Note content and composer
 

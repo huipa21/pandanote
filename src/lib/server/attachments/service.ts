@@ -37,11 +37,13 @@ import type {
 } from '../db/connection.ts';
 import {
   attachments,
+  notes as noteRows,
   uploadBatches,
   noteAttachments,
   fileCleanupJobs,
 } from '../db/schema.ts';
 import { findReceipt } from '../db/receipts.ts';
+import { visibleAttachment, vaultState } from '../auth/vault.ts';
 import { refreshNoteSearch } from '../search/index.ts';
 import { readSettings } from '../settings/repository.ts';
 import { syncDirectory, rejectSymlinks } from '../storage/private-storage.ts';
@@ -615,6 +617,19 @@ export class AttachmentService {
         !row ||
         row.readiness !== 'ready' ||
         !notes.length ||
+        (!vaultState(tx, identity).open &&
+          tx
+            .select({ id: noteRows.id })
+            .from(noteAttachments)
+            .innerJoin(noteRows, eq(noteRows.id, noteAttachments.noteId))
+            .where(
+              and(
+                eq(noteAttachments.attachmentId, id),
+                eq(noteRows.isPrivate, true),
+              ),
+            )
+            .limit(1)
+            .get() !== undefined) ||
         tx
           .select()
           .from(fileCleanupJobs)
@@ -671,10 +686,11 @@ export class AttachmentService {
         .where(eq(uploadBatches.id, row.batchId))
         .get();
     if (
-      !referenced &&
-      (!batch ||
-        batch.accountId !== identity.account.id ||
-        batch.status !== 'pending')
+      (referenced && !visibleAttachment(this.p.db, identity, id)) ||
+      (!referenced &&
+        (!batch ||
+          batch.accountId !== identity.account.id ||
+          batch.status !== 'pending'))
     )
       throw new DomainError('not-found', 'err.attachmentNotFound');
     const image = row.kind === 'image';

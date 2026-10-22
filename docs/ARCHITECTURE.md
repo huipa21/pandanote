@@ -1,5 +1,49 @@
 # PandaNote — Architecture and technical contracts
 
+## Current override — Vault
+
+The fresh schema remains version 3 / 20 tables. `notes.is_private` is a checked
+SQLite boolean, default false. `sessions.vault_open` defaults false and
+`vault_version` is a checked nonnegative safe integer advanced on unlock/close.
+Drizzle metadata snapshots and baseline SQL change together; no compatibility
+migration, hash bypass or data reset is provided.
+
+`auth/vault.ts` rechecks the live session in database transactions and supplies
+shared note/file visibility guards. The browser never supplies authority.
+`GET /api/auth/vault` returns only `{open,version}`. Strict bounded same-origin
+`POST` accepts `{action:"unlock",password}` or `{action:"close"}`. Unlock uses
+the existing fresh-auth rate buckets and Argon2 password verifier, but deliberately
+does not require MFA or issue a sensitive-action grant. It rechecks password hash
+and session/security revision after verification inside a coordinated write.
+
+Note mutations/snapshots use canonical v4 identities binding privacy. Omitted
+creation privacy means false; omitted update privacy preserves the current flag
+and has a distinct digest from explicitly setting false. All server snapshots
+carry an explicit boolean.
+Direct reads/conflicts/mutations, reference reuse/rename/download, timeline/pins,
+tag inventories/history targets/management, calendar and Trash enforce visibility.
+Receipt-first successful retries remain content-free and valid. Shared files are
+readable if any visible note references them; renaming requires unlock if any
+private reference would be affected. Shared tag mutations require unlock when
+hidden notes would be rewritten. Full backups retain private notes/files;
+archive trust validates privacy and strips sessions, including unlock state.
+Closed tag inventories and autocomplete require visible note references, including
+Trash; registry-only tags are reserved for the open Vault so removed private tags
+cannot leak through orphan registry entries.
+
+`/?vault=1` reuses the timeline as a private-only view; it does not grant access.
+Timeline and Trash cursors bind the session Vault version. Authenticated GET/HEAD
+responses are withheld if the Vault version changes while loaders/rendering run.
+The private layout synchronizes via content-free BroadcastChannel notifications
+and authoritative status reads on mount/window focus/pageshow. During refresh
+the sensitive subtree is hidden/inert; a version change remounts it with fresh
+data and clears private editor/conflict state while retaining public editor work.
+Failed refresh stays hidden with retry. History restoration checks Vault version;
+Vault-open history captures are disabled to avoid private content in Kit storage.
+Tag retry commands created while open stay in memory, not localStorage; closing/
+reload can discard an uncertain private tag retry, never undo its server commit.
+Full archives remain deliberately independent of visibility state.
+
 ## Current override — note templates
 
 Schema is now **3 / 20 domain tables**: migration `0002_note_templates` adds `note_templates` and `template_mutation_receipts`. `TemplateService` follows the note pattern (session recheck in the write transaction, receipt-first retries, expected-revision conflicts). Backup archives include the tables; restore trust validates template rows for schema 3 archives and a schema 2 archive migrates with none. Contracts: [templates/SPEC.md](templates/SPEC.md).

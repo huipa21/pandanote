@@ -18,6 +18,7 @@ import {
 import type { Persistence, DomainTransaction } from '../db/connection.ts';
 import type { SessionIdentity } from '../auth/service.ts';
 import { assertSessionIdentity } from '../auth/identity.ts';
+import { vaultState } from '../auth/vault.ts';
 import {
   notes,
   tags,
@@ -65,17 +66,18 @@ export class TagService {
     query: string,
     limit: number,
     offset = 0,
+    open = false,
   ): ManagedTag[] {
     return tx.all<ManagedTag>(sql`select t.normalized_key as key, t.display,
         coalesce(sum(n.status='published'),0) as published,
         coalesce(sum(n.status='trash'),0) as trash from tags t left join note_tags nt on nt.tag_id=t.id
-        left join notes n on n.id=nt.note_id where ${TagService.filter(query)}
+        left join notes n on n.id=nt.note_id where ${TagService.filter(query)} and (${Number(open)} or n.is_private=0)
         group by t.id order by t.normalized_key limit ${limit} offset ${offset}`);
   }
   list(identity: SessionIdentity, query = ''): ManagedTag[] {
     return this.p.db.transaction((tx) => {
       assertSessionIdentity(tx, identity);
-      return this.matching(tx, query, 100);
+      return this.matching(tx, query, 100, 0, vaultState(tx, identity).open);
     });
   }
   /** Alphabetical page of tags whose key contains `query`. */
@@ -87,7 +89,13 @@ export class TagService {
   ): { items: ManagedTag[]; nextOffset: number | null } {
     return this.p.db.transaction((tx) => {
       assertSessionIdentity(tx, identity);
-      const rows = this.matching(tx, query, limit + 1, offset);
+      const rows = this.matching(
+        tx,
+        query,
+        limit + 1,
+        offset,
+        vaultState(tx, identity).open,
+      );
       return {
         items: rows.slice(0, limit),
         nextOffset: rows.length > limit ? offset + limit : null,
@@ -102,7 +110,7 @@ export class TagService {
         tx.all<ManagedTag>(sql`select t.normalized_key as key, t.display,
         coalesce(sum(n.status='published'),0) as published,
         coalesce(sum(n.status='trash'),0) as trash from tags t left join note_tags nt on nt.tag_id=t.id
-        left join notes n on n.id=nt.note_id where t.normalized_key=${key} group by t.id`)[0] ??
+        left join notes n on n.id=nt.note_id where t.normalized_key=${key} and (${Number(vaultState(tx, identity).open)} or n.is_private=0) group by t.id`)[0] ??
         null
       );
     });
@@ -123,7 +131,13 @@ export class TagService {
             : (tx
                 .select()
                 .from(tags)
-                .where(eq(tags.normalizedKey, entry.target))
+                .where(
+                  and(
+                    eq(tags.normalizedKey, entry.target),
+                    sql`(${Number(vaultState(tx, identity).open)}
+                    or exists (select 1 from note_tags nt join notes n on n.id=nt.note_id where nt.tag_id=${tags.id} and n.is_private=0))`,
+                  ),
+                )
                 .get()?.display ?? null),
       }));
     });
@@ -132,7 +146,7 @@ export class TagService {
     const operation = this.parse(input);
     return this.p.db.transaction((tx) => {
       assertSessionIdentity(tx, identity);
-      return this.prepare(tx, operation).preview;
+      return this.prepare(tx, operation, vaultState(tx, identity).open).preview;
     });
   }
   execute(identity: SessionIdentity, input: unknown) {
@@ -162,7 +176,11 @@ export class TagService {
           affected: number;
         };
       }
-      const prepared = this.prepare(tx, command.operation);
+      const prepared = this.prepare(
+        tx,
+        command.operation,
+        vaultState(tx, identity).open,
+      );
       if (prepared.preview.previewToken !== command.previewToken)
         throw new DomainError('conflict', 'err.affectedNotesOrTagsChanged');
       const { source, target, action } = command.operation;
@@ -261,19 +279,38 @@ export class TagService {
       throw new DomainError('validation', 'err.chooseAValidSourceTag');
     return parsed.data;
   }
-  private prepare(tx: DomainTransaction, operation: TagAction) {
+  private prepare(tx: DomainTransaction, operation: TagAction, open: boolean) {
     const source = tx
       .select()
       .from(tags)
       .where(eq(tags.normalizedKey, operation.source))
       .get();
     if (!source) throw new DomainError('not-found', 'err.theSourceTagNoLonger');
+    if (!open) {
+      const affected = tx.get<{
+        publicCount: number;
+        privateCount: number;
+      }>(sql`
+        select coalesce(sum(n.is_private=0),0) as publicCount,
+          coalesce(sum(n.is_private=1),0) as privateCount
+        from notes n join note_tags nt on nt.note_id=n.id where nt.tag_id=${source.id}`)!;
+      if (!affected.publicCount)
+        throw new DomainError('not-found', 'err.theSourceTagNoLonger');
+      if (affected.privateCount)
+        throw new DomainError('unauthorized', 'vault.required');
+    }
     const targetKey =
       operation.target === null ? null : tagKey(operation.target);
     const target =
       targetKey === null
         ? undefined
         : tx.select().from(tags).where(eq(tags.normalizedKey, targetKey)).get();
+    if (!open && target) {
+      const hidden = tx.get<{ hidden: number }>(sql`select
+        not exists(select 1 from note_tags nt join notes n on n.id=nt.note_id where nt.tag_id=${target.id} and n.is_private=0) as hidden`)!;
+      if (hidden.hidden)
+        throw new DomainError('unauthorized', 'vault.required');
+    }
     if (
       operation.action === 'merge' &&
       (!target || targetKey === operation.source)

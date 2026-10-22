@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { Persistence } from '../db/connection.ts';
 import type { SessionIdentity } from '../auth/service.ts';
 import { assertSessionIdentity } from '../auth/identity.ts';
+import { visibleNotes, vaultState } from '../auth/vault.ts';
 import {
   notes,
   noteAttachments,
@@ -55,7 +56,14 @@ export function statusPage(
   }
   return p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
-    const predicates = [eq(notes.status, status), ...searchPredicates(search)];
+    const version = vaultState(tx, identity).version;
+    if (decoded && (decoded.vaultVersion ?? 0) !== version)
+      throw new DomainError('validation', 'err.invalidCursorOrDifferentStatus');
+    const predicates = [
+      eq(notes.status, status),
+      visibleNotes(tx, identity),
+      ...searchPredicates(search),
+    ];
     if (decoded)
       predicates.push(
         or(
@@ -145,6 +153,7 @@ export function statusPage(
                 at: last.timelineAt,
                 id: last.id,
                 q: query,
+                vaultVersion: version,
               }),
             ).toString('base64url')
           : null,

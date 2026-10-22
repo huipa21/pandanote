@@ -89,11 +89,11 @@ describe('S14 history and source contracts', () => {
     const canonical = canonicalNoteMutation(command);
     expect(canonical).toBe(
       JSON.stringify([
-        'pandanote-note-mutation-v3',
+        'pandanote-note-mutation-v4',
         'create',
         null,
         null,
-        ['#Work', 1, []],
+        [false, '#Work', 1, []],
         null,
       ]),
     );

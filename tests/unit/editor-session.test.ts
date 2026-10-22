@@ -10,6 +10,7 @@ import {
 
 it('new empty/cleared editor has no exit prompt; changes include attachments and dates', () => {
   const session = newSession(100);
+  expect(session.isPrivate).toBe(false);
   const clean = sessionFingerprint(session);
   expect(isSessionDirty(session, clean)).toBe(false);
   expect(isSessionDirty({ ...session, bodyMarkdown: 'note' }, clean)).toBe(
@@ -31,6 +32,7 @@ it('new empty/cleared editor has no exit prompt; changes include attachments and
   const base = sessionFingerprint(edit);
   expect(isSessionDirty(edit, base)).toBe(false);
   expect(isSessionDirty({ ...edit, timelineAt: 101 }, base)).toBe(true);
+  expect(isSessionDirty({ ...edit, isPrivate: true }, base)).toBe(true);
   expect(isSessionDirty({ ...edit, bodyMarkdown: '' }, base)).toBe(true);
 });
 it('image removal and retry remapping preserve code and first reference-definition semantics', () => {

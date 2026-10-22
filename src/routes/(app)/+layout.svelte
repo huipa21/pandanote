@@ -1,6 +1,11 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { goto, invalidate, beforeNavigate } from '$app/navigation';
+  import {
+    goto,
+    invalidate,
+    invalidateAll,
+    beforeNavigate,
+  } from '$app/navigation';
   import { onMount, setContext, untrack } from 'svelte';
   import {
     CALENDAR,
@@ -11,6 +16,10 @@
     EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
   import AppShell from '#lib/components/AppShell.svelte';
+  import Modal from '#lib/components/Modal.svelte';
+  import { VAULT, type VaultControls } from '#lib/client/vault.ts';
+  import { trError } from '#lib/client/i18n-current.ts';
+  import type { ApiResult } from '#lib/shared/domain.ts';
   import LifecycleDialog from '#lib/components/LifecycleDialog.svelte';
   import {
     LIFECYCLE,
@@ -83,6 +92,128 @@
   });
   const calendar = new CalendarState(untrack(() => data.calendar));
   setContext(CALENDAR, calendar);
+  let vaultDialog = $state(false);
+  let vaultPassword = $state('');
+  let vaultBusy = $state(false);
+  let vaultSyncing = $state(false);
+  let vaultError = $state('');
+  let vaultNotice = $state('');
+  let vaultChannel: BroadcastChannel | undefined;
+  let vaultSyncGeneration = 0;
+  setContext<VaultControls>(VAULT, {
+    get open() {
+      return data.vault.open;
+    },
+    get busy() {
+      return vaultBusy || vaultSyncing;
+    },
+    activate() {
+      vaultError = '';
+      if (data.vault.open) void changeVault();
+      else {
+        vaultPassword = '';
+        vaultDialog = true;
+      }
+    },
+  });
+  function clearPrivateEditor() {
+    if (workspace.active?.isPrivate || workspace.active?.basePrivate) {
+      workspace.resetSession();
+      vaultNotice = t('vault.draftCleared');
+    }
+    workspace.postConflict = null;
+    if (workspace.saved?.snapshot?.isPrivate)
+      workspace.saved = { ...workspace.saved, snapshot: undefined };
+  }
+  async function syncVault(target?: string, hide = true) {
+    const generation = ++vaultSyncGeneration;
+    if (hide) vaultSyncing = true;
+    vaultError = '';
+    try {
+      const response = await fetch('/api/auth/vault', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15_000),
+      });
+      const result = (await response.json()) as ApiResult<{
+        open: boolean;
+        version: number;
+      }>;
+      if (generation !== vaultSyncGeneration) return;
+      if (!result.ok) throw new Error(trError(result.error));
+      if (!result.data.open && data.vault.open) clearPrivateEditor();
+      if (result.data.version !== data.vault.version) {
+        vaultSyncing = true;
+        calendar.dispose();
+      }
+      if (target) await goto(target, { invalidateAll: true, reset: false });
+      else if (result.data.version !== data.vault.version)
+        await invalidateAll();
+      if (generation === vaultSyncGeneration) vaultSyncing = false;
+    } catch (error) {
+      if (generation === vaultSyncGeneration) {
+        vaultSyncing = true;
+        vaultError =
+          error instanceof Error ? error.message : t('vault.syncFailed');
+      }
+    }
+  }
+  async function changeVault(password?: string) {
+    if (vaultBusy || vaultSyncing) return;
+    vaultBusy = true;
+    vaultError = '';
+    let closing = false;
+    try {
+      if (!(await workspace.promptUnsavedChanges())) return;
+      closing = password === undefined;
+      if (closing) vaultSyncing = true;
+      const response = await fetch('/api/auth/vault', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(
+          password === undefined
+            ? { action: 'close' }
+            : { action: 'unlock', password },
+        ),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const result = (await response.json()) as ApiResult<{
+        open: boolean;
+        version: number;
+      }>;
+      if (!result.ok) throw new Error(trError(result.error));
+      vaultDialog = false;
+      vaultPassword = '';
+      vaultChannel?.postMessage('changed');
+      await syncVault(result.data.open ? '/?vault=1' : '/');
+    } catch (error) {
+      vaultError =
+        error instanceof Error ? error.message : t('vault.syncFailed');
+      if (closing) {
+        vaultChannel?.postMessage('changed');
+        await syncVault('/');
+      }
+    } finally {
+      vaultBusy = false;
+      vaultPassword = '';
+    }
+  }
+  onMount(() => {
+    vaultChannel = new BroadcastChannel('pandanote-vault');
+    vaultChannel.onmessage = () => {
+      void syncVault();
+    };
+    const focus = () => {
+      if (!vaultBusy) void syncVault(undefined, data.vault.open);
+    };
+    window.addEventListener('focus', focus);
+    window.addEventListener('pageshow', focus);
+    void syncVault(undefined, data.vault.open);
+    return () => {
+      vaultChannel?.close();
+      window.removeEventListener('focus', focus);
+      window.removeEventListener('pageshow', focus);
+    };
+  });
   let handledCalendarSave = untrack(() => workspace.saved?.serial ?? 0);
   $effect(() => {
     const saved = workspace.saved;
@@ -144,39 +275,116 @@
   });
 </script>
 
-<AppShell
-  {calendar}
-  active={page.url.pathname}
-  tags={data.availableTags}
-  filters={page.data.timeline?.filters ?? {}}
-  searchQuery={page.url.pathname === '/'
-    ? (page.url.searchParams.get('q') ?? '')
-    : ''}
-  onSearch={(href) => goto(href, { reset: false })}
->
-  {#if lifecycle.warning}<p role="alert">{lifecycle.warning}</p>{/if}
-  {#if lifecycle.pending.length}<section
-      class="surface"
-      aria-label={t('route.unconfirmed')}
+{#if vaultSyncing}
+  <section class="surface" aria-busy="true">
+    <p role="status">{t(vaultError ? 'vault.syncFailed' : 'vault.checking')}</p>
+    {#if vaultError}<p role="alert">{vaultError}</p>
+      <a href="/login" data-sveltekit-reload>{t('auth.signIn')}</a>
+    {/if}
+    <button disabled={vaultBusy} onclick={() => void syncVault()}
+      >{t('vault.retry')}</button
     >
-      <h2>{t('route.unconfirmedHeading')}</h2>
-      <p class="help">
-        {t('route.unconfirmedHelp')}
-      </p>
-      {#each lifecycle.pending as attempt (attempt.mutationId)}<button
-          disabled={lifecycle.busy}
-          onclick={() => lifecycle.resume(attempt)}
-          >{t('route.review', {
-            action: ACTION_LABELS[attempt.action]
-              ? t(ACTION_LABELS[attempt.action])
-              : attempt.action,
-            id: attempt.noteId.slice(0, 8),
-          })}</button
-        >{/each}
-    </section>{/if}
-  {@render children()}</AppShell
+  </section>
+{/if}
+<div
+  class:vault-hidden={vaultSyncing}
+  style="display: contents;"
+  inert={vaultSyncing}
 >
-<UnsavedChangesDialog {workspace} />
-<ConflictDialog {workspace} />
-<StaleTagDialog {workspace} />
-<LifecycleDialog />
+  {#key data.vault.version}
+    <AppShell
+      {calendar}
+      active={page.url.pathname}
+      tags={data.availableTags}
+      filters={page.data.timeline?.filters ?? {}}
+      searchQuery={page.url.pathname === '/'
+        ? (page.url.searchParams.get('q') ?? '')
+        : ''}
+      onSearch={(href) => goto(href, { reset: false })}
+    >
+      {#if vaultNotice}<p role="status">{vaultNotice}</p>{/if}
+      {#if vaultError && !vaultDialog}<p role="alert">{vaultError}</p>{/if}
+      {#if lifecycle.warning}<p role="alert">{lifecycle.warning}</p>{/if}
+      {#if lifecycle.pending.length}<section
+          class="surface"
+          aria-label={t('route.unconfirmed')}
+        >
+          <h2>{t('route.unconfirmedHeading')}</h2>
+          <p class="help">
+            {t('route.unconfirmedHelp')}
+          </p>
+          {#each lifecycle.pending as attempt (attempt.mutationId)}<button
+              disabled={lifecycle.busy}
+              onclick={() => lifecycle.resume(attempt)}
+              >{t('route.review', {
+                action: ACTION_LABELS[attempt.action]
+                  ? t(ACTION_LABELS[attempt.action])
+                  : attempt.action,
+                id: attempt.noteId.slice(0, 8),
+              })}</button
+            >{/each}
+        </section>{/if}
+      {@render children()}</AppShell
+    >
+  {/key}
+  <UnsavedChangesDialog {workspace} />
+  <ConflictDialog {workspace} />
+  <StaleTagDialog {workspace} />
+  <LifecycleDialog />
+</div>
+<Modal
+  bind:open={vaultDialog}
+  title={t('vault.unlock')}
+  dismissible={!vaultBusy}
+  onDismiss={() => {
+    vaultPassword = '';
+    vaultError = '';
+  }}
+>
+  <form
+    class="vault-form"
+    onsubmit={(event) => {
+      event.preventDefault();
+      void changeVault(vaultPassword);
+    }}
+  >
+    <p>{t('vault.passwordHelp')}</p>
+    <label for="vault-password">{t('auth.password')}</label>
+    <input
+      id="vault-password"
+      type="password"
+      autocomplete="current-password"
+      maxlength="256"
+      required
+      disabled={vaultBusy}
+      bind:value={vaultPassword}
+      data-initial-focus
+    />
+    {#if vaultError}<p role="alert">{vaultError}</p>{/if}
+    <div class="vault-actions">
+      <button type="submit" class="primary" disabled={vaultBusy}
+        >{t('vault.unlockAction')}</button
+      >
+    </div>
+  </form>
+</Modal>
+
+<style>
+  .vault-hidden {
+    visibility: hidden;
+  }
+  .vault-form {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .vault-form p {
+    margin: 0;
+  }
+  .vault-form input {
+    width: 100%;
+  }
+  .vault-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+</style>

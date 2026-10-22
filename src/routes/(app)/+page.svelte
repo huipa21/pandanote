@@ -31,6 +31,8 @@
   ): boolean {
     return (
       note.status === 'published' &&
+      (!note.isPrivate || data.vault.open) &&
+      (!filters.vault || Boolean(note.isPrivate)) &&
       (filters.tag === undefined || note.tags.includes(filters.tag)) &&
       (!filters.day ||
         (note.timelineAt >= filters.day.start &&
@@ -74,7 +76,11 @@
   /** Plain "All notes" view: the only view with a Pinned section. */
   function isPlain(value: TimelineFilters) {
     return (
-      value.tag === undefined && !value.query && !value.day && !value.month
+      !value.vault &&
+      value.tag === undefined &&
+      !value.query &&
+      !value.day &&
+      !value.month
     );
   }
   const byPin = (a: TimelineCard, b: TimelineCard) =>
@@ -89,7 +95,15 @@
     } else items = mergeCards(items, [card]);
   }
   function queryKey(value: TimelineFilters) {
-    return filterKey(value) + '|' + data.timezone + '|' + data.tagGeneration;
+    return (
+      filterKey(value) +
+      '|' +
+      data.timezone +
+      '|' +
+      data.tagGeneration +
+      '|' +
+      data.vault.version
+    );
   }
   function knownPublished(note: TimelineCard) {
     return !workspace.recentMutations.some(
@@ -140,23 +154,29 @@
   });
   snapshot({
     id: 'published-timeline-v1',
-    capture: () => ({
-      items: $state.snapshot(items),
-      pinned: $state.snapshot(pinned),
-      nextCursor,
-      filters: $state.snapshot(filters),
-      expanded: [...expanded],
-      calendarMonth: calendar.month,
-      emptyMonth,
-      timezone: data.timezone,
-      tagGeneration: data.tagGeneration,
-      anchor: scroller ? captureAnchor(scroller) : null,
-    }),
+    capture: () =>
+      data.vault.open
+        ? null
+        : {
+            items: $state.snapshot(items),
+            pinned: $state.snapshot(pinned),
+            nextCursor,
+            filters: $state.snapshot(filters),
+            expanded: [...expanded],
+            calendarMonth: calendar.month,
+            emptyMonth,
+            timezone: data.timezone,
+            tagGeneration: data.tagGeneration,
+            vaultVersion: data.vault.version,
+            anchor: scroller ? captureAnchor(scroller) : null,
+          },
     restore: (value) => {
+      if (!value) return;
       cancel();
       restored = true;
       if (
         value.timezone !== data.timezone ||
+        value.vaultVersion !== data.vault.version ||
         value.tagGeneration !== data.tagGeneration
       )
         return;
@@ -447,10 +467,8 @@
   });
   function mutation(result: MutationResult) {
     const anchor = captureAnchor(scroller);
-    if (result.status !== 'published' || result.deleted) {
-      items = items.filter((n) => n.id !== result.noteId);
-      pinned = pinned.filter((n) => n.id !== result.noteId);
-    }
+    items = items.filter((n) => n.id !== result.noteId);
+    pinned = pinned.filter((n) => n.id !== result.noteId);
     const key = queryKey(filters);
     void (async () => {
       if (result.status === 'published' && !result.deleted) {
@@ -503,7 +521,11 @@
 </script>
 
 <PageTitle
-  title={data.tagSummary ? `#${data.tagSummary.display}` : t('shell.allNotes')}
+  title={filters.vault
+    ? t('vault.title')
+    : data.tagSummary
+      ? `#${data.tagSummary.display}`
+      : t('shell.allNotes')}
 />
 <svelte:head
   ><meta name="description" content={t('timeline.description')} /></svelte:head
@@ -512,8 +534,8 @@
   {#if data.tagSummary}{#key data.tagSummary.key}<TagHeader
         summary={data.tagSummary}
         leaveHref={filterHref({ ...filters, tag: undefined })}
-      />{/key}{:else}<h1 class="sr-only">
-      {t('shell.allNotes')}
+      />{/key}{:else}<h1 class:sr-only={!filters.vault}>
+      {t(filters.vault ? 'vault.title' : 'shell.allNotes')}
     </h1>{/if}
   <span class="sr-only">{t('timeline.signedIn')}</span>
   {#if workspace.status === 'saved' && savedOutsideRange}<p class="help">

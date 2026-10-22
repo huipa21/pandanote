@@ -373,6 +373,8 @@ export async function trustSnapshot(
         contentEditedAt: row.content_edited_at,
         revision: row.revision,
         pinnedAt: row.pinned_at,
+        isPrivate:
+          z.union([z.literal(0), z.literal(1)]).parse(row.is_private) === 1,
       });
       const linked = db
         .prepare(

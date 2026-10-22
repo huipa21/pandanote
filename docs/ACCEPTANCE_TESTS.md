@@ -1,5 +1,31 @@
 # PandaNote — Acceptance and verification matrix
 
+## Vault (approved change)
+
+- VAULT-01: default-public composer lock toggle; private Post works while locked,
+  clears the editor on receipt-confirmed save and does not appear in locked views.
+  Privacy is revision/digest-bound and preserved by editing/copies/retries/Trash.
+- VAULT-02: Vault between Templates/Trash on desktop/drawer/rail; password modal
+  rejects wrong/invalid credentials, rate-limits attempts, accepts password without
+  MFA, and opens only private notes. Refresh/other tabs share this session's unlock;
+  another session does not. App-title Home shows mixed notes without relocking.
+- VAULT-03: closed server views omit private bodies/snippets/pins, private-only
+  tags/counts/autocomplete, calendar activity and Trash; direct note/file reads,
+  conflicts, rename and attachment reuse cannot bypass it. Explicit public file
+  references stay readable. Shared hidden-note tag changes require unlock.
+- VAULT-04: Close Vault hides private content in every tab, invalidates cursors/
+  history, clears private editors/conflicts and retains public unsaved work.
+  Failed status refresh fails closed with retry. No private note history snapshots
+  or Vault-open tag retry names are persisted to browser storage.
+- VAULT-05: full archive includes private content with checked privacy values;
+  independent restore preserves privacy but strips all sessions/unlock state.
+  Old incompatible baseline data is refused without modification/deletion.
+
+Mapped to `tests/integration/vault.test.ts`, extended backup/restore integration,
+note/editor/tag canonical unit tests and `tests/e2e/vault.test.ts`. Run affected
+posting/timeline/edit/detail/tag/editor/shell browser regressions plus actual
+Alpine native/archive validation before declaring the change done.
+
 ## Security hardening (approved change)
 
 Cases SEC-LOCK, SEC-SETUP, SEC-MFA and SEC-XFF in
@@ -285,7 +311,7 @@ without an opener. Do not clear it on refresh or clear unrelated browser data.
 Blocked session storage must show a localized warning while resizing still works.
 
 Mobile keeps a narrow icon rail (expand arrow, panda Home, Search, Calendar, Tags,
-Templates, Trash, Settings). Expand/collapse arrows and Escape preserve
+Templates, Vault, Trash, Settings). Expand/collapse arrows and Escape preserve
 focus; Search/Calendar focus the corresponding expanded-sidebar control. Direct
 links navigate through the existing unsaved-editor guard. Rail controls remain
 reachable on short screens; 44px targets, no horizontal overflow. Expanded/desktop
@@ -300,7 +326,7 @@ At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No cl
 ### UI-EDITOR — Concise integrated composer
 
 Writing, preview, feedback and Post/Save changes share one textarea-style surface.
-Only the bottom toolbar (Templates/Media/File/Voice/Date icons at left, Preview switch, focus
+Only the bottom toolbar (Privacy/Templates/Media/File/Voice/Date icons at left, Preview switch, focus
 icon and publishing control at right) holds permanent editor actions; nothing floats
 in the top corner. Each icon has an accessible name and keyboard access, with no
 premature upload. No hashtag insertion button is shown; typing `#` still uses local

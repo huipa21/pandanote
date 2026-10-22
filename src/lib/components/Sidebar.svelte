@@ -1,6 +1,7 @@
 <script lang="ts">
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import Calendar from './Calendar.svelte';
+  import VaultMenu from './VaultMenu.svelte';
   import TitleControls from './TitleControls.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
@@ -86,6 +87,7 @@
       aria-current={active === '/templates' ? 'page' : undefined}
       onclick={onNavigate}>{t('shell.templates')}</a
     >
+    <VaultMenu />
     <a
       href="/trash"
       aria-current={active === '/trash' ? 'page' : undefined}

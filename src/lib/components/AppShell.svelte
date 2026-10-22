@@ -7,6 +7,7 @@
   } from '#lib/client/title-preferences.svelte.ts';
   import TitleControls from './TitleControls.svelte';
   import Icon from './Icon.svelte';
+  import VaultMenu from './VaultMenu.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import Sidebar from './Sidebar.svelte';
   import Modal from './Modal.svelte';
@@ -43,7 +44,12 @@
   } = $props();
   // The composer belongs only to the unfiltered main timeline.
   const hasFilters = $derived(
-    Boolean(filters.tag !== undefined || filters.query || filters.day),
+    Boolean(
+      filters.vault ||
+      filters.tag !== undefined ||
+      filters.query ||
+      filters.day,
+    ),
   );
   // A tag view is announced by its own header (with a way back to all notes),
   // so the chip strip appears only for the search and day filters.
@@ -215,6 +221,7 @@
       onclick={() => expandSidebar('calendar')}><Icon name="calendar" /></button
     >
     {#each [{ href: '/tags', label: t('shell.tags'), icon: 'price-tag' }, { href: '/templates', label: t('shell.templates'), icon: 'template' }, { href: '/trash', label: t('shell.trash'), icon: 'trash' }, { href: '/settings', label: t('shell.settings'), icon: 'settings' }] as const as item (item.href)}
+      {#if item.href === '/trash'}<VaultMenu rail />{/if}
       <a
         href={item.href}
         aria-label={item.label}
@@ -229,8 +236,8 @@
         {t('shell.widthStorageUnavailable')}
       </p>{/if}
     <header class="mobile-header">
-      <span class="brand site-title" title={i18n.siteTitle}
-        >{i18n.siteTitle}</span
+      <a href="/" class="brand site-title" title={i18n.siteTitle}
+        >{i18n.siteTitle}</a
       >
       <TitleControls />
     </header>

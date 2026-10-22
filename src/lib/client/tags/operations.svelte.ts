@@ -1,5 +1,6 @@
 import { tr, trError } from '#lib/client/i18n-current.ts';
 import { invalidate } from '$app/navigation';
+import { SvelteMap } from 'svelte/reactivity';
 import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
 import type { ApiResult } from '#lib/shared/domain.ts';
 import {
@@ -34,8 +35,11 @@ export class TagOperations {
   preview = $state<TagPreview | null>(null);
   private readonly prefix: string;
   private readonly workspace: EditorWorkspace;
-  constructor(workspace: EditorWorkspace) {
+  private readonly memory = new SvelteMap<string, TagExecute>();
+  private readonly allowPersistence: () => boolean;
+  constructor(workspace: EditorWorkspace, allowPersistence = () => true) {
     this.workspace = workspace;
+    this.allowPersistence = allowPersistence;
     this.prefix = `pandanote:tag-actions:v1:${workspace.accountId}:`;
   }
   /** Begin watching retry records; returns the cleanup. */
@@ -58,12 +62,14 @@ export class TagOperations {
           found.push(parsed.data);
         else this.error = tr('tagops.unreadable');
       }
-      this.pending = found;
+      this.pending = [...found, ...this.memory.values()];
     } catch {
+      this.pending = [...this.memory.values()];
       this.error = tr('tagops.storageUnavailable');
     }
   }
   discard(command: TagExecute) {
+    this.memory.delete(command.mutationId);
     localStorage.removeItem(this.prefix + command.mutationId);
     this.reload();
   }
@@ -92,13 +98,17 @@ export class TagOperations {
     this.busy = true;
     this.error = '';
     try {
-      localStorage.setItem(
-        this.prefix + command.mutationId,
-        JSON.stringify(command),
-      );
+      // Vault tag names must not survive closing it in browser storage.
+      if (this.allowPersistence())
+        localStorage.setItem(
+          this.prefix + command.mutationId,
+          JSON.stringify(command),
+        );
+      else this.memory.set(command.mutationId, command);
       this.reload();
       const result = await api<TagManagementResult>('/api/tags', command);
       localStorage.removeItem(this.prefix + command.mutationId);
+      this.memory.delete(command.mutationId);
       this.reload();
       this.preview = null;
       this.workspace.tagsChanged++;

@@ -462,8 +462,10 @@
     overflow: hidden;
     border-radius: var(--radius);
   }
+  /* Outline (not inset shadow) so the opaque textarea cannot hide the top edge. */
   .editor-container:focus-within {
-    box-shadow: inset 0 0 0 1px var(--accent);
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
   }
   .editor-container:has(textarea:focus-visible) {
     outline: var(--focus-width) solid var(--accent);

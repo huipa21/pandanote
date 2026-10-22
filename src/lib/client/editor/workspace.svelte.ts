@@ -240,6 +240,19 @@ export class EditorWorkspace {
     this.timelineSet = true;
   }
 
+  togglePrivacy() {
+    if (
+      !this.ready ||
+      this.busy ||
+      this.frozen ||
+      this.posting ||
+      this.conflict ||
+      !this.active
+    )
+      return;
+    this.active = { ...this.active, isPrivate: !this.active.isPrivate };
+  }
+
   async addFiles(files: File[]): Promise<void> {
     if (
       this.busy ||
@@ -976,6 +989,8 @@ export class EditorWorkspace {
         snapshotDigest,
       },
       bodyMarkdown: note.bodyMarkdown,
+      isPrivate: note.isPrivate ?? false,
+      basePrivate: note.isPrivate ?? false,
       timelineAt: note.timelineAt,
       attachments: (note.attachments ?? []).map((file) => ({
         id: file.id,

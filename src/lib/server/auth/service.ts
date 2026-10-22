@@ -580,6 +580,46 @@ export class AuthService {
       now,
     );
   }
+  async unlockVault(identity: SessionIdentity, password: unknown, ip: string) {
+    this.limiter.attempt('fresh-auth', ip, this.clock());
+    return this.persistence.coordinator.writeAsync(async () => {
+      const snapshot = this.persistence.write((tx) =>
+        this.currentIdentity(tx, identity),
+      );
+      if (!(await verifyPassword(snapshot.passwordHash, password)))
+        throw failedLogin();
+      return this.persistence.write((tx) => {
+        const owner = this.currentIdentity(tx, identity);
+        if (owner.passwordHash !== snapshot.passwordHash) throw failedLogin();
+        return this.setVault(tx, identity, true);
+      });
+    });
+  }
+  closeVault(identity: SessionIdentity) {
+    return this.persistence.write((tx) => {
+      this.currentIdentity(tx, identity);
+      return this.setVault(tx, identity, false);
+    });
+  }
+  private setVault(
+    tx: DomainTransaction,
+    identity: SessionIdentity,
+    open: boolean,
+  ) {
+    const session = tx
+      .select()
+      .from(sessions)
+      .where(eq(sessions.tokenHash, identity.sessionHash))
+      .get()!;
+    if (session.vaultVersion === Number.MAX_SAFE_INTEGER)
+      throw new DomainError('unauthorized', 'err.signInAgainThenRetry');
+    const version = session.vaultVersion + 1;
+    tx.update(sessions)
+      .set({ vaultOpen: open, vaultVersion: version })
+      .where(eq(sessions.tokenHash, identity.sessionHash))
+      .run();
+    return { open, version };
+  }
   async freshAuth(
     identity: SessionIdentity,
     scope: FreshAuthScope,

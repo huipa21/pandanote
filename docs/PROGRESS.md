@@ -2,6 +2,17 @@
 
 ## Current state
 
+- **2026-10-22 Vault: implemented; host and Alpine verification complete.**
+  Password-only, session-wide unlock opens a private-only timeline; Home includes
+  private notes while open, and Close Vault hides them across tabs. The composer
+  defaults public and has a privacy toggle. Server visibility covers direct
+  notes/files, pins, tags/autocomplete/history, search, calendar and Trash.
+  Fresh baseline only: older development data is preserved but incompatible.
+  Check/lint/build, 256 unit tests, 41 affected browser cases and Alpine native/
+  backup/restore tests pass. Full integration initially reported three failures;
+  route/startup follow-ups pass, leaving the pre-existing Compose fixture mismatch.
+  Exact evidence, deviations and next task are appended below; S18 remains open.
+
 - **2026-10-22 sidebar attribution: implemented and host-verified.** The exact
   English text “Powered by Pandanote” appears in the desktop sidebar and mobile
   drawer regardless of selected language; only Pandanote links to the project
@@ -6205,3 +6216,101 @@ version.test.ts` passes (1/1), and `git diff --check` passes (Git reports
 migrations search-migration restores startup pre-upgrade`: 56/56 pass.
 - Next: run the Linux deployment-image/native SQLite/archive gate. Read
   `docs/ACCEPTANCE_TESTS.md` and `ops/DEPLOYMENT.md`; begin with `npm run image:build`.
+
+### Session 2026-10-22 - password-unlocked private-note Vault
+
+- State: done for the requested Vault behavior; host and Alpine native/build
+  validation complete. S18 real-VPS/device/manual/exact-release gates and the
+  earlier SS01 clarification remain open. No commit, dependency change, automatic
+  migration or development-data deletion was performed.
+- Confirmed with the user: unlock belongs to the signed-in browser session,
+  survives refresh and applies across its tabs; account password only even with
+  MFA; private content hidden everywhere while closed, including direct files,
+  private-only tags, calendar and Trash; full archives retain private content;
+  fresh-install baseline change with incompatible old data kept untouched.
+- Implemented checked `notes.is_private`, session `vault_open`/`vault_version`,
+  baseline SQL and all three Drizzle snapshots. Schema stays 3 / 20 tables. Shared
+  live-session visibility guards protect queries/reads/conflicts/mutations/files.
+  Password-only unlock uses existing Argon2/fresh-auth rate limits and coordinated
+  session/password rechecks. New strict same-origin bounded `/api/auth/vault`
+  GET/POST; route allowlist updated. GET/HEAD output is withheld when its Vault
+  version changes during rendering. Canonical mutation/snapshot identities are v4;
+  omitted create privacy defaults false, omitted update privacy preserves its flag.
+- Desktop/drawer/rail Vault control is between Templates and Trash. Password
+  dialog supports errors/cancel/focus and en/zh-CN. Unlock opens `/?vault=1`; Home
+  shows mixed notes without locking. Composer privacy survives edits/copies/retry
+  and resets to public after save; private cards/details show a lock marker.
+  Close synchronizes content-free notifications, hides/inerts stale views, clears
+  private editors/conflicts, preserves public drafts, invalidates history/cursors
+  and supports authoritative retry even after a lost close response.
+- Related files: `server/auth/{identity,service,vault}.ts`, note/timeline/status,
+  attachment/tag/calendar/backup-trust services, shared domain/note/timeline/status
+  contracts and catalogs, editor model/workspace, `VaultMenu`, shell/sidebar/editor/
+  card/detail/tag components, private layouts/pages, API handler and new
+  `tests/{integration,e2e}/vault.test.ts`; extended unit, backup/restore, shell/
+  editor/route tests and three reviewed shell PNG baselines. Product, architecture
+  and acceptance contracts updated above.
+- Necessary privacy decisions: closed tag inventories/suggestions require a
+  visible saved/Trash note reference, hiding registry-only tags too (otherwise
+  removed private tags could leak as orphans). Shared hidden-note tag rewrites
+  require unlock. Explicitly public file references remain readable; rename cannot
+  affect a hidden private reference. Vault-open Kit history captures are disabled,
+  and tag retry names remain memory-only; closing/reloading may discard an
+  uncertain private tag retry but never undoes a committed server operation.
+  Vault is visibility authorization, not additional at-rest encryption.
+- Validation on cached Node 24.21.0 with Git OpenSSL on PATH and TLS verification
+  enabled:
+  - `npm run check`: pass, 0 errors, existing AppShell unused-CSS warning.
+  - `npm run lint`: pass. One intermediate Svelte lint failure on a plain Map was
+    fixed by using SvelteMap, then lint reran clean.
+  - `npm run test:unit`: pass, 256/256. An initial canonical-v3 fixture expectation
+    failed; updated it to the privacy-bound v4 contract and reran the full suite.
+  - `npm run test:integration -- tests/integration/notes.test.ts tests/integration/timeline.test.ts tests/integration/status-notes.test.ts`:
+    pass, 20/20.
+  - `npm run test:integration -- tests/integration/vault.test.ts tests/integration/backups.test.ts`:
+    pass, 14/14. Final Vault/tag-management selection: pass, 11/11.
+  - `npm run test:integration`: 283 passed, 7 platform skips, 3 failures. The new
+    route needed the exact allowlist update; Vite startup first timed out.
+    Standalone startup retries exposed temporary Drizzle-generated journal drift:
+    snapshot 0002 had placed the new column in template metadata. Corrected that
+    snapshot, removed only the generated 0003 SQL/snapshot and journal entry.
+    `npm run db:generate` now reports 20 tables / no schema changes. The focused
+    `release-hygiene.test.ts startup.test.ts -t 'ships exactly|real Vite dev startup'`
+    rerun passes 2/2 (11 deliberately unselected tests). The unrelated unchanged
+    Compose `expose: '3000'` versus exact-fixture mismatch remains unresolved.
+    The full integration suite was not rerun after those focused corrections.
+  - `npm run build`: pass, runtime manifest/lock check and production output.
+  - `npm run test:e2e -- tests/e2e/vault.test.ts tests/e2e/posting.test.ts tests/e2e/timeline.test.ts`:
+    initial 8/9; fixed the new test's generic-file list label (Files vs Attachments).
+    A later direct CLI attempt with unescaped Windows regex paths selected no
+    tests; reran with a basename regex, not counted as a pass.
+  - `node node_modules\@playwright\test\cli.js test '(^|[\\/])(vault|posting|timeline|editor|shell|note-edit|detail|tag-management)\.test\.ts$' --update-snapshots`:
+    pass, 41/41. Prior run 38/41 caught two expected shell screenshot changes and
+    keyboard focus loss from hiding an already-locked public shell on status
+    checks. Fixed status synchronization to keep that verified-public subtree
+    interactive; open/changed/failed checks still fail closed. Reviewed all three
+    updated desktop/mobile/dark PNGs; no snapshot threshold weakened.
+  - Final verification after adding the fail-closed status error's full-reload
+    Sign in link: `npm run check`, `npm run lint` and `npm run build` pass.
+    `node node_modules\@playwright\test\cli.js test '(^|[\\/])(vault|shell)\.test\.ts$'`
+    passes 13/13 without updating screenshots. `git diff --check` passes;
+    migration journal remains unchanged.
+- Actual deployment-stack native validation:
+  - `podman build -f ops\Dockerfile.alpine-validation -t localhost/pandanote-vault-validation .`:
+    pass; fresh Alpine/musl SQLite/Sharp/Argon2 install. npm reported 3 existing
+    dependency advisories (2 low / 1 high); dependencies were not changed here.
+  - `podman run --rm --cpus=2 --memory=1800m` with current `src` and `tests` mounted
+    read-only over that image ran `npm run test:integration --` Vault, backups,
+    restores, voice-backup, migrations and startup: pass, 49/49, including private
+    independent restore and stripped unlock/session state.
+  - Same image/current-source mounts: `npm run check && npm run test:unit &&
+npm run test:integration -- tests/integration/vault.test.ts tests/integration/tag-management.test.ts &&
+npm run build`: pass, 256 unit + 11 integration; check/build pass.
+    Repeated Alpine check/build after the focus correction also pass.
+- Next: retain the incompatible old data folder and select a new empty private
+  DATA_DIR/DATA_PATH to exercise this baseline, or use the matching old build.
+  Read `docs/PRODUCT_SPEC.md`/`ARCHITECTURE.md` Vault overrides and
+  `docs/ACCEPTANCE_TESTS.md` VAULT-01–05. For further Vault changes, start with
+  `npm run check && npm run test:integration -- tests/integration/vault.test.ts`.
+  Resolve the separate Compose expectation with user approval before claiming
+  a clean full integration gate; continue S18 real-device/VPS/release acceptance.

@@ -149,6 +149,7 @@ CREATE INDEX `note_tags_tag_note` ON `note_tags` (`tag_id`,`note_id`);--> statem
 CREATE TABLE `notes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`body_markdown` text NOT NULL,
+	`is_private` integer DEFAULT false NOT NULL,
 	`status` text NOT NULL,
 	`prior_status` text,
 	`timeline_at` integer NOT NULL,
@@ -157,6 +158,7 @@ CREATE TABLE `notes` (
 	`content_edited_at` integer,
 	`revision` integer DEFAULT 1 NOT NULL,
 	`pinned_at` integer,
+	CONSTRAINT "note_private_check" CHECK("notes"."is_private" IN (0,1)),
 	CONSTRAINT "note_pinned_check" CHECK("notes"."pinned_at" IS NULL OR ("notes"."status" = 'published' AND "notes"."pinned_at" BETWEEN 0 AND 8640000000000000)),
 	CONSTRAINT "note_status_check" CHECK("notes"."status" IN ('published','trash')),
 	CONSTRAINT "note_trash_check" CHECK(("notes"."status" = 'trash' AND "notes"."prior_status" IS NOT NULL AND "notes"."prior_status" = 'published') OR ("notes"."status" <> 'trash' AND "notes"."prior_status" IS NULL)),
@@ -183,8 +185,11 @@ CREATE TABLE `sessions` (
 	`expires_at` integer NOT NULL,
 	`revoked_at` integer,
 	`security_revision` integer NOT NULL,
+	`vault_open` integer DEFAULT false NOT NULL,
+	`vault_version` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`account_id`) REFERENCES `account`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "session_vault_check" CHECK("sessions"."vault_open" IN (0,1) AND "sessions"."vault_version" BETWEEN 0 AND 9007199254740991),
 	CONSTRAINT "session_hash_check" CHECK(length("sessions"."token_hash") = 64 AND "sessions"."token_hash" NOT GLOB '*[^0-9a-f]*')
 );
 --> statement-breakpoint

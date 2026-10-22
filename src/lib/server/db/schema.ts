@@ -45,10 +45,18 @@ export const sessions = sqliteTable(
     expiresAt: integer('expires_at').notNull(),
     revokedAt: integer('revoked_at'),
     securityRevision: integer('security_revision').notNull(),
+    vaultOpen: integer('vault_open', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    vaultVersion: integer('vault_version').notNull().default(0),
     createdAt: created(),
   },
   (t) => [
     index('sessions_expiry').on(t.expiresAt),
+    check(
+      'session_vault_check',
+      sql`${t.vaultOpen} IN (0,1) AND ${t.vaultVersion} BETWEEN 0 AND 9007199254740991`,
+    ),
     check(
       'session_hash_check',
       sql`length(${t.tokenHash}) = 64 AND ${t.tokenHash} NOT GLOB '*[^0-9a-f]*'`,
@@ -120,6 +128,9 @@ export const notes = sqliteTable(
   {
     id: id(),
     bodyMarkdown: text('body_markdown').notNull(),
+    isPrivate: integer('is_private', { mode: 'boolean' })
+      .notNull()
+      .default(false),
     status: text('status', { enum: ['published', 'trash'] }).notNull(),
     priorStatus: text('prior_status', { enum: ['published'] }),
     timelineAt: integer('timeline_at').notNull(),
@@ -131,6 +142,7 @@ export const notes = sqliteTable(
     pinnedAt: integer('pinned_at'),
   },
   (t) => [
+    check('note_private_check', sql`${t.isPrivate} IN (0,1)`),
     index('notes_status_timeline').on(
       t.status,
       sql`${t.timelineAt} DESC`,

@@ -1,5 +1,24 @@
 /** English is the complete source catalog. Every other catalog is a partial of it. */
 export const en = {
+  'vault.title': 'Vault',
+  'vault.close': 'Close Vault',
+  'vault.unlock': 'Unlock Vault',
+  'vault.unlockAction': 'Unlock',
+  'vault.passwordHelp':
+    'Re-enter your account password to show private notes in this signed-in browser session.',
+  'vault.required':
+    'Unlock the Vault to access private notes or change tags shared with them.',
+  'vault.private': 'Private note',
+  'vault.makePrivate': 'Make private (visible only with the Vault open)',
+  'vault.makePublic': 'Make public (visible with the Vault closed)',
+  'vault.syncFailed':
+    'Vault status could not be refreshed. Notes are hidden until you retry.',
+  'vault.retry': 'Retry Vault status',
+  'vault.checking': 'Checking Vault status…',
+  'vault.changed':
+    'Vault status changed during this request. Retry to refresh your view.',
+  'vault.draftCleared':
+    'The Vault was closed in another tab. The private editor was cleared.',
   'brand.tagline': 'a little room to think',
   'brand.home': '{title} home',
 

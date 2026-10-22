@@ -88,6 +88,7 @@ export async function snapshotCard(
   };
 }
 export interface TimelineFilters {
+  vault?: boolean;
   /** At most one tag (normalized key). */
   tag?: string;
   query?: string;
@@ -168,6 +169,7 @@ export function filterKey(filters: TimelineFilters): string {
     canonical.query ?? '',
     canonical.date ?? canonical.day ?? null,
     canonical.month ?? null,
+    ...(filters.vault ? ['vault'] : []),
   ]);
 }
 export function filterHref(filters: TimelineFilters): string {
@@ -180,6 +182,7 @@ export function filterHref(filters: TimelineFilters): string {
     filters.month,
   );
   if (canonical.tag !== undefined) params.set('tag', canonical.tag);
+  if (filters.vault) params.set('vault', '1');
   if (canonical.query) params.set('q', canonical.query);
   if (canonical.month) params.set('month', canonical.month);
   if (canonical.date) params.set('date', canonical.date);
@@ -217,10 +220,12 @@ export function parseTimelineQuery(params: URLSearchParams) {
           'dayEnd',
           'date',
           'month',
+          'vault',
         ].includes(key),
     ) ||
     params.getAll('cursor').length > 1 ||
-    ['limit', 'q', 'dayStart', 'dayEnd', 'date', 'month'].some(
+    (params.has('vault') && params.get('vault') !== '1') ||
+    ['limit', 'q', 'dayStart', 'dayEnd', 'date', 'month', 'vault'].some(
       (key) => params.getAll(key).length > 1,
     )
   )
@@ -242,13 +247,16 @@ export function parseTimelineQuery(params: URLSearchParams) {
   )
     throw new DomainError('validation', 'err.invalidSelectedDayRange');
   return {
-    filters: canonicalFilters(
-      params.get('tag'),
-      params.get('q') ?? '',
-      start !== null ? { start: Number(start), end: Number(end) } : undefined,
-      params.get('date') ?? undefined,
-      params.get('month') ?? undefined,
-    ),
+    filters: {
+      ...canonicalFilters(
+        params.get('tag'),
+        params.get('q') ?? '',
+        start !== null ? { start: Number(start), end: Number(end) } : undefined,
+        params.get('date') ?? undefined,
+        params.get('month') ?? undefined,
+      ),
+      ...(params.has('vault') ? { vault: true } : {}),
+    },
     cursor,
     limit: Number(limit),
   };

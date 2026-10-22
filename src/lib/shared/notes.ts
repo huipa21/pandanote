@@ -7,6 +7,7 @@ import { tagAcknowledgementsSchema } from './tags.ts';
 export const MAX_PINNED_NOTES = 20;
 
 export const noteContentSchema = z.strictObject({
+  isPrivate: z.boolean().optional(),
   tagAcknowledgements: tagAcknowledgementsSchema.optional(),
   bodyMarkdown: z
     .string()
@@ -64,7 +65,8 @@ export function canonicalNoteSnapshot(
   note: import('./domain.ts').NoteSnapshot,
 ): string {
   return JSON.stringify([
-    'pandanote-note-snapshot-v3',
+    'pandanote-note-snapshot-v4',
+    note.isPrivate ?? false,
     note.id,
     note.bodyMarkdown,
     note.status,
@@ -85,12 +87,13 @@ export function canonicalNoteSnapshot(
 export function canonicalNoteMutation(value: NoteMutation): string {
   const content = 'content' in value ? value.content : null;
   return JSON.stringify([
-    'pandanote-note-mutation-v3',
+    'pandanote-note-mutation-v4',
     value.action,
     value.action === 'create' ? null : value.noteId,
     value.action === 'create' ? null : value.expectedRevision,
     content
       ? [
+          content.isPrivate ?? (value.action === 'create' ? false : null),
           content.bodyMarkdown,
           content.timelineAt,
           content.attachmentIds,

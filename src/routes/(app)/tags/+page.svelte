@@ -9,13 +9,15 @@
     type EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
   import { TagOperations } from '#lib/client/tags/operations.svelte.ts';
+  import { VAULT, type VaultControls } from '#lib/client/vault.ts';
   import type { ApiResult } from '#lib/shared/domain.ts';
   import type { ManagedTag } from '#lib/shared/tags.ts';
   import { filterHref } from '#lib/shared/timeline.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   let { data } = $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
-  const ops = new TagOperations(workspace);
+  const vault = getContext<VaultControls | undefined>(VAULT);
+  const ops = new TagOperations(workspace, () => !vault?.open);
   const id = $props.id();
   const i18n = useI18n();
   const t = i18n.t;

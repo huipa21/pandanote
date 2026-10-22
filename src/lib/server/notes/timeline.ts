@@ -31,6 +31,7 @@ import {
 } from '../db/schema.ts';
 import type { SessionIdentity } from '../auth/service.ts';
 import { assertSessionIdentity } from '../auth/identity.ts';
+import { visibleNotes, vaultState } from '../auth/vault.ts';
 import { readSettings } from '../settings/repository.ts';
 import { attachmentDto } from '../attachments/service.ts';
 import { DomainError, type NoteSnapshot } from '../../shared/domain.ts';
@@ -136,6 +137,7 @@ function hydrate(
       snippets?: SearchSnippet[];
     } = {
       id: row.id,
+      isPrivate: row.isPrivate,
       status: row.status,
       priorStatus: row.priorStatus,
       pinnedAt: row.pinnedAt,
@@ -156,6 +158,7 @@ function hydrate(
 function pinnedRows(
   tx: Pick<Reader, 'select'>,
   search: ReturnType<typeof parseSearch>,
+  visibility: ReturnType<typeof visibleNotes>,
 ) {
   return tx
     .select({
@@ -164,7 +167,9 @@ function pinnedRows(
       ...snippetColumns(search),
     })
     .from(notes)
-    .where(and(eq(notes.status, 'published'), isNotNull(notes.pinnedAt)))
+    .where(
+      and(eq(notes.status, 'published'), isNotNull(notes.pinnedAt), visibility),
+    )
     .orderBy(desc(notes.pinnedAt), desc(notes.id))
     .limit(MAX_PINNED_NOTES)
     .all();
@@ -189,7 +194,14 @@ export async function timelinePage(
       : filters.tag !== undefined || search || filters.day
         ? null
         : currentMonthEnd(timezone, now);
-  const key = fingerprint(filterKey(filters), timezone, anchor);
+  const vault = vaultState(p.db, identity);
+  if (filters.vault && !vault.open)
+    throw new DomainError('unauthorized', 'vault.required');
+  const key = fingerprint(
+    filterKey(filters) + '|' + vault.version,
+    timezone,
+    anchor,
+  );
   if (
     decoded &&
     (decoded.key !== key ||
@@ -203,13 +215,19 @@ export async function timelinePage(
   // Plain "All notes" view: pinned notes live in their own first-page section and
   // are excluded from the chronological stream.
   const plain =
-    filters.tag === undefined && !search && !filters.day && !filters.month;
+    !filters.vault &&
+    filters.tag === undefined &&
+    !search &&
+    !filters.day &&
+    !filters.month;
   const result = p.db.transaction((tx) => {
     assertSessionIdentity(tx, identity);
     const predicates = [
       eq(notes.status, 'published'),
+      visibleNotes(tx, identity),
       ...searchPredicates(search),
     ];
+    if (filters.vault) predicates.push(eq(notes.isPrivate, true));
     if (plain) predicates.push(isNull(notes.pinnedAt));
     if (filters.day)
       predicates.push(
@@ -259,7 +277,11 @@ export async function timelinePage(
     const items = hydrate(tx, bounded, search);
     const pinned =
       plain && !decoded
-        ? hydrate(tx, pinnedRows(tx, search), search)
+        ? hydrate(
+            tx,
+            pinnedRows(tx, search, visibleNotes(tx, identity)),
+            search,
+          )
         : undefined;
     const last = items.at(-1);
     return {
@@ -330,7 +352,7 @@ export function publishedTags(
       .from(tags)
       .innerJoin(noteTags, eq(tags.id, noteTags.tagId))
       .innerJoin(notes, eq(notes.id, noteTags.noteId))
-      .where(eq(notes.status, 'published'))
+      .where(and(eq(notes.status, 'published'), visibleNotes(tx, identity)))
       .groupBy(tags.id)
       .orderBy(sql`count(*) desc`, asc(tags.normalizedKey))
       .all();

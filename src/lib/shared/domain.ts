@@ -21,6 +21,7 @@ export type RestorableStatus = 'published';
 export const noteMetadataSchema = z
   .strictObject({
     id: idSchema,
+    isPrivate: z.boolean().optional(),
     status: noteStatusSchema,
     priorStatus: z.enum(['published']).nullable(),
     timelineAt: instantSchema,

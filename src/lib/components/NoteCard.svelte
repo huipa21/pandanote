@@ -321,6 +321,10 @@
         >
       </span>
       <div class="header-actions">
+        {#if note.isPrivate}<span
+            aria-label={t('vault.private')}
+            title={t('vault.private')}><Icon name="lock" /></span
+          >{/if}
         {#if pinned}<button
             type="button"
             class="icon-button unpin"

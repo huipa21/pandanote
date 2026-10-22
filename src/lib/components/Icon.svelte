@@ -42,6 +42,7 @@
     | 'chat'
     | 'code'
     | 'lock'
+    | 'unlock'
     | 'key'
     | 'chart'
     | 'trophy'
@@ -188,6 +189,10 @@
     {:else if name === 'lock'}
       <rect x="4" y="11" width="16" height="9" rx="2" /><path
         d="M8 11V7a4 4 0 0 1 8 0v4"
+      />
+    {:else if name === 'unlock'}
+      <rect x="4" y="11" width="16" height="9" rx="2" /><path
+        d="M8 11V7a4 4 0 0 1 7.75-1.4"
       />
     {:else if name === 'key'}
       <circle cx="7.5" cy="12" r="3.5" /><path

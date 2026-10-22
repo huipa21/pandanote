@@ -4,6 +4,7 @@ import type { SessionIdentity } from '../auth/service.ts';
 import { assertSessionIdentity } from '../auth/identity.ts';
 import { readSettings } from '../settings/repository.ts';
 import { notes } from '../db/schema.ts';
+import { visibleNotes } from '../auth/vault.ts';
 import {
   calendarDate,
   calendarMonth,
@@ -50,6 +51,7 @@ export function yearActivity(
       .where(
         and(
           eq(notes.status, 'published'),
+          visibleNotes(tx, identity),
           gte(notes.timelineAt, yearStart),
           lt(notes.timelineAt, yearEnd),
         ),
@@ -100,6 +102,7 @@ export function monthActivity(
       .where(
         and(
           eq(notes.status, 'published'),
+          visibleNotes(tx, identity),
           gte(notes.timelineAt, range.start),
           lt(notes.timelineAt, range.end),
         ),

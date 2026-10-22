@@ -3,6 +3,21 @@ import type { Catalog } from './en.ts';
 /** Partial Simplified Chinese catalog. Missing keys fall back to English one by one.
  * `Partial<Catalog>` makes an unknown key a compile-time error. */
 export const zhCN: Partial<Catalog> = {
+  'vault.title': '私密空间',
+  'vault.close': '关闭私密空间',
+  'vault.unlock': '解锁私密空间',
+  'vault.unlockAction': '解锁',
+  'vault.passwordHelp':
+    '请重新输入账户密码，以在当前已登录的浏览器会话中查看私密笔记。',
+  'vault.required': '请解锁私密空间以访问私密笔记或修改与其共用的标签。',
+  'vault.private': '私密笔记',
+  'vault.makePrivate': '设为私密（仅在私密空间打开时可见）',
+  'vault.makePublic': '设为普通（关闭私密空间后仍可见）',
+  'vault.syncFailed': '无法刷新私密空间状态。笔记将暂时隐藏，请重试。',
+  'vault.retry': '重试私密空间状态',
+  'vault.checking': '正在检查私密空间状态…',
+  'vault.changed': '请求期间私密空间状态发生变化，请重试以刷新视图。',
+  'vault.draftCleared': '私密空间已在另一标签页中关闭，私密编辑器已清空。',
   'brand.tagline': '一个安静思考的小房间',
   'brand.home': '{title} 首页',
 

@@ -21,6 +21,7 @@ const EXPECTED_ROUTES = [
   'api/auth/logout',
   'api/auth/mfa',
   'api/auth/security',
+  'api/auth/vault',
   'api/auth/account',
   'api/setup/account',
   'api/setup/preferences',

@@ -119,6 +119,7 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
       mutationId: randomUUID(),
       content: {
         bodyMarkdown: 'snapshot 香港 #Work',
+        isPrivate: true,
         attachmentIds: [randomUUID()],
         timelineAt: null,
       },
@@ -214,6 +215,9 @@ it('captures WAL notes/drafts/Trash/files/settings/auth/keys/history/receipts, s
       expect(db.prepare('SELECT note_id FROM note_attachments').get()).toEqual({
         note_id: note.noteId,
       });
+      expect(
+        db.prepare('SELECT is_private FROM notes WHERE id=?').get(note.noteId),
+      ).toEqual({ is_private: 1 });
       expect(
         db.prepare('SELECT count(*) n FROM mutation_receipts').get(),
       ).toEqual({ n: 1 });

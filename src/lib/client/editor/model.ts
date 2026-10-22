@@ -36,6 +36,8 @@ export interface EditorSession {
     snapshotDigest: string;
   } | null;
   bodyMarkdown: string;
+  isPrivate?: boolean;
+  basePrivate?: boolean;
   timelineAt: number;
   attachments: EditorAttachment[];
   tagAcknowledgements?: TagAcknowledgement[];
@@ -47,6 +49,7 @@ export function newSession(now = Date.now()): EditorSession {
     kind: 'new',
     serverBase: null,
     bodyMarkdown: '',
+    isPrivate: false,
     timelineAt: now,
     attachments: [],
   };
@@ -61,6 +64,7 @@ export function sessionFingerprint(session: EditorSession): string {
     session.kind,
     session.serverBase,
     session.bodyMarkdown,
+    session.isPrivate ?? false,
     session.timelineAt,
     session.attachments,
     session.tagAcknowledgements ?? [],
@@ -80,6 +84,7 @@ export function commandForSession(
   mutationId: string,
 ): Extract<NoteMutation, { content: NoteContent }> {
   const content: NoteContent = {
+    isPrivate: session.isPrivate ?? false,
     bodyMarkdown: session.bodyMarkdown,
     timelineAt: session.timelineAt,
     attachmentIds: session.attachments.map((a) => a.id),

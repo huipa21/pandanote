@@ -30,6 +30,12 @@ describe('note boundary contracts', () => {
     expect(
       canonicalNoteMutation({
         ...value,
+        content: { ...content, isPrivate: false },
+      }),
+    ).not.toBe(canonical);
+    expect(
+      canonicalNoteMutation({
+        ...value,
         mutationId: randomUUID(),
         content: {
           attachmentIds: [],
@@ -44,6 +50,7 @@ describe('note boundary contracts', () => {
       { ...value, noteId: randomUUID() },
       { ...value, content: { ...content, bodyMarkdown: 'different' } },
       { ...value, content: { ...content, timelineAt: 2 } },
+      { ...value, content: { ...content, isPrivate: true } },
       { ...value, content: { ...content, attachmentIds: [randomUUID()] } },
     ])
       expect(canonicalNoteMutation(changed)).not.toBe(canonical);
@@ -67,6 +74,7 @@ describe('note boundary contracts', () => {
       { ...base, title: 'not a product field' },
       { ...base, requestDigest: 'a'.repeat(64) },
       { ...base, content: { ...content, attachmentIds: [id, id] } },
+      { ...base, content: { ...content, isPrivate: 'true' } },
       { ...base, content: { ...content, bodyMarkdown: '猫'.repeat(400_000) } },
       { action: 'trash', noteId: id, mutationId: randomUUID() },
       {

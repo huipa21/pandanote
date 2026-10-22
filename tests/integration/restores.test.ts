@@ -35,6 +35,7 @@ import {
   type SwapBoundary,
 } from '../../src/lib/server/backups/replacement.ts';
 import { NoteService } from '../../src/lib/server/notes/service.ts';
+import { vaultState } from '../../src/lib/server/auth/vault.ts';
 import { AttachmentService } from '../../src/lib/server/attachments/service.ts';
 import { DiskBudget } from '../../src/lib/server/attachments/resources.ts';
 import {
@@ -179,6 +180,7 @@ it('restores an independent initialized instance: all statuses/date/tags/process
         // CommonMark duplicate definitions use the FIRST destination, just like
         // ordinary note validation/rendering; an ignored later definition is safe.
         bodyMarkdown: `![static][photo] #Work\n\n[photo]: attachment:${ids[0]}\n[photo]: attachment:${randomUUID()}`,
+        isPrivate: true,
         timelineAt: null,
         attachmentIds: ids,
       },
@@ -223,6 +225,7 @@ it('restores an independent initialized instance: all statuses/date/tags/process
         .set({ username: 'archived.owner', email: 'archived@example.invalid' })
         .run(),
     );
+    await f.auth.unlockVault(f.identity, password, '192.0.2.80');
     const archive = await backup(source, f),
       snapshots = [a, b, c, media].map((r) => notes.get(f.identity, r.noteId));
     await withPersistence(async (destination) => {
@@ -289,6 +292,9 @@ it('restores an independent initialized instance: all statuses/date/tags/process
         f.identity.account.id,
       );
       const restoredNotes = new NoteService(destination);
+      expect(vaultState(destination.db, restored).open).toBe(false);
+      expect(() => restoredNotes.get(restored, media.noteId)).toThrow();
+      await d.auth.unlockVault(restored, password, '192.0.2.80');
       expect(snapshots[1].pinnedAt).toBeGreaterThan(0);
       for (const snapshot of snapshots)
         expect(restoredNotes.get(restored, snapshot.id)).toEqual(snapshot);

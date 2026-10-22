@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import type { EditorWorkspace } from '#lib/client/editor/workspace.svelte.ts';
   import TimelineOptions from './TimelineOptions.svelte';
+  import Icon from './Icon.svelte';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { RECORDER_ERROR_KEYS } from '#lib/client/recording/clips.ts';
   import type { RecorderErrorCode } from '#lib/client/recording/recorder.ts';
@@ -40,12 +41,24 @@
   let locked = $derived(
     !workspace?.ready ||
       workspace.busy ||
+      workspace.posting ||
       workspace.conflict ||
       workspace.frozen,
   );
 </script>
 
 <div class="note-options" role="group" aria-label={t('editor.options')}>
+  <button
+    type="button"
+    disabled={locked}
+    aria-label={t('vault.private')}
+    title={t(
+      workspace?.active?.isPrivate ? 'vault.makePublic' : 'vault.makePrivate',
+    )}
+    aria-pressed={workspace?.active?.isPrivate ?? false}
+    onclick={() => workspace?.togglePrivacy()}
+    ><Icon name={workspace?.active?.isPrivate ? 'lock' : 'unlock'} /></button
+  >
   <button
     type="button"
     disabled={locked}
@@ -145,6 +158,9 @@
     color: var(--muted);
     font-size: 0.875rem;
     white-space: nowrap;
+  }
+  .note-options button[aria-pressed='true'] {
+    color: var(--accent);
   }
   svg {
     width: 1.25rem;

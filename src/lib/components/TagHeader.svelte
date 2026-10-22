@@ -10,6 +10,7 @@
     type EditorWorkspace,
   } from '#lib/client/editor/workspace.svelte.ts';
   import { TagOperations } from '#lib/client/tags/operations.svelte.ts';
+  import { VAULT, type VaultControls } from '#lib/client/vault.ts';
   import { tagKey } from '#lib/shared/markdown/tags.ts';
   import type { TagAction, TagExecute, ManagedTag } from '#lib/shared/tags.ts';
   import type { MessageKey } from '#lib/shared/i18n/index.ts';
@@ -18,7 +19,8 @@
   let { summary, leaveHref }: { summary: ManagedTag; leaveHref: string } =
     $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
-  const ops = new TagOperations(workspace);
+  const vault = getContext<VaultControls | undefined>(VAULT);
+  const ops = new TagOperations(workspace, () => !vault?.open);
   const id = $props.id();
   const t = useI18n().t;
   const LABELS = {

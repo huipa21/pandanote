@@ -9,6 +9,7 @@ import {
 import { publishedTags } from '#lib/server/notes/timeline.ts';
 import { sql } from 'drizzle-orm';
 import { storageLimitsFrom } from '#lib/shared/storage.ts';
+import { vaultState } from '#lib/server/auth/vault.ts';
 
 export const load: LayoutServerLoad = ({ locals, depends, url }) => {
   depends('pandanote:timeline', 'pandanote:calendar');
@@ -27,7 +28,9 @@ export const load: LayoutServerLoad = ({ locals, depends, url }) => {
     /* Root loader displays malformed-filter feedback. */
   }
   const db = locals.runtime!.persistence.db;
+  const vault = vaultState(db, locals.identity!);
   return {
+    vault,
     calendar: monthActivity(
       locals.runtime!.persistence,
       locals.identity!,
@@ -37,7 +40,9 @@ export const load: LayoutServerLoad = ({ locals, depends, url }) => {
     timezone: settings.timezone,
     storageLimits: storageLimitsFrom(settings),
     tagSuggestions: db.all<{ key: string; display: string }>(
-      sql`select normalized_key as key, display from tags t where not exists (select 1 from tag_changes c where c.old_key=t.normalized_key and (c.target_key is null or c.target_key<>c.old_key)) order by normalized_key limit 5000`,
+      sql`select normalized_key as key, display from tags t where
+        (${Number(vault.open)} or exists (select 1 from note_tags nt join notes n on n.id=nt.note_id where nt.tag_id=t.id and n.is_private=0))
+        and not exists (select 1 from tag_changes c where c.old_key=t.normalized_key and (c.target_key is null or c.target_key<>c.old_key)) order by normalized_key limit 5000`,
     ),
     tagGeneration: db.get<{ generation: number }>(
       sql`select coalesce(max(generation),0) as generation from tag_changes`,

@@ -25,6 +25,7 @@ export interface StatusPage {
 }
 export const statusCursorSchema = z.strictObject({
   v: z.literal(1),
+  vaultVersion: z.number().int().nonnegative().optional(),
   status: listStatusSchema,
   at: instantSchema,
   id: idSchema,

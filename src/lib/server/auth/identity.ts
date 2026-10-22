@@ -8,7 +8,7 @@ import type { SessionIdentity } from './service.ts';
 export function assertSessionIdentity(
   db: DomainDatabase | DomainTransaction,
   identity: SessionIdentity,
-): void {
+) {
   const owner = db
     .select()
     .from(account)
@@ -29,4 +29,5 @@ export function assertSessionIdentity(
     session.securityRevision !== owner.securityRevision
   )
     throw new DomainError('unauthorized', 'err.signInAgainThenRetry');
+  return session;
 }
