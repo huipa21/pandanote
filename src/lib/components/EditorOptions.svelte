@@ -11,7 +11,6 @@
 
   let {
     workspace,
-    onTag,
     onLabel,
     labelName,
     onTemplate,
@@ -19,7 +18,6 @@
     onAttach,
   }: {
     workspace: EditorWorkspace | undefined;
-    onTag: () => void;
     onLabel: () => void;
     labelName?: string;
     onTemplate: () => void;
@@ -53,17 +51,6 @@
 </script>
 
 <div class="note-options" role="group" aria-label={t('editor.options')}>
-  <button
-    type="button"
-    disabled={locked}
-    aria-label={t('editor.addTag')}
-    title={t('editor.tags')}
-    onclick={onTag}
-  >
-    <svg viewBox="0 0 24 24" aria-hidden="true"
-      ><path d="M9 4 7 20M17 4l-2 16M4 9h17M3 15h17" /></svg
-    >
-  </button>
   <button
     type="button"
     disabled={locked}

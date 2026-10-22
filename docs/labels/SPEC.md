@@ -214,8 +214,10 @@ and its own `label_mutation_receipts` table, as planned.
   (no `aria-label`-only color swatch).
 - Position (2026-10-17 override): centered in the card/detail date-and-actions header,
   never in the tags row. On narrow screens it takes a centered second header row to
-  avoid collisions with the date/actions. Both date hover/focus and timestamp tooltip
-  backgrounds use the effective header tint rather than the default green hover tint.
+  avoid collisions with the date/actions. Date hover/focus backgrounds use the effective
+  header tint rather than the default green hover tint. Timestamp tooltips always use an
+  opaque white background and dark text on hover or keyboard focus, independent of label
+  styling and light/dark/system theme (2026-10-22 user override).
 - Clicking the chip on the card does nothing special (no quick-filter from the card) unless
   decided otherwise during implementation; the authoritative filter entry point is the
   sidebar list (§4.4). (Record the final decision in PROGRESS.md if this is revisited.)

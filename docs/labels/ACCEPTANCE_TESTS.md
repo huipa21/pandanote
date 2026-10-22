@@ -54,6 +54,9 @@ automated case since it requires a pre-change fixture).
   both themes (computed, see SPEC.md §2.1); axe clean (verified via the generic
   authenticated-screens axe scan, `tests/e2e/zzzaccessibility.test.ts`).
 - The chip has no click behavior; the sidebar list is the filter entry point (SPEC.md §4.3).
+- Card/detail timestamp tooltips stay opaque white with readable dark text on hover
+  and keyboard focus in light, dark and system-dark themes, with or without a styled
+  label. The date's own hover highlight still follows the effective header tint.
 
 ## LBL-FILTER — Sidebar filter and timeline (integration + e2e)
 

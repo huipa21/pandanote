@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { expect, test, type Page } from '@playwright/test';
-import { browserSession } from '../helpers/browser-session.ts';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import {
+  authenticatedHeaders,
+  browserSession,
+} from '../helpers/browser-session.ts';
 
 const axeSource = readFileSync(
   createRequire(import.meta.url).resolve('axe-core/axe.min.js'),
@@ -34,6 +37,66 @@ async function axeViolations(page: Page) {
 }
 
 const unique = (label: string) => `${label} ${randomUUID().slice(0, 8)}`;
+
+async function expectWhiteTimestampTooltip(page: Page, note: Locator) {
+  const when = note.locator('.when');
+  const tooltip = note.getByRole('tooltip');
+  const originalTheme = await page.locator('html').getAttribute('data-theme');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  try {
+    for (const theme of ['light', 'dark', 'system']) {
+      await page.locator('html').evaluate((html, value) => {
+        html.dataset.theme = value;
+      }, theme);
+      for (const trigger of ['hover', 'focus']) {
+        await page.mouse.move(0, 0);
+        await when.evaluate((node) => node.blur());
+        if (trigger === 'hover') await when.hover();
+        else await when.focus();
+        await expect(tooltip).toBeVisible();
+        await expect(tooltip).toHaveCSS(
+          'background-color',
+          'rgb(255, 255, 255)',
+        );
+        await expect(tooltip).toHaveCSS('color', 'rgb(36, 43, 37)');
+        await expect(tooltip).toContainText('Created');
+        await expect(tooltip).toContainText('Updated');
+      }
+    }
+  } finally {
+    await page.locator('html').evaluate((html, value) => {
+      if (value === null) delete html.dataset.theme;
+      else html.dataset.theme = value;
+    }, originalTheme);
+    await when.evaluate((node) => node.blur());
+    await page.emulateMedia({ colorScheme: null });
+  }
+}
+
+test('Date tooltips stay white on unlabelled cards and note details in every theme', async ({
+  page,
+}) => {
+  const headers = await authenticatedHeaders(page);
+  const response = await page.request.post('/api/notes', {
+    headers,
+    data: {
+      action: 'create',
+      mutationId: randomUUID(),
+      content: {
+        bodyMarkdown: unique('Timestamp tooltip'),
+        timelineAt: Date.now(),
+        attachmentIds: [],
+      },
+    },
+  });
+  expect(response.status()).toBe(200);
+  const { noteId } = (await response.json()).data;
+  await page.goto('/');
+  const card = page.locator(`[data-note-id="${noteId}"]`);
+  await expectWhiteTimestampTooltip(page, card);
+  await card.locator('.when').click();
+  await expectWhiteTimestampTooltip(page, page.getByTestId('note-detail'));
+});
 
 /** Creates one label through the page's own dialog (color blue, no icon). */
 async function createLabel(page: Page, name: string, styled = false) {
@@ -166,8 +229,10 @@ test('Composer: pick a label, post, see the chip on the card, filter from the si
   await expect(when).toHaveCSS('background-color', background);
   await expect(header.getByRole('tooltip')).toHaveCSS(
     'background-color',
-    background,
+    'rgb(255, 255, 255)',
   );
+  await expectWhiteTimestampTooltip(page, card);
+  await when.hover();
   await page.screenshot({
     path: test.info().outputPath('label-card-desktop.png'),
   });
@@ -180,6 +245,7 @@ test('Composer: pick a label, post, see the chip on the card, filter from the si
     'background-color',
     background,
   );
+  await expectWhiteTimestampTooltip(page, detail);
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileHeader = (await detail.locator('header').boundingBox())!;
   const mobileLabel = (await detail.locator('.label-chip').boundingBox())!;

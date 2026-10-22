@@ -163,25 +163,6 @@
     input?.setSelectionRange(next.caret, next.caret);
   }
 
-  async function addTag() {
-    if (!workspace || workspace.busy || workspace.frozen || workspace.conflict)
-      return;
-    preview = false;
-    const prefix = text.slice(0, cursor.start);
-    const marker = prefix && !/\s$/.test(prefix) ? ' #' : '#';
-    workspace.change(prefix + marker + text.slice(cursor.end));
-    cursor = {
-      start: cursor.start + marker.length,
-      end: cursor.start + marker.length,
-    };
-    await tick();
-    const input = focusOpen ? expandedTextarea : textarea;
-    input?.focus();
-    input?.setSelectionRange(cursor.start, cursor.end);
-    // Uses the existing local-only, AST-aware tag suggestions.
-    input?.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
   async function handleCloseEditor(focus: boolean) {
     if (!workspace) {
       focusOpen = !focus;
@@ -227,6 +208,16 @@
       media.removeEventListener('change', changed);
       workspace?.setPreviewVisible(false);
     };
+  });
+  const sessionId = $derived(workspace?.active?.localId);
+  $effect(() => {
+    void sessionId;
+    if (untrack(() => workspace?.status === 'saved')) focusOpen = false;
+    preview = false;
+    cursor = { start: 0, end: 0 };
+    confirmCancel = false;
+    templatePickerOpen = false;
+    labelPickerOpen = false;
   });
   $effect(() => {
     const visible = preview && (focusOpen || showInline);
@@ -358,7 +349,6 @@
     <div class="editor-footer">
       <EditorOptions
         {workspace}
-        onTag={addTag}
         onLabel={() => (labelPickerOpen = true)}
         labelName={currentLabel?.name}
         onTemplate={() => (templatePickerOpen = true)}

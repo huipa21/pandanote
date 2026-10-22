@@ -243,7 +243,7 @@ test('photos show as a 3-column thumbnail grid, reorder by drag, remove with X a
   expect(uploads.length).toBeGreaterThan(0);
 });
 
-test('one editor surface keeps secondary actions in +, switches preview and enters/leaves focus without uploading', async ({
+test('one editor surface keeps toolbar actions, switches preview and enters/leaves focus without uploading', async ({
   page,
 }, info) => {
   await browserSession(page);
@@ -264,9 +264,11 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   ).toBeVisible();
   const options = composer.getByRole('group', { name: 'Note options' });
   await expect(options).toBeVisible();
-  await expect(options.getByRole('button')).toHaveCount(7);
+  await expect(options.getByRole('button')).toHaveCount(6);
+  await expect(
+    options.getByRole('button', { name: 'Add tag', exact: true }),
+  ).toHaveCount(0);
   for (const name of [
-    'Add tag',
     'Insert template',
     'Add photos or video',
     'Attach file',
@@ -287,10 +289,6 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   expect(optionsBox.y).toBeGreaterThanOrEqual(textBox.y + textBox.height);
   expect(focusBox.y).toBeGreaterThanOrEqual(textBox.y + textBox.height);
   expect(focusBox.x + focusBox.width).toBeLessThanOrEqual(postBox.x);
-  await options.getByRole('button', { name: 'Add tag', exact: true }).click();
-  await expect(text).toBeFocused();
-  await expect(text).toHaveValue('**Quiet writing** #');
-  await text.fill('**Quiet writing**');
   const dateButton = options.getByRole('button', {
     name: 'Set date',
     exact: true,
@@ -355,3 +353,99 @@ test('one editor surface keeps secondary actions in +, switches preview and ente
   await expect(text).toHaveValue('**Quiet writing**');
   expect(mutations).toEqual([]);
 });
+
+test('publishing from preview restores the empty composer with preview off', async ({
+  page,
+}) => {
+  await browserSession(page);
+  await page.goto('/');
+  const composer = page.getByTestId('composer');
+  const text = composer.getByRole('textbox', { name: 'Note text' });
+  const preview = composer.getByRole('switch', { name: 'Preview' });
+  const post = composer.getByRole('button', { name: 'Post', exact: true });
+  await text.fill('**Preview reset** #manual-tag');
+  await preview.click();
+  await expect(preview).toBeChecked();
+  await expect(composer.locator('.compact-preview strong')).toHaveText(
+    'Preview reset',
+  );
+  await post.click();
+  await expect(preview).not.toBeChecked();
+  await expect(text).toBeVisible();
+  await expect(text).toHaveValue('');
+  await expect(post).toBeDisabled();
+  const note = page
+    .getByTestId('posted-note')
+    .filter({ hasText: 'Preview reset' });
+  await expect(note).toBeVisible();
+  await expect(
+    note.getByRole('link', { name: '#manual-tag', exact: true }),
+  ).toBeVisible();
+});
+
+for (const mobile of [false, true]) {
+  test(`focus posting returns to the timeline only after confirmation (${mobile ? 'mobile' : 'desktop'})`, async ({
+    page,
+  }) => {
+    if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+    await browserSession(page);
+    await page.goto('/');
+    const composer = page.getByTestId('composer');
+    if (mobile)
+      await page.getByRole('button', { name: 'Compose a note' }).click();
+    else
+      await composer.getByRole('button', { name: 'Enter focus mode' }).click();
+    const focus = page.getByRole('dialog', {
+      name: 'Write a note',
+      exact: true,
+    });
+    const body = `Focus post ${mobile ? 'mobile' : 'desktop'} confirmation`;
+    await focus.getByRole('textbox', { name: 'Note text' }).fill(body);
+    const preview = focus.getByRole('switch', { name: 'Preview' });
+    await preview.click();
+    await page.route(
+      '**/api/notes',
+      async (route) => {
+        if (route.request().method() !== 'POST') return route.continue();
+        await route.fetch();
+        await route.abort('failed');
+      },
+      { times: 1 },
+    );
+    await focus.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(focus.getByRole('alert')).not.toBeEmpty();
+    await expect(focus).toBeVisible();
+    await expect(preview).toBeChecked();
+    await expect(focus.locator('.expanded-preview')).toContainText(body);
+    await focus
+      .getByRole('button', { name: 'Check and retry save', exact: true })
+      .click();
+    await expect(focus).not.toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(
+      page.getByTestId('posted-note').filter({ hasText: body }),
+    ).toHaveCount(1);
+    if (mobile)
+      await page.getByRole('button', { name: 'Compose a note' }).click();
+    const editor = mobile ? focus : composer;
+    await expect(
+      editor.getByRole('textbox', { name: 'Note text' }),
+    ).toHaveValue('');
+    await expect(
+      editor.getByRole('switch', { name: 'Preview' }),
+    ).not.toBeChecked();
+    await expect(
+      editor.getByRole('button', { name: 'Post', exact: true }),
+    ).toBeDisabled();
+    if (!mobile)
+      await composer.getByRole('button', { name: 'Enter focus mode' }).click();
+    await focus
+      .getByRole('textbox', { name: 'Note text' })
+      .fill(`${body} next`);
+    await focus.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(focus).not.toBeVisible();
+    await expect(
+      page.getByTestId('posted-note').filter({ hasText: `${body} next` }),
+    ).toHaveCount(1);
+  });
+}

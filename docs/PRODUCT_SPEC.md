@@ -14,7 +14,9 @@ override the note card/detail **header color**, whole-surface **background** and
 font** (each from the same fixed palette / a small fixed font set, independently
 optional). Picked from an icon-only editor toolbar button; shown centered in the card
 and note detail header as a chip (icon/color + name text, never color alone). Date hover
-and timestamp tooltip backgrounds match the labeled header. Filters the timeline from a sidebar
+matches the labeled header. Timestamp tooltips always use an opaque white background
+with dark text, regardless of label styling or light/dark/system theme (2026-10-22
+user override). Filters the timeline from a sidebar
 list like Tags, but is not part of free-text search. Carried through pin, Trash and
 restore unchanged; deleting a label clears it from notes without deleting them. The
 schema change is folded directly into the baseline ("treat as new setup", no new
@@ -265,7 +267,7 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - Enter inserts a newline.
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
-- A bottom toolbar shows Tags, Photos/video and Date as icon buttons (bottom-left), matching the reference layout: icons at the left, Post at the right.
+- A bottom toolbar shows Label, Templates, Photos/video, Attach file, Voice and Date as icon buttons (bottom-left), with Post at the right. There is no hashtag insertion button; type `#` directly to use tag autocomplete.
 - The Date icon opens a borderless Timeline date popup showing only the text bar and the themed calendar (no title, help text, close button, time fields, or Done). Clicking outside the popup closes it; Escape also closes it.
 - One Preview switch toggles rendered Markdown and raw text without losing content.
 - A bottom-right focus icon (next to Post) enters focus mode; the same button shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
@@ -284,6 +286,8 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - On failure, show an actionable message and retain recoverable text/files.
 - Retry must not create duplicate notes/files.
 - On successful normal posting, insert the note without a full page reload. Position follows timeline date; a backdated note must not misleadingly become newest.
+- After confirmed posting, restore the composer to a fresh empty session, including Preview off and cleared date, label, files and transient picker state. Failed saves retain the current editor and preview state for retry.
+- Confirmed posting from focus mode closes the editor overlay and returns to the timeline, on desktop and mobile, including after a successful retry. Failed or uncertain saves stay in focus mode with their content intact.
 - Editing a saved note uses Save changes, not Post. New notes use Post.
 
 ## 5. Unsaved editor lifecycle

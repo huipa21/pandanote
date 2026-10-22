@@ -2,6 +2,25 @@
 
 ## Current state
 
+- **2026-10-22 white datetime tooltips: implemented and host-verified.**
+  Created/Updated tooltips always have white backgrounds and dark text on timeline
+  cards and note details, independent of label colors and light/dark/system theme.
+  Date hover highlights are unchanged. Check/lint/build pass; focused unit 16/16,
+  label integration 6/6 and affected browser 14/14 pass. Details are appended below.
+
+- **2026-10-22 focus posting returns to timeline: implemented and host-verified.**
+  Confirmed posting closes focus mode on desktop/mobile, including receipt-first
+  retries. Failed or uncertain saves retain the focused editor and preview/content.
+  Check/lint/build pass, focused unit 11/11, note integration 15/15 and affected
+  browser 29/29 pass. Details are appended below.
+
+- **2026-10-22 composer reset and hashtag toolbar removal: implemented.** A new
+  editor session resets preview, caret and transient picker/cancel state. Confirmed
+  publication returns to an empty text editor; failed saves retain their session.
+  The hashtag insertion button is removed; manual hashtags/autocomplete remain.
+  Check/lint/build pass, focused unit tests pass 11/11 and affected browser tests
+  pass 19/19; validation details are appended below.
+
 - **2026-10-21 card double-click edit / click-outside save: implemented,
   host-verified.** Double-clicking a card's text on timeline/tag/label views opens the
   inline editor; a click outside the card saves (or closes an unchanged edit) with no
@@ -5976,3 +5995,95 @@ note-actions editor`: 40 pass / 1 fail (`voice-naming` "renamed from its card",
 tests/integration/release-hygiene.test.ts`: 7/7 pass. `npx prettier --check` on the
   touched files: pass. Linux image not rebuilt (no image change).
 - Next: none for this change; continue the active plan step.
+
+### Session 2026-10-22 - composer reset and hashtag toolbar removal
+
+- State: done for this UI fix; focused host validation passed.
+- Changed `src/lib/components/NoteEditor.svelte` to reset component-local preview,
+  caret and picker/cancel state on session identity changes, using the existing
+  confirmed-success workspace reset. Normal typing and failed saves retain the
+  session identity. Removed the hashtag insertion handler and its button/prop in
+  `EditorOptions.svelte`; manual hashtags and autocomplete are unchanged.
+- Updated `tests/e2e/editor.test.ts` for the six-button toolbar and added a real
+  publish-from-preview regression checking preview off, empty visible textarea,
+  disabled Post and a published manual hashtag. Updated PRODUCT_SPEC,
+  ARCHITECTURE, ACCEPTANCE_TESTS and this handoff.
+- Checks: `npm run check` passed with zero errors and one pre-existing unused CSS
+  selector warning in AppShell. `npm run test:e2e -- tests/e2e/editor.test.ts`
+  built successfully and passed all 6 browser tests. Targeted Prettier write ran.
+- `npm run test:unit -- editor posting`: 11/11 passed.
+- `npm run lint`: ESLint and repository formatting passed.
+- `npm exec -- playwright test tests/e2e/posting.test.ts
+tests/e2e/editor-session.test.ts tests/e2e/note-actions.test.ts`: 13/13 passed,
+  including lost-response receipt retry, failed-save retention and inline actions.
+- Targeted Prettier check on all seven changed files passed. No integration suite
+  rerun for this component-only fix; persistence and server code are unchanged.
+- No dependency, schema, server, private-data or deployment changes. No full
+  browser/Linux/release gate claimed; existing S18/manual gates remain open.
+- Next: user visual review, then continue the independent outstanding S18 gates.
+  Read PRODUCT_SPEC sections 4.2-4.3 and the editor components for any follow-up;
+  first regression command: `npm run test:e2e -- tests/e2e/editor.test.ts`.
+
+### Session 2026-10-22 - close focus mode after confirmed posting
+
+- State: done for the requested UI behavior; host-verified. Preserved all seven
+  pre-existing modified files and their changes; no commit, deployment or data change.
+- NoteEditor now closes focus mode when the confirmed-success workspace reset
+  changes session identity. The success status is read without subscribing to
+  unrelated status updates. Both the Post button and feedback retry use this path;
+  failures, uncertain commits and manual desktop focus closure retain their behavior.
+- Added desktop/mobile editor browser regressions: publish with a deliberately lost
+  commit response, retain focus and preview/text, retry the original receipt, close
+  to the timeline with one card, reopen empty with Preview off, then post normally
+  a second time and close again. Updated PRODUCT_SPEC section 4.3, ARCHITECTURE
+  section 11.2 and UI-EDITOR acceptance.
+- Commands actually run with cached Node 24.21.0 executable/PATH, TLS verification
+  enabled and Git OpenSSL on PATH:
+  - `npm run test:e2e -- editor.test.ts --grep "focus posting"` before the fix:
+    both new tests failed because the dialog remained visible after confirmation.
+  - Targeted Prettier write: pass.
+  - `npm run check`: pass, zero errors / one existing AppShell unused CSS warning.
+  - `npm run test:e2e -- editor.test.ts posting.test.ts editor-session.test.ts note-edit.test.ts`:
+    build passed and all 29 Chromium tests passed.
+  - `npm run lint`: pass.
+  - `npm run test:unit -- editor posting`: 11/11 pass.
+  - `npm run build`: pass, existing lazy-chunk warnings retained.
+  - `npm run test:integration -- notes`: 15/15 pass.
+  - `git diff --check`: pass, CRLF notices only.
+- Full suites, Linux image and physical-device/release gates were not rerun for
+  this component-only fix; no server/native/schema/dependency changes. Independent
+  SS01/S18 limitations remain open.
+- Next: user review. For further changes read NoteEditor, editor browser tests and
+  PRODUCT_SPEC section 4.3; first validation command:
+  `npm run test:e2e -- editor.test.ts --grep "focus posting"`.
+
+### Session 2026-10-22 - always-white datetime tooltip backgrounds
+
+- State: done for the requested UI fix; host-verified. Preserved the seven
+  pre-existing modified files and their changes; no commit or private-data changes.
+- Changed only the timestamp tooltip foreground/background in NoteCard and
+  NoteDetail to the existing light-palette dark text / opaque white pair.
+  Tooltips no longer inherit the label's header/surface tint or the dark theme's
+  foreground. Date hover/focus highlights, content, layout and navigation are unchanged.
+- Extended `tests/e2e/labels.test.ts` with hover and keyboard-focus computed-style
+  assertions on both cards and details, with and without a styled label, under
+  light, dark and system-dark themes. Reviewed the generated desktop screenshot:
+  white timestamp popup on the blue labeled card. Updated PRODUCT_SPEC,
+  ARCHITECTURE and labels SPEC/ACCEPTANCE_TESTS to reflect the explicit user override.
+- Commands actually run using cached Node 24.21.0 and Git OpenSSL on PATH:
+  - Targeted `npm exec -- prettier --write`: pass.
+  - `npm run check`: pass, zero errors / one existing AppShell unused-CSS warning.
+  - `npm run lint`: pass.
+  - `npm run test:unit -- labels timeline`: 16/16 pass.
+  - `npm run test:integration -- labels`: 6/6 pass.
+  - `npm run test:e2e -- labels.test.ts detail.test.ts timeline.test.ts`:
+    production build and all 14 Chromium tests pass.
+  - `npm run build`: pass, including runtime manifest/lock verification;
+    existing unused-CSS/lazy-chunk warnings retained.
+  - `git diff --check`: pass, CRLF conversion notices only.
+- No server/schema/dependency/native changes. Full suites, Linux image and
+  real-device/release gates were not rerun; independent S18 gates remain open.
+- Next: user visual review, then outstanding release gates. For tooltip follow-up,
+  read NoteCard/NoteDetail `.when-info`, labels SPEC section 4.3 and the labels
+  browser regressions. First validation:
+  `npm run test:e2e -- labels.test.ts`.

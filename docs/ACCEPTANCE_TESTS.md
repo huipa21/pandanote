@@ -303,12 +303,17 @@ At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No cl
 ### UI-EDITOR — Concise integrated composer
 
 Writing, preview, feedback and Post/Save changes share one textarea-style surface.
-Only the bottom toolbar (Tags/Files/Date icons at left, Preview switch, focus
+Only the bottom toolbar (Label/Templates/Media/File/Voice/Date icons at left, Preview switch, focus
 icon and publishing control at right) holds permanent editor actions; nothing floats
 in the top corner. Each icon has an accessible name and keyboard access, with no
-premature upload. Tags inserts an inline hashtag at
-the retained cursor using existing local autocomplete. Preview toggles raw/rendered
-text without loss. Focus mode replaces the expand icon with X; close/Escape
+premature upload. No hashtag insertion button is shown; typing `#` still uses local
+autocomplete. Preview toggles raw/rendered text without loss. A confirmed post resets
+to an empty text editor with Preview off and Post disabled; failure retains the
+current editor and preview state.
+After confirmed posting in focus mode, the overlay closes to reveal the timeline
+on desktop and mobile; failed/uncertain saves retain the overlay and preview/content,
+and a successful receipt-first retry closes it without duplicating the note.
+Focus mode replaces the expand icon with X; close/Escape
 retains text/files/metadata, returns focus and does not publish. Controls and at least
 one text line remain reachable with mobile safe areas/keyboard-shrunken height.
 Compact timeline text grows from its minimum to the cap, then internally scrolls;

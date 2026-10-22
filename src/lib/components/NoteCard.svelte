@@ -581,8 +581,8 @@
     padding: var(--space-2) var(--space-3);
     white-space: nowrap;
     font-size: 0.8125rem;
-    color: var(--text);
-    background: var(--header-background, var(--surface));
+    color: #242b25;
+    background: #ffffff;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     pointer-events: none;

@@ -7,8 +7,10 @@ Schema is now **3 / 20 domain tables**: migration `0002_note_templates` adds `no
 ## Current override — color or icon labels
 
 2026-10-17 UI override: the label picker is an icon in `EditorOptions`, saved label
-chips are centered in card/detail headers, and date hover/tooltips inherit the effective
-header background. Labels management/sidebar/filter headings match Tags. Shared
+chips are centered in card/detail headers, and date hover inherits the effective
+header background. Timestamp tooltips use fixed white backgrounds and dark text in
+both components, independent of label styling and theme (2026-10-22 override).
+Labels management/sidebar/filter headings match Tags. Shared
 `selectTag`/`selectLabel` URL helpers toggle a selected filter off while retaining the
 other filters. `LabelActions` shares revision-checked, receipt-first Edit/Delete UI
 between the management list and filtered heading. No server/schema changes.
@@ -1172,6 +1174,15 @@ Svelte action on content updates/window resize, with 10rem minimum and
 resized by this action. Editor placeholder/new-note guidance and the exact
 "Saved on server." footer status are omitted; workspace receipt/status state and
 the separate note-detail success line remain unchanged.
+
+`NoteEditor` resets preview, retained caret and transient picker/cancel state when
+the workspace session's stable `localId` changes. Confirmed posting already calls
+`resetSession`, clearing content, files, date and label; failed saves keep the same
+session and UI state. The hashtag insertion toolbar button is removed; typed `#`
+continues to use the existing local `TagAutocomplete`.
+On a session identity change after confirmed posting (`workspace.status === 'saved'`),
+the same reset also closes focus mode. Failure keeps the identity and overlay;
+receipt-first retries use the same confirmed-success path on desktop and mobile.
 
 `renderMarkdown` wraps eligible hashtag spans as `tagText` → `.tag-text`, hidden
 only in `NoteCard` content. After tag splitting, LF characters in ordinary mdast
