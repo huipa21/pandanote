@@ -12,9 +12,33 @@ test('embedded version agrees in desktop sidebar, mobile drawer and no-JavaScrip
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/settings');
   await openSettingsTab(page, 'About');
-  await expect(page.locator('.desktop-sidebar [data-app-version]')).toHaveText(
-    `Version ${expected.version}`,
+  await expect(page.locator('.desktop-sidebar [data-app-version]')).toHaveCount(
+    0,
   );
+  const desktopPandanoteLink = page
+    .locator('.desktop-sidebar')
+    .locator('.attribution a');
+  await expect(desktopPandanoteLink).toHaveAttribute(
+    'href',
+    'https://github.com/huipa21/pandanote',
+  );
+  await expect(desktopPandanoteLink).toHaveAttribute('target', '_blank');
+  await expect(page.locator('.desktop-sidebar .attribution')).toHaveText(
+    'Powered by Pandanote',
+  );
+  await page
+    .locator('.desktop-sidebar')
+    .getByRole('button', { name: 'Switch language to 简体中文' })
+    .click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
+  await expect(page.locator('.desktop-sidebar .attribution')).toHaveText(
+    'Powered by Pandanote',
+  );
+  await page
+    .locator('.desktop-sidebar')
+    .getByRole('button', { name: '切换语言为English' })
+    .click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.locator('[data-about-version]')).toHaveText(
     expected.version,
   );
@@ -33,7 +57,13 @@ test('embedded version agrees in desktop sidebar, mobile drawer and no-JavaScrip
   await page.getByRole('button', { name: 'Expand sidebar' }).click();
   await expect(
     page.getByRole('dialog').locator('[data-app-version]'),
-  ).toHaveText(`Version ${expected.version}`);
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('dialog').locator('.attribution a'),
+  ).toHaveAttribute('href', 'https://github.com/huipa21/pandanote');
+  await expect(page.getByRole('dialog').locator('.attribution')).toHaveText(
+    'Powered by Pandanote',
+  );
   await page.keyboard.press('Escape');
   await page.locator('#about').scrollIntoViewIfNeeded();
   await page

@@ -297,6 +297,10 @@ focus; Search/Calendar focus the corresponding expanded-sidebar control. Direct
 links navigate through the existing unsaved-editor guard. Rail controls remain
 reachable on short screens; 44px targets, no horizontal overflow. Expanded/desktop
 title, Tags, Labels and utility text share the same left edge.
+The desktop sidebar and expanded mobile drawer omit the app version and show
+“Powered by Pandanote,” with only “Pandanote” linking to the project GitHub
+repository. The full attribution stays in English when the app language is
+Simplified Chinese.
 
 At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No clipped essential action/horizontal overflow. Desktop sidebar right edge supports pointer-captured mouse/pen/touch dragging and keyboard Left/Right/Home/End, with visible focus and width bounds preserving the main column. It disappears in mobile drawer mode. Drawer/detail/image/editor keyboard focus and return, Escape safety, screen-reader labels, reduced motion, 200% zoom and AA contrast reviewed. Mobile keyboard does not hide Post or destroy draft. Touch-only workflow works.
 

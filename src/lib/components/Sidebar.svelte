@@ -4,7 +4,6 @@
   import TitleControls from './TitleControls.svelte';
   import type { CalendarState } from '#lib/client/timeline/calendar.svelte.ts';
   import SearchControl from './SearchControl.svelte';
-  import { buildInfo } from '#lib/shared/version.ts';
   import TagList from './TagList.svelte';
   import LabelList from './LabelList.svelte';
   import type { TimelineFilters, TimelineTag } from '#lib/shared/timeline.ts';
@@ -128,8 +127,14 @@
       aria-current={active === '/settings' ? 'page' : undefined}
       onclick={onNavigate}>{t('shell.settings')}</a
     >
-    <p class="version muted" data-app-version>
-      {t('shell.version', { version: buildInfo.version })}
+    <p class="attribution muted">
+      Powered by
+      <a
+        class="attribution-link"
+        href="https://github.com/huipa21/pandanote"
+        target="_blank"
+        rel="noopener noreferrer">Pandanote</a
+      >
     </p>
   </nav>
 </div>
@@ -230,9 +235,20 @@
     padding: var(--space-3) var(--space-4);
     flex: none;
   }
-  .version {
-    margin: 0;
+  .attribution {
+    margin: var(--space-1) 0 0;
     font-size: 0.75rem;
+  }
+  .sidebar-bottom a.attribution-link {
+    display: inline;
+    min-height: 0;
+    padding: 0;
+    color: inherit;
+    text-decoration: underline;
+  }
+  .sidebar-bottom a.attribution-link:hover {
+    color: var(--accent);
+    background: none;
   }
   .tag-list {
     margin-block: var(--space-2);

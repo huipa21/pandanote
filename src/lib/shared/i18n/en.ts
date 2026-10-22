@@ -18,7 +18,6 @@ export const en = {
   'shell.tags': 'Tags',
   'shell.allTags': 'All tags ({count})',
   'shell.noTags': 'No published tags yet.',
-  'shell.version': 'Version {version}',
   'shell.activeFilters': 'Active filters',
   'shell.noFilters': 'All notes · no active filters',
   'shell.clearAll': 'Clear all',

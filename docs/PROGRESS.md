@@ -2,6 +2,12 @@
 
 ## Current state
 
+- **2026-10-22 sidebar attribution: implemented and host-verified.** The exact
+  English text “Powered by Pandanote” appears in the desktop sidebar and mobile
+  drawer regardless of selected language; only Pandanote links to the project
+  GitHub repository. The version is omitted from the sidebar. Check/lint and
+  focused version browser test pass; details are appended below.
+
 - **2026-10-22 white datetime tooltips: implemented and host-verified.**
   Created/Updated tooltips always have white backgrounds and dark text on timeline
   cards and note details, independent of label colors and light/dark/system theme.
@@ -6087,3 +6093,61 @@ tests/e2e/editor-session.test.ts tests/e2e/note-actions.test.ts`: 13/13 passed,
   read NoteCard/NoteDetail `.when-info`, labels SPEC section 4.3 and the labels
   browser regressions. First validation:
   `npm run test:e2e -- labels.test.ts`.
+
+### Session 2026-10-22 - sidebar GitHub attribution
+
+- State: done for the requested UI change; host-verified.
+- Added a localized external GitHub profile link below the version in the shared
+  Sidebar component, covering desktop and mobile drawer. Updated product and
+  acceptance specs and extended the version browser test for both placements.
+- Changed: `src/lib/components/Sidebar.svelte`,
+  `src/lib/shared/i18n/en.ts`, `src/lib/shared/i18n/zh-CN.ts`,
+  `tests/e2e/version.test.ts`, `docs/PRODUCT_SPEC.md`,
+  `docs/ACCEPTANCE_TESTS.md`, `docs/PROGRESS.md`.
+- Exact validation with the supported cached Node 24.21.0 and Git OpenSSL on PATH:
+  - `npm run check`: pass, 0 errors and 1 pre-existing AppShell CSS warning.
+  - `npm run lint`: pass.
+  - `npm run test:e2e -- version.test.ts`: production build and 1/1 Chromium test
+    pass; assertions cover the profile URL in desktop and drawer.
+  - `git diff --check`: pass (Git reports expected LF-to-CRLF conversion notices).
+- The first E2E attempt used system Node 24.15.0 and lacked OpenSSL on PATH, so
+  its server startup failed before tests ran; rerun with the project-supported
+  Node and Git OpenSSL passed. Unit/integration suites, Linux image and full
+  release gates were not run for this presentational change. No server, schema,
+  dependency or native behavior changed. No remaining work for this request.
+
+### Session 2026-10-22 - attribution wording correction
+
+- Changed the footer from a linked GitHub-profile callout to “Powered by
+  Pandanote,” with only the product name linked to the project repository.
+  English and Chinese prefixes remain localized. Updated the desktop/drawer
+  version browser regression and product/acceptance specs.
+- Validation with supported Node 24.21.0 and Git OpenSSL on PATH: `npm run check`
+  passes (0 errors; 1 pre-existing AppShell CSS warning), `npm run lint` passes,
+  `npm run test:e2e -- version.test.ts` passes (1/1), and `git diff --check`
+  passes (Git reports LF-to-CRLF notices). An initial CSS selector was corrected
+  after check reported it unused; the final check has no Sidebar warnings. No
+  server/schema/dependency behavior changed.
+
+### Session 2026-10-22 - fixed attribution language
+
+- Removed the translated prefix from the localization catalogs and made the
+  attribution fixed as “Powered by Pandanote” for every app language. The
+  Pandanote-only repository hyperlink remains unchanged.
+- Extended the version browser test to switch to Simplified Chinese and back
+  while asserting the attribution remains unchanged. With supported Node 24.21.0
+  and Git OpenSSL on PATH: `npm run check` passes (0 errors; 1 pre-existing
+  AppShell CSS warning), `npm run lint` passes, `npm run test:e2e --
+version.test.ts` passes (1/1), and `git diff --check` passes (Git reports
+  LF-to-CRLF notices).
+
+### Session 2026-10-22 - remove sidebar version
+
+- Removed the version display from the desktop sidebar and mobile drawer, along
+  with its now-unused localized labels and component import. About page version
+  metadata remains unchanged. Updated the version regression to assert the
+  sidebar/drawer have no version element while retaining attribution checks.
+- Validation with supported Node 24.21.0 and Git OpenSSL on PATH: `npm run check`
+  passes (0 errors; 1 pre-existing AppShell CSS warning), `npm run lint` passes,
+  `npm run test:e2e -- version.test.ts` passes (1/1), and `git diff --check`
+  passes (Git reports LF-to-CRLF notices).

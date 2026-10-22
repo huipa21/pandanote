@@ -21,7 +21,6 @@ export const zhCN: Partial<Catalog> = {
   'shell.tags': '标签',
   'shell.allTags': '全部标签（{count}）',
   'shell.noTags': '还没有已发布的标签。',
-  'shell.version': '版本 {version}',
   'shell.activeFilters': '当前筛选',
   'shell.noFilters': '全部笔记 · 无筛选',
   'shell.clearAll': '清除全部',

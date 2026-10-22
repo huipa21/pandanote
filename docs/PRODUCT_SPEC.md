@@ -216,7 +216,10 @@ Left sidebar:
 2. All notes navigation.
 3. Month activity calendar.
 4. Tags: the "Tags" heading links to the Tags page (no separate Manage link).
-5. Trash and Settings at the bottom.
+5. Trash and Settings at the bottom. Below them, show "Powered by Pandanote,"
+   with only Pandanote linking to the project's GitHub repository. Keep this
+   exact English text in every interface language; do not show the app version
+   in the sidebar.
 
 Main area:
 
