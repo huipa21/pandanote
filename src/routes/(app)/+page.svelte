@@ -19,8 +19,6 @@
   import PageTitle from '#lib/components/PageTitle.svelte';
   import NoteCard from '#lib/components/NoteCard.svelte';
   import TagHeader from '#lib/components/TagHeader.svelte';
-  import LabelActions from '#lib/components/LabelActions.svelte';
-  import { goto } from '$app/navigation';
   import {
     READING,
     type ReadingState,
@@ -34,7 +32,6 @@
     return (
       note.status === 'published' &&
       (filters.tag === undefined || note.tags.includes(filters.tag)) &&
-      (filters.label === undefined || note.labelId === filters.label) &&
       (!filters.day ||
         (note.timelineAt >= filters.day.start &&
           note.timelineAt < filters.day.end)) &&
@@ -506,9 +503,7 @@
 </script>
 
 <PageTitle
-  title={data.tagSummary
-    ? `#${data.tagSummary.display}`
-    : (data.labelSummary?.name ?? t('shell.allNotes'))}
+  title={data.tagSummary ? `#${data.tagSummary.display}` : t('shell.allNotes')}
 />
 <svelte:head
   ><meta name="description" content={t('timeline.description')} /></svelte:head
@@ -517,29 +512,9 @@
   {#if data.tagSummary}{#key data.tagSummary.key}<TagHeader
         summary={data.tagSummary}
         leaveHref={filterHref({ ...filters, tag: undefined })}
-      />{/key}{:else if !data.labelSummary}<h1 class="sr-only">
+      />{/key}{:else}<h1 class="sr-only">
       {t('shell.allNotes')}
     </h1>{/if}
-  {#if data.labelSummary}
-    <header class="label-header">
-      <div class="label-summary">
-        <h1>{data.labelSummary.name}</h1>
-        <p class="label-meta">
-          {t(
-            data.labelSummary.noteCount === 1 ? 'tag.noteOne' : 'tag.noteMany',
-            { count: data.labelSummary.noteCount },
-          )}
-        </p>
-      </div>
-      <a class="label-leave" href={filterHref({ ...filters, label: undefined })}
-        >{t('shell.allNotes')}</a
-      >
-      {#key data.labelSummary.id}<LabelActions
-          label={data.labelSummary}
-          onDeleted={() => goto(filterHref({ ...filters, label: undefined }))}
-        />{/key}
-    </header>
-  {/if}
   <span class="sr-only">{t('timeline.signedIn')}</span>
   {#if workspace.status === 'saved' && savedOutsideRange}<p class="help">
       {t('timeline.outsideRange')}
@@ -561,7 +536,6 @@
     <a
       href={filterHref({
         tag: filters.tag,
-        label: filters.label,
         query: filters.query,
         month: localDate(Date.now(), data.timezone).slice(0, 7),
       })}>{t('timeline.returnToday')}</a
@@ -570,18 +544,12 @@
 {:else if !items.length && !pinned.length && !data.timelineError}
   <section class="surface">
     <h2>
-      {filters.tag !== undefined ||
-      filters.label !== undefined ||
-      filters.query ||
-      filters.day
+      {filters.tag !== undefined || filters.query || filters.day
         ? t('timeline.noMatchTitle')
         : t('timeline.emptyTitle')}
     </h2>
     <p>
-      {filters.tag !== undefined ||
-      filters.label !== undefined ||
-      filters.query ||
-      filters.day
+      {filters.tag !== undefined || filters.query || filters.day
         ? t('timeline.noMatchHelp')
         : t('timeline.emptyHelp')}
     </p>
@@ -637,31 +605,6 @@
 </div>
 
 <style>
-  .label-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding-block: var(--space-2);
-  }
-  .label-summary {
-    flex: 1;
-    min-width: 0;
-  }
-  .label-summary h1 {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-  .label-meta {
-    margin: var(--space-1) 0 0;
-    color: var(--muted);
-    font-size: 0.875rem;
-  }
-  .label-leave {
-    flex: none;
-    font-size: 0.875rem;
-    color: var(--muted);
-  }
   .timeline-status:empty {
     display: none;
   }

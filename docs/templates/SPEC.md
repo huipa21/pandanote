@@ -60,18 +60,6 @@ edits or deletions never change existing notes.
 - Hashtags in a template are ordinary text until a note is posted; the existing
   retired-tag check applies then.
 
-### 3.3 Default label (revised)
-
-- A template may carry one optional **default label** (`note_templates.label_id`, FK to
-  labels, ON DELETE SET NULL; edited into migration 0002 in place, schema version stays 3).
-  The New/Edit dialog has a label control that reuses the label picker (including create on
-  the spot). Template lists and the picker show the label chip.
-- Inserting a template sets the note's label to the template's label **only if the note has
-  none yet**; an explicit choice is never overridden. Tags need no new field: `#hashtags` in
-  the template body are inserted as text and become tags when the note posts (§3.2).
-- Commands carry optional `labelId` (null/omitted = none); an unknown label is refused
-  (`err.labelNotFound`). Backup restore validates template `label_id` against restored labels.
-
 ## 4. Data and contracts
 
 - Table `note_templates`: `id`, `name` (1–60 code points), `name_key` (unique; NFKC, trimmed,

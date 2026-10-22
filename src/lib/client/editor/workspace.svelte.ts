@@ -240,14 +240,6 @@ export class EditorWorkspace {
     this.timelineSet = true;
   }
 
-  /** At most one label; null clears it. Local-only until Post/Save, like tags
-   * and attachments. */
-  updateLabel(labelId: string | null) {
-    if (!this.ready || this.busy || this.frozen || this.posting || !this.active)
-      return;
-    this.active = { ...this.active, labelId };
-  }
-
   async addFiles(files: File[]): Promise<void> {
     if (
       this.busy ||
@@ -985,7 +977,6 @@ export class EditorWorkspace {
       },
       bodyMarkdown: note.bodyMarkdown,
       timelineAt: note.timelineAt,
-      labelId: note.labelId ?? null,
       attachments: (note.attachments ?? []).map((file) => ({
         id: file.id,
         source: 'server',

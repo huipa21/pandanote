@@ -20,13 +20,6 @@
     'Noto Sans CJK SC', 'Noto Sans CJK JP', 'Microsoft YaHei', 'Yu Gothic',
     sans-serif;
   --font-code: ui-monospace, 'SFMono-Regular', Consolas, monospace;
-  /* Optional per-label body fonts (labels.font); --font-code doubles as "mono". */
-  --font-serif:
-    Georgia, Cambria, 'Noto Serif CJK SC', 'Noto Serif CJK JP',
-    'Times New Roman', serif;
-  --font-rounded:
-    ui-rounded, 'SF Pro Rounded', 'Varela Round', 'Segoe UI', system-ui,
-    sans-serif;
   --text-size: 1rem;
   --line-height: 1.6;
   --space-1: 0.25rem;
@@ -47,23 +40,6 @@
   --collapsed-height: 26.25rem;
   --focus-width: 3px;
   --motion-duration: 120ms;
-  /* Label palette (fixed, accessible pairs; AA text-on-tint in both themes). */
-  --label-red-bg: #fbe2e1;
-  --label-red-fg: #7a2323;
-  --label-orange-bg: #fbe6d2;
-  --label-orange-fg: #7a4208;
-  --label-amber-bg: #faf0c2;
-  --label-amber-fg: #6b5600;
-  --label-green-bg: #dcefdd;
-  --label-green-fg: #1f5c2b;
-  --label-teal-bg: #d7eeec;
-  --label-teal-fg: #0f5c57;
-  --label-blue-bg: #dde7fb;
-  --label-blue-fg: #1d3f8f;
-  --label-purple-bg: #ead9fb;
-  --label-purple-fg: #5a1f8f;
-  --label-gray-bg: #e7e7e7;
-  --label-gray-fg: #3a3a3a;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -82,22 +58,6 @@
   --danger: #f1a6a6;
   --warning: #e1bf79;
   --overlay: rgb(0 0 0 / 65%);
-  --label-red-bg: #4a2323;
-  --label-red-fg: #f3b4b2;
-  --label-orange-bg: #4a3016;
-  --label-orange-fg: #f0c08a;
-  --label-amber-bg: #453a12;
-  --label-amber-fg: #e8d27a;
-  --label-green-bg: #203b24;
-  --label-green-fg: #9ecda8;
-  --label-teal-bg: #163c39;
-  --label-teal-fg: #87cec7;
-  --label-blue-bg: #1f2c4d;
-  --label-blue-fg: #a9c0f5;
-  --label-purple-bg: #33234a;
-  --label-purple-fg: #cba6ef;
-  --label-gray-bg: #353836;
-  --label-gray-fg: #cfcfcf;
 }
 @media (prefers-color-scheme: dark) {
   :root[data-theme='system'] {
@@ -117,22 +77,6 @@
     --danger: #f1a6a6;
     --warning: #e1bf79;
     --overlay: rgb(0 0 0 / 65%);
-    --label-red-bg: #4a2323;
-    --label-red-fg: #f3b4b2;
-    --label-orange-bg: #4a3016;
-    --label-orange-fg: #f0c08a;
-    --label-amber-bg: #453a12;
-    --label-amber-fg: #e8d27a;
-    --label-green-bg: #203b24;
-    --label-green-fg: #9ecda8;
-    --label-teal-bg: #163c39;
-    --label-teal-fg: #87cec7;
-    --label-blue-bg: #1f2c4d;
-    --label-blue-fg: #a9c0f5;
-    --label-purple-bg: #33234a;
-    --label-purple-fg: #cba6ef;
-    --label-gray-bg: #353836;
-    --label-gray-fg: #cfcfcf;
   }
 }
 :root[data-density='compact'] {

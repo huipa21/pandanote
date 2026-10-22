@@ -93,7 +93,7 @@ describe('S14 history and source contracts', () => {
         'create',
         null,
         null,
-        ['#Work', 1, [], null],
+        ['#Work', 1, []],
         null,
       ]),
     );

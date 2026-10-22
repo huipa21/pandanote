@@ -15,8 +15,6 @@
   import Modal from './Modal.svelte';
   import Markdown from './Markdown.svelte';
   import TemplatePicker from './TemplatePicker.svelte';
-  import LabelPicker from './LabelPicker.svelte';
-  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import { tr } from '#lib/client/i18n-current.ts';
   import {
     insertTemplateText,
@@ -48,7 +46,6 @@
 
   const { t } = useI18n();
   const workspace = getContext<EditorWorkspace | undefined>(EDITOR_WORKSPACE);
-  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
   let preview = $state(false);
   let text = $derived(
     workspace ? (workspace.active?.bodyMarkdown ?? '') : localText,
@@ -61,12 +58,6 @@
   let desktop = $state(false);
   let confirmCancel = $state(false);
   let templatePickerOpen = $state(false);
-  let labelPickerOpen = $state(false);
-  const currentLabel = $derived(
-    workspace?.active?.labelId
-      ? labelsMap?.get(workspace.active.labelId)
-      : undefined,
-  );
   const dialogTitle = $derived(
     variant === 'inline' ? t('editor.editNote') : t('editor.writeNote'),
   );
@@ -154,10 +145,6 @@
     workspace.change(next.text);
     preview = false;
     cursor = { start: next.caret, end: next.caret };
-    // Only fills in a label when the note does not already carry one, so a
-    // template never overrides a label the user already picked for this note.
-    if (template.labelId !== null && !workspace.active.labelId)
-      workspace.updateLabel(template.labelId);
     await tick();
     const input = focusOpen ? expandedTextarea : textarea;
     input?.setSelectionRange(next.caret, next.caret);
@@ -217,7 +204,6 @@
     cursor = { start: 0, end: 0 };
     confirmCancel = false;
     templatePickerOpen = false;
-    labelPickerOpen = false;
   });
   $effect(() => {
     const visible = preview && (focusOpen || showInline);
@@ -349,8 +335,6 @@
     <div class="editor-footer">
       <EditorOptions
         {workspace}
-        onLabel={() => (labelPickerOpen = true)}
-        labelName={currentLabel?.name}
         onTemplate={() => (templatePickerOpen = true)}
         onFiles={() => fileInput.click()}
         onAttach={() => attachInput.click()}
@@ -464,11 +448,6 @@
 {#if workspace}<TemplatePicker
     bind:open={templatePickerOpen}
     onPick={(template) => void insertTemplate(template)}
-  />
-  <LabelPicker
-    bind:open={labelPickerOpen}
-    current={workspace.active?.labelId ?? null}
-    onPick={(labelId) => workspace.updateLabel(labelId)}
   />{/if}
 
 <style>

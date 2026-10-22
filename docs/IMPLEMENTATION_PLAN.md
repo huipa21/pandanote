@@ -626,19 +626,15 @@ and proxy trust, SS03 accounts/setup flow/login, SS04 language and site title, S
 backup format v2 and `reset-password`, SS06 deployment files/image, SS07 documentation
 and full regression. Acceptance: [simplify-setup/ACCEPTANCE_TESTS.md](simplify-setup/ACCEPTANCE_TESTS.md).
 
-## Approved change — Color or icon labels
+## User-requested labels removal
 
-User-approved post-S18 feature: one user-named label per note (color + optional icon from
-fixed sets), managed on `/labels`, assigned from the editor toolbar, shown as a chip on
-cards/detail, filterable from the sidebar like Tags, not part of free-text search. The
-schema change is folded directly into the baseline ("treat as new setup"; no new migration
-file, no `SCHEMA_VERSION` bump; pre-existing local `data/` must be recreated). L01–L07 in
-[labels/PLAN.md](labels/PLAN.md) are implemented and host-verified (check/lint/unit/
-integration/build/affected e2e all pass); note label assignment ended up simpler than
-planned (part of the note's own content, not separate commands — see labels/SPEC.md §3).
-Acceptance: [labels/ACCEPTANCE_TESTS.md](labels/ACCEPTANCE_TESTS.md). Remaining:
-Linux/Alpine image gate and a manual real-device/screen-reader pass — see
-[labels/PROGRESS.md](labels/PROGRESS.md).
+Removed the color/icon label feature from current source and the fresh baseline,
+including note/template fields, routes, editor and sidebar surfaces, styling,
+translations, archive label validation, and feature-specific tests. Hashtags remain.
+No data migration/importer or automatic deletion is provided; existing label-era
+data remains untouched and is rejected by migration-history validation. Verify the
+schema and backup changes with the common checks, unit/integration suites, build,
+and affected editor/sidebar/archive browser tests.
 
 ## Approved change — Image optimization
 

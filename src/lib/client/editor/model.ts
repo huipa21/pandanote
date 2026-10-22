@@ -39,8 +39,6 @@ export interface EditorSession {
   timelineAt: number;
   attachments: EditorAttachment[];
   tagAcknowledgements?: TagAcknowledgement[];
-  /** At most one label; null means none. Local-only until Post/Save. */
-  labelId: string | null;
   postingAttempt?: PostingAttempt;
 }
 export function newSession(now = Date.now()): EditorSession {
@@ -51,15 +49,11 @@ export function newSession(now = Date.now()): EditorSession {
     bodyMarkdown: '',
     timelineAt: now,
     attachments: [],
-    labelId: null,
   };
 }
 export function hasSessionContent(session: EditorSession | null): boolean {
   return Boolean(
-    session &&
-    (session.bodyMarkdown.trim() ||
-      session.attachments.length ||
-      session.labelId),
+    session && (session.bodyMarkdown.trim() || session.attachments.length),
   );
 }
 export function sessionFingerprint(session: EditorSession): string {
@@ -70,7 +64,6 @@ export function sessionFingerprint(session: EditorSession): string {
     session.timelineAt,
     session.attachments,
     session.tagAcknowledgements ?? [],
-    session.labelId,
   ]);
 }
 export function isSessionDirty(
@@ -90,7 +83,6 @@ export function commandForSession(
     bodyMarkdown: session.bodyMarkdown,
     timelineAt: session.timelineAt,
     attachmentIds: session.attachments.map((a) => a.id),
-    labelId: session.labelId,
     ...(session.tagAcknowledgements?.length
       ? { tagAcknowledgements: session.tagAcknowledgements }
       : {}),
@@ -114,7 +106,7 @@ export function assertEditableSnapshot(note: NoteSnapshot): void {
     throw new Error(tr('model.metadataIncomplete'));
 }
 
-/** Remap parsed image destinations only; code, labels and unrelated text stay intact. */
+/** Remap parsed image destinations only; code and unrelated text stay intact. */
 export function remapImageReferences(
   source: string,
   ids: Map<string, string>,

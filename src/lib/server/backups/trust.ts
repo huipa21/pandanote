@@ -22,13 +22,6 @@ import {
   templateNameKey,
 } from '../../shared/templates.ts';
 import {
-  isLabelColor,
-  isLabelIcon,
-  isLabelFont,
-  labelNameKey,
-  normalizeLabelName,
-} from '../../shared/labels.ts';
-import {
   idSchema,
   digestSchema,
   instantSchema,
@@ -343,33 +336,6 @@ export async function trustSnapshot(
       )
         throw new Error('Tag identity');
     }
-    // Labels are folded into the trusted baseline (always present, every schema
-    // version); a deleted label clears label_id on notes (FK ON DELETE SET
-    // NULL), so every live label row is independently validated here and every
-    // note's label_id is checked against this set below.
-    const labelIds = new Set<string>();
-    for await (const row of asRows(db, 'labels', signal)) {
-      idSchema.parse(row.id);
-      const name = z.string().parse(row.name);
-      if (
-        normalizeLabelName(name) !== name ||
-        labelNameKey(name) !== row.name_key
-      )
-        throw new Error('Label identity');
-      if (!isLabelColor(String(row.color))) throw new Error('Label color');
-      if (row.icon !== null && !isLabelIcon(String(row.icon)))
-        throw new Error('Label icon');
-      if (row.header_color !== null && !isLabelColor(String(row.header_color)))
-        throw new Error('Label header color');
-      if (row.background !== null && !isLabelColor(String(row.background)))
-        throw new Error('Label background');
-      if (row.font !== null && !isLabelFont(String(row.font)))
-        throw new Error('Label font');
-      z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).parse(row.revision);
-      instantSchema.parse(row.created_at);
-      instantSchema.parse(row.updated_at);
-      labelIds.add(String(row.id));
-    }
     // Schema 3 adds private templates; schema 2 archives stage with an empty set.
     if (manifest.schemaVersion >= 3)
       for await (const row of asRows(db, 'note_templates', signal)) {
@@ -390,8 +356,6 @@ export async function trustSnapshot(
           .parse(row.revision);
         instantSchema.parse(row.created_at);
         instantSchema.parse(row.updated_at);
-        if (row.label_id !== null && !labelIds.has(String(row.label_id)))
-          throw new Error('Dangling label reference');
       }
     let count = 0,
       published = 0,
@@ -409,10 +373,7 @@ export async function trustSnapshot(
         contentEditedAt: row.content_edited_at,
         revision: row.revision,
         pinnedAt: row.pinned_at,
-        labelId: row.label_id,
       });
-      if (row.label_id !== null && !labelIds.has(String(row.label_id)))
-        throw new Error('Dangling label reference');
       const linked = db
         .prepare(
           'SELECT a.id,a.kind,na.ordinal FROM note_attachments na JOIN attachments a ON a.id=na.attachment_id WHERE na.note_id=? ORDER BY ordinal',

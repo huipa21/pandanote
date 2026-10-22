@@ -264,7 +264,7 @@ test('one editor surface keeps toolbar actions, switches preview and enters/leav
   ).toBeVisible();
   const options = composer.getByRole('group', { name: 'Note options' });
   await expect(options).toBeVisible();
-  await expect(options.getByRole('button')).toHaveCount(6);
+  await expect(options.getByRole('button')).toHaveCount(5);
   await expect(
     options.getByRole('button', { name: 'Add tag', exact: true }),
   ).toHaveCount(0);

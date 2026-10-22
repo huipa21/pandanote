@@ -53,14 +53,12 @@ it('enforces single account, note statuses, revision/creation invariants in SQLi
       "prior_status = 'draft'",
       'timeline_at = 1.5',
     ]) {
-      expect(
-        () =>
-          p.native
-            .prepare(
-              `UPDATE notes SET ${statement}, revision = revision + 1 WHERE id = ?`,
-            )
-            .run(id),
-        statement,
+      expect(() =>
+        p.native
+          .prepare(
+            `UPDATE notes SET ${statement}, revision = revision + 1 WHERE id = ?`,
+          )
+          .run(id),
       ).toThrow();
     }
     for (const statement of [

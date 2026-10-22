@@ -10,9 +10,19 @@
 
 - **2026-10-22 white datetime tooltips: implemented and host-verified.**
   Created/Updated tooltips always have white backgrounds and dark text on timeline
-  cards and note details, independent of label colors and light/dark/system theme.
+  cards and note details, independent of light/dark/system theme.
   Date hover highlights are unchanged. Check/lint/build pass; focused unit 16/16,
   label integration 6/6 and affected browser 14/14 pass. Details are appended below.
+
+- **2026-10-22 color/icon labels removal: implemented; host-verified.** Removed
+  note/template label fields, management/API/filter/editor/sidebar surfaces,
+  styling, translations, archive validation, schema objects and feature-specific
+  tests. Hashtags remain the classifier. Check, lint, unit tests, build and affected
+  browser tests pass; Drizzle reports 20 tables and no schema drift. The full
+  integration run has one unrelated Compose fixture mismatch; 281 tests pass and
+  7 skip. Existing label-era databases are left untouched but rejected by trusted
+  migration-history validation; no migration is provided. The Linux native/archive
+  gate remains open. Exact outcomes and next task are appended below.
 
 - **2026-10-22 focus posting returns to timeline: implemented and host-verified.**
   Confirmed posting closes focus mode on desktop/mobile, including receipt-first
@@ -101,9 +111,10 @@
   without deleting any note; not reflected on the calendar. Schema folded directly into
   the baseline per "treat as new setup" (`SCHEMA_VERSION` stays 3, no new migration file;
   `notes_update_guard` also extended in place to allow the one same-revision FK-cascade
-  update). Label assignment ended up simpler than originally planned: it is
+  update; that exception was removed with the feature on 2026-10-22). Label assignment ended up simpler than originally planned: it is
   `content.labelId` on the note's own create/update mutation, not separate `setLabel`/
-  `clearLabel` commands (see labels/SPEC.md §3 and labels/PROGRESS.md for the rationale).
+  `clearLabel` commands (see the former labels/SPEC.md §3 and labels/PROGRESS.md; both
+  feature documents were deleted with the 2026-10-22 removal).
   Commands/results: `npm run check` 0 errors (1 pre-existing warning); `npm run lint`
   clean; `npm run test:unit` 258 pass; `npm run test:integration` 289 pass + 7 platform
   skips; `npm run build` pass; `playwright test labels` 3/3 (CRUD, axe on the New-label
@@ -112,7 +123,8 @@
   (`detail:256`, `editor:205` worker crash, `voice-naming:161`, `zzrestore:24` — the same
   pre-existing Windows flakiness class documented in earlier sessions, not a regression);
   2 shell screenshot baselines regenerated for the new sidebar link/section (same
-  precedent as the templates sidebar link). Details: [labels/PROGRESS.md](labels/PROGRESS.md).
+  precedent as the templates sidebar link). The former labels/PROGRESS.md was deleted
+  with the feature; this history retains the implementation summary.
   Next: Linux/Alpine image gate, then a manual screen-reader/real-device pass.
 
 - **Note templates (user request) — implemented / host-verified; Linux image gate not run.** `/templates` page (search, select-all, multi-select delete, New template, click to edit; unlimited), sidebar link, editor toolbar picker with search that inserts at the caret. Schema 3 (migration `0002_note_templates`). Check/lint pass, unit 254, integration 282 + 7 skips, build pass, new e2e 3/3; full e2e 134 pass / 2 fail where `detail:256` fails at HEAD too and `shell:54` was a baseline legitimately changed by the sidebar link (updated). A Windows-only `EPERM` restore flake appears at the repo path (not in a clean worktree). Details and open items: [templates/PROGRESS.md](templates/PROGRESS.md).
@@ -5715,7 +5727,7 @@ after the successful host build, Linux270 and final affected25 browser gate.
   area. Addressed the four concrete asks (icons, formatting, masonry layout, redundant menu
   item); the remaining visual-adjacency point (Tags/Labels sections back-to-back) was left open
   pending an explicit follow-up request. Full details, decisions and exact commands/results in
-  [labels/PROGRESS.md](labels/PROGRESS.md) (Session 3).
+  labels/PROGRESS.md (Session 3; the feature-specific document was deleted on 2026-10-22).
 - Summary: `LABEL_ICONS` 12→36; new nullable `headerColor`/`background`/`font` label fields
   (header tint, card background tint, body font override), edited into the baseline schema/
   migrations in place (no new migration, SCHEMA_VERSION unchanged, `db:generate` confirms no
@@ -6151,3 +6163,45 @@ version.test.ts` passes (1/1), and `git diff --check` passes (Git reports
   passes (0 errors; 1 pre-existing AppShell CSS warning), `npm run lint` passes,
   `npm run test:e2e -- version.test.ts` passes (1/1), and `git diff --check`
   passes (Git reports LF-to-CRLF notices).
+
+### Session 2026-10-22 - remove color/icon labels
+
+- State: done for the requested feature removal; host validation complete. Linux
+  native/archive validation remains open. Existing label-era databases are not
+  migrated or modified, but fail trusted migration-history validation because the
+  schema baseline/history changed in place; no automatic data deletion occurs.
+- Removed label persistence/contracts, note and template assignment, list/filter
+  state, API and page routes, editor/card/detail/sidebar UI, styles and translations,
+  archive trust checks and feature-specific tests. Hashtag tags remain. Removed the
+  label-only source, route and test files; updated migrations/snapshots and product,
+  architecture, acceptance, implementation and progress documentation. Removed the
+  now-obsolete same-revision label cascade exception from `notes_update_guard`, so
+  SQLite again rejects same-revision no-op writes. Refreshed three shell screenshots
+  for the removed sidebar section.
+- Validation using Node 24.21.0 and Git OpenSSL on PATH:
+  - `npm run check`: pass, 0 errors and 1 existing AppShell unused-CSS warning.
+  - `npm run lint`: pass.
+  - `npm run test:unit`: pass, 256/256.
+  - `npm run test:integration -- domain-persistence.test.ts`: pass, 4/4.
+  - `npm run test:integration`: 281 passed, 7 skipped, 1 unrelated failure. The
+    unchanged Compose file contains `expose: - '3000'`, while the release-hygiene
+    test's exact fixture omits it.
+  - `npm run db:generate`: pass; 20 tables, no schema changes.
+  - `npm run build`: pass.
+  - `npm run test:e2e -- shell.test.ts templates.test.ts editor.test.ts detail.test.ts zzzaccessibility.test.ts`:
+    pass, 44/44. An initial run found the editor toolbar expectation still counted
+    the removed button and three outdated shell screenshots; updated the expectation
+    and screenshots, then reran successfully.
+  - `git diff --check`: pass; Git emitted only LF-to-CRLF notices.
+- The first E2E attempt used the system Node without Git OpenSSL on PATH and failed
+  before browser startup; reran with the supported runtime and OpenSSL. The full
+  Linux image/native/archive gate was not run.
+- Code review follow-up: the restored `notes_update_guard` had split one line, so
+  `0001` no longer hashed like the pre-label release and would also have rejected
+  pre-label databases/backups. Restored the exact original line; migrations,
+  snapshots and `schema.ts` are now byte-identical to `2958441~1` (empty
+  `git diff --stat 2958441~1 -- migrations/ src/lib/server/db/schema.ts`). Only
+  label-era data is rejected. `npm run test:integration -- domain-persistence
+migrations search-migration restores startup pre-upgrade`: 56/56 pass.
+- Next: run the Linux deployment-image/native SQLite/archive gate. Read
+  `docs/ACCEPTANCE_TESTS.md` and `ops/DEPLOYMENT.md`; begin with `npm run image:build`.

@@ -1,11 +1,6 @@
 import { z } from 'zod';
 import { tagKey } from './markdown/tags.ts';
-import {
-  DomainError,
-  idSchema,
-  instantSchema,
-  type NoteSnapshot,
-} from './domain.ts';
+import { DomainError, instantSchema, type NoteSnapshot } from './domain.ts';
 import {
   renderMarkdown,
   type RenderedMarkdown,
@@ -95,8 +90,6 @@ export async function snapshotCard(
 export interface TimelineFilters {
   /** At most one tag (normalized key). */
   tag?: string;
-  /** At most one label (label row ID); independent of tag, combinable with it. */
-  label?: string;
   query?: string;
   day?: { start: number; end: number };
   date?: string;
@@ -130,7 +123,6 @@ export function canonicalFilters(
   day?: TimelineFilters['day'],
   date?: string,
   month?: string,
-  label?: string | null,
 ): TimelineFilters {
   const normalized = tag?.normalize('NFKC').toLowerCase();
   if (
@@ -143,12 +135,6 @@ export function canonicalFilters(
       /[\p{Cc}#]/u.test(normalized))
   )
     throw new DomainError('validation', 'err.invalidTagFilter');
-  if (
-    label !== undefined &&
-    label !== null &&
-    !idSchema.safeParse(label).success
-  )
-    throw new DomainError('validation', 'err.invalidLabelFilter');
   const search = canonicalSearch(query);
   if (
     day &&
@@ -165,7 +151,6 @@ export function canonicalFilters(
     ...(date ? { date } : {}),
     ...(month ? { month } : {}),
     ...(normalized !== undefined ? { tag: normalized } : {}),
-    ...(label ? { label } : {}),
     ...(search ? { query: search } : {}),
     ...(day ? { day } : {}),
   };
@@ -177,11 +162,9 @@ export function filterKey(filters: TimelineFilters): string {
     filters.day,
     filters.date,
     filters.month,
-    filters.label,
   );
   return JSON.stringify([
     canonical.tag ?? null,
-    canonical.label ?? null,
     canonical.query ?? '',
     canonical.date ?? canonical.day ?? null,
     canonical.month ?? null,
@@ -195,10 +178,8 @@ export function filterHref(filters: TimelineFilters): string {
     filters.day,
     filters.date,
     filters.month,
-    filters.label,
   );
   if (canonical.tag !== undefined) params.set('tag', canonical.tag);
-  if (canonical.label) params.set('label', canonical.label);
   if (canonical.query) params.set('q', canonical.query);
   if (canonical.month) params.set('month', canonical.month);
   if (canonical.date) params.set('date', canonical.date);
@@ -208,8 +189,7 @@ export function filterHref(filters: TimelineFilters): string {
   }
   return `/${params.size ? `?${params}` : ''}`;
 }
-/** Tag views are single-tag: selecting a tag replaces any other tag filter. Label
- * stays as-is (the two filters are independent and combinable). */
+/** Tag views are single-tag: selecting a tag replaces any other tag filter. */
 export function selectTag(filters: TimelineFilters, tag: string): string {
   return filterHref(
     canonicalFilters(
@@ -218,35 +198,18 @@ export function selectTag(filters: TimelineFilters, tag: string): string {
       filters.day,
       filters.date,
       undefined,
-      filters.label,
-    ),
-  );
-}
-/** Label views are single-label: selecting a label replaces any other label filter. */
-export function selectLabel(filters: TimelineFilters, label: string): string {
-  return filterHref(
-    canonicalFilters(
-      filters.tag,
-      filters.query,
-      filters.day,
-      filters.date,
-      undefined,
-      filters.label === label ? undefined : label,
     ),
   );
 }
 export function parseTimelineQuery(params: URLSearchParams) {
   if (params.getAll('tag').length > 1)
     throw new DomainError('validation', 'err.selectOnlyOneTag');
-  if (params.getAll('label').length > 1)
-    throw new DomainError('validation', 'err.selectOnlyOneLabel');
   if (
     params.toString().length > 8192 ||
     [...params.keys()].some(
       (key) =>
         ![
           'tag',
-          'label',
           'cursor',
           'limit',
           'q',
@@ -285,7 +248,6 @@ export function parseTimelineQuery(params: URLSearchParams) {
       start !== null ? { start: Number(start), end: Number(end) } : undefined,
       params.get('date') ?? undefined,
       params.get('month') ?? undefined,
-      params.get('label'),
     ),
     cursor,
     limit: Number(limit),

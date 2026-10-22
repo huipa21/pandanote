@@ -11,7 +11,7 @@ import { sql } from 'drizzle-orm';
 import { storageLimitsFrom } from '#lib/shared/storage.ts';
 
 export const load: LayoutServerLoad = ({ locals, depends, url }) => {
-  depends('pandanote:timeline', 'pandanote:calendar', 'pandanote:labels');
+  depends('pandanote:timeline', 'pandanote:calendar');
   const settings = readSettings(locals.runtime!.persistence);
   let month = localDate(Date.now(), settings.timezone).slice(0, 7);
   try {
@@ -43,6 +43,5 @@ export const load: LayoutServerLoad = ({ locals, depends, url }) => {
       sql`select coalesce(max(generation),0) as generation from tag_changes`,
     )!.generation,
     availableTags: publishedTags(locals.runtime!.persistence, locals.identity!),
-    availableLabels: locals.runtime!.labels.list(locals.identity!).items,
   };
 };

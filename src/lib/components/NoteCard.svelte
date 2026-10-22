@@ -14,8 +14,6 @@
   import ThumbnailGrid from './ThumbnailGrid.svelte';
   import ActionMenu, { type ActionMenuItem } from './ActionMenu.svelte';
   import Icon from './Icon.svelte';
-  import LabelChip from './LabelChip.svelte';
-  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import AudioClip from './AudioClip.svelte';
   import FileTypeIcon from './FileTypeIcon.svelte';
   import NoteEditor from './NoteEditor.svelte';
@@ -26,7 +24,6 @@
   } from '#lib/client/editor/lifecycle.svelte.ts';
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
-  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
   const i18n = useI18n();
   const t = i18n.t;
   import {
@@ -187,9 +184,6 @@
       void untrack(loadFull);
   });
   const pinned = $derived(note.pinnedAt !== null);
-  const label = $derived(
-    source.labelId ? labelsMap?.get(source.labelId) : undefined,
-  );
   // This card renders the workspace's one editor session while it edits this note.
   const editing = $derived(workspace.isEditing(note.id));
   const lifecycleBusy = $derived(!lifecycle.ready || lifecycle.busy);
@@ -300,26 +294,10 @@
   data-testid="posted-note"
   data-note-id={note.id}
   data-revision={note.revision}
-  style:background={label?.background
-    ? `var(--label-${label.background}-bg)`
-    : undefined}
 >
   {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
   <div class="card-view" hidden={editing} inert={editing}>
-    <header
-      class:has-tags={note.tags.length > 0}
-      style:--header-background={label?.headerColor
-        ? `var(--label-${label.headerColor}-bg)`
-        : label?.background
-          ? `var(--label-${label.background}-bg)`
-          : undefined}
-      style:background={label?.headerColor
-        ? `var(--label-${label.headerColor}-bg)`
-        : undefined}
-      style:color={label?.headerColor
-        ? `var(--label-${label.headerColor}-fg)`
-        : undefined}
-    >
+    <header class:has-tags={note.tags.length > 0}>
       <span class="when-wrap">
         <a
           class="when"
@@ -342,7 +320,6 @@
           ></span
         >
       </span>
-      {#if label}<div class="header-label"><LabelChip {label} /></div>{/if}
       <div class="header-actions">
         {#if pinned}<button
             type="button"
@@ -388,15 +365,7 @@
         {/each}
       </section>
     {/if}
-    <div
-      id={contentId}
-      class="card-content"
-      class:expanded
-      bind:this={content}
-      style:font-family={label?.font
-        ? `var(--font-${label.font === 'mono' ? 'code' : label.font})`
-        : undefined}
-    >
+    <div id={contentId} class="card-content" class:expanded bind:this={content}>
       <Markdown
         source={source.bodyMarkdown}
         images={cardImages(source)}
@@ -490,7 +459,7 @@
   /* Date row and tags row read as one compact header block. */
   header {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-2);
     align-items: center;
     color: var(--muted);
@@ -501,16 +470,10 @@
     margin-bottom: 0;
   }
   .header-actions {
-    grid-column: 3;
+    grid-column: 2;
     justify-self: end;
     display: flex;
     align-items: center;
-  }
-  .header-label {
-    grid-column: 2;
-    min-width: 0;
-    overflow-wrap: anywhere;
-    text-align: center;
   }
   @media (max-width: 600px) {
     header {
@@ -519,11 +482,6 @@
     .header-actions {
       grid-column: 2;
       grid-row: 1;
-    }
-    .header-label {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      justify-self: center;
     }
   }
   /* Actions use the same pill as the date and tag chips, not a circle. */
@@ -608,7 +566,7 @@
   }
   .when:hover,
   .when:focus-visible {
-    background: var(--header-background, var(--accent-soft));
+    background: var(--accent-soft);
   }
   .search-snippets {
     overflow-wrap: anywhere;

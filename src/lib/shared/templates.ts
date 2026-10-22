@@ -12,9 +12,6 @@ export interface NoteTemplate {
   id: string;
   name: string;
   bodyMarkdown: string;
-  /** Optional default label applied to a note when this template is inserted
-   * (only if the note does not already carry one). `null` means no default. */
-  labelId: string | null;
   revision: number;
   createdAt: number;
   updatedAt: number;
@@ -137,14 +134,12 @@ export function insertTemplateText(
 const revisionSchema = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 const nameInput = z.string().max(1000);
 const bodyInput = z.string().max(6 * 1024 * 1024);
-const labelIdInput = idSchema.nullable().optional();
 export const templateCommandSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('create'),
     mutationId: idSchema,
     name: nameInput,
     bodyMarkdown: bodyInput,
-    labelId: labelIdInput,
   }),
   z.strictObject({
     action: z.literal('update'),
@@ -153,7 +148,6 @@ export const templateCommandSchema = z.discriminatedUnion('action', [
     expectedRevision: revisionSchema,
     name: nameInput,
     bodyMarkdown: bodyInput,
-    labelId: labelIdInput,
   }),
   z.strictObject({
     action: z.literal('delete'),

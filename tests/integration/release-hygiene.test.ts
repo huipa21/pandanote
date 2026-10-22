@@ -28,9 +28,6 @@ const EXPECTED_ROUTES = [
   'api/backups/[backupId]',
   'api/backups/[backupId]/download',
   'api/calendar',
-  'api/labels',
-  'api/labels/[labelId]',
-  'api/labels/[labelId]/delete',
   'api/notes',
   'api/notes/[noteId]',
   'api/notes/[noteId]/actions',
@@ -65,7 +62,6 @@ describe('production surface hygiene', () => {
     expect(named('/+server.ts')).toEqual([...EXPECTED_ROUTES].sort());
     expect(named('/+page.svelte')).toEqual([
       '(app)',
-      '(app)/labels',
       '(app)/notes/[noteId]',
       '(app)/settings',
       '(app)/tags',

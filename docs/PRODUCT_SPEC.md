@@ -4,28 +4,14 @@
 
 The user approved reusable note templates: a **Templates** page (sidebar link, laid out like Tags) with search, select-all, multi-select delete, a New template button and click-to-edit, with no limit on the count; and a template icon in the editor toolbar that opens a searchable picker and inserts the chosen text at the caret. Templates are private copies of text only (no attachments, no placeholders); notes made from them are independent. Adds schema version 3. Details: [templates/SPEC.md](templates/SPEC.md) and [PROGRESS](templates/PROGRESS.md).
 
-## Approved change — color or icon labels
+## User-requested labels removal
 
-The user approved a second, lighter classifier separate from hashtags: at most one
-user-named **label** per note, each with a color from a fixed 8-color palette and an
-optional icon from a fixed 36-icon set, managed on a searchable `/labels` chip list
-matching Tags (create, rename, recolor, re-icon, delete; cap 40). A label can also optionally
-override the note card/detail **header color**, whole-surface **background** and **body
-font** (each from the same fixed palette / a small fixed font set, independently
-optional). Picked from an icon-only editor toolbar button; shown centered in the card
-and note detail header as a chip (icon/color + name text, never color alone). Date hover
-matches the labeled header. Timestamp tooltips always use an opaque white background
-with dark text, regardless of label styling or light/dark/system theme (2026-10-22
-user override). Filters the timeline from a sidebar
-list like Tags, but is not part of free-text search. Carried through pin, Trash and
-restore unchanged; deleting a label clears it from notes without deleting them. The
-schema change is folded directly into the baseline ("treat as new setup", no new
-migration file, no schema-version bump — pre-existing local `data/` must be recreated).
-Implemented and host-verified (Linux/Alpine image gate and a manual real-device/
-screen-reader pass are not yet done). The sidebar's duplicate "Labels" entry under the
-bottom Utilities nav was removed as redundant (only the section-header link remains).
-Details: [labels/README.md](labels/README.md), [labels/SPEC.md](labels/SPEC.md),
-[labels/PROGRESS.md](labels/PROGRESS.md).
+The color/icon label feature and its note/template fields, management and API routes,
+editor controls, filters, styling, translations and tests have been removed. Hashtags
+remain the sole note-classification mechanism. The fresh-install baseline no longer
+contains label tables or columns; no migration/importer or automatic data deletion is
+provided. Existing databases from a build that included labels are rejected by trusted
+migration-history validation and are left untouched.
 
 ## Approved change — voice clips
 
@@ -69,9 +55,11 @@ appear at the top of the plain "All notes" timeline only and carry a one-click u
 icon; no visible "Pinned" heading is needed (the section retains an accessible name).
 Card dates have no resting underline or Edited label; dates, tags and header actions
 use consistent pill geometry/soft hover backgrounds (tags underline on hover).
+Created/Updated date tooltips use white backgrounds and dark text in light and dark
+themes; date hover uses the same soft background treatment as other pills.
 Trashing unpins. Edit
 happens in place (in the card, or on the note page) instead of in the top composer.
-On timeline, tag and label views, double-clicking a card's text also edits it, and
+On timeline and tag views, double-clicking a card's text also edits it, and
 clicking anywhere outside the card saves the change (or closes an unchanged edit)
 without a confirmation (2026-10-21 user request; supersedes the prompt below for
 this case — see note-actions SPEC §5.2).
@@ -238,7 +226,7 @@ The sidebar lists the most-used tags as borderless flowing chips a "+N" link and
 
 - A persistent 52px icon rail replaces the Menu & search header button. From top
   to bottom: rightward expand arrow, panda favicon linking home, Search, Calendar,
-  Tags, Labels, Templates, Trash and Settings. Icon controls have accessible names,
+  Tags, Templates, Trash and Settings. Icon controls have accessible names,
   keyboard focus and 44px touch targets; the rail scrolls independently on short screens.
 - The arrow opens the full sidebar with a leftward collapse arrow instead of a
   text Close button. Search and Calendar open the same sidebar and focus their
@@ -252,7 +240,7 @@ The sidebar lists the most-used tags as borderless flowing chips a "+N" link and
 - Respect safe-area insets, dynamic viewport height, virtual keyboard, and touch targets.
 - Do not rely on hover for any essential action.
 
-Expanded and desktop sidebar text shares one left edge: title, Tags, Labels,
+Expanded and desktop sidebar text shares one left edge: title, Tags,
 Templates, Trash and Settings (no extra inset for the bottom utilities).
 
 ## 4. Note content and composer
@@ -270,7 +258,7 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - Enter inserts a newline.
 - Publishing happens only by activating the visible Post button. Do not register Ctrl/Cmd+Enter to publish.
 - One text-area-style container holds writing/preview, save feedback and all editor controls.
-- A bottom toolbar shows Label, Templates, Photos/video, Attach file, Voice and Date as icon buttons (bottom-left), with Post at the right. There is no hashtag insertion button; type `#` directly to use tag autocomplete.
+- A bottom toolbar shows Templates, Photos/video, Attach file, Voice and Date as icon buttons (bottom-left), with Post at the right. There is no hashtag insertion button; type `#` directly to use tag autocomplete.
 - The Date icon opens a borderless Timeline date popup showing only the text bar and the themed calendar (no title, help text, close button, time fields, or Done). Clicking outside the popup closes it; Escape also closes it.
 - One Preview switch toggles rendered Markdown and raw text without losing content.
 - A bottom-right focus icon (next to Post) enters focus mode; the same button shows an X to leave it. Closing desktop focus mode retains the editor session and returns focus to its opener.
@@ -289,7 +277,7 @@ List labels use a safe content excerpt, or “Image note” / “File attachment
 - On failure, show an actionable message and retain recoverable text/files.
 - Retry must not create duplicate notes/files.
 - On successful normal posting, insert the note without a full page reload. Position follows timeline date; a backdated note must not misleadingly become newest.
-- After confirmed posting, restore the composer to a fresh empty session, including Preview off and cleared date, label, files and transient picker state. Failed saves retain the current editor and preview state for retry.
+- After confirmed posting, restore the composer to a fresh empty session, including Preview off and cleared date, files and transient picker state. Failed saves retain the current editor and preview state for retry.
 - Confirmed posting from focus mode closes the editor overlay and returns to the timeline, on desktop and mobile, including after a successful retry. Failed or uncertain saves stay in focus mode with their content intact.
 - Editing a saved note uses Save changes, not Post. New notes use Post.
 
@@ -344,7 +332,7 @@ Trash:
 - Ignore code blocks, inline code, raw HTML, URLs/link destinations, and escaped hashtag markers when extracting tags.
 - Markdown heading markers are not tags.
 - Deduplicate tags per note.
-- Tag selection is single: clicking a tag opens that tag's view (search/day/label filters are kept) and replaces any other tag; clicking the selected tag again clears only that tag filter. Labels use the same toggle behavior, sidebar chip geometry, searchable management list and filtered-view heading pattern, with label Edit/Delete actions. A tag view shows the tag's summary (notes, Trash) with a three-dot menu: Rename Tag, Merge Tag, Remove Tag. The tag is named by the view's header (no filter chip repeats it), which has an "All notes" link that leaves the tag view and keeps search/day filters; the filter strip shows only search/day chips. A URL or API call with more than one `tag` value is refused with "Select only one tag."
+- Tag selection is single: clicking a tag opens that tag's view (search/day filters are kept) and replaces any other tag; clicking the selected tag again clears only that tag filter. A tag view shows the tag's summary (notes, Trash) with a three-dot menu: Rename Tag, Merge Tag, Remove Tag. The tag is named by the view's header (no filter chip repeats it), which has an "All notes" link that leaves the tag view and keeps search/day filters; the filter strip shows only search/day chips. A URL or API call with more than one `tag` value is refused with "Select only one tag."
 - A card's tag is clickable; filter state is visible/removable above the timeline.
 
 Tag management (from the tag view menu) includes:

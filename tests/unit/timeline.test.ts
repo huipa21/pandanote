@@ -4,7 +4,6 @@ import {
   filterHref,
   filterKey,
   selectTag,
-  selectLabel,
   parseTimelineQuery,
   currentMonthEnd,
   monthKey,
@@ -68,13 +67,6 @@ describe('canonical timeline state', () => {
     // Tag views are single-tag: selecting replaces, and the search is kept.
     expect(selectTag(filters, 'Home')).toBe('/?tag=home');
     expect(selectTag(filters, 'WORK')).toBe('/');
-    const label = '11111111-1111-4111-8111-111111111111';
-    expect(selectTag({ tag: 'work', label, query: 'x' }, 'Work')).toBe(
-      `/?label=${label}&q=%22x%22`,
-    );
-    expect(selectLabel({ tag: 'work', label, query: 'x' }, label)).toBe(
-      '/?tag=work&q=%22x%22',
-    );
     expect(selectTag({ tag: 'a', query: 'x' }, 'B')).toBe('/?tag=b&q=%22x%22');
     expect(filterHref({})).toBe('/');
     // Leaving the tag view keeps the other filters.

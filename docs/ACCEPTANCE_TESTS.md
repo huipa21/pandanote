@@ -7,13 +7,6 @@ Cases SEC-LOCK, SEC-SETUP, SEC-MFA and SEC-XFF in
 SEC-SETUP-1 to -13 are in force: account creation requires the setup code printed to
 the server log, so the old "first visitor owns the instance" wording no longer applies.
 
-## Color or icon labels (approved change)
-
-Cases LBL-SCHEMA, LBL-CRUD, LBL-ASSIGN, LBL-DISPLAY, LBL-FILTER and LBL-BACKUP in
-[labels/ACCEPTANCE_TESTS.md](labels/ACCEPTANCE_TESTS.md). Implemented and host-verified;
-Linux/Alpine image gate and a manual real-device/screen-reader pass are open; see
-[labels/PROGRESS.md](labels/PROGRESS.md).
-
 ## Voice clips (approved change)
 
 Cases VN-REC, VN-LIMIT, VN-POST, VN-SERVE, VN-PLAY, VN-BACKUP and VN-MANUAL in
@@ -292,11 +285,11 @@ without an opener. Do not clear it on refresh or clear unrelated browser data.
 Blocked session storage must show a localized warning while resizing still works.
 
 Mobile keeps a narrow icon rail (expand arrow, panda Home, Search, Calendar, Tags,
-Labels, Templates, Trash, Settings). Expand/collapse arrows and Escape preserve
+Templates, Trash, Settings). Expand/collapse arrows and Escape preserve
 focus; Search/Calendar focus the corresponding expanded-sidebar control. Direct
 links navigate through the existing unsaved-editor guard. Rail controls remain
 reachable on short screens; 44px targets, no horizontal overflow. Expanded/desktop
-title, Tags, Labels and utility text share the same left edge.
+title, Tags and utility text share the same left edge.
 The desktop sidebar and expanded mobile drawer omit the app version and show
 “Powered by Pandanote,” with only “Pandanote” linking to the project GitHub
 repository. The full attribution stays in English when the app language is
@@ -307,7 +300,7 @@ At least 360x800, 390x844, 768x1024, 1440x900 and short desktop viewports. No cl
 ### UI-EDITOR — Concise integrated composer
 
 Writing, preview, feedback and Post/Save changes share one textarea-style surface.
-Only the bottom toolbar (Label/Templates/Media/File/Voice/Date icons at left, Preview switch, focus
+Only the bottom toolbar (Templates/Media/File/Voice/Date icons at left, Preview switch, focus
 icon and publishing control at right) holds permanent editor actions; nothing floats
 in the top corner. Each icon has an accessible name and keyboard access, with no
 premature upload. No hashtag insertion button is shown; typing `#` still uses local

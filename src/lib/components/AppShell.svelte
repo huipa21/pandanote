@@ -24,12 +24,10 @@
     type TimelineFilters,
     type TimelineTag,
   } from '#lib/shared/timeline.ts';
-  import type { LabelSummary } from '#lib/shared/labels.ts';
   let {
     calendar,
     active = '/',
     tags = [],
-    labels = [],
     filters = {},
     searchQuery = '',
     onSearch = async () => {},
@@ -38,7 +36,6 @@
     calendar?: CalendarState;
     active?: string;
     tags?: TimelineTag[];
-    labels?: LabelSummary[];
     filters?: TimelineFilters;
     searchQuery?: string;
     onSearch?: (href: string) => Promise<unknown>;
@@ -46,15 +43,10 @@
   } = $props();
   // The composer belongs only to the unfiltered main timeline.
   const hasFilters = $derived(
-    Boolean(
-      filters.tag !== undefined ||
-      filters.label !== undefined ||
-      filters.query ||
-      filters.day,
-    ),
+    Boolean(filters.tag !== undefined || filters.query || filters.day),
   );
   // A tag view is announced by its own header (with a way back to all notes),
-  // so the chip strip appears only for the search, label and day filters.
+  // so the chip strip appears only for the search and day filters.
   const showStrip = $derived(Boolean(filters.query || filters.day));
   const i18n = useI18n();
   const t = i18n.t;
@@ -164,15 +156,7 @@
     class="desktop-sidebar"
     aria-label={t('shell.sidebar')}
   >
-    <Sidebar
-      {calendar}
-      {active}
-      {tags}
-      {labels}
-      {filters}
-      {searchQuery}
-      {onSearch}
-    />
+    <Sidebar {calendar} {active} {tags} {filters} {searchQuery} {onSearch} />
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions (A focusable ARIA window splitter supports pointer and keyboard resizing.) -->
     <div
       class="sidebar-resizer"
@@ -230,7 +214,7 @@
       disabled={!ready}
       onclick={() => expandSidebar('calendar')}><Icon name="calendar" /></button
     >
-    {#each [{ href: '/tags', label: t('shell.tags'), icon: 'price-tag' }, { href: '/labels', label: t('shell.labels'), icon: 'bookmark' }, { href: '/templates', label: t('shell.templates'), icon: 'template' }, { href: '/trash', label: t('shell.trash'), icon: 'trash' }, { href: '/settings', label: t('shell.settings'), icon: 'settings' }] as const as item (item.href)}
+    {#each [{ href: '/tags', label: t('shell.tags'), icon: 'price-tag' }, { href: '/templates', label: t('shell.templates'), icon: 'template' }, { href: '/trash', label: t('shell.trash'), icon: 'trash' }, { href: '/settings', label: t('shell.settings'), icon: 'settings' }] as const as item (item.href)}
       <a
         href={item.href}
         aria-label={item.label}
@@ -324,7 +308,6 @@
       {calendar}
       {active}
       {tags}
-      {labels}
       {filters}
       {searchQuery}
       {onSearch}

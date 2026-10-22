@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { withPersistence, seedAccount } from '../helpers/persistence.ts';
 import { TemplateService } from '../../src/lib/server/templates/service.ts';
-import { LabelService } from '../../src/lib/server/labels/service.ts';
 import { DomainError } from '../../src/lib/shared/domain.ts';
 import { Persistence } from '../../src/lib/server/db/connection.ts';
 import {
@@ -339,70 +338,6 @@ describe('templates schema', () => {
     await withPersistence((p) => {
       expect(p.db.select().from(appSettings).all()).toHaveLength(1);
       expect(p.db.select().from(noteTemplates).all()).toEqual([]);
-    });
-  });
-});
-
-describe('templates carry an optional default label', () => {
-  it('rejects an unknown labelId; a valid one attaches and survives rename; deleting the label clears it', async () => {
-    await withPersistence((p) => {
-      const who = identity(p);
-      const templates = new TemplateService(p);
-      const labelService = new LabelService(p);
-      const label = labelService.mutate(who, {
-        action: 'create',
-        mutationId: randomUUID(),
-        name: 'Urgent',
-        color: 'red',
-        icon: null,
-        headerColor: null,
-        background: null,
-        font: null,
-      });
-      expectDomain(
-        () =>
-          templates.mutate(who, {
-            ...create('Plan'),
-            labelId: randomUUID(),
-          }),
-        'not-found',
-        'err.labelNotFound',
-      );
-      const made = templates.mutate(who, {
-        ...create('Plan'),
-        labelId: label.labelId,
-      });
-      expect(templates.list(who).items[0]).toMatchObject({
-        labelId: label.labelId,
-      });
-      const renamed = templates.mutate(who, {
-        action: 'update',
-        mutationId: randomUUID(),
-        templateId: made.templateId,
-        expectedRevision: 1,
-        name: 'Plan v2',
-        bodyMarkdown: 'Body',
-        labelId: label.labelId,
-      });
-      expect(renamed.revision).toBe(2);
-      labelService.mutate(who, {
-        action: 'delete',
-        mutationId: randomUUID(),
-        labelId: label.labelId,
-        expectedRevision: label.revision,
-        confirmed: true,
-      });
-      expect(templates.list(who).items[0].labelId).toBeNull();
-    });
-  });
-
-  it('omitting labelId on a command defaults it to null', async () => {
-    await withPersistence((p) => {
-      const who = identity(p);
-      const templates = new TemplateService(p);
-      const made = templates.mutate(who, create('No label'));
-      expect(templates.list(who).items[0].labelId).toBeNull();
-      void made;
     });
   });
 });

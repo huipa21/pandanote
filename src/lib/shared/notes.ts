@@ -26,9 +26,6 @@ export const noteContentSchema = z.strictObject({
       (ids) => new Set(ids).size === ids.length,
       'Attachment IDs must be unique',
     ),
-  // At most one label; null/absent clears it. Edited locally until Post/Save,
-  // like tags and attachments.
-  labelId: idSchema.nullable().optional(),
 });
 export type NoteContent = z.infer<typeof noteContentSchema>;
 const identity = { mutationId: idSchema };
@@ -79,7 +76,6 @@ export function canonicalNoteSnapshot(
     note.revision,
     note.attachmentIds,
     note.tags,
-    note.labelId ?? null,
   ]);
 }
 
@@ -98,7 +94,6 @@ export function canonicalNoteMutation(value: NoteMutation): string {
           content.bodyMarkdown,
           content.timelineAt,
           content.attachmentIds,
-          content.labelId ?? null,
           // Omit empty acknowledgements from the canonical payload.
           ...(content.tagAcknowledgements?.length
             ? [

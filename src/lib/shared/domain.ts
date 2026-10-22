@@ -30,10 +30,6 @@ export const noteMetadataSchema = z
     revision: revisionSchema,
     // UTC ms when pinned to the top of the plain timeline; Trash notes are never pinned.
     pinnedAt: instantSchema.nullable(),
-    // At most one color/icon label; carried unchanged through pin, trash and
-    // restore. Always populated by server reads; optional so narrow fixtures
-    // that do not exercise label behavior may omit it.
-    labelId: idSchema.nullable().optional(),
   })
   .refine((note) => (note.status === 'trash') === (note.priorStatus !== null), {
     message: 'Only Trash notes must retain a prior status',

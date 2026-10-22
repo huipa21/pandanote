@@ -23,8 +23,6 @@
   import Markdown from './Markdown.svelte';
   import ImageViewer from './ImageViewer.svelte';
   import Icon from './Icon.svelte';
-  import LabelChip from './LabelChip.svelte';
-  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import AudioClip from './AudioClip.svelte';
   import FileTypeIcon from './FileTypeIcon.svelte';
   import { canReturnInApp } from '#lib/client/history.ts';
@@ -41,7 +39,6 @@
   } = $props();
   const workspace = getContext<EditorWorkspace>(EDITOR_WORKSPACE);
   const lifecycle = getContext<LifecycleState>(LIFECYCLE);
-  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
   const i18n = useI18n();
   const t = i18n.t;
   let ready = $state(false);
@@ -60,9 +57,6 @@
   );
   const trashed = $derived(note.status === 'trash');
   const pinned = $derived(note.pinnedAt !== null);
-  const label = $derived(
-    note.labelId ? labelsMap?.get(note.labelId) : undefined,
-  );
   // The note page edits in place; the editor replaces the rendered body.
   const editing = $derived(workspace.isEditing(note.id));
   const lifecycleBusy = $derived(!lifecycle.ready || lifecycle.busy);
@@ -105,24 +99,8 @@
     data-testid="note-detail"
     data-note-id={note.id}
     data-revision={note.revision}
-    style:background={label?.background
-      ? `var(--label-${label.background}-bg)`
-      : undefined}
   >
-    <header
-      class:has-tags={note.tags.length > 0}
-      style:--header-background={label?.headerColor
-        ? `var(--label-${label.headerColor}-bg)`
-        : label?.background
-          ? `var(--label-${label.background}-bg)`
-          : undefined}
-      style:background={label?.headerColor
-        ? `var(--label-${label.headerColor}-bg)`
-        : undefined}
-      style:color={label?.headerColor
-        ? `var(--label-${label.headerColor}-fg)`
-        : undefined}
-    >
+    <header class:has-tags={note.tags.length > 0}>
       <div class="header-date">
         <span class="when-wrap">
           <a
@@ -150,7 +128,6 @@
         </span>
         <span class="word-count">{t('note.words', { count: wordCount })}</span>
       </div>
-      {#if label}<div class="header-label"><LabelChip {label} /></div>{/if}
       {#if trashed}<div class="header-actions">
           <button
             type="button"
@@ -228,12 +205,7 @@
       </p>{/if}
     {#if editing}<NoteEditor variant="inline" bind:this={editor} />{/if}
     <div hidden={editing} inert={editing}>
-      <div
-        class="note-body"
-        style:font-family={label?.font
-          ? `var(--font-${label.font === 'mono' ? 'code' : label.font})`
-          : undefined}
-      >
+      <div class="note-body">
         <Markdown
           source={note.bodyMarkdown}
           images={cardImages(note)}
@@ -288,7 +260,7 @@
   /* Date row and tags row read as one compact header block, as on timeline cards. */
   header {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-2);
     align-items: center;
     color: var(--muted);
@@ -299,16 +271,10 @@
     margin-bottom: 0;
   }
   .header-actions {
-    grid-column: 3;
+    grid-column: 2;
     justify-self: end;
     display: flex;
     align-items: center;
-  }
-  .header-label {
-    grid-column: 2;
-    min-width: 0;
-    overflow-wrap: anywhere;
-    text-align: center;
   }
   .header-date {
     display: flex;
@@ -323,11 +289,6 @@
     .header-actions {
       grid-column: 2;
       grid-row: 1;
-    }
-    .header-label {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      justify-self: center;
     }
   }
   /* Same pill geometry as the timeline card date and tag chips. */
@@ -393,7 +354,7 @@
   }
   .when:hover,
   .when:focus-visible {
-    background: var(--header-background, var(--accent-soft));
+    background: var(--accent-soft);
   }
   .pin-toggle .when-rest {
     display: inline-grid;

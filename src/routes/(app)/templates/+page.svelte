@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack, getContext } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { invalidate } from '$app/navigation';
   import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import PageTitle from '#lib/components/PageTitle.svelte';
@@ -7,8 +7,6 @@
   import Icon from '#lib/components/Icon.svelte';
   import Modal from '#lib/components/Modal.svelte';
   import TemplateEditor from '#lib/components/TemplateEditor.svelte';
-  import LabelChip from '#lib/components/LabelChip.svelte';
-  import { LABELS, type LabelsMap } from '#lib/client/labels-context.ts';
   import { useI18n } from '#lib/client/i18n.svelte.ts';
   import { sendTemplateCommand } from '#lib/client/templates/api.ts';
   import {
@@ -20,7 +18,6 @@
   let { data } = $props();
   const id = $props.id();
   const i18n = useI18n();
-  const labelsMap = getContext<LabelsMap | undefined>(LABELS);
   const t = i18n.t;
 
   let items = $state<NoteTemplate[]>(untrack(() => data.templates.items));
@@ -208,10 +205,6 @@
             onclick={() => openEdit(item)}
           >
             <span class="name">{item.name}</span>
-            {#if item.labelId}
-              {@const picked = labelsMap?.get(item.labelId)}
-              {#if picked}<LabelChip label={picked} />{/if}
-            {/if}
             <span class="excerpt">{templateExcerpt(item.bodyMarkdown)}</span>
           </button>
         </li>
